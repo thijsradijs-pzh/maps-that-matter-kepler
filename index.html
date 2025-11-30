@@ -1,17 +1,16 @@
-<!-- Based on the official Kepler UMD example -->
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Kepler.gl Map – Maps That Matter</title>
+    <title>Maps That Matter – Interactive Map</title>
 
-    <!-- Uber font (optional, just for nicer UI) -->
+    <!-- Optional Uber font -->
     <link
       rel="stylesheet"
       href="https://d1a3f4spazzrp4.cloudfront.net/kepler.gl/uber-fonts/4.0.0/superfine.css"
     />
 
-    <!-- Mapbox CSS (for the basemap & controls) -->
+    <!-- Mapbox CSS (for basemap & controls) -->
     <link
       rel="stylesheet"
       href="https://api.tiles.mapbox.com/mapbox-gl-js/v1.1.1/mapbox-gl.css"
@@ -43,9 +42,9 @@
       }
     </style>
 
-    <!-- ✅ Put your *real* Mapbox public token here (from account.mapbox.com) -->
+    <!-- Your basemap is Carto "dark-matter" in the config, so token may be empty -->
     <script>
-      const MAPBOX_TOKEN = "pk.YOUR_REAL_PUBLIC_TOKEN_HERE";
+      const MAPBOX_TOKEN = ""; // put pk.xxx here if you ever switch to a Mapbox style
     </script>
   </head>
   <body>
@@ -53,58 +52,89 @@
 
     <script>
       // --- REDUX STORE SETUP ---
-      const reducers = (function createReducers(redux, keplerGl) {
-        return redux.combineReducers({
-          keplerGl: keplerGl.keplerGlReducer
-        });
-      })(Redux, KeplerGl);
+      const reducers = Redux.combineReducers({
+        keplerGl: KeplerGl.keplerGlReducer
+      });
 
-      const middlewares = (function createMiddlewares(keplerGl) {
-        return keplerGl.enhanceReduxMiddleware([]);
-      })(KeplerGl);
-
-      const enhancer = Redux.applyMiddleware(...middlewares);
-
+      const middlewares = KeplerGl.enhanceReduxMiddleware([]);
       const store = Redux.createStore(
         reducers,
         {},
-        Redux.compose(enhancer)
+        Redux.compose(Redux.applyMiddleware(...middlewares))
       );
 
       // --- REACT COMPONENT THAT RENDERS KEPLER ---
-      const KeplerElement = (function (react, keplerGl, mapboxToken) {
-        return function KeplerWrapper(props) {
-          return react.createElement(
-            "div",
-            {
-              style: {
-                position: "absolute",
-                left: 0,
-                top: 0,
-                width: "100vw",
-                height: "100vh"
-              }
-            },
-            react.createElement(keplerGl.KeplerGl, {
-              id: "map",
-              mapboxApiAccessToken: mapboxToken,
-              width: window.innerWidth,
-              height: window.innerHeight
+      function KeplerWrapper() {
+        return React.createElement(
+          "div",
+          {
+            style: {
+              position: "absolute",
+              left: 0,
+              top: 0,
+              width: "100vw",
+              height: "100vh"
+            }
+          },
+          React.createElement(KeplerGl.KeplerGl, {
+            id: "map",
+            mapboxApiAccessToken: MAPBOX_TOKEN,
+            width: window.innerWidth,
+            height: window.innerHeight
+          })
+        );
+      }
+
+      const app = React.createElement(
+        ReactRedux.Provider,
+        { store },
+        React.createElement(KeplerWrapper, null)
+      );
+
+      ReactDOM.render(app, document.getElementById("app"));
+
+      // --- AUTO-LOAD DATA + CONFIG ---
+
+      const addDataToMap =
+        (KeplerGl.actions && KeplerGl.actions.addDataToMap) ||
+        KeplerGl.addDataToMap;
+
+      const processors = KeplerGl.processors || {};
+      const processCsvData = processors.processCsvData;
+
+      async function loadDataAndConfig() {
+        try {
+          // 👉 new filenames
+          const dataResponse = await fetch("data/subset.csv");
+          const csvText = await dataResponse.text();
+
+          const configResponse = await fetch("config/year_example.json");
+          const configJson = await configResponse.json();
+
+          const dataset = {
+            data: processCsvData(csvText),
+            info: {
+              id: "qkkkoy", // must match dataId in your Kepler config
+              label: "subset.csv"
+            }
+          };
+
+          store.dispatch(
+            addDataToMap({
+              datasets: dataset,
+              options: {
+                centerMap: true,
+                readOnly: false
+              },
+              config: configJson.config || configJson
             })
           );
-        };
-      })(React, KeplerGl, MAPBOX_TOKEN);
+        } catch (err) {
+          console.error("Error loading data or config for Kepler map:", err);
+        }
+      }
 
-      const app = (function createApp(react, reactRedux, KeplerElement) {
-        return react.createElement(
-          reactRedux.Provider,
-          { store },
-          react.createElement(KeplerElement, null)
-        );
-      })(React, ReactRedux, KeplerElement);
-
-      // --- RENDER ---
-      ReactDOM.render(app, document.getElementById("app"));
+      loadDataAndConfig();
     </script>
   </body>
 </html>
