@@ -1,0 +1,110 @@
+<!-- Based on the official Kepler UMD example -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Kepler.gl Map – Maps That Matter</title>
+
+    <!-- Uber font (optional, just for nicer UI) -->
+    <link
+      rel="stylesheet"
+      href="https://d1a3f4spazzrp4.cloudfront.net/kepler.gl/uber-fonts/4.0.0/superfine.css"
+    />
+
+    <!-- Mapbox CSS (for the basemap & controls) -->
+    <link
+      rel="stylesheet"
+      href="https://api.tiles.mapbox.com/mapbox-gl-js/v1.1.1/mapbox-gl.css"
+    />
+
+    <!-- React / Redux / styled-components from CDN -->
+    <script src="https://unpkg.com/react@16.8.4/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@16.8.4/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/redux@3.7.2/dist/redux.js" crossorigin></script>
+    <script src="https://unpkg.com/react-redux@7.1.3/dist/react-redux.min.js" crossorigin></script>
+    <script src="https://unpkg.com/styled-components@4.1.3/dist/styled-components.min.js" crossorigin></script>
+
+    <!-- Kepler.gl UMD build -->
+    <script src="https://unpkg.com/kepler.gl@2.4.0/umd/keplergl.min.js"></script>
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        height: 100%;
+        width: 100%;
+      }
+
+      #app {
+        height: 100vh;
+        width: 100vw;
+      }
+    </style>
+
+    <!-- ✅ Put your *real* Mapbox public token here (from account.mapbox.com) -->
+    <script>
+      const MAPBOX_TOKEN = "pk.YOUR_REAL_PUBLIC_TOKEN_HERE";
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <script>
+      // --- REDUX STORE SETUP ---
+      const reducers = (function createReducers(redux, keplerGl) {
+        return redux.combineReducers({
+          keplerGl: keplerGl.keplerGlReducer
+        });
+      })(Redux, KeplerGl);
+
+      const middlewares = (function createMiddlewares(keplerGl) {
+        return keplerGl.enhanceReduxMiddleware([]);
+      })(KeplerGl);
+
+      const enhancer = Redux.applyMiddleware(...middlewares);
+
+      const store = Redux.createStore(
+        reducers,
+        {},
+        Redux.compose(enhancer)
+      );
+
+      // --- REACT COMPONENT THAT RENDERS KEPLER ---
+      const KeplerElement = (function (react, keplerGl, mapboxToken) {
+        return function KeplerWrapper(props) {
+          return react.createElement(
+            "div",
+            {
+              style: {
+                position: "absolute",
+                left: 0,
+                top: 0,
+                width: "100vw",
+                height: "100vh"
+              }
+            },
+            react.createElement(keplerGl.KeplerGl, {
+              id: "map",
+              mapboxApiAccessToken: mapboxToken,
+              width: window.innerWidth,
+              height: window.innerHeight
+            })
+          );
+        };
+      })(React, KeplerGl, MAPBOX_TOKEN);
+
+      const app = (function createApp(react, reactRedux, KeplerElement) {
+        return react.createElement(
+          reactRedux.Provider,
+          { store },
+          react.createElement(KeplerElement, null)
+        );
+      })(React, ReactRedux, KeplerElement);
+
+      // --- RENDER ---
+      ReactDOM.render(app, document.getElementById("app"));
+    </script>
+  </body>
+</html>
