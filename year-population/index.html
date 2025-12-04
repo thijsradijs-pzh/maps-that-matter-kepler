@@ -5,36 +5,25 @@
     <title>Population Over Time – Maps That Matter</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- Uber font -->
-    <link
-      rel="stylesheet"
-      href="https://d1a3f4spazzrp4.cloudfront.net/kepler.gl/uber-fonts/4.0.0/superfine.css"
-    />
+    <link rel="stylesheet" href="https://d1a3f4spazzrp4.cloudfront.net/kepler.gl/uber-fonts/4.0.0/superfine.css" />
+    <link rel="stylesheet" href="https://api.tiles.mapbox.com/mapbox-gl-js/v1.1.1/mapbox-gl.css" />
 
-    <!-- Mapbox CSS (for basemap & controls) -->
-    <link
-      rel="stylesheet"
-      href="https://api.tiles.mapbox.com/mapbox-gl-js/v1.1.1/mapbox-gl.css"
-    />
-
-    <!-- React / Redux / styled-components from CDN -->
     <script src="https://unpkg.com/react@16.8.4/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@16.8.4/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/redux@3.7.2/dist/redux.js" crossorigin></script>
     <script src="https://unpkg.com/react-redux@7.1.3/dist/react-redux.min.js" crossorigin></script>
     <script src="https://unpkg.com/styled-components@4.1.3/dist/styled-components.min.js" crossorigin></script>
-
-    <!-- Kepler.gl UMD build -->
+    <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://unpkg.com/kepler.gl@2.4.0/umd/keplergl.min.js"></script>
 
     <style>
-      html,
-      body {
+      html, body {
         margin: 0;
         padding: 0;
         overflow: hidden;
         height: 100%;
         width: 100%;
+        background: #1a1a1a;
       }
 
       #app {
@@ -42,7 +31,6 @@
         width: 100vw;
       }
 
-      /* Loading indicator */
       #loading {
         position: absolute;
         top: 50%;
@@ -70,10 +58,6 @@
         100% { transform: rotate(360deg); }
       }
     </style>
-
-    <script>
-      const MAPBOX_TOKEN = ""; // Using Carto dark-matter basemap, no token needed
-    </script>
   </head>
   <body>
     <div id="loading">
@@ -83,15 +67,16 @@
     <div id="app"></div>
 
     <script>
-      // --- CONFIGURATION ---
+      // Empty token forces Carto basemap
+      const MAPBOX_TOKEN = "";
+
       const CONFIG = {
         dataFile: '../data/subset.csv',
         configFile: '../config/year_example.json',
-        datasetId: '-g1xquc',  // CRITICAL: Must match dataId in config!
+        datasetId: '-g1xquc',
         datasetLabel: 'Population Over Time'
       };
 
-      // --- REDUX STORE SETUP ---
       const reducers = Redux.combineReducers({
         keplerGl: KeplerGl.keplerGlReducer
       });
@@ -103,7 +88,6 @@
         Redux.compose(Redux.applyMiddleware(...middlewares))
       );
 
-      // --- REACT COMPONENT THAT RENDERS KEPLER ---
       function KeplerWrapper() {
         return React.createElement(
           "div",
@@ -133,107 +117,127 @@
 
       ReactDOM.render(app, document.getElementById("app"));
 
-      // --- AUTO-LOAD DATA + CONFIG ---
       const addDataToMap =
         (KeplerGl.actions && KeplerGl.actions.addDataToMap) ||
         KeplerGl.addDataToMap;
 
-      // Robust CSV parsing function that handles edge cases
-      function parseCSV(csvString) {
-        // Normalize line endings
-        const normalizedCsv = csvString.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        
-        // Split into lines and filter out empty lines
-        const lines = normalizedCsv.split('\n').filter(line => line.trim().length > 0);
-        
-        if (lines.length === 0) {
-          console.error('CSV is empty');
-          return { fields: [], rows: [] };
+      // Detect field type
+      function detectFieldType(fieldName, sampleValues) {
+        if (fieldName === 'h3_id' || fieldName.includes('id')) {
+          return 'string';
         }
-        
-        // Parse header
-        const headers = lines[0].split(',').map(h => {
-          const cleaned = h.trim();
-          return cleaned || 'unknown'; // Replace empty headers with 'unknown'
+
+        const nonEmptyValues = sampleValues.filter(v => v !== '' && v !== null && v !== undefined);
+        if (nonEmptyValues.length === 0) return 'string';
+
+        const allNumeric = nonEmptyValues.every(v => {
+          const num = Number(v);
+          return !isNaN(num) && isFinite(num);
         });
-        
-        console.log('CSV Headers:', headers);
-        
-        // Parse rows
-        const rows = [];
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (line.length === 0) continue; // Skip empty lines
-          
-          const values = line.split(',').map(v => v.trim());
-          
-          // Ensure row has correct number of columns
-          if (values.length !== headers.length) {
-            console.warn(`Row ${i} has ${values.length} columns, expected ${headers.length}. Skipping.`);
-            continue;
-          }
-          
-          // Replace empty values with empty string (not undefined)
-          const cleanedValues = values.map(v => v || '');
-          rows.push(cleanedValues);
+
+        if (allNumeric) {
+          const hasDecimals = nonEmptyValues.some(v => String(v).includes('.'));
+          return hasDecimals ? 'real' : 'integer';
         }
-        
-        console.log(`Parsed ${rows.length} rows with ${headers.length} columns`);
-        
-        // Verify we have data
-        if (rows.length === 0) {
-          throw new Error('No data rows found in CSV');
-        }
-        
-        return { 
-          fields: headers, 
-          rows: rows 
-        };
+
+        return 'string';
       }
 
       async function loadDataAndConfig() {
         try {
-          console.log('=== Starting map load ===');
-          console.log('Loading data from:', CONFIG.dataFile);
+          console.log('🚀 Loading map...');
           
-          // Load data file
+          // Load data
           const dataResponse = await fetch(CONFIG.dataFile);
           if (!dataResponse.ok) {
-            throw new Error(`Failed to load data: ${dataResponse.status} ${dataResponse.statusText}`);
+            throw new Error(`Failed to load data: ${dataResponse.status}`);
           }
           const csvText = await dataResponse.text();
-          console.log('Data loaded successfully, length:', csvText.length, 'characters');
+          console.log('✅ Data loaded');
 
-          console.log('Loading config from:', CONFIG.configFile);
-          
-          // Load config file
+          // Load config
           const configResponse = await fetch(CONFIG.configFile);
           if (!configResponse.ok) {
-            throw new Error(`Failed to load config: ${configResponse.status} ${configResponse.statusText}`);
+            throw new Error(`Failed to load config: ${configResponse.status}`);
           }
-          const configJson = await configResponse.json();
-          console.log('Config loaded successfully');
+          let configJson = await configResponse.json();
+          console.log('✅ Config loaded');
 
-          // Parse CSV data
-          console.log('Parsing CSV...');
-          const parsedData = parseCSV(csvText);
-          console.log('CSV parsed successfully:');
-          console.log('  - Fields:', parsedData.fields);
-          console.log('  - Rows:', parsedData.rows.length);
-          console.log('  - Sample row:', parsedData.rows[0]);
+          // CRITICAL: Completely override mapStyle to force Carto
+          if (!configJson.config) configJson.config = {};
+          configJson.config.mapStyle = {
+            styleType: 'dark',  // Use 'dark' instead of 'dark-matter'
+            topLayerGroups: {},
+            visibleLayerGroups: {
+              label: true,
+              road: true,
+              border: false,
+              building: true,
+              water: true,
+              land: true,
+              '3d building': false
+            },
+            threeDBuildingColor: [9.665468314072013, 17.18305478057247, 31.1442867897876],
+            mapStyles: {}
+          };
 
-          // Create dataset object
+          console.log('✅ Forced Carto basemap (dark style)');
+
+          // Parse CSV
+          const parsed = Papa.parse(csvText, {
+            header: true,
+            dynamicTyping: false,
+            skipEmptyLines: true,
+            transformHeader: (header) => header.trim()
+          });
+
+          const fieldNames = parsed.meta.fields || Object.keys(parsed.data[0] || {});
+          
+          // Detect field types
+          const sampleSize = Math.min(100, parsed.data.length);
+          const sampleData = parsed.data.slice(0, sampleSize);
+
+          const fields = fieldNames.map(fieldName => {
+            const sampleValues = sampleData.map(row => row[fieldName]);
+            const type = detectFieldType(fieldName, sampleValues);
+            
+            return {
+              name: fieldName,
+              type: type,
+              format: ''
+            };
+          });
+
+          // Convert rows
+          const rows = parsed.data.map(row => {
+            return fields.map(field => {
+              const value = row[field.name];
+              
+              if (value === '' || value === null || value === undefined) {
+                return field.type === 'string' ? '' : null;
+              }
+
+              if (field.type === 'integer' || field.type === 'real') {
+                const num = Number(value);
+                return isNaN(num) ? null : num;
+              }
+
+              return String(value);
+            });
+          });
+
+          console.log('✅ CSV parsed:', rows.length, 'rows with', fields.length, 'fields');
+
           const dataset = {
-            data: parsedData,
+            data: { fields, rows },
             info: {
               id: CONFIG.datasetId,
               label: CONFIG.datasetLabel
             }
           };
 
-          console.log('Dispatching data to Kepler.gl with dataset ID:', CONFIG.datasetId);
+          console.log('📤 Dispatching data...');
 
-          // Dispatch to Kepler.gl
           store.dispatch(
             addDataToMap({
               datasets: dataset,
@@ -245,35 +249,39 @@
             })
           );
 
-          console.log('Data dispatched successfully');
+          console.log('✅ Dispatched!');
+          console.log('🗺️ Waiting for map to render...');
 
-          // Hide loading indicator after a short delay
+          // Wait a bit longer for map to render
           setTimeout(() => {
             const loadingEl = document.getElementById('loading');
-            if (loadingEl) {
-              loadingEl.style.display = 'none';
-            }
-            console.log('=== Map loaded successfully! ===');
-          }, 1500);
+            if (loadingEl) loadingEl.style.display = 'none';
+            console.log('🎉 Done! You should see:');
+            console.log('   - Dark basemap');
+            console.log('   - Orange hexagons (Netherlands)');
+            console.log('   - Controls on left');
+            console.log('   - Time slider at bottom');
+            console.log('');
+            console.log('⚠️ If you see blank screen:');
+            console.log('   1. Try zooming out (scroll wheel)');
+            console.log('   2. Wait 5 more seconds');
+            console.log('   3. Check left panel - toggle layers');
+          }, 3000);
 
         } catch (err) {
-          console.error("=== Error loading map ===");
-          console.error(err);
+          console.error('❌ ERROR:', err);
           const loadingEl = document.getElementById('loading');
           if (loadingEl) {
             loadingEl.innerHTML = 
-              `<div style="color: #ff6b6b; padding: 20px; max-width: 400px;">
+              `<div style="color: #ff6b6b; padding: 20px; max-width: 500px;">
                 <strong>Error loading map</strong><br/>
                 ${err.message}<br/>
-                <small style="display: block; margin-top: 10px;">
-                  Check browser console (F12) for detailed error information
-                </small>
+                <small>Check console (F12) for details</small>
               </div>`;
           }
         }
       }
 
-      // Start loading when page is ready
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', loadDataAndConfig);
       } else {
