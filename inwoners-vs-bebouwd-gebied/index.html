@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Population Over Time – Maps That Matter</title>
+    <title>Inwoners vs Bebouwd Gebied in Tijd – Maps That Matter</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- Uber font -->
@@ -72,7 +72,7 @@
     </style>
 
     <script>
-      const MAPBOX_TOKEN = ""; // Using Carto dark-matter basemap, no token needed
+      const MAPBOX_TOKEN = ""; // Using Carto basemap, no token needed
     </script>
   </head>
   <body>
@@ -86,9 +86,9 @@
       // --- CONFIGURATION ---
       const CONFIG = {
         dataFile: '../data/subset.csv',
-        configFile: '../config/year_example.json',
-        datasetId: '-g1xquc',  // CRITICAL: Must match dataId in config!
-        datasetLabel: 'Population Over Time'
+        configFile: '../config/inwoners-vs-bebouwd-gebied.json',
+        datasetId: '-g1xquc',  // Must match dataId in your Kepler config!
+        datasetLabel: 'Inwoners vs Bebouwd Gebied in Tijd'
       };
 
       // --- REDUX STORE SETUP ---
@@ -138,62 +138,34 @@
         (KeplerGl.actions && KeplerGl.actions.addDataToMap) ||
         KeplerGl.addDataToMap;
 
-      // CSV parsing function - compatible with Kepler.gl 2.4.0
-      function parseCSV(csvString) {
-        const lines = csvString.split('\n').filter(line => line.trim());
-        if (lines.length === 0) return { fields: [], rows: [] };
-        
-        const headers = lines[0].split(',').map(h => h.trim().replace(/\r$/, ''));
-        const rows = [];
-        
-        for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(',').map(v => v.trim().replace(/\r$/, ''));
-          if (values.length === headers.length) {
-            rows.push(values);
-          }
-        }
-        
-        return { fields: headers, rows: rows };
-      }
+      const processors = KeplerGl.processors || {};
+      const processCsvData = processors.processCsvData;
 
       async function loadDataAndConfig() {
         try {
-          console.log('Loading data from:', CONFIG.dataFile);
-          
           // Load data file
           const dataResponse = await fetch(CONFIG.dataFile);
           if (!dataResponse.ok) {
             throw new Error(`Failed to load data: ${dataResponse.statusText}`);
           }
           const csvText = await dataResponse.text();
-          console.log('Data loaded successfully, length:', csvText.length);
 
-          console.log('Loading config from:', CONFIG.configFile);
-          
           // Load config file
           const configResponse = await fetch(CONFIG.configFile);
           if (!configResponse.ok) {
             throw new Error(`Failed to load config: ${configResponse.statusText}`);
           }
           const configJson = await configResponse.json();
-          console.log('Config loaded successfully');
 
-          // Parse CSV data
-          const parsedData = parseCSV(csvText);
-          console.log('CSV parsed:', parsedData.fields.length, 'fields,', parsedData.rows.length, 'rows');
-
-          // Create dataset object
+          // Process and dispatch data
           const dataset = {
-            data: parsedData,
+            data: processCsvData(csvText),
             info: {
               id: CONFIG.datasetId,
               label: CONFIG.datasetLabel
             }
           };
 
-          console.log('Dispatching data with ID:', CONFIG.datasetId);
-
-          // Dispatch to Kepler.gl
           store.dispatch(
             addDataToMap({
               datasets: dataset,
@@ -206,18 +178,13 @@
           );
 
           // Hide loading indicator
-          setTimeout(() => {
-            document.getElementById('loading').style.display = 'none';
-            console.log('Map loaded successfully!');
-          }, 1000);
-
+          document.getElementById('loading').style.display = 'none';
         } catch (err) {
           console.error("Error loading data or config for Kepler map:", err);
           document.getElementById('loading').innerHTML = 
             `<div style="color: #ff6b6b;">
               <strong>Error loading map</strong><br/>
-              ${err.message}<br/>
-              <small>Check browser console (F12) for details</small>
+              ${err.message}
             </div>`;
         }
       }
