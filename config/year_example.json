@@ -1,0 +1,244 @@
+{
+  "version": "v1",
+  "config": {
+    "visState": {
+      "filters": [
+        {
+          "dataId": [
+            "-g1xquc"
+          ],
+          "id": "bshfn1i5c",
+          "name": [
+            "year_int"
+          ],
+          "type": "range",
+          "value": [
+            2018,
+            2019.17
+          ],
+          "plotType": {
+            "type": "histogram"
+          },
+          "animationWindow": "free",
+          "yAxis": null,
+          "view": "side",
+          "speed": 1,
+          "enabled": true
+        }
+      ],
+      "layers": [
+        {
+          "id": "1jyyggo",
+          "type": "hexagonId",
+          "config": {
+            "dataId": "-g1xquc",
+            "label": "h3_sample_kepler.csv",
+            "color": [
+              231,
+              159,
+              213
+            ],
+            "highlightColor": [
+              252,
+              242,
+              26,
+              255
+            ],
+            "columns": {
+              "hex_id": "h3_id"
+            },
+            "isVisible": true,
+            "visConfig": {
+              "colorRange": {
+                "name": "Global Warming",
+                "type": "sequential",
+                "category": "Uber",
+                "colors": [
+                  "#4C0035",
+                  "#880030",
+                  "#B72F15",
+                  "#D6610A",
+                  "#EF9100",
+                  "#FFC300"
+                ]
+              },
+              "filled": true,
+              "opacity": 0.8,
+              "outline": false,
+              "strokeColor": null,
+              "strokeColorRange": {
+                "name": "Global Warming",
+                "type": "sequential",
+                "category": "Uber",
+                "colors": [
+                  "#4C0035",
+                  "#880030",
+                  "#B72F15",
+                  "#D6610A",
+                  "#EF9100",
+                  "#FFC300"
+                ]
+              },
+              "strokeOpacity": 0.8,
+              "thickness": 2,
+              "coverage": 1,
+              "enable3d": false,
+              "sizeRange": [
+                0,
+                500
+              ],
+              "coverageRange": [
+                0,
+                1
+              ],
+              "elevationScale": 5,
+              "enableElevationZoomFactor": true,
+              "fixedHeight": false
+            },
+            "hidden": false,
+            "textLabel": [
+              {
+                "field": null,
+                "color": [
+                  255,
+                  255,
+                  255
+                ],
+                "size": 18,
+                "offset": [
+                  0,
+                  0
+                ],
+                "anchor": "middle",
+                "alignment": "center",
+                "outlineWidth": 0,
+                "outlineColor": [
+                  255,
+                  0,
+                  0,
+                  255
+                ],
+                "background": false,
+                "backgroundColor": [
+                  0,
+                  0,
+                  200,
+                  255
+                ]
+              }
+            ]
+          },
+          "visualChannels": {
+            "colorField": {
+              "name": "aantal_inwoners_sum",
+              "type": "real"
+            },
+            "colorScale": "quantile",
+            "strokeColorField": null,
+            "strokeColorScale": "quantile",
+            "sizeField": null,
+            "sizeScale": "linear",
+            "coverageField": null,
+            "coverageScale": "linear"
+          }
+        }
+      ],
+      "effects": [],
+      "interactionConfig": {
+        "tooltip": {
+          "fieldsToShow": {
+            "-g1xquc": [
+              {
+                "name": "h3_id",
+                "format": null
+              },
+              {
+                "name": "aantal_inwoners_sum",
+                "format": null
+              },
+              {
+                "name": "aantal_mannen_sum",
+                "format": null
+              },
+              {
+                "name": "aantal_vrouwen_sum",
+                "format": null
+              },
+              {
+                "name": "aantal_inwoners_0_tot_15_jaar_sum",
+                "format": null
+              }
+            ]
+          },
+          "compareMode": false,
+          "compareType": "absolute",
+          "enabled": true
+        },
+        "brush": {
+          "size": 0.5,
+          "enabled": false
+        },
+        "geocoder": {
+          "enabled": false
+        },
+        "coordinate": {
+          "enabled": false
+        }
+      },
+      "layerBlending": "normal",
+      "overlayBlending": "normal",
+      "splitMaps": [],
+      "animationConfig": {
+        "currentTime": null,
+        "speed": 1
+      },
+      "editor": {
+        "features": [],
+        "visible": true
+      }
+    },
+    "mapState": {
+      "bearing": 0,
+      "dragRotate": false,
+      "latitude": 51.987542636278604,
+      "longitude": 4.439556762653583,
+      "pitch": 0,
+      "zoom": 9.23577110933383,
+      "isSplit": false,
+      "isViewportSynced": true,
+      "isZoomLocked": false,
+      "splitMapViewports": []
+    },
+    "mapStyle": {
+      "styleType": "dark-matter",
+      "topLayerGroups": {},
+      "visibleLayerGroups": {
+        "label": true,
+        "road": true,
+        "border": false,
+        "building": true,
+        "water": true,
+        "land": true,
+        "3d building": false
+      },
+      "threeDBuildingColor": [
+        15.035172933000911,
+        15.035172933000911,
+        15.035172933000911
+      ],
+      "backgroundColor": [
+        0,
+        0,
+        0
+      ],
+      "mapStyles": {}
+    },
+    "uiState": {
+      "mapControls": {
+        "mapLegend": {
+          "active": false
+        }
+      }
+    }
+  }
+}

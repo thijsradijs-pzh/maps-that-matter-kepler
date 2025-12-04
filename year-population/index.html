@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Population Over Time – Maps That Matter</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Uber font -->
+    <link
+      rel="stylesheet"
+      href="https://d1a3f4spazzrp4.cloudfront.net/kepler.gl/uber-fonts/4.0.0/superfine.css"
+    />
+
+    <!-- Mapbox CSS (for basemap & controls) -->
+    <link
+      rel="stylesheet"
+      href="https://api.tiles.mapbox.com/mapbox-gl-js/v1.1.1/mapbox-gl.css"
+    />
+
+    <!-- React / Redux / styled-components from CDN -->
+    <script src="https://unpkg.com/react@16.8.4/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@16.8.4/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/redux@3.7.2/dist/redux.js" crossorigin></script>
+    <script src="https://unpkg.com/react-redux@7.1.3/dist/react-redux.min.js" crossorigin></script>
+    <script src="https://unpkg.com/styled-components@4.1.3/dist/styled-components.min.js" crossorigin></script>
+
+    <!-- Kepler.gl UMD build -->
+    <script src="https://unpkg.com/kepler.gl@2.4.0/umd/keplergl.min.js"></script>
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        height: 100%;
+        width: 100%;
+      }
+
+      #app {
+        height: 100vh;
+        width: 100vw;
+      }
+
+      /* Loading indicator */
+      #loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-family: 'ff-clan-web-pro', 'Helvetica Neue', Helvetica, sans-serif;
+        color: #fff;
+        font-size: 18px;
+        z-index: 1000;
+        text-align: center;
+      }
+
+      .spinner {
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top: 3px solid #fff;
+        width: 40px;
+        height: 40px;
+        margin: 0 auto 10px;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+
+    <script>
+      const MAPBOX_TOKEN = ""; // Using Carto dark-matter basemap, no token needed
+    </script>
+  </head>
+  <body>
+    <div id="loading">
+      <div class="spinner"></div>
+      Loading map...
+    </div>
+    <div id="app"></div>
+
+    <script>
+      // --- CONFIGURATION ---
+      const CONFIG = {
+        dataFile: '../data/subset.csv',
+        configFile: '../config/year_example.json',
+        datasetId: '-g1xquc',  // Must match dataId in your Kepler config!
+        datasetLabel: 'Population Over Time'
+      };
+
+      // --- REDUX STORE SETUP ---
+      const reducers = Redux.combineReducers({
+        keplerGl: KeplerGl.keplerGlReducer
+      });
+
+      const middlewares = KeplerGl.enhanceReduxMiddleware([]);
+      const store = Redux.createStore(
+        reducers,
+        {},
+        Redux.compose(Redux.applyMiddleware(...middlewares))
+      );
+
+      // --- REACT COMPONENT THAT RENDERS KEPLER ---
+      function KeplerWrapper() {
+        return React.createElement(
+          "div",
+          {
+            style: {
+              position: "absolute",
+              left: 0,
+              top: 0,
+              width: "100vw",
+              height: "100vh"
+            }
+          },
+          React.createElement(KeplerGl.KeplerGl, {
+            id: "map",
+            mapboxApiAccessToken: MAPBOX_TOKEN,
+            width: window.innerWidth,
+            height: window.innerHeight
+          })
+        );
+      }
+
+      const app = React.createElement(
+        ReactRedux.Provider,
+        { store },
+        React.createElement(KeplerWrapper, null)
+      );
+
+      ReactDOM.render(app, document.getElementById("app"));
+
+      // --- AUTO-LOAD DATA + CONFIG ---
+      const addDataToMap =
+        (KeplerGl.actions && KeplerGl.actions.addDataToMap) ||
+        KeplerGl.addDataToMap;
+
+      const processors = KeplerGl.processors || {};
+      const processCsvData = processors.processCsvData;
+
+      async function loadDataAndConfig() {
+        try {
+          // Load data file
+          const dataResponse = await fetch(CONFIG.dataFile);
+          if (!dataResponse.ok) {
+            throw new Error(`Failed to load data: ${dataResponse.statusText}`);
+          }
+          const csvText = await dataResponse.text();
+
+          // Load config file
+          const configResponse = await fetch(CONFIG.configFile);
+          if (!configResponse.ok) {
+            throw new Error(`Failed to load config: ${configResponse.statusText}`);
+          }
+          const configJson = await configResponse.json();
+
+          // Process and dispatch data
+          const dataset = {
+            data: processCsvData(csvText),
+            info: {
+              id: CONFIG.datasetId,
+              label: CONFIG.datasetLabel
+            }
+          };
+
+          store.dispatch(
+            addDataToMap({
+              datasets: dataset,
+              options: {
+                centerMap: true,
+                readOnly: false
+              },
+              config: configJson.config || configJson
+            })
+          );
+
+          // Hide loading indicator
+          document.getElementById('loading').style.display = 'none';
+        } catch (err) {
+          console.error("Error loading data or config for Kepler map:", err);
+          document.getElementById('loading').innerHTML = 
+            `<div style="color: #ff6b6b;">
+              <strong>Error loading map</strong><br/>
+              ${err.message}
+            </div>`;
+        }
+      }
+
+      loadDataAndConfig();
+    </script>
+  </body>
+</html>
