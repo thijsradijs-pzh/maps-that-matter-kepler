@@ -138,49 +138,89 @@
         (KeplerGl.actions && KeplerGl.actions.addDataToMap) ||
         KeplerGl.addDataToMap;
 
-      // CSV parsing function - compatible with Kepler.gl 2.4.0
+      // Robust CSV parsing function that handles edge cases
       function parseCSV(csvString) {
-        const lines = csvString.split('\n').filter(line => line.trim());
-        if (lines.length === 0) return { fields: [], rows: [] };
+        // Normalize line endings
+        const normalizedCsv = csvString.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         
-        const headers = lines[0].split(',').map(h => h.trim().replace(/\r$/, ''));
-        const rows = [];
+        // Split into lines and filter out empty lines
+        const lines = normalizedCsv.split('\n').filter(line => line.trim().length > 0);
         
-        for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(',').map(v => v.trim().replace(/\r$/, ''));
-          if (values.length === headers.length) {
-            rows.push(values);
-          }
+        if (lines.length === 0) {
+          console.error('CSV is empty');
+          return { fields: [], rows: [] };
         }
         
-        return { fields: headers, rows: rows };
+        // Parse header
+        const headers = lines[0].split(',').map(h => {
+          const cleaned = h.trim();
+          return cleaned || 'unknown'; // Replace empty headers with 'unknown'
+        });
+        
+        console.log('CSV Headers:', headers);
+        
+        // Parse rows
+        const rows = [];
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (line.length === 0) continue; // Skip empty lines
+          
+          const values = line.split(',').map(v => v.trim());
+          
+          // Ensure row has correct number of columns
+          if (values.length !== headers.length) {
+            console.warn(`Row ${i} has ${values.length} columns, expected ${headers.length}. Skipping.`);
+            continue;
+          }
+          
+          // Replace empty values with empty string (not undefined)
+          const cleanedValues = values.map(v => v || '');
+          rows.push(cleanedValues);
+        }
+        
+        console.log(`Parsed ${rows.length} rows with ${headers.length} columns`);
+        
+        // Verify we have data
+        if (rows.length === 0) {
+          throw new Error('No data rows found in CSV');
+        }
+        
+        return { 
+          fields: headers, 
+          rows: rows 
+        };
       }
 
       async function loadDataAndConfig() {
         try {
+          console.log('=== Starting map load ===');
           console.log('Loading data from:', CONFIG.dataFile);
           
           // Load data file
           const dataResponse = await fetch(CONFIG.dataFile);
           if (!dataResponse.ok) {
-            throw new Error(`Failed to load data: ${dataResponse.statusText}`);
+            throw new Error(`Failed to load data: ${dataResponse.status} ${dataResponse.statusText}`);
           }
           const csvText = await dataResponse.text();
-          console.log('Data loaded successfully, length:', csvText.length);
+          console.log('Data loaded successfully, length:', csvText.length, 'characters');
 
           console.log('Loading config from:', CONFIG.configFile);
           
           // Load config file
           const configResponse = await fetch(CONFIG.configFile);
           if (!configResponse.ok) {
-            throw new Error(`Failed to load config: ${configResponse.statusText}`);
+            throw new Error(`Failed to load config: ${configResponse.status} ${configResponse.statusText}`);
           }
           const configJson = await configResponse.json();
           console.log('Config loaded successfully');
 
           // Parse CSV data
+          console.log('Parsing CSV...');
           const parsedData = parseCSV(csvText);
-          console.log('CSV parsed:', parsedData.fields.length, 'fields,', parsedData.rows.length, 'rows');
+          console.log('CSV parsed successfully:');
+          console.log('  - Fields:', parsedData.fields);
+          console.log('  - Rows:', parsedData.rows.length);
+          console.log('  - Sample row:', parsedData.rows[0]);
 
           // Create dataset object
           const dataset = {
@@ -191,7 +231,7 @@
             }
           };
 
-          console.log('Dispatching data with ID:', CONFIG.datasetId);
+          console.log('Dispatching data to Kepler.gl with dataset ID:', CONFIG.datasetId);
 
           // Dispatch to Kepler.gl
           store.dispatch(
@@ -205,24 +245,40 @@
             })
           );
 
-          // Hide loading indicator
+          console.log('Data dispatched successfully');
+
+          // Hide loading indicator after a short delay
           setTimeout(() => {
-            document.getElementById('loading').style.display = 'none';
-            console.log('Map loaded successfully!');
-          }, 1000);
+            const loadingEl = document.getElementById('loading');
+            if (loadingEl) {
+              loadingEl.style.display = 'none';
+            }
+            console.log('=== Map loaded successfully! ===');
+          }, 1500);
 
         } catch (err) {
-          console.error("Error loading data or config for Kepler map:", err);
-          document.getElementById('loading').innerHTML = 
-            `<div style="color: #ff6b6b;">
-              <strong>Error loading map</strong><br/>
-              ${err.message}<br/>
-              <small>Check browser console (F12) for details</small>
-            </div>`;
+          console.error("=== Error loading map ===");
+          console.error(err);
+          const loadingEl = document.getElementById('loading');
+          if (loadingEl) {
+            loadingEl.innerHTML = 
+              `<div style="color: #ff6b6b; padding: 20px; max-width: 400px;">
+                <strong>Error loading map</strong><br/>
+                ${err.message}<br/>
+                <small style="display: block; margin-top: 10px;">
+                  Check browser console (F12) for detailed error information
+                </small>
+              </div>`;
+          }
         }
       }
 
-      loadDataAndConfig();
+      // Start loading when page is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadDataAndConfig);
+      } else {
+        loadDataAndConfig();
+      }
     </script>
   </body>
 </html>
