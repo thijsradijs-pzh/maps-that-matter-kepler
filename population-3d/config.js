@@ -11,9 +11,9 @@ const VIZ_CONFIG = {
   initialView: {
     longitude: 4.44,
     latitude: 51.99,
-    zoom: 9.5,
-    pitch: 50,
-    bearing: 20,
+    zoom: 9,
+    pitch: 45,
+    bearing: 0,
     minZoom: 3,
     maxZoom: 15
   },
@@ -26,7 +26,7 @@ const VIZ_CONFIG = {
       min: 2018,
       max: 2023,
       step: 1,
-      default: 2022,
+      default: 2018,
       format: (val) => val,
       filterFn: (d, val) => Math.round(d.year_int) === val
     }
@@ -54,32 +54,14 @@ const VIZ_CONFIG = {
   // Statistics to display
   stats: [
     {
-      label: 'About this view',
-      calculate: data => {
-        // Try to derive the current year from the filtered data
-        if (!data || data.length === 0) {
-          return null;
-        }
-
-        // Adjust this field name if needed:
-        const sample = data[0];
-        const year = sample.year_int || sample.year || null;
-
-        return year;
-      },
-      format: year => {
-        if (!year) {
-          return (
-            'You are looking at a relative index (0–255) for population ' +
-            'and built-up area. Darker, taller hexagons represent relatively higher values.'
-          );
-        }
-
-        return (
-          `You are looking at a relative index (0–255) for population ` +
-          `and built-up area. Darker, taller hexagons represent relatively higher values in ${year}.`
-        );
-      }
+      label: 'Hexagons',
+      calculate: (data) => data.length,
+      format: (val) => DeckGLUtils.formatNumber(val)
+    },
+    {
+      label: 'Total Population',
+      calculate: (data) => data.reduce((sum, d) => sum + (d.aantal_inwoners_sum || 0), 0),
+      format: (val) => DeckGLUtils.formatNumber(val)
     }
   ],
   
