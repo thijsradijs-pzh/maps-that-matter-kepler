@@ -85,49 +85,44 @@ const VIZ_CONFIG = {
   
   // Layer creation function
   createLayer: (data, filters) => {
-    // Get min/max for color scaling (only where population > 0)
-    const populations = data
-      .map(d => d.aantal_inwoners_sum)
-      .filter(p => p > 0);
-    const minPop = populations.length > 0 ? Math.min(...populations) : 0;
-    const maxPop = populations.length > 0 ? Math.max(...populations) : 100;
-
-    // Helper: does this hex have *any* signal?
-    const hasAnyValue = (d) => {
-      const pop = d.aantal_inwoners_sum || 0;
-      const beb = d.bebouwing_in_primair_bebouwd_gebied_fraction || 0;
-      return pop > 0 || beb > 0;
-    };
-
     return {
       id: 'population-3d',
-      data: data,
-      extruded: true,
-      elevationScale: 1000,
+      data,
       getHexagon: d => d.h3_id,
 
-      // If both 0 → fully transparent
+      // 🎨 Color: more defined at lower values, tuned for Positron
       getFillColor: d => {
-        const v = d.aantal_inwoners_sum ?? 0;  // use your normalized inhabitants field
+        const pop = d.aantal_inwoners_sum ?? 0;
+        const built = d.bebouwing_in_primair_bebouwd_gebied_fraction ?? 0;
 
-        // tweak thresholds if needed – these are just "low / mid / high"
-        if (v === 0) {
-          // almost invisible / very light
-          return [235, 245, 255];
-        } else if (v < 85) {
-          return [198, 219, 239];
-        } else if (v < 170) {
-          return [158, 202, 225];
-        } else {
-          return [107, 174, 214];
+        // 🔕 Don't show hex if either inhabitants OR built-up is 0
+        // (still in data, just invisible)
+        if (pop <= 0 || built <= 0) {
+          return [0, 0, 0, 0]; // fully transparent
         }
+
+        // Pop is 0–255 but we don't show that number, only use it internally
+        const v = pop;
+
+        // More nuance in the lower range – soft blues on Positron
+        if (v < 32)   return [239, 246, 255];  // almost white
+        if (v < 64)   return [222, 235, 247];
+        if (v < 96)   return [198, 219, 239];
+        if (v < 128)  return [158, 202, 225];
+        if (v < 192)  return [107, 174, 214];
+        return [33, 113, 181];                // darkest, still not too harsh
       },
 
-      // If both 0 → flat
+      // 🏙 Elevation: also hide hexes with no signal
       getElevation: d => {
-        if (!hasAnyValue(d)) return 0;
-        return (d.bebouwing_in_primair_bebouwd_gebied_fraction || 0) * 0.01;
-        // or your new scale: * 0.01 etc.
+        const pop = d.aantal_inwoners_sum ?? 0;
+        const built = d.bebouwing_in_primair_bebouwd_gebied_fraction ?? 0;
+
+        if (pop <= 0 || built <= 0) {
+          return 0; // flat / invisible (combined with transparent color)
+        }
+
+        return built * 1500; // keep your existing scale
       },
 
       updateTriggers: {
@@ -140,33 +135,20 @@ const VIZ_CONFIG = {
   
   // Tooltip function
   tooltip: (object) => {
-    const buildingFraction = (object.bebouwing_in_primair_bebouwd_gebied_fraction || 0);
-    const buildingPercent = (buildingFraction * 100).toFixed(1);
+
     
     return DeckGLUtils.createTooltip(object, [
       { 
         key: 'aantal_inwoners_sum', 
         label: 'Population', 
         color: '#0066cc',
-        format: (v) => DeckGLUtils.formatNumber(v)
       },
       { 
         key: 'bebouwing_in_primair_bebouwd_gebied_fraction', 
         label: 'Built-up Area', 
         color: '#ff6600',
-        format: (v) => `${(v * 100).toFixed(1)}%`
       },
-      { key: 'year_int', label: 'Year' },
-      { 
-        key: 'aantal_mannen_sum', 
-        label: 'Men',
-        format: (v) => DeckGLUtils.formatNumber(v)
-      },
-      { 
-        key: 'aantal_vrouwen_sum', 
-        label: 'Women',
-        format: (v) => DeckGLUtils.formatNumber(v)
-      }
+      { key: 'year_int', label: 'Year' }
     ]);
   }
 };
