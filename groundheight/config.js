@@ -99,7 +99,7 @@ const VIZ_CONFIG = {
       id: 'groundheight-3d',
       data: data,
       extruded: true,
-      elevationScale: 100,
+      elevationScale: 20,
       getHexagon: d => d.h3_id,
 
       // Color based on ground height value with fixed thresholds
@@ -114,12 +114,12 @@ const VIZ_CONFIG = {
         return [67, 162, 202, 255];                  // blue
       },
 
-      // Height based on actual value (normalized to -10 to 40 range)
+      // Height based on actual value - use raw value with elevation scale
       getElevation: d => {
         const gh = parseFloat(d.groundheight);
         if (isNaN(gh)) return 0;
-        // Normalize from -10 to 40 range to 0-1
-        return (gh + 10) / 50;
+        // Shift negative values to start at 0, then use raw value
+        return Math.max(0, gh + 10);
       }
     };
   }
