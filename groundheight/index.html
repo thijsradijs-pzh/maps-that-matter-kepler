@@ -355,54 +355,6 @@
           console.log(`✅ ${allData.length} valid H3 hexagons`);
         }
         
-        // Update filter range based on actual data
-        if (VIZ_CONFIG.filters) {
-          VIZ_CONFIG.filters.forEach(filter => {
-            if (filter.key === 'groundheight') {
-              // Get all groundheight values
-              const values = allData
-                .map(d => parseFloat(d.groundheight))
-                .filter(v => !isNaN(v));
-              
-              if (values.length > 0) {
-                const minVal = Math.min(...values);
-                const maxVal = Math.max(...values);
-                const range = maxVal - minVal;
-                
-                // Calculate percentiles for color distribution
-                const sortedValues = values.slice().sort((a, b) => a - b);
-                const p20 = sortedValues[Math.floor(sortedValues.length * 0.2)];
-                const p40 = sortedValues[Math.floor(sortedValues.length * 0.4)];
-                const p60 = sortedValues[Math.floor(sortedValues.length * 0.6)];
-                const p80 = sortedValues[Math.floor(sortedValues.length * 0.8)];
-                const p30 = sortedValues[Math.floor(sortedValues.length * 0.3)];
-                
-                // Store stats globally in config
-                VIZ_CONFIG.dataStats = {
-                  minVal: minVal,
-                  maxVal: maxVal,
-                  range: range,
-                  p20: p20,
-                  p40: p40,
-                  p60: p60,
-                  p80: p80
-                };
-                
-                // Update filter config
-                filter.min = minVal;
-                filter.max = maxVal;
-                filter.default = p30;
-                
-                // Update current filter value
-                currentFilters[filter.key] = p30;
-                
-                console.log(`📊 Ground height range: ${minVal.toFixed(2)} to ${maxVal.toFixed(2)}`);
-                console.log(`📍 Default filter value (30th percentile): ${p30.toFixed(2)}`);
-              }
-            }
-          });
-        }
-        
         // Build and show controls
         document.getElementById('controls').innerHTML = buildControls();
         document.getElementById('controls').style.display = 'block';

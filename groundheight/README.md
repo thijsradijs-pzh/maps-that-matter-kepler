@@ -4,22 +4,20 @@ A 3D hexagonal map visualization that filters and displays ground height data fr
 
 ## Features
 
-- **Interactive Slider**: Filter hexagons by ground height value (automatically adjusts to your data range)
-- **Default Value**: Set to 30th percentile of your data
+- **Interactive Slider**: Filter hexagons by ground height value (range: -10 to 40)
+- **Default Value**: Set to 0 by default
 - **Tooltip**: Hover over hexagons to see exact ground height values
-- **3D Visualization**: Hexagons are colored and elevated based on actual ground height values
+- **3D Visualization**: Hexagons are colored and elevated based on ground height values
 - **Auto-rotate**: Optional camera rotation for better viewing angles
-- **Real-time Statistics**: Shows count, average, and range of visible hexagons
+- **Real-time Statistics**: Shows count and average of visible hexagons
 
 ## How It Works
 
 The visualization uses the `groundheight` column from `data/subset.csv` to:
-- **Color**: Green-to-blue gradient based on data percentiles (lighter = lower, darker = higher)
-- **Height**: Taller hexagons represent higher ground height values (scaled to data range)
+- **Color**: Green-to-blue gradient based on fixed thresholds (lighter = lower, darker = higher)
+- **Height**: Taller hexagons represent higher ground height values
 - **Filter**: Only shows hexagons where ground height >= slider value
 - **Tooltip**: Displays exact ground height value on hover
-
-The slider automatically adjusts to the min/max values found in your dataset!
 
 ## Files
 
@@ -49,20 +47,20 @@ The slider automatically adjusts to the min/max values found in your dataset!
 ## Customization
 
 Edit `config.js` to customize:
-- Slider range (automatically calculated from data)
-- Default value (set to 30th percentile)
+- Slider range (default: -10 to 40)
+- Default value (default: 0)
 - Color scheme
 - Initial camera position
 - Elevation scaling
 
 ## Color Legend
 
-Colors are based on data percentiles:
-- Very light green: < 20th percentile
-- Light green: 20th - 40th percentile
-- Medium green: 40th - 60th percentile
-- Teal: 60th - 80th percentile
-- Blue: > 80th percentile
+Colors are based on fixed thresholds:
+- Very light green: < 0
+- Light green: 0 - 10
+- Medium green: 10 - 20
+- Teal: 20 - 30
+- Blue: > 30
 
 ## Controls
 
