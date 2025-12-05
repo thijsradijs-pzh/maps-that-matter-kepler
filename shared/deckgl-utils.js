@@ -44,21 +44,27 @@ const DeckGLUtils = {
   },
 
   // Create Carto basemap layer
-  createBasemap(style = 'positron') {
+  createBasemap(style = 'light') {
     const {TileLayer, BitmapLayer} = deck;
-    
+
     const baseUrls = {
       dark: 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-      light: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-      voyager: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'
+      light: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',   // POSITRON
+      voyager: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+
+      // Add explicit alias
+      positron: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
     };
+
+    // ❤️ SAFE: always fallback to light (positron)
+    const url = baseUrls[style] || baseUrls.light;
 
     return new TileLayer({
       id: 'basemap',
       data: [
-        baseUrls[style].replace('a.', 'a.'),
-        baseUrls[style].replace('a.', 'b.'),
-        baseUrls[style].replace('a.', 'c.')
+        url.replace('a.', 'a.'),
+        url.replace('a.', 'b.'),
+        url.replace('a.', 'c.')
       ],
       minZoom: 0,
       maxZoom: 19,
@@ -74,6 +80,7 @@ const DeckGLUtils = {
       pickable: false
     });
   },
+
 
   // Create H3 hexagon layer
   createH3Layer(config) {
