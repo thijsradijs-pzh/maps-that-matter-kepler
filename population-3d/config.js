@@ -117,7 +117,7 @@ const VIZ_CONFIG = {
         }
 
         // reasonable scale for 0–1 built fraction
-        return built * 1500;
+        return built * 1500
       },
 
       extruded: true,
