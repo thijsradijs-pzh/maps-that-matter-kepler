@@ -108,13 +108,8 @@ const VIZ_CONFIG = {
 
       // If both 0 → fully transparent
       getFillColor: d => {
-        if (!hasAnyValue(d)) return [0, 0, 0, 0];  // rgba, alpha = 0
-        return DeckGLUtils.getColor(
-          d.aantal_inwoners_sum,
-          minPop,
-          maxPop,
-          'globalWarming'
-        );
+        const v = d.aantal_inwoners_sum ?? 0;   // use your normalized inhabitants field
+        return DeckGLUtils.getColorFromScale(v, 'populationOnLight');
       },
 
       // If both 0 → flat

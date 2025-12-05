@@ -30,6 +30,14 @@ const DeckGLUtils = {
       [65, 171, 93],
       [116, 196, 118],
       [161, 217, 155]   // Light green
+    ],
+    populationOnLight: [
+      [237, 248, 251],  // very light
+      [204, 236, 230],
+      [153, 216, 201],
+      [102, 194, 164],
+      [44, 162, 95],
+      [0, 109, 70]      // darkest
     ]
   },
 
@@ -42,6 +50,15 @@ const DeckGLUtils = {
     const index = Math.min(Math.floor(normalized * colorScale.length), colorScale.length - 1);
     return [...colorScale[index], alpha];
   },
+  
+  // Map a 0–255 value to a color from a given scale
+  getColorFromScale(value, scaleName) {
+    const scale = this.colorScales[scaleName] || this.colorScales.populationOnLight;
+    const v = Math.max(0, Math.min(255, value || 0));         // clamp 0–255
+    const idx = Math.round((v / 255) * (scale.length - 1));   // 0..n-1
+    return scale[idx];
+  },
+
 
   // Create Carto basemap layer
   createBasemap(style = 'light') {
