@@ -80,13 +80,6 @@ const VIZ_CONFIG = {
   
   // Layer creation function
   createLayer: (data, filters) => {
-    // Get min/max for color scaling (only where population > 0)
-    const populations = data
-      .map(d => d.aantal_inwoners_sum)
-      .filter(p => p > 0);
-    const minPop = populations.length > 0 ? Math.min(...populations) : 0;
-    const maxPop = populations.length > 0 ? Math.max(...populations) : 100;
-
     // Helper: does this hex have *any* signal?
     const hasAnyValue = (d) => {
       const pop = d.aantal_inwoners_sum || 0;
@@ -101,22 +94,27 @@ const VIZ_CONFIG = {
       elevationScale: 1000,
       getHexagon: d => d.h3_id,
 
-      // If both 0 → fully transparent
+      // If both values 0 → fully transparent
+      // Use subtle blue ramp tuned for Positron
       getFillColor: d => {
         if (!hasAnyValue(d)) return [0, 0, 0, 0];  // rgba, alpha = 0
-        return DeckGLUtils.getColor(
-          d.aantal_inwoners_sum,
-          minPop,
-          maxPop,
-          'globalWarming'
-        );
+
+        const pop = d.aantal_inwoners_sum || 0;
+        const v = Math.max(0, Math.min(255, pop)); // clamp 0–255
+
+        if (v < 32)   return [239, 246, 255];  // very very light
+        if (v < 64)   return [222, 235, 247];
+        if (v < 96)   return [198, 219, 239];
+        if (v < 128)  return [158, 202, 225];
+        if (v < 192)  return [107, 174, 214];
+        return [33, 113, 181];                 // darkest, still not screaming
       },
 
       // If both 0 → flat
       getElevation: d => {
         if (!hasAnyValue(d)) return 0;
         return (d.bebouwing_in_primair_bebouwd_gebied_fraction || 0) * 0.01;
-        // or your new scale: * 0.01 etc.
+        // elevationScale above will make this visible
       }
     };
   }
