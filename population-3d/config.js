@@ -123,11 +123,6 @@ const VIZ_CONFIG = {
         }
 
         return built * 1500; // keep your existing scale
-      },
-
-      updateTriggers: {
-        getFillColor: [filters.year, minPop, maxPop],
-        getElevation: [filters.year]
       }
     };
   },
