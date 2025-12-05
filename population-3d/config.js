@@ -80,68 +80,43 @@ const VIZ_CONFIG = {
   
   // Layer creation function
   createLayer: (data, filters) => {
+    // Get min/max for color scaling (only where population > 0)
+    const populations = data
+      .map(d => d.aantal_inwoners_sum)
+      .filter(p => p > 0);
+    const minPop = populations.length > 0 ? Math.min(...populations) : 0;
+    const maxPop = populations.length > 0 ? Math.max(...populations) : 100;
+
+    // Helper: does this hex have *any* signal?
+    const hasAnyValue = (d) => {
+      const pop = d.aantal_inwoners_sum || 0;
+      const beb = d.bebouwing_in_primair_bebouwd_gebied_fraction || 0;
+      return pop > 0 || beb > 0;
+    };
+
     return {
       id: 'population-3d',
-      data,
+      data: data,
+      extruded: true,
+      elevationScale: 1000,
       getHexagon: d => d.h3_id,
 
-      // 🎨 Color: more defined in lower ranges, tuned for Positron
+      // If both 0 → fully transparent
       getFillColor: d => {
-        const pop   = Number(d.aantal_inwoners_sum ?? 0);
-        const built = Number(d.bebouwing_in_primair_bebouwd_gebied_fraction ?? 0);
-
-        // 🔕 Don't show hex if either inhabitants OR built-up is 0
-        // (still in data, just invisible)
-        if (pop <= 0 || built <= 0) {
-          return [0, 0, 0, 0]; // fully transparent (RGBA)
-        }
-
-        const v = Math.max(0, Math.min(255, pop)); // clamp 0–255
-
-        // Soft blue ramp on light basemap
-        if (v < 32)   return [239, 246, 255];  // very very light
-        if (v < 64)   return [222, 235, 247];
-        if (v < 96)   return [198, 219, 239];
-        if (v < 128)  return [158, 202, 225];
-        if (v < 192)  return [107, 174, 214];
-        return [33, 113, 181];                 // darkest, still not screaming
+        if (!hasAnyValue(d)) return [0, 0, 0, 0];  // rgba, alpha = 0
+        return DeckGLUtils.getColor(
+          d.aantal_inwoners_sum,
+          minPop,
+          maxPop,
+          'globalWarming'
+        );
       },
 
-      // 🏙 Elevation: also hide hexes with no signal
+      // If both 0 → flat
       getElevation: d => {
-        const pop   = Number(d.aantal_inwoners_sum ?? 0);
-        const built = Number(d.bebouwing_in_primair_bebouwd_gebied_fraction ?? 0);
-
-        if (pop <= 0 || built <= 0) {
-          return 0;
-        }
-
-        // reasonable scale for 0–1 built fraction
-        return built * 1500
-      },
-
-      extruded: true,
-      pickable: true,
-      wireframe: false
-    };
-  },
-
-  // Tooltip function – qualitative only, no numbers
-  tooltip: (object) => {
-    if (!object) return null;
-
-    return {
-      html: `
-        <div style="font-size: 11px;">
-          <div><strong>Hexagon:</strong> relative value compared to others in this map.</div>
-          <div>This is a relative pattern map, not exact counts.</div>
-        </div>
-      `,
-      style: {
-        backgroundColor: 'rgba(0,0,0,0.8)',
-        color: 'white',
-        padding: '6px 8px',
-        borderRadius: '4px'
+        if (!hasAnyValue(d)) return 0;
+        return (d.bebouwing_in_primair_bebouwd_gebied_fraction || 0) * 0.01;
+        // or your new scale: * 0.01 etc.
       }
     };
   }
