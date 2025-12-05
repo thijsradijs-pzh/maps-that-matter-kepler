@@ -151,6 +151,9 @@
     let deckInstance;
     let allData = [];
     let currentFilters = {};
+    let viewState = null;
+    let rotationFrameId = null;
+    let yearPlayInterval = null;
 
     // Initialize filters from config
     if (VIZ_CONFIG.filters) {
@@ -179,8 +182,20 @@
                 <span>${filter.min}</span>
                 <span>${filter.max}</span>
               </div>
-            </div>
           `;
+
+          // For the year filter, add a play button inside this control-group
+          if (filter.key === 'year') {
+            html += `
+              <div style="margin-top: 6px;">
+                <button id="play-year" style="padding: 4px 8px; font-size: 11px;">
+                  ▶ Play
+                </button>
+              </div>
+            `;
+          }
+
+          html += `</div>`; // close .control-group
         });
       }
       
@@ -210,7 +225,16 @@
       if (VIZ_CONFIG.stats) {
         html += '<div class="stats" id="stats"></div>';
       }
-      
+
+      // Rotation toggle button
+      html += `
+        <div class="control-group" style="margin-top: 10px;">
+          <button id="toggle-rotation" style="padding: 4px 8px; font-size: 11px;">
+            ▶ Auto-rotate
+          </button>
+        </div>
+      `;
+
       return html;
     }
 
@@ -270,8 +294,49 @@
       }
     }
 
+    // Auto-rotation helpers
+    function startAutoRotate() {
+      if (!deckInstance || rotationFrameId) return;
+
+      const rotate = () => {
+        const bearing = (viewState?.bearing ?? 0) + 0.1; // degrees per frame
+        viewState = {
+          ...viewState,
+          bearing
+        };
+        deckInstance.setProps({viewState});
+        rotationFrameId = requestAnimationFrame(rotate);
+      };
+
+      rotationFrameId = requestAnimationFrame(rotate);
+    }
+
+    function stopAutoRotate() {
+      if (!rotationFrameId) return;
+      cancelAnimationFrame(rotationFrameId);
+      rotationFrameId = null;
+    }
+
+    // Helper to programmatically set year
+    function setYearFilter(value) {
+      const slider = document.getElementById('year-slider');
+      const display = document.getElementById('year-display');
+
+      if (!slider || !display) return;
+
+      slider.value = value;
+      currentFilters.year = value;
+
+      display.classList.add('updating');
+      display.textContent = value;
+      setTimeout(() => display.classList.remove('updating'), 300);
+
+      updateVisualization();
+    }
+
     // Set up filter controls
     function setupControls() {
+      // Slider behaviour
       VIZ_CONFIG.filters?.forEach(filter => {
         const slider = document.getElementById(`${filter.key}-slider`);
         const display = document.getElementById(`${filter.key}-display`);
@@ -289,6 +354,49 @@
           });
         }
       });
+
+      // Rotation button behaviour
+      const rotationBtn = document.getElementById('toggle-rotation');
+      if (rotationBtn) {
+        rotationBtn.addEventListener('click', () => {
+          if (rotationFrameId) {
+            stopAutoRotate();
+            rotationBtn.textContent = '▶ Auto-rotate';
+          } else {
+            startAutoRotate();
+            rotationBtn.textContent = '⏸ Stop rotation';
+          }
+        });
+      }
+
+      // Year play/pause behaviour
+      const playBtn = document.getElementById('play-year');
+      if (playBtn) {
+        playBtn.addEventListener('click', () => {
+          // If already playing, stop
+          if (yearPlayInterval) {
+            clearInterval(yearPlayInterval);
+            yearPlayInterval = null;
+            playBtn.textContent = '▶ Play';
+            return;
+          }
+
+          const yearFilter = VIZ_CONFIG.filters.find(f => f.key === 'year');
+          if (!yearFilter) return;
+
+          let current = currentFilters.year ?? yearFilter.default;
+
+          playBtn.textContent = '⏸ Pause';
+
+          yearPlayInterval = setInterval(() => {
+            current = current + yearFilter.step;
+            if (current > yearFilter.max) {
+              current = yearFilter.min;
+            }
+            setYearFilter(current);
+          }, 600); // speed in ms
+        });
+      }
     }
 
     // Load data and initialize
@@ -312,17 +420,24 @@
         setupControls();
         
         // Initialize deck.gl
+        viewState = {...VIZ_CONFIG.initialView};
+
         deckInstance = new DeckGL({
           container: 'container',
           initialViewState: VIZ_CONFIG.initialView,
+          viewState,
           controller: true,
           layers: getLayers(),
+          onViewStateChange: ({viewState: vs}) => {
+            viewState = vs;
+            deckInstance.setProps({viewState});
+          },
           getTooltip: VIZ_CONFIG.tooltip ? ({object}) => {
             if (object) return VIZ_CONFIG.tooltip(object);
             return null;
           } : undefined
         });
-        
+
         document.getElementById('loading').style.display = 'none';
         console.log('🎉 Visualization ready!');
         
