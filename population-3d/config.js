@@ -5,7 +5,7 @@ const VIZ_CONFIG = {
   title: '🗺️ Population Over Time',
   dataUrl: '/data/subset.csv',
   h3Field: 'h3_id',
-  basemap: 'dark',
+  basemap: 'positron',
   
   // Initial view state
   initialView: {

@@ -44,7 +44,7 @@ const DeckGLUtils = {
   },
 
   // Create Carto basemap layer
-  createBasemap(style = 'dark') {
+  createBasemap(style = 'positron') {
     const {TileLayer, BitmapLayer} = deck;
     
     const baseUrls = {
