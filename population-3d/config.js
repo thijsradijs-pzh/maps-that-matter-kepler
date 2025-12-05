@@ -115,16 +115,10 @@ const VIZ_CONFIG = {
 
       // 🏙 Elevation: also hide hexes with no signal
       getElevation: d => {
-        const pop = d.aantal_inwoners_sum ?? 0;
-        const built = d.bebouwing_in_primair_bebouwd_gebied_fraction ?? 0;
-
-        if (pop <= 0 || built <= 0) {
-          return 0; // flat / invisible (combined with transparent color)
-        }
-
-        return built * 1500; // keep your existing scale
+        if (!hasAnyValue(d)) return 0;
+        return (d.bebouwing_in_primair_bebouwd_gebied_fraction || 0) * 0.01;
+        // or your new scale: * 0.01 etc.
       }
-    };
   },
 
   
@@ -134,12 +128,10 @@ const VIZ_CONFIG = {
     
     return DeckGLUtils.createTooltip(object, [
       { 
-        key: 'aantal_inwoners_sum', 
         label: 'Population', 
         color: '#0066cc',
       },
       { 
-        key: 'bebouwing_in_primair_bebouwd_gebied_fraction', 
         label: 'Built-up Area', 
         color: '#ff6600',
       },
