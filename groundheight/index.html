@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset='utf-8' />
+  <title>Ground Height Visualization – Maps That Matter</title>
+  <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+  
+  <!-- Dependencies -->
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
+  <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
+  
+  <!-- Shared utilities -->
+  <script src="/shared/deckgl-utils.js"></script>
+  
+  <!-- Visualization config -->
+  <script src="/groundheight/config.js"></script>
+  
+  <style>
+    body { 
+      margin: 0; 
+      padding: 0; 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+    }
+    
+    #container { 
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      background: #0a0a0a;
+    }
+    
+    #controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+      z-index: 1;
+      max-width: 320px;
+    }
+    
+    #controls h3 {
+      margin: 0 0 15px 0;
+      font-size: 16px;
+      color: #333;
+    }
+    
+    .control-group {
+      margin: 15px 0;
+    }
+    
+    .control-label {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 5px;
+    }
+    
+    input[type="range"] {
+      width: 100%;
+      margin: 10px 0;
+    }
+    
+    .value-display {
+      font-size: 28px;
+      font-weight: bold;
+      color: #43A2CA;
+      margin: 10px 0;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+    
+    .value-display.updating {
+      transform: scale(1.1);
+      color: #7BCCC4;
+    }
+    
+    .legend {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #ddd;
+    }
+    
+    .legend-title {
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 8px;
+      color: #666;
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin: 5px 0;
+      font-size: 11px;
+    }
+    
+    .legend-color {
+      width: 20px;
+      height: 12px;
+      margin-right: 8px;
+      border-radius: 2px;
+    }
+    
+    .stats {
+      font-size: 12px;
+      color: #333;
+      margin-top: 15px;
+      padding: 12px;
+      background: #f8f8f8;
+      border-radius: 4px;
+      line-height: 1.8;
+    }
+    
+    .stats strong {
+      color: #666;
+      font-weight: 600;
+    }
+    
+    .stats span {
+      color: #43A2CA;
+      font-weight: bold;
+    }
+    
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 20px 40px;
+      border-radius: 8px;
+      font-size: 16px;
+      z-index: 2;
+    }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  <div id="loading">Loading data...</div>
+  <div id="controls" style="display:none;"></div>
+
+  <script>
+    // Main application
+    const {DeckGL} = deck;
+    
+    let deckInstance;
+    let allData = [];
+    let currentFilters = {};
+    let viewState = null;
+    let rotationFrameId = null;
+
+    // Initialize filters from config
+    if (VIZ_CONFIG.filters) {
+      VIZ_CONFIG.filters.forEach(filter => {
+        currentFilters[filter.key] = filter.default;
+      });
+    }
+
+    // Build controls HTML from config
+    function buildControls() {
+      let html = `<h3>${VIZ_CONFIG.title}</h3>`;
+      
+      // Add filters
+      if (VIZ_CONFIG.filters) {
+        VIZ_CONFIG.filters.forEach(filter => {
+          html += `
+            <div class="control-group">
+              <div class="value-display" id="${filter.key}-display">${filter.format ? filter.format(filter.default) : filter.default}</div>
+              <input type="range" 
+                     id="${filter.key}-slider" 
+                     min="${filter.min}" 
+                     max="${filter.max}" 
+                     step="${filter.step}" 
+                     value="${filter.default}">
+              <div style="display: flex; justify-content: space-between; font-size: 11px; color: #666;">
+                <span>${filter.min}</span>
+                <span>${filter.max}</span>
+              </div>
+            </div>
+          `;
+        });
+      }
+      
+      // Add legend
+      if (VIZ_CONFIG.legend) {
+        html += '<div class="legend">';
+        VIZ_CONFIG.legend.forEach(section => {
+          html += `<div class="legend-title">${section.title}</div>`;
+          if (section.items) {
+            section.items.forEach(item => {
+              html += `
+                <div class="legend-item">
+                  <div class="legend-color" style="background: ${item.color};"></div>
+                  <span>${item.label}</span>
+                </div>
+              `;
+            });
+          }
+          if (section.description) {
+            html += `<div style="font-size: 10px; color: #666; line-height: 1.4; margin-top: 5px;">${section.description}</div>`;
+          }
+        });
+        html += '</div>';
+      }
+      
+      // Add stats
+      if (VIZ_CONFIG.stats) {
+        html += '<div class="stats" id="stats"></div>';
+      }
+
+      // Rotation toggle button
+      html += `
+        <div class="control-group" style="margin-top: 10px;">
+          <button id="toggle-rotation" style="padding: 6px 12px; font-size: 12px; cursor: pointer; border: 1px solid #ddd; background: white; border-radius: 4px;">
+            ▶ Auto-rotate
+          </button>
+        </div>
+      `;
+
+      return html;
+    }
+
+    // Filter data based on current filters
+    function filterData() {
+      return allData.filter(d => {
+        let passes = true;
+        
+        VIZ_CONFIG.filters?.forEach(filter => {
+          const value = currentFilters[filter.key];
+          passes = passes && filter.filterFn(d, value);
+        });
+        
+        // Exclude empty if configured
+        if (VIZ_CONFIG.excludeEmpty) {
+          passes = passes && d[VIZ_CONFIG.excludeEmpty] > 0;
+        }
+        
+        return passes;
+      });
+    }
+
+    // Update statistics display
+    function updateStats(filteredData) {
+      if (!VIZ_CONFIG.stats) return;
+      
+      const statsEl = document.getElementById('stats');
+      if (!statsEl) return;
+      
+      let html = '';
+      VIZ_CONFIG.stats.forEach(stat => {
+        const value = stat.calculate(filteredData);
+        html += `<strong>${stat.label}:</strong> <span>${stat.format(value)}</span><br>`;
+      });
+      
+      statsEl.innerHTML = html;
+    }
+
+    // Get layers for current state
+    function getLayers() {
+      const filteredData = filterData();
+      updateStats(filteredData);
+      
+      const layers = [DeckGLUtils.createBasemap(VIZ_CONFIG.basemap || 'dark')];
+      
+      // Create visualization layer
+      const layerConfig = VIZ_CONFIG.createLayer(filteredData, currentFilters);
+      layers.push(DeckGLUtils.createH3Layer(layerConfig));
+      
+      return layers;
+    }
+
+    // Update visualization
+    function updateVisualization() {
+      if (deckInstance) {
+        deckInstance.setProps({ layers: getLayers() });
+      }
+    }
+
+    // Auto-rotation helpers
+    function startAutoRotate() {
+      if (!deckInstance || rotationFrameId) return;
+
+      const rotate = () => {
+        const bearing = (viewState?.bearing ?? 0) + 0.1; // degrees per frame
+        viewState = {
+          ...viewState,
+          bearing
+        };
+        deckInstance.setProps({viewState});
+        rotationFrameId = requestAnimationFrame(rotate);
+      };
+
+      rotationFrameId = requestAnimationFrame(rotate);
+    }
+
+    function stopAutoRotate() {
+      if (!rotationFrameId) return;
+      cancelAnimationFrame(rotationFrameId);
+      rotationFrameId = null;
+    }
+
+    // Set up filter controls
+    function setupControls() {
+      // Slider behaviour
+      VIZ_CONFIG.filters?.forEach(filter => {
+        const slider = document.getElementById(`${filter.key}-slider`);
+        const display = document.getElementById(`${filter.key}-display`);
+        
+        if (slider && display) {
+          slider.addEventListener('input', (e) => {
+            const value = filter.step === 1 ? parseInt(e.target.value) : parseFloat(e.target.value);
+            currentFilters[filter.key] = value;
+            
+            display.classList.add('updating');
+            display.textContent = filter.format ? filter.format(value) : value;
+            setTimeout(() => display.classList.remove('updating'), 300);
+            
+            updateVisualization();
+          });
+        }
+      });
+
+      // Rotation button behaviour
+      const rotationBtn = document.getElementById('toggle-rotation');
+      if (rotationBtn) {
+        rotationBtn.addEventListener('click', () => {
+          if (rotationFrameId) {
+            stopAutoRotate();
+            rotationBtn.textContent = '▶ Auto-rotate';
+          } else {
+            startAutoRotate();
+            rotationBtn.textContent = '⏸ Stop rotation';
+          }
+        });
+      }
+    }
+
+    // Load data and initialize
+    async function init() {
+      try {
+        console.log('🚀 Loading data...');
+        
+        // Load data
+        allData = await DeckGLUtils.loadCSV(VIZ_CONFIG.dataUrl);
+        console.log(`✅ Loaded ${allData.length} rows`);
+        
+        // Verify H3 if needed
+        if (VIZ_CONFIG.h3Field) {
+          allData = allData.filter(d => d[VIZ_CONFIG.h3Field] && d[VIZ_CONFIG.h3Field].length > 0);
+          console.log(`✅ ${allData.length} valid H3 hexagons`);
+        }
+        
+        // Build and show controls
+        document.getElementById('controls').innerHTML = buildControls();
+        document.getElementById('controls').style.display = 'block';
+        setupControls();
+        
+        // Initialize deck.gl
+        viewState = {...VIZ_CONFIG.initialView};
+
+        deckInstance = new DeckGL({
+          container: 'container',
+          initialViewState: VIZ_CONFIG.initialView,
+          viewState,
+          controller: true,
+          layers: getLayers(),
+          onViewStateChange: ({viewState: vs}) => {
+            viewState = vs;
+            deckInstance.setProps({viewState});
+          },
+          getTooltip: VIZ_CONFIG.tooltip ? ({object}) => {
+            if (object) return VIZ_CONFIG.tooltip(object);
+            return null;
+          } : undefined
+        });
+
+        document.getElementById('loading').style.display = 'none';
+        console.log('🎉 Visualization ready!');
+      } catch (error) {
+        console.error('❌ Error:', error);
+        document.getElementById('loading').textContent = 'Error: ' + error.message;
+      }
+    }
+
+    // Start when page loads
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>

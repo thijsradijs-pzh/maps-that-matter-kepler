@@ -21,7 +21,7 @@
   "rewrites": [
     {
       "source": "/",
-      "destination": "/year-population/index.html"
+      "destination": "/population-3d/index.html"
     }
   ]
 }
