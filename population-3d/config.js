@@ -102,11 +102,11 @@ const VIZ_CONFIG = {
         const pop = d.aantal_inwoners_sum || 0;
         const v = Math.max(0, Math.min(255, pop)); // clamp 0–255
 
-        if (v < 32)   return [239, 246, 255];  // very very light
-        if (v < 64)   return [222, 235, 247];
-        if (v < 96)   return [198, 219, 239];
-        if (v < 128)  return [158, 202, 225];
-        if (v < 192)  return [107, 174, 214];
+        if (v < 15)   return [239, 246, 255];  // very very light
+        if (v < 35)   return [222, 235, 247];
+        if (v < 75)   return [198, 219, 239];
+        if (v < 100)  return [158, 202, 225];
+        if (v < 175)  return [107, 174, 214];
         return [33, 113, 181];                 // darkest, still not screaming
       },
 
