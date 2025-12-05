@@ -440,7 +440,8 @@
 
         document.getElementById('loading').style.display = 'none';
         console.log('🎉 Visualization ready!');
-        
+        startAutoRotate();
+        setTimeout(stopAutoRotate, 20000); 
       } catch (error) {
         console.error('❌ Error:', error);
         document.getElementById('loading').textContent = 'Error: ' + error.message;
