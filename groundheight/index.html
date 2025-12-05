@@ -355,6 +355,38 @@
           console.log(`✅ ${allData.length} valid H3 hexagons`);
         }
         
+        // Update filter range based on actual data
+        if (VIZ_CONFIG.filters) {
+          VIZ_CONFIG.filters.forEach(filter => {
+            if (filter.key === 'groundheight') {
+              // Get all groundheight values
+              const values = allData
+                .map(d => parseFloat(d.groundheight))
+                .filter(v => !isNaN(v));
+              
+              if (values.length > 0) {
+                const minVal = Math.min(...values);
+                const maxVal = Math.max(...values);
+                
+                // Update filter config
+                filter.min = minVal;
+                filter.max = maxVal;
+                
+                // Set default to 30th percentile
+                const sortedValues = [...values].sort((a, b) => a - b);
+                const p30 = sortedValues[Math.floor(sortedValues.length * 0.3)];
+                filter.default = p30;
+                
+                // Update current filter value
+                currentFilters[filter.key] = p30;
+                
+                console.log(`📊 Ground height range: ${minVal.toFixed(2)} to ${maxVal.toFixed(2)}`);
+                console.log(`📍 Default filter value (30th percentile): ${p30.toFixed(2)}`);
+              }
+            }
+          });
+        }
+        
         // Build and show controls
         document.getElementById('controls').innerHTML = buildControls();
         document.getElementById('controls').style.display = 'block';
