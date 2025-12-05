@@ -108,8 +108,19 @@ const VIZ_CONFIG = {
 
       // If both 0 → fully transparent
       getFillColor: d => {
-        const v = d.aantal_inwoners_sum ?? 0;   // use your normalized inhabitants field
-        return DeckGLUtils.getColorFromScale(v, 'populationOnLight');
+        const v = d.aantal_inwoners_sum ?? 0;  // use your normalized inhabitants field
+
+        // tweak thresholds if needed – these are just "low / mid / high"
+        if (v === 0) {
+          // almost invisible / very light
+          return [235, 245, 255];
+        } else if (v < 85) {
+          return [198, 219, 239];
+        } else if (v < 170) {
+          return [158, 202, 225];
+        } else {
+          return [107, 174, 214];
+        }
       },
 
       // If both 0 → flat
