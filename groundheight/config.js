@@ -95,32 +95,20 @@ const VIZ_CONFIG = {
     }
   ],
   
+  // Data statistics (will be populated during initialization)
+  dataStats: {
+    minVal: 0,
+    maxVal: 1,
+    range: 1,
+    p20: 0.2,
+    p40: 0.4,
+    p60: 0.6,
+    p80: 0.8
+  },
+  
   // Layer creation function
   createLayer: (data, filters) => {
-    // Calculate min/max from actual data for color scaling
-    const values = data.map(d => parseFloat(d.groundheight)).filter(v => !isNaN(v));
-    
-    if (values.length === 0) {
-      return {
-        id: 'groundheight-3d',
-        data: [],
-        extruded: false,
-        getHexagon: d => d.h3_id,
-        getFillColor: [0, 0, 0, 0],
-        getElevation: 0
-      };
-    }
-    
-    const minVal = Math.min(...values);
-    const maxVal = Math.max(...values);
-    const range = maxVal - minVal;
-    
-    // Calculate percentiles for better color distribution
-    const sortedValues = [...values].sort((a, b) => a - b);
-    const p20 = sortedValues[Math.floor(sortedValues.length * 0.2)];
-    const p40 = sortedValues[Math.floor(sortedValues.length * 0.4)];
-    const p60 = sortedValues[Math.floor(sortedValues.length * 0.6)];
-    const p80 = sortedValues[Math.floor(sortedValues.length * 0.8)];
+    const stats = VIZ_CONFIG.dataStats;
     
     return {
       id: 'groundheight-3d',
@@ -136,10 +124,10 @@ const VIZ_CONFIG = {
         if (isNaN(gh)) return [0, 0, 0, 0];  // transparent for no data
         
         // Green-blue gradient based on percentiles
-        if (gh < p20)  return [240, 249, 232, 200];  // very light green
-        if (gh < p40)  return [204, 235, 197, 220];  // light green
-        if (gh < p60)  return [168, 221, 181, 240];  // medium green
-        if (gh < p80)  return [123, 204, 196, 255];  // teal
+        if (gh < stats.p20)  return [240, 249, 232, 200];  // very light green
+        if (gh < stats.p40)  return [204, 235, 197, 220];  // light green
+        if (gh < stats.p60)  return [168, 221, 181, 240];  // medium green
+        if (gh < stats.p80)  return [123, 204, 196, 255];  // teal
         return [67, 162, 202, 255];                   // blue
       },
 
@@ -149,7 +137,7 @@ const VIZ_CONFIG = {
         if (isNaN(gh)) return 0;
         
         // Normalize to 0-1 range based on data, then scale
-        const normalized = range > 0 ? (gh - minVal) / range : 0;
+        const normalized = stats.range > 0 ? (gh - stats.minVal) / stats.range : 0;
         return normalized;  // elevationScale will make this visible
       }
     };
