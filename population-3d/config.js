@@ -101,23 +101,6 @@ const VIZ_CONFIG = {
         return (d.bebouwing_in_primair_bebouwd_gebied_fraction || 0) * 0.01;
         // or your new scale: * 0.01 etc.
       }
-  },
-
-  
-  // Tooltip function
-  tooltip: (object) => {
-
-    
-    return DeckGLUtils.createTooltip(object, [
-      { 
-        label: 'Population', 
-        color: '#0066cc',
-      },
-      { 
-        label: 'Built-up Area', 
-        color: '#ff6600',
-      },
-      { key: 'year_int', label: 'Year' }
-    ]);
+    };
   }
 };
