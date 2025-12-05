@@ -11,9 +11,9 @@ const VIZ_CONFIG = {
   initialView: {
     longitude: 4.44,
     latitude: 51.99,
-    zoom: 9,
-    pitch: 45,
-    bearing: 0,
+    zoom: 9.5,
+    pitch: 50,
+    bearing: 20,
     minZoom: 3,
     maxZoom: 15
   },
@@ -26,42 +26,55 @@ const VIZ_CONFIG = {
       min: 2018,
       max: 2023,
       step: 1,
-      default: 2018,
+      default: 2022,
       format: (val) => val,
       filterFn: (d, val) => Math.round(d.year_int) === val
     }
   ],
   
-
-  
   // Legend configuration
   legend: [
     {
-      title: 'Color: Population Density',
+      title: 'Color: Population (relative)',
       items: [
-        { color: '#4C0035', label: 'Low' },
-        { color: '#B72F15', label: 'Medium' },
-        { color: '#EF9100', label: 'High' },
-        { color: '#FFC300', label: 'Very High' }
+        { color: '#EFF6FF', label: 'Very low' },
+        { color: '#DEEBF7', label: 'Low' },
+        { color: '#C6DBEF', label: 'Medium' },
+        { color: '#6BAED6', label: 'High' },
+        { color: '#2171B5', label: 'Very high' }
       ]
     },
     {
       title: 'Height: Building Fraction',
-      description: 'Taller hexagons = more built-up area'
+      description: 'Taller hexagons = relatively more built-up area'
     }
   ],
   
-  // Statistics to display
+  // Statistics to display (narrative only, no raw numbers)
   stats: [
     {
-      label: 'Hexagons',
-      calculate: (data) => data.length,
-      format: (val) => DeckGLUtils.formatNumber(val)
-    },
-    {
-      label: 'Total Population',
-      calculate: (data) => data.reduce((sum, d) => sum + (d.aantal_inwoners_sum || 0), 0),
-      format: (val) => DeckGLUtils.formatNumber(val)
+      label: 'About this view',
+      calculate: data => {
+        if (!data || data.length === 0) {
+          return null;
+        }
+        const sample = data[0];
+        const year = sample.year_int || sample.year || null;
+        return year;
+      },
+      format: year => {
+        if (!year) {
+          return (
+            'This map shows relative differences between hexagons. ' +
+            'Darker, taller hexagons indicate relatively higher values.'
+          );
+        }
+
+        return (
+          `This map shows relative differences between hexagons in ${year}. ` +
+          'Darker, taller hexagons indicate relatively higher values.'
+        );
+      }
     }
   ],
   
@@ -72,34 +85,63 @@ const VIZ_CONFIG = {
       data,
       getHexagon: d => d.h3_id,
 
-      // 🎨 Color: more defined at lower values, tuned for Positron
+      // 🎨 Color: more defined in lower ranges, tuned for Positron
       getFillColor: d => {
-        const pop = d.aantal_inwoners_sum ?? 0;
-        const built = d.bebouwing_in_primair_bebouwd_gebied_fraction ?? 0;
+        const pop   = Number(d.aantal_inwoners_sum ?? 0);
+        const built = Number(d.bebouwing_in_primair_bebouwd_gebied_fraction ?? 0);
 
         // 🔕 Don't show hex if either inhabitants OR built-up is 0
         // (still in data, just invisible)
         if (pop <= 0 || built <= 0) {
-          return [0, 0, 0, 0]; // fully transparent
+          return [0, 0, 0, 0]; // fully transparent (RGBA)
         }
 
-        // Pop is 0–255 but we don't show that number, only use it internally
-        const v = pop;
+        const v = Math.max(0, Math.min(255, pop)); // clamp 0–255
 
-        // More nuance in the lower range – soft blues on Positron
-        if (v < 32)   return [239, 246, 255];  // almost white
+        // Soft blue ramp on light basemap
+        if (v < 32)   return [239, 246, 255];  // very very light
         if (v < 64)   return [222, 235, 247];
         if (v < 96)   return [198, 219, 239];
         if (v < 128)  return [158, 202, 225];
         if (v < 192)  return [107, 174, 214];
-        return [33, 113, 181];                // darkest, still not too harsh
+        return [33, 113, 181];                 // darkest, still not screaming
       },
 
       // 🏙 Elevation: also hide hexes with no signal
       getElevation: d => {
-        if (!hasAnyValue(d)) return 0;
-        return (d.bebouwing_in_primair_bebouwd_gebied_fraction || 0) * 0.01;
-        // or your new scale: * 0.01 etc.
+        const pop   = Number(d.aantal_inwoners_sum ?? 0);
+        const built = Number(d.bebouwing_in_primair_bebouwd_gebied_fraction ?? 0);
+
+        if (pop <= 0 || built <= 0) {
+          return 0;
+        }
+
+        // reasonable scale for 0–1 built fraction
+        return built * 1500;
+      },
+
+      extruded: true,
+      pickable: true,
+      wireframe: false
+    };
+  },
+
+  // Tooltip function – qualitative only, no numbers
+  tooltip: (object) => {
+    if (!object) return null;
+
+    return {
+      html: `
+        <div style="font-size: 11px;">
+          <div><strong>Hexagon:</strong> relative value compared to others in this map.</div>
+          <div>This is a relative pattern map, not exact counts.</div>
+        </div>
+      `,
+      style: {
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        color: 'white',
+        padding: '6px 8px',
+        borderRadius: '4px'
       }
     };
   }
