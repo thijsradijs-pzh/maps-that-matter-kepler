@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>From Hexagons to Foresight – Maps That Matter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta
+    name="description"
+    content="How H3 hexagons, a spatial datacube, and Kepler.gl visualisations turn Dutch geo-data into insight, time travel, and foresight."
+  />
+
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #222222;
+      --accent: #004b6b;
+      --muted: #666666;
+      --border: #dddddd;
+      --max-width: 760px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      line-height: 1.7;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .page {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 4rem;
+    }
+
+    header {
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 3vw, 2.6rem);
+      margin: 0 0 0.5rem;
+      color: var(--accent);
+      line-height: 1.2;
+    }
+
+    h2 {
+      margin-top: 2.5rem;
+      margin-bottom: 0.75rem;
+      font-size: 1.4rem;
+      line-height: 1.4;
+      color: var(--accent);
+    }
+
+    h3 {
+      margin-top: 2rem;
+      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+    }
+
+    p {
+      margin: 0 0 1rem;
+      color: var(--text);
+    }
+
+    p.lead {
+      font-size: 1.05rem;
+      color: var(--muted);
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 0.15em;
+    }
+
+    a:hover {
+      opacity: 0.85;
+    }
+
+    .iframe-wrapper {
+      margin: 1.5rem 0 2rem;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    iframe {
+      display: block;
+      width: 100%;
+      border: 0;
+    }
+
+    .note {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-top: 0.5rem;
+    }
+
+    ul {
+      margin: 0 0 1rem 1.2rem;
+      padding: 0;
+    }
+
+    li {
+      margin-bottom: 0.25rem;
+    }
+
+    @media (min-width: 900px) {
+      .page {
+        padding-top: 3rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <h1>From Hexagons to Foresight</h1>
+      <p class="lead">
+        How H3 and Kepler.gl turn a Dutch spatial datacube into patterns,
+        time travel, and foresight.
+      </p>
+    </header>
+
+    <section>
+      <p>
+        You might remember in my previous blog,
+        <em>From Chaos to Clarity</em>, when we turned messy datasets into a
+        single, structured foundation — a spatial datacube that finally made
+        sense of all those CSVs, shapefiles, and spreadsheets.
+      </p>
+
+      <p>
+        Now that the data is clean and connected, the next question is:
+        <strong>What can we actually see when everything speaks the same
+        spatial language?</strong>
+      </p>
+
+      <p>That’s where H3 comes in.</p>
+    </section>
+
+    <section>
+      <h2>The honeycomb that makes data talk</h2>
+
+      <p>
+        H3 divides the world into a honeycomb of hexagons, each one
+        representing an equal slice of the Earth’s surface. Whether you’re
+        looking at housing prices, noise levels, flood risk, or biodiversity,
+        each dataset aligns perfectly on the same grid.
+      </p>
+
+      <p>
+        It turns chaotic maps into something more like building blocks. Once
+        everything fits, we can start constructing meaning, not just
+        visualizations.
+      </p>
+    </section>
+
+    <section>
+      <h2>Step 1 – One map, one story</h2>
+
+      <p>Let’s start simple.</p>
+
+      <p>
+        Take one indicator from the datacube — <strong>groundheight</strong>,
+        the height above sea level. Visualized through H3, each hexagon tells
+        you how high (or low) the land sits relative to NAP.
+      </p>
+
+      <p>
+        A map like this immediately shows why the Dutch saying
+        <em>“God created the world, but the Dutch created the Netherlands”</em>
+        is more than a cliché. Much of the country lies below sea level, yet we
+        live, build, and cycle there safely thanks to centuries of design and
+        engineering.
+      </p>
+
+      <p>
+        A Kepler.gl map of groundheight, or a short video zooming across the
+        hexagons, turns an abstract number into something intuitive:
+      </p>
+
+      <div class="iframe-wrapper">
+        <iframe
+          src="https://maps.mapsthatmatter.io/groundheight"
+          height="800"
+          loading="lazy"
+          title="Groundheight Kepler.gl map"
+        ></iframe>
+      </div>
+
+      <p>
+        This is the first step in developing spatial literacy: making data feel
+        real.
+      </p>
+    </section>
+
+    <section>
+      <h2>Step 2 – When one layer isn’t enough: travelling through time</h2>
+
+      <p>
+        To understand how areas change, a single snapshot is rarely enough.
+        This is where H3 becomes especially powerful: because every hexagon is
+        tracked over multiple years, we can explore spatial change as a kind of
+        time travel.
+      </p>
+
+      <h3>A small detour: what happens when you compare landcover with people?</h3>
+
+      <p>
+        While exploring the datacube, I ran a quick correlation check between
+        landcover (LGN) and demographic indicators (CBS). As expected, the
+        positive correlations brought no surprises. Places with more built-up
+        area tend to have:
+      </p>
+
+      <ul>
+        <li>more inhabitants (r ≈ 0.79)</li>
+        <li>more men and women (r ≈ 0.79)</li>
+        <li>more households (r ≈ 0.78)</li>
+        <li>more housing (r ≈ 0.78)</li>
+      </ul>
+
+      <p>
+        In other words: where you build more, more people live. Nothing
+        shocking.
+      </p>
+
+      <p>
+        The negative correlations, however, revealed something more unexpected —
+        and unintentionally funny.
+      </p>
+
+      <p>
+        The strongest negative relationships appear between
+        <strong>agrarisch grasland</strong> (agricultural grassland) and almost
+        every demographic variable. For example:
+      </p>
+
+      <ul>
+        <li>fewer women (r ≈ –0.43)</li>
+        <li>fewer total inhabitants (r ≈ –0.43)</li>
+        <li>fewer men (r ≈ –0.42)</li>
+        <li>fewer households (r ≈ –0.40)</li>
+      </ul>
+
+      <p>
+        In plain language: the more agricultural grass a hexagon contains, the
+        fewer women (and people in general) live there.
+      </p>
+
+      <p>
+        A perfectly logical spatial pattern… but also the exact data-driven
+        explanation for the existence of the TV show
+        <em>“Boer zoekt Vrouw”</em> (“Farmer seeks a wife”).
+      </p>
+
+      <p>
+        According to the hexagons, farmers quite literally live in places where
+        there are statistically fewer women — a demographic phenomenon neatly
+        confirmed by Pearson’s r.
+      </p>
+
+      <p>Spatial analysis, it turns out, sometimes comes with its own punchline.</p>
+
+      <h3>Time travel on the Maasvlakte</h3>
+
+      <p>
+        The second Kepler example shows temporal change beautifully. Built-up
+        area is visualised in 3D height, while the colour shows the number of
+        inhabitants. By moving the year slider, you can watch neighbourhoods
+        grow, densify, or shift in character over time.
+      </p>
+
+      <p>
+        A striking example appears on the <strong>Maasvlakte in Rotterdam</strong>.
+        Slide the timeline to <strong>2022</strong> and you will see tall blocks
+        of built-up area — yet the hexagons remain dark in colour, indicating
+        zero inhabitants. At first glance this looks like a data error, but it
+        is not. What you are seeing is the moment when newly created land was
+        developed for industrial use, not residential living. The map makes the
+        transformation visible: a landscape that didn’t exist a decade ago
+        becomes a major industrial extension of the port, without adding new
+        population.
+      </p>
+
+      <p>
+        This is the strength of hexagon-based time travel: the map shows not
+        just where things are, but how and when they appeared.
+      </p>
+
+      <p>
+        Kepler makes this intuitive even for non-technical audiences. Changing
+        the year slider tells a story in seconds — urban expansion, industrial
+        growth, and changing spatial footprints become visible without reading
+        a single table.
+      </p>
+
+      <div class="iframe-wrapper">
+        <iframe
+          src="https://maps.mapsthatmatter.io/population-3d"
+          height="800"
+          loading="lazy"
+          title="Population 3D Kepler.gl map"
+        ></iframe>
+      </div>
+    </section>
+
+    <section>
+      <h2>Step 3 – Talking to your data</h2>
+
+      <p>
+        Once the metadata is structured and described in JSON, something
+        interesting becomes possible: the data becomes conversational.
+      </p>
+
+      <p>
+        Imagine typing:
+        <em>“Show me safe and affordable neighbourhoods with schools within 1 km
+        and green space nearby.”</em>
+      </p>
+
+      <p>
+        An LLM interprets this sentence, looks up what each field means, and
+        translates it into a query on the H3 datacube. No SQL required. Just a
+        conversation with your map.
+      </p>
+
+      <p>
+        Ask <em>“What changed since 2018?”</em> or
+        <em>“Which municipalities improved most?”</em> and the visualization
+        updates.
+      </p>
+
+      <p>
+        A split-screen video showing a chat prompt on one side and a Kepler.gl
+        map on the other makes this interaction feel tangible. This works
+        because the data is described clearly enough for humans and machines to
+        understand it in the same way.
+      </p>
+    </section>
+
+    <section>
+      <h2>Step 4 – From patterns to predictions</h2>
+
+      <p>
+        The dataset spans 2018 to 2023, which means each hexagon contains a
+        small timeline. Plotting these values — for example, average WOZ value
+        or number of new homes — reveals how regions have evolved. Some areas
+        densify, others stabilize, some shift slowly without anyone noticing.
+      </p>
+
+      <p>
+        Even simple trend analysis allows us to project where growth, pressure,
+        or risk may increase if these patterns continue. These are not perfect
+        forecasts, but they provide foresight.
+      </p>
+
+      <p>
+        An animated Kepler.gl timelapse showing the rise in WOZ values or
+        changes in population density makes these trajectories visible. Once you
+        see how areas evolve, the conversation moves from “what happened?” to
+        “what should we prepare for?”
+      </p>
+    </section>
+
+    <section>
+      <h2>Step 5 – Play, explore, decide</h2>
+
+      <p>
+        You do not need specialist software to explore these patterns. A
+        Kepler.gl dashboard works directly in the browser.
+      </p>
+
+      <p>
+        In workshops, even non-technical teams immediately begin asking sharper
+        questions. Someone invariably points at the map and says:
+        <em>“So that’s why those two areas feel so different.”</em>
+      </p>
+
+      <p>
+        This is exactly the point: spatial data should be intuitive. A simple
+        interactive map with sliders for year, WOZ value, or noise level
+        invites managers and policymakers to explore and experiment.
+      </p>
+
+      <p>
+        Including an embedded Kepler.gl dashboard in this blog gives readers the
+        chance to hover over their neighbourhood and discover which hexagons
+        surprise them.
+      </p>
+    </section>
+
+    <section>
+      <h2>Step 6 – Looking ahead</h2>
+
+      <p>
+        This is only the beginning. In the next blog, I will explore how the
+        same H3 grid can connect to real-time data streams such as satellite
+        imagery, weather sensors, or biodiversity indicators.
+      </p>
+
+      <p>
+        When datasets share the same spatial language, collaboration becomes far
+        easier. Maps stop being static reports and start functioning as shared
+        interfaces for conversation and decision-making.
+      </p>
+    </section>
+
+    <section>
+      <h2>Final thought: the power of pattern recognition</h2>
+
+      <p>
+        Each hexagon is a data point, but together they form a story about how
+        we live, build, and adapt.
+      </p>
+
+      <p>
+        The strength of H3 lies not only in precision but in perspective. It
+        allows managers, designers, citizens, and data specialists to see the
+        landscape through the same lens — whether they are searching for
+        opportunity, quality of life, or long-term resilience.
+      </p>
+
+      <p>
+        From data to dialogue. From hexagons to foresight. From maps that
+        describe the world to maps that help us shape it.
+      </p>
+    </section>
+
+    <section>
+      <h2>Try it yourself</h2>
+
+      <p>
+        Here is a public version of the Kepler.gl demo:
+        <a href="https://maps.mapsthatmatter.io/groundheight" target="_blank" rel="noopener">
+          open the interactive groundheight map
+        </a>.
+        If you explore it, I would love to hear what you notice, which patterns
+        reveal themselves, and how you might use this in your own decisions.
+      </p>
+    </section>
+  </main>
+</body>
+</html>
