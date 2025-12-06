@@ -113,6 +113,14 @@
       margin-bottom: 0.25rem;
     }
 
+    .full-width {
+        width: 100vw;
+        margin-left: calc(50% - 50vw);
+        margin-right: calc(50% - 50vw);
+        border: none;
+    }
+
+
     @media (min-width: 900px) {
       .page {
         padding-top: 3rem;
@@ -188,12 +196,12 @@
         hexagons, turns an abstract number into something intuitive:
       </p>
 
-      <div class="iframe-wrapper">
+      <div class="iframe-wrapper full-width">
         <iframe
           src="https://maps.mapsthatmatter.io/groundheight"
           height="800"
           loading="lazy"
-          title="Groundheight Kepler.gl map"
+          title="Groundheight map"
         ></iframe>
       </div>
 
@@ -304,12 +312,12 @@
         a single table.
       </p>
 
-      <div class="iframe-wrapper">
+      <div class="iframe-wrapper full-width">
         <iframe
           src="https://maps.mapsthatmatter.io/population-3d"
           height="800"
           loading="lazy"
-          title="Population 3D Kepler.gl map"
+          title="Population 3D map"
         ></iframe>
       </div>
     </section>
