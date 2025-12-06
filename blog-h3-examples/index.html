@@ -331,19 +331,25 @@
       </p>
 
       <p>
-        Imagine looking for a house in the province of the South-Holland, and the criteria you have are: 
-        1. Above sea-level by 0.3 m, I dont mind getting my feet wet, but anything above that is quite uncomfortable.
-        2. I dont want to build a new house, I want to know where there already are some houses.
-        3. I like my piece and quiet, meaning I want to live in an area below a certain level of background noise.
-        4. I don't want to live close to an area close to a toxic gas cloud attention area, so not in the vicinity of industrial area's. 
-        
-        This criteria can than be explored by simply typing:
-
-        <em>Where is the terrain higher than 30 centimeters above sea level (NAP), so the risk of flooding is smaller?
-        Where is there already an existing residential function, so where people are already allowed or able to live?
-        Where is it relatively quiet, with a noise level below 50 decibels (Lden)?
-        Where is it outside a toxic cloud attention area, meaning there is no increased risk in case of a chemical incident?</em>
+        Imagine looking for a house in the province of South-Holland. The criteria you have are:
       </p>
+
+      <ol>
+        <li>Above sea-level by at least 0.3 m. I don't mind getting my feet wet, but anything below that becomes uncomfortable.</li>
+        <li>I don't want to build a new house. I want to know where there are already existing houses.</li>
+        <li>I like my peace and quiet, meaning I want to live in an area below a certain level of background noise.</li>
+        <li>I don't want to live near a toxic gas cloud attention area, so not in the vicinity of industrial areas.</li>
+      </ol>
+
+      <p>This set of criteria can then be explored by simply typing:</p>
+
+      <ul>
+        <li><em>Where is the terrain higher than 30 centimeters above sea level (NAP), so the risk of flooding is smaller?</em></li>
+        <li><em>Where is there already an existing residential function, so where people are already allowed or able to live?</em></li>
+        <li><em>Where is it relatively quiet, with a noise level below 50 decibels (Lden)?</em></li>
+        <li><em>Where is it outside a toxic cloud attention area, meaning there is no increased risk in case of a chemical incident?</em></li>
+      </ul>
+
 
       <p>
         An LLM interprets these sentences, looks up what each field means, and
@@ -369,20 +375,25 @@
       <p>
         Imagine taking it one step further. Since we have the data of several years in the datacube, 
         we can even ask it temporal changes. So, suddenly a complex temporal change analysis becomes
-        a simple question in human language. For example, ask 
-        <em>“Where have the number of inhabitants decreased and where has the forest area increased 
+        a simple question in human language. 
+        
+        For example, ask: <em>“Where have the number of inhabitants decreased and where has the forest area increased 
         between 2018 and 2023?”</em> and the visualization shows you these area's. This is showing a 
-        trend analysis in a simple way. This might be a criteria as well when looking for a new house, 
-        as you might want to focus on an areas where the population is decreasing, but the forest area 
-        is increasing, as this might indicate a more quiet and green environment.
-      </p>
-      <div class="image-wrapper">
+        trend analysis in a simple way.
+      </p> 
+
+      <div class="image-wrapper full-width">
         <img 
         src="images/inhabitants_vs_forest_2018_2023.png" 
         alt="Inhabitants vs Forest correlation between 2018–2023" 
         style="width: 100%; height: auto; border-radius: 8px; border: 1px solid #ddd;"
         />
       </div>
+      <p>
+        This might be a criteria as well when looking for a new house, 
+        as you might want to focus on an areas where the population is decreasing, but the forest area 
+        is increasing, as this might indicate a more quiet and green environment.
+      </p>
     </section>
 
     <section>
