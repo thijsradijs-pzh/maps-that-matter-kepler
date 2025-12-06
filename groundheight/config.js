@@ -3,8 +3,8 @@ const VIZ_CONFIG = {
   
   // Basic info
   title: '🏔️ Ground Height Filter',
-  dataUrl: '/data/subset.csv',
-  h3Field: 'h3_id',
+  dataUrl: '/data/atlas_h3_subset.csv',
+  h3Field: 'h3',
   basemap: 'positron',
   
   // Initial view state
@@ -100,7 +100,7 @@ const VIZ_CONFIG = {
       data: data,
       extruded: true,
       elevationScale: 20,
-      getHexagon: d => d.h3_id,
+      getHexagon: d => d.h3,
 
       // Color based on ground height value with fixed thresholds
       getFillColor: d => {
