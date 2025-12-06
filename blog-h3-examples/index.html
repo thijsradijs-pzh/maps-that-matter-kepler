@@ -331,28 +331,24 @@
       </p>
 
       <p>
-        Imagine typing:
-        <em>“Show me safe and affordable neighbourhoods with schools within 1 km
-        and green space nearby.”</em>
+        Imagine looking for a house in the province of the South-Holland, and the criteria you have are: 
+        1. Above sea-level by 0.3 m, I dont mind getting my feet wet, but anything above that is quite uncomfortable.
+        2. I dont want to build a new house, I want to know where there already are some houses.
+        3. I like my piece and quiet, meaning I want to live in an area below a certain level of background noise.
+        4. I don't want to live close to an area close to a toxic gas cloud attention area, so not in the vicinity of industrial area's. 
+        
+        This criteria can than be explored by simply typing:
+
+        <em>Where is the terrain higher than 30 centimeters above sea level (NAP), so the risk of flooding is smaller?
+        Where is there already an existing residential function, so where people are already allowed or able to live?
+        Where is it relatively quiet, with a noise level below 50 decibels (Lden)?
+        Where is it outside a toxic cloud attention area, meaning there is no increased risk in case of a chemical incident?</em>
       </p>
 
       <p>
-        An LLM interprets this sentence, looks up what each field means, and
+        An LLM interprets these sentences, looks up what each field means, and
         translates it into a query on the H3 datacube. No SQL required. Just a
-        conversation with your map.
-      </p>
-
-      <p>
-        Ask <em>“What changed since 2018?”</em> or
-        <em>“Which municipalities improved most?”</em> and the visualization
-        updates.
-      </p>
-
-      <p>
-        This video of our tool at the Province of South-Holland shows a chat prompt on one side and a
-        map on the other which makes this interaction feel tangible. This works
-        because the data is described clearly enough for humans and machines to
-        understand it in the same way.
+        conversation with your map, as shown in the video below.
       </p>
       <div class="video-wrapper full-width">
         <video 
@@ -363,8 +359,30 @@
             loop
         ></video>
       </div>
+      <p>
+        This video of our tool at the Province of South-Holland shows a chat prompt on one side and a
+        map on the other which makes this interaction feel tangible. This works
+        because the data is described clearly enough for humans and machines to
+        understand it in the same way.
+      </p>
 
-
+      <p>
+        Imagine taking it one step further. Since we have the data of several years in the datacube, 
+        we can even ask it temporal changes. So, suddenly a complex temporal change analysis becomes
+        a simple question in human language. For example, ask 
+        <em>“Where have the number of inhabitants decreased and where has the forest area increased 
+        between 2018 and 2023?”</em> and the visualization shows you these area's. This is showing a 
+        trend analysis in a simple way. This might be a criteria as well when looking for a new house, 
+        as you might want to focus on an areas where the population is decreasing, but the forest area 
+        is increasing, as this might indicate a more quiet and green environment.
+      </p>
+      <div class="image-wrapper">
+        <img 
+        src="images/inhabitants_vs_forest_2018_2023.png" 
+        alt="Inhabitants vs Forest correlation between 2018–2023" 
+        style="width: 100%; height: auto; border-radius: 8px; border: 1px solid #ddd;"
+        />
+      </div>
     </section>
 
     <section>
