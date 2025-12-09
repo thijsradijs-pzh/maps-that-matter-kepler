@@ -5,18 +5,8 @@
   <title>Data Explorer (Parquet) – Maps That Matter</title>
   <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
   
-  <!-- DuckDB-WASM -->
+  <!-- Load DuckDB synchronously first -->
   <script src="https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser.js"></script>
-  
-  <!-- Visualization dependencies -->
-  <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
-  <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
-  
-  <!-- DuckDB loader utility -->
-  <script src="/shared/duckdb-loader.js"></script>
-  
-  <!-- Visualization config -->
-  <script src="/explorer-3d/config.js"></script>
   
   <style>
     body { 
@@ -161,7 +151,6 @@
       color: #7BCCC4;
     }
 
-    /* ========== CLICK TO ACTIVATE OVERLAY ========== */
     #map-overlay {
       position: absolute;
       top: 0;
@@ -242,7 +231,6 @@
       opacity: 1;
     }
 
-    /* ========== FULLSCREEN BUTTON ========== */
     #fullscreen-btn {
       padding: 4px 8px;
       font-size: 11px;
@@ -288,7 +276,6 @@
   
   <div id="controls" style="display:none;"></div>
 
-  <!-- Click to Activate Overlay -->
   <div id="map-overlay">
     <div id="map-overlay-content">
       <h2>🔍 Interactive Data Explorer</h2>
@@ -297,8 +284,122 @@
     </div>
   </div>
 
-  <!-- Re-activate hint -->
   <div id="reactivate-hint">Click to activate map</div>
+
+  <!-- Load other dependencies -->
+  <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
+  <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
+  
+  <script>
+    // Inline DuckDB loader to avoid loading issues
+    class DuckDBLoader {
+      constructor() {
+        this.db = null;
+        this.conn = null;
+      }
+
+      async waitForDuckDB(maxWaitMs = 10000) {
+        const startTime = Date.now();
+        
+        while (typeof duckdb === 'undefined') {
+          if (Date.now() - startTime > maxWaitMs) {
+            throw new Error('Timeout waiting for DuckDB library to load');
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        console.log('✅ DuckDB library loaded');
+      }
+
+      async initialize() {
+        if (this.db) return;
+
+        try {
+          console.log('🦆 Initializing DuckDB-WASM...');
+          
+          await this.waitForDuckDB();
+
+          const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
+          const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
+          
+          console.log('📦 Selected bundle:', bundle.mainModule.split('/').pop());
+          
+          const worker = new Worker(bundle.mainWorker);
+          const logger = new duckdb.ConsoleLogger();
+          
+          this.db = new duckdb.AsyncDuckDB(logger, worker);
+          await this.db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+          
+          this.conn = await this.db.connect();
+          
+          console.log('✅ DuckDB-WASM initialized successfully');
+        } catch (error) {
+          console.error('❌ Failed to initialize DuckDB:', error);
+          throw new Error(`DuckDB initialization failed: ${error.message}`);
+        }
+      }
+
+      async loadParquetFile(url, tableName = 'data') {
+        await this.initialize();
+
+        try {
+          console.log(`🦆 Loading Parquet file: ${url}`);
+          
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          const arrayBuffer = await response.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          
+          console.log(`📦 Downloaded ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(2)} MB`);
+          
+          await this.db.registerFileBuffer('data.parquet', uint8Array);
+          
+          console.log('📊 Parsing Parquet file...');
+          
+          await this.conn.query(`
+            CREATE OR REPLACE TABLE ${tableName} AS 
+            SELECT * FROM read_parquet('data.parquet')
+          `);
+          
+          const countResult = await this.conn.query(`SELECT COUNT(*) as count FROM ${tableName}`);
+          const rowCount = countResult.toArray()[0].count;
+          
+          console.log(`✅ Loaded ${rowCount.toLocaleString()} rows into table '${tableName}'`);
+          
+          return rowCount;
+        } catch (error) {
+          console.error('❌ Failed to load Parquet file:', error);
+          throw new Error(`Parquet loading failed: ${error.message}`);
+        }
+      }
+
+      async getAllData(tableName = 'data') {
+        console.log(`📖 Reading all data from table '${tableName}'...`);
+        const result = await this.conn.query(`SELECT * FROM ${tableName}`);
+        return result.toArray();
+      }
+
+      async close() {
+        if (this.conn) {
+          await this.conn.close();
+          this.conn = null;
+        }
+        if (this.db) {
+          await this.db.terminate();
+          this.db = null;
+        }
+        console.log('🦆 DuckDB connection closed');
+      }
+    }
+
+    window.DuckDBLoader = DuckDBLoader;
+  </script>
+  
+  <!-- Load config -->
+  <script src="/explorer-3d/config.js"></script>
 
   <script>
     // Main application
@@ -316,13 +417,11 @@
     let mapActive = false;
     let isFullscreen = false;
 
-    // Update loading progress
     function updateLoadingProgress(message) {
       const el = document.getElementById('loading-progress');
       if (el) el.textContent = message;
     }
 
-    // ========== MAP ACTIVATION FUNCTIONS ==========
     function activateMap() {
       mapActive = true;
       const overlay = document.getElementById('map-overlay');
@@ -351,7 +450,6 @@
       }, 2000);
     }
 
-    // ========== FULLSCREEN FUNCTIONS ==========
     function toggleFullscreen() {
       if (!isFullscreen) {
         enterFullscreen();
@@ -437,11 +535,9 @@
       });
     }
 
-    // Build controls HTML
     function buildControls() {
       let html = `<h3>${VIZ_CONFIG.title}</h3>`;
       
-      // Column selectors
       html += `
         <div class="control-group">
           <div class="control-label">📊 Height (Elevation)</div>
@@ -458,7 +554,6 @@
         </div>
       `;
       
-      // Year slider
       const yearFilter = VIZ_CONFIG.filters[0];
       html += `
         <div class="control-group">
@@ -481,13 +576,9 @@
         </div>
       `;
       
-      // Dynamic legend
       html += '<div class="legend" id="legend-container"></div>';
-      
-      // Stats
       html += '<div class="stats" id="stats"></div>';
 
-      // Button row
       html += `
         <div class="control-group button-row">
           <button id="toggle-rotation" style="padding: 4px 8px; font-size: 11px;">
@@ -505,7 +596,6 @@
       return html;
     }
 
-    // Build dropdown options
     function buildColumnOptions(selected) {
       let html = '';
       for (const groupKey in VIZ_CONFIG.columnGroups) {
@@ -520,7 +610,6 @@
       return html;
     }
 
-    // Update legend dynamically
     function updateLegend() {
       const container = document.getElementById('legend-container');
       if (!container) return;
@@ -558,7 +647,6 @@
       container.innerHTML = html;
     }
 
-    // Filter data
     function filterData() {
       return allData.filter(d => {
         const year = Math.round(d.year_int);
@@ -566,7 +654,6 @@
       });
     }
 
-    // Update statistics
     function updateStats(filteredData) {
       const statsEl = document.getElementById('stats');
       if (!statsEl) return;
@@ -574,7 +661,6 @@
       const heightLabel = VIZ_CONFIG.getColumnLabel(currentHeightColumn);
       const colorLabel = VIZ_CONFIG.getColumnLabel(currentColorColumn);
       
-      // Calculate stats
       const heightValues = filteredData.map(d => parseFloat(d[currentHeightColumn])).filter(v => !isNaN(v) && v > 0);
       const colorValues = filteredData.map(d => parseFloat(d[currentColorColumn])).filter(v => !isNaN(v) && v > 0);
       
@@ -590,7 +676,6 @@
       statsEl.innerHTML = html;
     }
 
-    // Create H3 layer
     function createH3Layer(config) {
       const {H3HexagonLayer} = deck;
       return new H3HexagonLayer({
@@ -605,7 +690,6 @@
       });
     }
 
-    // Create basemap
     function createBasemap(style = 'dark') {
       const {TileLayer} = deck;
       const styles = {
@@ -634,7 +718,6 @@
       });
     }
 
-    // Get layers
     function getLayers() {
       const filteredData = filterData();
       updateStats(filteredData);
@@ -647,7 +730,6 @@
       return layers;
     }
 
-    // Update visualization
     function updateVisualization() {
       if (deckInstance) {
         deckInstance.setProps({ 
@@ -658,7 +740,6 @@
       updateLegend();
     }
 
-    // Auto-rotation
     function startAutoRotate() {
       if (!deckInstance || rotationFrameId) return;
       const rotate = () => {
@@ -676,7 +757,6 @@
       rotationFrameId = null;
     }
 
-    // Set year
     function setYearFilter(value) {
       const slider = document.getElementById('year-slider');
       const display = document.getElementById('year-display');
@@ -689,9 +769,7 @@
       updateVisualization();
     }
 
-    // Setup controls
     function setupControls() {
-      // Year slider
       const slider = document.getElementById('year-slider');
       const display = document.getElementById('year-display');
       if (slider && display) {
@@ -704,7 +782,6 @@
         });
       }
 
-      // Column selectors
       document.getElementById('height-column').addEventListener('change', (e) => {
         currentHeightColumn = e.target.value;
         updateVisualization();
@@ -715,7 +792,6 @@
         updateVisualization();
       });
 
-      // Rotation
       const rotationBtn = document.getElementById('toggle-rotation');
       if (rotationBtn) {
         rotationBtn.addEventListener('click', () => {
@@ -729,13 +805,11 @@
         });
       }
 
-      // Fullscreen
       const fullscreenBtn = document.getElementById('fullscreen-btn');
       if (fullscreenBtn) {
         fullscreenBtn.addEventListener('click', toggleFullscreen);
       }
 
-      // Play button
       const playBtn = document.getElementById('play-year');
       if (playBtn) {
         playBtn.addEventListener('click', () => {
@@ -756,35 +830,29 @@
       }
     }
 
-    // Initialize
     async function init() {
       try {
         console.log('🚀 Starting Data Explorer with DuckDB + Parquet...');
         
-        // Initialize DuckDB
         updateLoadingProgress('Initializing DuckDB...');
         duckDBLoader = new DuckDBLoader();
         await duckDBLoader.initialize();
         
-        // Load Parquet file
         updateLoadingProgress('Loading Parquet file (11 MB)...');
         await duckDBLoader.loadParquetFile(VIZ_CONFIG.dataUrl);
         
-        // Get all data
         updateLoadingProgress('Reading data...');
         allData = await duckDBLoader.getAllData();
         
         console.log(`✅ Loaded ${allData.length.toLocaleString()} rows`);
         console.log(`✅ ${new Set(allData.map(d => d.h3_id)).size.toLocaleString()} unique H3 hexagons`);
         
-        // Build and show controls
         document.getElementById('controls').innerHTML = buildControls();
         document.getElementById('controls').style.display = 'block';
         setupControls();
         setupOverlay();
         updateLegend();
         
-        // Initialize deck.gl
         viewState = {...VIZ_CONFIG.initialView};
 
         deckInstance = new DeckGL({
@@ -807,11 +875,11 @@
         document.getElementById('loading').innerHTML = `
           <div>❌ Error Loading Data</div>
           <div style="font-size: 14px; margin-top: 10px; color: #ff6b6b;">${error.message}</div>
+          <div style="font-size: 12px; margin-top: 10px; color: #999;">Check browser console (F12) for details</div>
         `;
       }
     }
 
-    // Start
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', init);
     } else {
