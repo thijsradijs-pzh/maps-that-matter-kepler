@@ -1,11 +1,12 @@
-// config.js - Population Over Time (3D)
+// config.js - Population Visualization (3D with Time Series)
 const VIZ_CONFIG = {
   
   // Basic info
-  title: '🗺️ Population Over Time',
+  title: '👥 Population Over Time',
   dataUrl: '/data/subset.csv',
   h3Field: 'h3_id',
-  basemap: 'positron',
+  basemap: 'dark',
+  excludeEmpty: 'aantal_inwoners_sum',
   
   // Initial view state
   initialView: {
@@ -26,95 +27,112 @@ const VIZ_CONFIG = {
       min: 2018,
       max: 2023,
       step: 1,
-      default: 2022,
-      format: (val) => val,
-      filterFn: (d, val) => Math.round(d.year_int) === val
+      default: 2023,
+      format: (val) => val.toString(),
+      filterFn: (d, val) => {
+        return parseInt(d.year_int) === val;
+      }
     }
   ],
+  
+  // Tooltip configuration
+  tooltip: (d) => {
+    const pop = parseInt(d.aantal_inwoners_sum);
+    const year = parseInt(d.year_int);
+    const built = parseFloat(d.bebouwing_in_primair_bebouwd_gebied_fraction);
+    
+    return {
+      html: `
+        <div style="background: rgba(0, 0, 0, 0.9); color: white; padding: 12px; border-radius: 4px; box-shadow: 0 2px 12px rgba(0,0,0,0.3);">
+          <strong style="color: #7BCCC4;">Year:</strong> ${year}<br>
+          <strong style="color: #7BCCC4;">Population:</strong> ${pop.toLocaleString()}<br>
+          ${!isNaN(built) ? `<strong style="color: #7BCCC4;">Built Area:</strong> ${(built * 100).toFixed(1)}%` : ''}
+        </div>
+      `,
+      style: {
+        fontSize: '12px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      }
+    };
+  },
   
   // Legend configuration
   legend: [
     {
-      title: 'Color: Population (relative)',
+      title: 'Color: Population Density',
       items: [
-        { color: '#EFF6FF', label: 'Very low' },
-        { color: '#DEEBF7', label: 'Low' },
-        { color: '#C6DBEF', label: 'Medium' },
-        { color: '#6BAED6', label: 'High' },
-        { color: '#2171B5', label: 'Very high' }
+        { color: 'rgb(237, 248, 251)', label: 'Very low (< 10)' },
+        { color: 'rgb(204, 236, 230)', label: 'Low (10 - 50)' },
+        { color: 'rgb(153, 216, 201)', label: 'Medium (50 - 100)' },
+        { color: 'rgb(102, 194, 164)', label: 'High (100 - 200)' },
+        { color: 'rgb(44, 162, 95)', label: 'Very high (200 - 500)' },
+        { color: 'rgb(0, 109, 70)', label: 'Extremely high (> 500)' }
       ]
     },
     {
-      title: 'Height: Building Fraction',
-      description: 'Taller hexagons = relatively more built-up area'
+      title: 'Height: Population Count',
+      description: 'Taller hexagons = more people living in that area'
     }
   ],
   
-  // Statistics to display (narrative only, no raw numbers)
+  // Statistics to display
   stats: [
     {
-      label: 'About this view',
+      label: 'Visible hexagons',
       calculate: data => {
-        if (!data || data.length === 0) {
-          return null;
-        }
-        const sample = data[0];
-        const year = sample.year_int || sample.year || null;
-        return year;
+        if (!data || data.length === 0) return 0;
+        return data.length;
       },
-      format: year => {
-        if (!year) {
-          return (
-            'This map shows relative differences between hexagons. ' +
-            'Darker, taller hexagons indicate relatively higher values.'
-          );
-        }
-
-        return (
-          `This map shows relative differences between hexagons in ${year}. ` +
-          'Darker, taller hexagons indicate relatively higher values.'
-        );
-      }
+      format: count => count.toLocaleString()
+    },
+    {
+      label: 'Total population',
+      calculate: data => {
+        if (!data || data.length === 0) return 0;
+        return data.reduce((sum, d) => sum + (parseInt(d.aantal_inwoners_sum) || 0), 0);
+      },
+      format: total => total.toLocaleString()
+    },
+    {
+      label: 'Average per hexagon',
+      calculate: data => {
+        if (!data || data.length === 0) return 0;
+        const total = data.reduce((sum, d) => sum + (parseInt(d.aantal_inwoners_sum) || 0), 0);
+        return total / data.length;
+      },
+      format: avg => Math.round(avg).toLocaleString()
     }
   ],
   
   // Layer creation function
   createLayer: (data, filters) => {
-    // Helper: does this hex have *any* signal?
-    const hasAnyValue = (d) => {
-      const pop = d.aantal_inwoners_sum || 0;
-      const beb = d.bebouwing_in_primair_bebouwd_gebied_fraction || 0;
-      return pop > 0 || beb > 0;
-    };
-
     return {
       id: 'population-3d',
       data: data,
       extruded: true,
-      elevationScale: 1000,
+      elevationScale: 50,
       getHexagon: d => d.h3_id,
 
-      // If both values 0 → fully transparent
-      // Use subtle blue ramp tuned for Positron
+      // Color based on population density with gradient
       getFillColor: d => {
-        if (!hasAnyValue(d)) return [0, 0, 0, 0];  // rgba, alpha = 0
-
-        const pop = d.aantal_inwoners_sum || 0;
-        const v = Math.max(0, Math.min(255, pop)); // clamp 0–255
-
-        if (v < 5)   return [239, 246, 255];  // very very light
-        if (v < 25)   return [222, 235, 247];
-        if (v < 55)   return [198, 219, 239];
-        if (v < 100)  return [158, 202, 225];
-        if (v < 165)  return [107, 174, 214];
-        return [33, 113, 181];                 // darkest, still not screaming
+        const pop = parseInt(d.aantal_inwoners_sum);
+        if (isNaN(pop) || pop === 0) return [0, 0, 0, 0];
+        
+        // Graduated color scale for population
+        if (pop < 10)   return [237, 248, 251, 180];  // very light
+        if (pop < 50)   return [204, 236, 230, 200];  // light
+        if (pop < 100)  return [153, 216, 201, 220];  // medium-light
+        if (pop < 200)  return [102, 194, 164, 240];  // medium
+        if (pop < 500)  return [44, 162, 95, 255];    // dark
+        return [0, 109, 70, 255];                      // darkest
       },
 
-      // If both 0 → flat
+      // Height based on population count
       getElevation: d => {
-        if (!hasAnyValue(d)) return 0;
-        return (d.bebouwing_in_primair_bebouwd_gebied_fraction || 0) * 0.01;
-        // elevationScale above will make this visible
+        const pop = parseInt(d.aantal_inwoners_sum);
+        if (isNaN(pop)) return 0;
+        // Use log scale for better visualization of varying population sizes
+        return Math.log10(pop + 1) * 100;
       }
     };
   }
