@@ -33,9 +33,69 @@
       color: var(--text);
     }
 
-    .page {
-      max-width: var(--max-width);
+    .container {
+      display: flex;
+      max-width: 1200px;
       margin: 0 auto;
+      position: relative;
+    }
+
+    /* Table of Contents */
+    .toc-wrapper {
+      flex: 0 0 240px;
+      padding: 2.5rem 1rem 4rem 1.25rem;
+    }
+
+    .toc {
+      position: sticky;
+      top: 2rem;
+    }
+
+    .toc-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin: 0 0 1rem;
+    }
+
+    .toc-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .toc-list li {
+      margin-bottom: 0.5rem;
+    }
+
+    .toc-list a {
+      display: block;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      padding: 0.25rem 0;
+      border-left: 2px solid transparent;
+      padding-left: 0.75rem;
+      transition: all 0.2s ease;
+    }
+
+    .toc-list a:hover {
+      color: var(--accent);
+      border-left-color: var(--accent);
+    }
+
+    .toc-list a.active {
+      color: var(--accent);
+      border-left-color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* Main Content */
+    .page {
+      flex: 1;
+      max-width: var(--max-width);
       padding: 2.5rem 1.25rem 4rem;
     }
 
@@ -56,6 +116,7 @@
       font-size: 1.4rem;
       line-height: 1.4;
       color: var(--accent);
+      scroll-margin-top: 2rem;
     }
 
     h3 {
@@ -85,14 +146,20 @@
       opacity: 0.85;
     }
 
-    .iframe-wrapper {
-      margin: 1.5rem 0 2rem;
+    /* Media containers - now with reasonable width */
+    .iframe-wrapper,
+    .video-wrapper,
+    .image-wrapper {
+      margin: 1.5rem auto 2rem;
+      max-width: 900px;
       border-radius: 8px;
       overflow: hidden;
       border: 1px solid var(--border);
     }
 
-    iframe {
+    iframe,
+    video,
+    .image-wrapper img {
       display: block;
       width: 100%;
       border: 0;
@@ -109,393 +176,462 @@
       padding: 0;
     }
 
+    ol {
+      margin: 0 0 1rem 1.2rem;
+      padding: 0;
+    }
+
     li {
       margin-bottom: 0.25rem;
     }
 
-    .full-width {
-        width: 100vw;
-        margin-left: calc(50% - 50vw);
-        margin-right: calc(50% - 50vw);
-        border: none;
-    }
+    /* Responsive Design */
+    @media (max-width: 1024px) {
+      .toc-wrapper {
+        display: none;
+      }
 
+      .container {
+        display: block;
+      }
+
+      .page {
+        max-width: 100%;
+        margin: 0 auto;
+      }
+    }
 
     @media (min-width: 900px) {
       .page {
         padding-top: 3rem;
       }
     }
+
+    /* Smooth scrolling */
+    html {
+      scroll-behavior: smooth;
+    }
   </style>
 </head>
 <body>
-  <main class="page">
-    <header>
-      <h1>From Hexagons to Foresight</h1>
-      <p class="lead">
-        Not everything can fit everywhere, all the time, all at once, but Gerard Reve certainly made a good attempt at it 🫏
-      </p>
-    </header>
+  <div class="container">
+    <!-- Table of Contents -->
+    <aside class="toc-wrapper">
+      <nav class="toc">
+        <div class="toc-title">Contents</div>
+        <ul class="toc-list">
+          <li><a href="#honeycomb">The honeycomb that makes data talk</a></li>
+          <li><a href="#one-map">Step 1 – One map, one story</a></li>
+          <li><a href="#time-travel">Step 2 – When one layer isn't enough</a></li>
+          <li><a href="#talking">Step 3 – Talking to your data</a></li>
+          <li><a href="#predictions">Step 4 – From patterns to predictions</a></li>
+          <li><a href="#explore">Step 5 – Play, explore, decide</a></li>
+          <li><a href="#looking-ahead">Step 6 – Looking ahead</a></li>
+          <li><a href="#final">Final thought</a></li>
+          <li><a href="#try">Try it yourself</a></li>
+        </ul>
+      </nav>
+    </aside>
 
-    <section>
-      <p>
-        You might remember in my previous blog,
-        <em>From Chaos to Clarity</em>, when we turned messy datasets into a
-        single, structured foundation — a spatial datacube that finally made
-        sense of all those CSVs, shapefiles, and spreadsheets.
-      </p>
+    <!-- Main Content -->
+    <main class="page">
+      <header>
+        <h1>From Hexagons to Foresight</h1>
+        <p class="lead">
+          Not everything can fit everywhere, all the time, all at once, but Gerard Reve certainly made a good attempt at it 🫏
+        </p>
+      </header>
 
-      <p>
-        Now that the data is clean and connected, the next question is:
-        <strong>What can we actually see when everything speaks the same
-        spatial language?</strong>
-      </p>
+      <section>
+        <p>
+          You might remember in my previous blog,
+          <em>From Chaos to Clarity</em>, when we turned messy datasets into a
+          single, structured foundation — a spatial datacube that finally made
+          sense of all those CSVs, shapefiles, and spreadsheets.
+        </p>
 
-      <p>That’s where H3 comes in.</p>
-    </section>
+        <p>
+          Now that the data is clean and connected, the next question is:
+          <strong>What can we actually see when everything speaks the same
+          spatial language?</strong>
+        </p>
 
-    <section>
-      <h2>The honeycomb that makes data talk</h2>
+        <p>That's where H3 comes in.</p>
+      </section>
 
-      <p>
-        H3 divides the world into a honeycomb of hexagons, each one
-        representing an equal slice of the Earth’s surface. Whether you’re
-        looking at housing prices, noise levels, flood risk, or biodiversity,
-        each dataset aligns perfectly on the same grid.
-      </p>
+      <section>
+        <h2 id="honeycomb">The honeycomb that makes data talk</h2>
 
-      <p>
-        It turns chaotic maps into something more like building blocks. Once
-        everything fits, we can start constructing meaning, not just
-        visualizations.
-      </p>
-    </section>
+        <p>
+          H3 divides the world into a honeycomb of hexagons, each one
+          representing an equal slice of the Earth's surface. Whether you're
+          looking at housing prices, noise levels, flood risk, or biodiversity,
+          each dataset aligns perfectly on the same grid.
+        </p>
 
-    <section>
-      <h2>Step 1 – One map, one story</h2>
+        <p>
+          It turns chaotic maps into something more like building blocks. Once
+          everything fits, we can start constructing meaning, not just
+          visualizations.
+        </p>
+      </section>
 
-      <p>Let’s start simple.</p>
+      <section>
+        <h2 id="one-map">Step 1 – One map, one story</h2>
 
-      <p>
-        Take one indicator from the datacube — <strong>groundheight</strong>,
-        the height above sea level. Visualized through H3, each hexagon tells
-        you how high (or low) the land sits relative to NAP.
-      </p>
+        <p>Let's start simple.</p>
 
-      <p>
-        A map like this immediately shows why the Dutch saying
-        <em>“God created the world, but the Dutch created the Netherlands”</em>
-        is more than a cliché. Much of the country lies below sea level, yet we
-        live, build, and cycle there safely thanks to centuries of design and
-        engineering.
-      </p>
+        <p>
+          Take one indicator from the datacube — <strong>groundheight</strong>,
+          the height above sea level. Visualized through H3, each hexagon tells
+          you how high (or low) the land sits relative to NAP.
+        </p>
 
-      <p>
-        An interactive map of groundheight, or a short video zooming across the
-        hexagons, turns an abstract number into something intuitive:
-      </p>
+        <p>
+          A map like this immediately shows why the Dutch saying
+          <em>"God created the world, but the Dutch created the Netherlands"</em>
+          is more than a cliché. Much of the country lies below sea level, yet we
+          live, build, and cycle there safely thanks to centuries of design and
+          engineering.
+        </p>
 
-      <div class="iframe-wrapper full-width">
-        <iframe
-          src="https://maps.mapsthatmatter.io/groundheight"
-          height="800"
-          loading="lazy"
-          title="Groundheight map"
-        ></iframe>
-      </div>
+        <p>
+          An interactive map of groundheight, or a short video zooming across the
+          hexagons, turns an abstract number into something intuitive:
+        </p>
 
-      <p>
-        This is the first step in developing spatial literacy: making data feel
-        real.
-      </p>
-    </section>
+        <div class="iframe-wrapper">
+          <iframe
+            src="https://maps.mapsthatmatter.io/groundheight"
+            height="800"
+            loading="lazy"
+            title="Groundheight map"
+          ></iframe>
+        </div>
 
-    <section>
-      <h2>Step 2 – When one layer isn’t enough: travelling through time</h2>
+        <p>
+          This is the first step in developing spatial literacy: making data feel
+          real.
+        </p>
+      </section>
 
-      <p>
-        To understand how areas change, a single snapshot is rarely enough.
-        This is where H3 becomes especially powerful: because every hexagon is
-        tracked over multiple years, we can explore spatial change as a kind of
-        time travel.
-      </p>
+      <section>
+        <h2 id="time-travel">Step 2 – When one layer isn't enough: travelling through time</h2>
 
-      <h3>A small detour: what happens when you compare landcover with people?</h3>
+        <p>
+          To understand how areas change, a single snapshot is rarely enough.
+          This is where H3 becomes especially powerful: because every hexagon is
+          tracked over multiple years, we can explore spatial change as a kind of
+          time travel.
+        </p>
 
-      <p>
-        While exploring the datacube, I ran a quick correlation check between
-        landcover (LGN) and demographic indicators (CBS). As expected, the
-        positive correlations brought no surprises. Places with more built-up
-        area tend to have:
-      </p>
+        <h3>A small detour: what happens when you compare landcover with people?</h3>
 
-      <ul>
-        <li>more inhabitants (r ≈ 0.79)</li>
-        <li>more men and women (r ≈ 0.79)</li>
-        <li>more households (r ≈ 0.78)</li>
-        <li>more housing (r ≈ 0.78)</li>
-      </ul>
+        <p>
+          While exploring the datacube, I ran a quick correlation check between
+          landcover (LGN) and demographic indicators (CBS). As expected, the
+          positive correlations brought no surprises. Places with more built-up
+          area tend to have:
+        </p>
 
-      <p>
-        In other words: where you build more, more people live. Nothing
-        shocking.
-      </p>
+        <ul>
+          <li>more inhabitants (r ≈ 0.79)</li>
+          <li>more men and women (r ≈ 0.79)</li>
+          <li>more households (r ≈ 0.78)</li>
+          <li>more housing (r ≈ 0.78)</li>
+        </ul>
 
-      <p>
-        The negative correlations, however, revealed something more unexpected —
-        and unintentionally funny.
-      </p>
+        <p>
+          In other words: where you build more, more people live. Nothing
+          shocking.
+        </p>
 
-      <p>
-        The strongest negative relationships appear between
-        <strong>agrarisch grasland</strong> (agricultural grassland) and almost
-        every demographic variable. For example:
-      </p>
+        <p>
+          The negative correlations, however, revealed something more unexpected —
+          and unintentionally funny.
+        </p>
 
-      <ul>
-        <li>fewer women (r ≈ –0.43)</li>
-        <li>fewer total inhabitants (r ≈ –0.43)</li>
-        <li>fewer men (r ≈ –0.42)</li>
-        <li>fewer households (r ≈ –0.40)</li>
-      </ul>
+        <p>
+          The strongest negative relationships appear between
+          <strong>agrarisch grasland</strong> (agricultural grassland) and almost
+          every demographic variable. For example:
+        </p>
 
-      <p>
-        In plain language: the more agricultural grass a hexagon contains, the
-        fewer women (and people in general) live there.
-      </p>
+        <ul>
+          <li>fewer women (r ≈ –0.43)</li>
+          <li>fewer total inhabitants (r ≈ –0.43)</li>
+          <li>fewer men (r ≈ –0.42)</li>
+          <li>fewer households (r ≈ –0.40)</li>
+        </ul>
 
-      <p>
-        A perfectly logical spatial pattern… but also the exact data-driven
-        explanation for the existence of the TV show
-        <em>“Boer zoekt Vrouw”</em> (“Farmer seeks a wife”).
-      </p>
+        <p>
+          In plain language: the more agricultural grass a hexagon contains, the
+          fewer women (and people in general) live there.
+        </p>
 
-      <p>
-        According to the hexagons, farmers quite literally live in places where
-        there are statistically fewer women — a demographic phenomenon neatly
-        confirmed by Pearson’s r.
-      </p>
+        <p>
+          A perfectly logical spatial pattern… but also the exact data-driven
+          explanation for the existence of the TV show
+          <em>"Boer zoekt Vrouw"</em> ("Farmer seeks a wife").
+        </p>
 
-      <p>Spatial analysis, it turns out, sometimes comes with its own punchline.</p>
+        <p>
+          According to the hexagons, farmers quite literally live in places where
+          there are statistically fewer women — a demographic phenomenon neatly
+          confirmed by Pearson's r.
+        </p>
 
-      <h3>Time travel on the Maasvlakte</h3>
+        <p>Spatial analysis, it turns out, sometimes comes with its own punchline.</p>
 
-      <p>
-        The second interactive example shows temporal change beautifully. Built-up
-        area is visualised in 3D height, while the colour shows the number of
-        inhabitants. By moving the year slider, you can watch neighbourhoods
-        grow, densify, or shift in character over time.
-      </p>
+        <h3>Time travel on the Maasvlakte</h3>
 
-      <p>
-        A striking example appears on the <strong>Maasvlakte in Rotterdam</strong>.
-        Slide the timeline to <strong>2022</strong> and you will see tall blocks
-        of built-up area — yet the hexagons remain dark in colour, indicating
-        zero inhabitants. At first glance this looks like a data error, but it
-        is not. What you are seeing is the moment when newly created land was
-        developed for industrial use, not residential living. The map makes the
-        transformation visible: a landscape that didn’t exist a decade ago
-        becomes a major industrial extension of the port, without adding new
-        population.
-      </p>
+        <p>
+          The second interactive example shows temporal change beautifully. Built-up
+          area is visualised in 3D height, while the colour shows the number of
+          inhabitants. By moving the year slider, you can watch neighbourhoods
+          grow, densify, or shift in character over time.
+        </p>
 
-      <p>
-        This is the strength of hexagon-based time travel: the map shows not
-        just where things are, but how and when they appeared.
-      </p>
+        <p>
+          A striking example appears on the <strong>Maasvlakte in Rotterdam</strong>.
+          Slide the timeline to <strong>2022</strong> and you will see tall blocks
+          of built-up area — yet the hexagons remain dark in colour, indicating
+          zero inhabitants. At first glance this looks like a data error, but it
+          is not. What you are seeing is the moment when newly created land was
+          developed for industrial use, not residential living. The map makes the
+          transformation visible: a landscape that didn't exist a decade ago
+          becomes a major industrial extension of the port, without adding new
+          population.
+        </p>
 
-      <p>
-        This interactive map makes this intuitive even for non-technical audiences. Changing
-        the year slider tells a story in seconds — urban expansion, industrial
-        growth, and changing spatial footprints become visible without reading
-        a single table.
-      </p>
+        <p>
+          This is the strength of hexagon-based time travel: the map shows not
+          just where things are, but how and when they appeared.
+        </p>
 
-      <div class="iframe-wrapper full-width">
-        <iframe
-          src="https://maps.mapsthatmatter.io/population-3d"
-          height="800"
-          loading="lazy"
-          title="Population 3D map"
-        ></iframe>
-      </div>
-    </section>
+        <p>
+          This interactive map makes this intuitive even for non-technical audiences. Changing
+          the year slider tells a story in seconds — urban expansion, industrial
+          growth, and changing spatial footprints become visible without reading
+          a single table.
+        </p>
 
-    <section>
-      <h2>Step 3 – Talking to your data</h2>
+        <div class="iframe-wrapper">
+          <iframe
+            src="https://maps.mapsthatmatter.io/population-3d"
+            height="800"
+            loading="lazy"
+            title="Population 3D map"
+          ></iframe>
+        </div>
+      </section>
 
-      <p>
-        Once the metadata is structured and described in JSON, something
-        interesting becomes possible: the data becomes conversational.
-      </p>
+      <section>
+        <h2 id="talking">Step 3 – Talking to your data</h2>
 
-      <p>
-        Imagine looking for a house in the province of South-Holland. The criteria you have are:
-      </p>
+        <p>
+          Once the metadata is structured and described in JSON, something
+          interesting becomes possible: the data becomes conversational.
+        </p>
 
-      <ul>
-        <li>Above sea-level by at least 0.3 m. I don't mind getting my feet wet, but anything below that becomes uncomfortable.</li>
-        <li>I don't want to build a new house. I want to know where there are already existing houses.</li>
-        <li>I like my peace and quiet, meaning I want to live in an area below a certain level of background noise.</li>
-        <li>I don't want to live near a toxic gas cloud attention area, so not in the vicinity of industrial areas.</li>
-      </u>
+        <p>
+          Imagine looking for a house in the province of South-Holland. The criteria you have are:
+        </p>
 
-      <p>This set of criteria can then be explored by simply typing:</p>
+        <ul>
+          <li>Above sea-level by at least 0.3 m. I don't mind getting my feet wet, but anything below that becomes uncomfortable.</li>
+          <li>I don't want to build a new house. I want to know where there are already existing houses.</li>
+          <li>I like my peace and quiet, meaning I want to live in an area below a certain level of background noise.</li>
+          <li>I don't want to live near a toxic gas cloud attention area, so not in the vicinity of industrial areas.</li>
+        </ul>
 
-      <ol>
-        <li><em>Where is the terrain higher than 30 centimeters above sea level (NAP), so the risk of flooding is smaller?</em></li>
-        <li><em>Where is there already an existing residential function, so where people are already allowed or able to live?</em></li>
-        <li><em>Where is it relatively quiet, with a noise level below 50 decibels (Lden)?</em></li>
-        <li><em>Where is it outside a toxic cloud attention area, meaning there is no increased risk in case of a chemical incident?</em></li>
-      </ol>
+        <p>This set of criteria can then be explored by simply typing:</p>
 
+        <ol>
+          <li><em>Where is the terrain higher than 30 centimeters above sea level (NAP), so the risk of flooding is smaller?</em></li>
+          <li><em>Where is there already an existing residential function, so where people are already allowed or able to live?</em></li>
+          <li><em>Where is it relatively quiet, with a noise level below 50 decibels (Lden)?</em></li>
+          <li><em>Where is it outside a toxic cloud attention area, meaning there is no increased risk in case of a chemical incident?</em></li>
+        </ol>
 
-      <p>
-        An LLM interprets these sentences, looks up what each field means, and
-        translates it into a query on the H3 datacube. No SQL required. Just a
-        conversation with your map, as shown in the video below.
-      </p>
-      <div class="video-wrapper full-width">
-        <video 
-            src="videos/llm_example_housing.mp4"
-            controls 
-            autoplay 
-            muted 
-            loop
-        ></video>
-      </div>
-      <p>
-        This video of our tool at the Province of South-Holland shows a chat prompt on one side and a
-        map on the other which makes this interaction feel tangible. This works
-        because the data is described clearly enough for humans and machines to
-        understand it in the same way.
-      </p>
-
-      <p>
-        Imagine taking it one step further. Since we have the data of several years in the datacube, 
-        we can even ask it temporal changes. So, suddenly a complex temporal change analysis becomes
-        a simple question in human language. 
+        <p>
+          An LLM interprets these sentences, looks up what each field means, and
+          translates it into a query on the H3 datacube. No SQL required. Just a
+          conversation with your map, as shown in the video below.
+        </p>
         
-        For example, ask: <em>“Where have the number of inhabitants decreased and where has the forest area increased 
-        between 2018 and 2023?”</em> and the visualization shows you these area's. This is showing a 
-        trend analysis in a simple way.
-      </p> 
+        <div class="video-wrapper">
+          <video 
+              src="videos/llm_example_housing.mp4"
+              controls 
+              autoplay 
+              muted 
+              loop
+          ></video>
+        </div>
+        
+        <p>
+          This video of our tool at the Province of South-Holland shows a chat prompt on one side and a
+          map on the other which makes this interaction feel tangible. This works
+          because the data is described clearly enough for humans and machines to
+          understand it in the same way.
+        </p>
 
-      <div class="image-wrapper full-width">
-        <img 
-        src="images/inhabitants_vs_forest_2018_2023.png" 
-        alt="Inhabitants vs Forest correlation between 2018–2023" 
-        style="width: 100%; height: auto; border-radius: 8px; border: 1px solid #ddd;"
-        />
-      </div>
-      <p>
-        This might be a criteria as well when looking for a new house, 
-        as you might want to focus on an areas where the population is decreasing, but the forest area 
-        is increasing, as this might indicate a more quiet and green environment.
-      </p>
-    </section>
+        <p>
+          Imagine taking it one step further. Since we have the data of several years in the datacube, 
+          we can even ask it temporal changes. So, suddenly a complex temporal change analysis becomes
+          a simple question in human language. 
+          
+          For example, ask: <em>"Where have the number of inhabitants decreased and where has the forest area increased 
+          between 2018 and 2023?"</em> and the visualization shows you these area's. This is showing a 
+          trend analysis in a simple way.
+        </p> 
 
-    <section>
-      <h2>Step 4 – From patterns to predictions</h2>
+        <div class="image-wrapper">
+          <img 
+          src="images/inhabitants_vs_forest_2018_2023.png" 
+          alt="Inhabitants vs Forest correlation between 2018–2023" 
+          />
+        </div>
+        
+        <p>
+          This might be a criteria as well when looking for a new house, 
+          as you might want to focus on an areas where the population is decreasing, but the forest area 
+          is increasing, as this might indicate a more quiet and green environment.
+        </p>
+      </section>
 
-      <p>
-        The dataset spans 2018 to 2023, which means each hexagon contains a
-        small timeline. Plotting these values — for example, average WOZ value
-        or number of new homes — reveals how regions have evolved. Some areas
-        densify, others stabilize, some shift slowly without anyone noticing.
-      </p>
+      <section>
+        <h2 id="predictions">Step 4 – From patterns to predictions</h2>
 
-      <p>
-        Even simple trend analysis allows us to project where growth, pressure,
-        or risk may increase if these patterns continue. These are not perfect
-        forecasts, but they provide foresight.
-      </p>
+        <p>
+          The dataset spans 2018 to 2023, which means each hexagon contains a
+          small timeline. Plotting these values — for example, average WOZ value
+          or number of new homes — reveals how regions have evolved. Some areas
+          densify, others stabilize, some shift slowly without anyone noticing.
+        </p>
 
-      <p>
-        An animated interactive timelapse showing the rise in WOZ values or
-        changes in population density makes these trajectories visible. Once you
-        see how areas evolve, the conversation moves from “what happened?” to
-        “what should we prepare for?”
-      </p>
-    </section>
+        <p>
+          Even simple trend analysis allows us to project where growth, pressure,
+          or risk may increase if these patterns continue. These are not perfect
+          forecasts, but they provide foresight.
+        </p>
 
-    <section>
-      <h2>Step 5 – Play, explore, decide</h2>
+        <p>
+          An animated interactive timelapse showing the rise in WOZ values or
+          changes in population density makes these trajectories visible. Once you
+          see how areas evolve, the conversation moves from "what happened?" to
+          "what should we prepare for?"
+        </p>
+      </section>
 
-      <p>
-        You do not need specialist software to explore these patterns. An
-        interactive dashboard works directly in the browser.
-      </p>
+      <section>
+        <h2 id="explore">Step 5 – Play, explore, decide</h2>
 
-      <p>
-        In workshops, even non-technical teams immediately begin asking sharper
-        questions. Someone invariably points at the map and says:
-        <em>“So that’s why those two areas feel so different.”</em>
-      </p>
+        <p>
+          You do not need specialist software to explore these patterns. An
+          interactive dashboard works directly in the browser.
+        </p>
 
-      <p>
-        This is exactly the point: spatial data should be intuitive. A simple
-        interactive map with sliders for year, WOZ value, or noise level
-        invites managers and policymakers to explore and experiment.
-      </p>
+        <p>
+          In workshops, even non-technical teams immediately begin asking sharper
+          questions. Someone invariably points at the map and says:
+          <em>"So that's why those two areas feel so different."</em>
+        </p>
 
-      <p>
-        Including an embedded interactive dashboard in this blog gives readers the
-        chance to hover over their neighbourhood and discover which hexagons
-        surprise them.
-      </p>
-    </section>
+        <p>
+          This is exactly the point: spatial data should be intuitive. A simple
+          interactive map with sliders for year, WOZ value, or noise level
+          invites managers and policymakers to explore and experiment.
+        </p>
 
-    <section>
-      <h2>Step 6 – Looking ahead</h2>
+        <p>
+          Including an embedded interactive dashboard in this blog gives readers the
+          chance to hover over their neighbourhood and discover which hexagons
+          surprise them.
+        </p>
+      </section>
 
-      <p>
-        This is only the beginning. In the next blog, I will explore how the
-        same H3 grid can connect to real-time data streams such as satellite
-        imagery, weather sensors, or biodiversity indicators.
-      </p>
+      <section>
+        <h2 id="looking-ahead">Step 6 – Looking ahead</h2>
 
-      <p>
-        When datasets share the same spatial language, collaboration becomes far
-        easier. Maps stop being static reports and start functioning as shared
-        interfaces for conversation and decision-making.
-      </p>
-    </section>
+        <p>
+          This is only the beginning. In the next blog, I will explore how the
+          same H3 grid can connect to real-time data streams such as satellite
+          imagery, weather sensors, or biodiversity indicators.
+        </p>
 
-    <section>
-      <h2>Final thought: the power of pattern recognition</h2>
+        <p>
+          When datasets share the same spatial language, collaboration becomes far
+          easier. Maps stop being static reports and start functioning as shared
+          interfaces for conversation and decision-making.
+        </p>
+      </section>
 
-      <p>
-        Each hexagon is a data point, but together they form a story about how
-        we live, build, and adapt.
-      </p>
+      <section>
+        <h2 id="final">Final thought: the power of pattern recognition</h2>
 
-      <p>
-        The strength of H3 lies not only in precision but in perspective. It
-        allows managers, designers, citizens, and data specialists to see the
-        landscape through the same lens — whether they are searching for
-        opportunity, quality of life, or long-term resilience.
-      </p>
+        <p>
+          Each hexagon is a data point, but together they form a story about how
+          we live, build, and adapt.
+        </p>
 
-      <p>
-        From data to dialogue. From hexagons to foresight. From maps that
-        describe the world to maps that help us shape it.
-      </p>
-    </section>
+        <p>
+          The strength of H3 lies not only in precision but in perspective. It
+          allows managers, designers, citizens, and data specialists to see the
+          landscape through the same lens — whether they are searching for
+          opportunity, quality of life, or long-term resilience.
+        </p>
 
-    <section>
-      <h2>Try it yourself</h2>
+        <p>
+          From data to dialogue. From hexagons to foresight. From maps that
+          describe the world to maps that help us shape it.
+        </p>
+      </section>
 
-      <p>
-        For the more data savvy people amongst you, the first version of the datacube with all landcover, demographic, climate data and municipality names from 2018 to 2023 is available
-        <a href="https://github.com/thijsradijs-pzh/maps-that-matter-kepler/blob/main/data/volledige_tijdreeks_met_namen.parquet"> here as a parquet file </a>.
-        Download that, and upload it to: <a href="https://kepler-preview.foursquare.com/" target="_blank" rel="noopener">
-          kepler and duckDB.
-        </a>.
-        If you explore it, I would love to hear what you notice, which patterns
-        reveal themselves, and how you might use this in your own decisions.
-      </p>
-    </section>
-  </main>
+      <section>
+        <h2 id="try">Try it yourself</h2>
+
+        <p>
+          For the more data savvy people amongst you, the first version of the datacube with all landcover, demographic, climate data and municipality names from 2018 to 2023 is available
+          <a href="https://github.com/thijsradijs-pzh/maps-that-matter-kepler/blob/main/data/volledige_tijdreeks_met_namen.parquet"> here as a parquet file </a>.
+          Download that, and upload it to: <a href="https://kepler-preview.foursquare.com/" target="_blank" rel="noopener">
+            kepler and duckDB.
+          </a>.
+          If you explore it, I would love to hear what you notice, which patterns
+          reveal themselves, and how you might use this in your own decisions.
+        </p>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // Highlight active section in TOC
+    const sections = document.querySelectorAll('h2[id]');
+    const tocLinks = document.querySelectorAll('.toc-list a');
+
+    function highlightTOC() {
+      let current = '';
+      
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        const scrollPos = window.scrollY + 100;
+        
+        if (scrollPos >= sectionTop) {
+          current = section.getAttribute('id');
+        }
+      });
+
+      tocLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === '#' + current) {
+          link.classList.add('active');
+        }
+      });
+    }
+
+    window.addEventListener('scroll', highlightTOC);
+    highlightTOC(); // Call on load
+  </script>
 </body>
 </html>
