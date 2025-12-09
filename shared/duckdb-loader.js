@@ -1,4 +1,4 @@
-// duckdb-loader.js - DuckDB WASM utility for loading Parquet files
+// duckdb-loader.js - Simplified DuckDB WASM utility for loading Parquet files
 
 class DuckDBLoader {
   constructor() {
@@ -12,30 +12,26 @@ class DuckDBLoader {
     try {
       console.log('🦆 Initializing DuckDB-WASM...');
       
-      // Import DuckDB-WASM bundle
-      const DUCKDB_BUNDLES = {
-        mvp: {
-          mainModule: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-mvp.wasm',
-          mainWorker: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser-mvp.worker.js',
-        },
-        eh: {
-          mainModule: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-eh.wasm',
-          mainWorker: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser-eh.worker.js',
-        },
-      };
+      // Wait for DuckDB to be available
+      if (typeof duckdb === 'undefined') {
+        throw new Error('DuckDB library not loaded. Make sure duckdb-browser.js is loaded before this script.');
+      }
 
-      // Select bundle based on browser capabilities
-      const bundle = await duckdb.selectBundle(DUCKDB_BUNDLES);
+      // Use the manual bundle configuration
+      const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
+      
+      // Select appropriate bundle for browser
+      const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
       
       // Create worker
       const worker = new Worker(bundle.mainWorker);
       
-      // Initialize logger (minimal logging)
-      const logger = new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING);
+      // Create logger (minimal logging)
+      const logger = new duckdb.ConsoleLogger();
       
-      // Create database
+      // Create database instance
       this.db = new duckdb.AsyncDuckDB(logger, worker);
-      await this.db.instantiate(bundle.mainModule);
+      await this.db.instantiate(bundle.mainModule, bundle.pthreadWorker);
       
       // Create connection
       this.conn = await this.db.connect();
@@ -62,7 +58,7 @@ class DuckDBLoader {
       const arrayBuffer = await response.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
       
-      console.log(`📦 Loaded ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(2)} MB`);
+      console.log(`📦 Downloaded ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(2)} MB`);
       
       // Register file with DuckDB
       await this.db.registerFileBuffer('data.parquet', uint8Array);
@@ -98,15 +94,6 @@ class DuckDBLoader {
       console.error('❌ Query failed:', error);
       throw new Error(`Query failed: ${error.message}`);
     }
-  }
-
-  async getDataForYear(year, tableName = 'data') {
-    const sql = `
-      SELECT * 
-      FROM ${tableName} 
-      WHERE year_int = ${year}
-    `;
-    return await this.query(sql);
   }
 
   async getAllData(tableName = 'data') {
