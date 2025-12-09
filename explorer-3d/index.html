@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset='utf-8' />
+  <title>Data Explorer (Parquet) – Maps That Matter</title>
+  <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+  
+  <!-- DuckDB-WASM -->
+  <script src="https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser-blocking.js"></script>
+  
+  <!-- Visualization dependencies -->
+  <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
+  <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
+  
+  <!-- DuckDB loader utility -->
+  <script src="/shared/duckdb-loader.js"></script>
+  
+  <!-- Visualization config -->
+  <script src="/explorer-3d/config.js"></script>
+  
+  <style>
+    body { 
+      margin: 0; 
+      padding: 0; 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+    }
+    
+    #container { 
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      background: #0a0a0a;
+    }
+    
+    #controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+      z-index: 1;
+      max-width: 320px;
+      max-height: calc(100vh - 80px);
+      overflow-y: auto;
+    }
+    
+    #controls h3 {
+      margin: 0 0 15px 0;
+      font-size: 16px;
+      color: #333;
+    }
+    
+    .control-group {
+      margin: 15px 0;
+    }
+    
+    .control-label {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+    
+    input[type="range"] {
+      width: 100%;
+      margin: 10px 0;
+    }
+    
+    select {
+      width: 100%;
+      padding: 6px 8px;
+      font-size: 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: white;
+      cursor: pointer;
+    }
+    
+    select:hover {
+      border-color: #43A2CA;
+    }
+    
+    select:focus {
+      outline: none;
+      border-color: #43A2CA;
+      box-shadow: 0 0 0 2px rgba(67, 162, 202, 0.1);
+    }
+    
+    .value-display {
+      font-size: 28px;
+      font-weight: bold;
+      color: #0066cc;
+      margin: 10px 0;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+    
+    .value-display.updating {
+      transform: scale(1.1);
+      color: #0080ff;
+    }
+    
+    .legend {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #ddd;
+    }
+    
+    .legend-title {
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 8px;
+      color: #666;
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin: 5px 0;
+      font-size: 11px;
+    }
+    
+    .legend-color {
+      width: 20px;
+      height: 12px;
+      margin-right: 8px;
+      border-radius: 2px;
+    }
+    
+    .stats {
+      font-size: 12px;
+      color: #333;
+      margin-top: 15px;
+      padding: 12px;
+      background: #f8f8f8;
+      border-radius: 4px;
+      line-height: 1.8;
+    }
+    
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.9);
+      color: white;
+      padding: 30px 50px;
+      border-radius: 8px;
+      font-size: 16px;
+      z-index: 2;
+      text-align: center;
+      min-width: 300px;
+    }
+    
+    #loading-progress {
+      margin-top: 15px;
+      font-size: 14px;
+      color: #7BCCC4;
+    }
+
+    /* ========== CLICK TO ACTIVATE OVERLAY ========== */
+    #map-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(3px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      cursor: pointer;
+      transition: opacity 0.3s ease;
+    }
+
+    #map-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #map-overlay-content {
+      background: white;
+      padding: 30px 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+      text-align: center;
+      max-width: 400px;
+    }
+
+    #map-overlay h2 {
+      margin: 0 0 10px 0;
+      font-size: 24px;
+      color: #333;
+    }
+
+    #map-overlay p {
+      margin: 0 0 20px 0;
+      color: #666;
+      font-size: 14px;
+    }
+
+    #activate-btn {
+      background: #43A2CA;
+      color: white;
+      border: none;
+      padding: 12px 32px;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    #activate-btn:hover {
+      background: #357CA0;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(67, 162, 202, 0.3);
+    }
+
+    #reactivate-hint {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-size: 14px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 998;
+    }
+
+    #reactivate-hint.show {
+      opacity: 1;
+    }
+
+    /* ========== FULLSCREEN BUTTON ========== */
+    #fullscreen-btn {
+      padding: 4px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+    }
+
+    #fullscreen-btn:hover {
+      background: #f5f5f5;
+      border-color: #43A2CA;
+      color: #43A2CA;
+    }
+
+    #fullscreen-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .button-row button {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  
+  <div id="loading">
+    <div>🦆 Loading data with DuckDB...</div>
+    <div id="loading-progress">Initializing...</div>
+  </div>
+  
+  <div id="controls" style="display:none;"></div>
+
+  <!-- Click to Activate Overlay -->
+  <div id="map-overlay">
+    <div id="map-overlay-content">
+      <h2>🔍 Interactive Data Explorer</h2>
+      <p>Explore population, housing, land use, and environmental data over time</p>
+      <button id="activate-btn">Activate Map</button>
+    </div>
+  </div>
+
+  <!-- Re-activate hint -->
+  <div id="reactivate-hint">Click to activate map</div>
+
+  <script>
+    // Main application
+    const {DeckGL} = deck;
+    
+    let deckInstance;
+    let duckDBLoader;
+    let allData = [];
+    let currentFilters = { year: VIZ_CONFIG.defaults.year };
+    let currentHeightColumn = VIZ_CONFIG.defaults.heightColumn;
+    let currentColorColumn = VIZ_CONFIG.defaults.colorColumn;
+    let viewState = null;
+    let rotationFrameId = null;
+    let yearPlayInterval = null;
+    let mapActive = false;
+    let isFullscreen = false;
+
+    // Update loading progress
+    function updateLoadingProgress(message) {
+      const el = document.getElementById('loading-progress');
+      if (el) el.textContent = message;
+    }
+
+    // ========== MAP ACTIVATION FUNCTIONS ==========
+    function activateMap() {
+      mapActive = true;
+      const overlay = document.getElementById('map-overlay');
+      overlay.classList.add('hidden');
+      
+      if (deckInstance) {
+        deckInstance.setProps({ controller: true });
+      }
+    }
+
+    function deactivateMap() {
+      mapActive = false;
+      const overlay = document.getElementById('map-overlay');
+      overlay.classList.remove('hidden');
+      
+      if (deckInstance) {
+        deckInstance.setProps({ controller: false });
+      }
+    }
+
+    function showReactivateHint() {
+      const hint = document.getElementById('reactivate-hint');
+      hint.classList.add('show');
+      setTimeout(() => {
+        hint.classList.remove('show');
+      }, 2000);
+    }
+
+    // ========== FULLSCREEN FUNCTIONS ==========
+    function toggleFullscreen() {
+      if (!isFullscreen) {
+        enterFullscreen();
+      } else {
+        exitFullscreen();
+      }
+    }
+
+    function enterFullscreen() {
+      const container = document.getElementById('container');
+      if (container.requestFullscreen) {
+        container.requestFullscreen();
+      } else if (container.webkitRequestFullscreen) {
+        container.webkitRequestFullscreen();
+      } else if (container.mozRequestFullScreen) {
+        container.mozRequestFullScreen();
+      } else if (container.msRequestFullscreen) {
+        container.msRequestFullscreen();
+      }
+    }
+
+    function exitFullscreen() {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.mozCancelFullScreen) {
+        document.mozCancelFullScreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
+    }
+
+    document.addEventListener('fullscreenchange', updateFullscreenButton);
+    document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+    document.addEventListener('mozfullscreenchange', updateFullscreenButton);
+    document.addEventListener('MSFullscreenChange', updateFullscreenButton);
+
+    function updateFullscreenButton() {
+      isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || 
+                        document.mozFullScreenElement || document.msFullscreenElement);
+      
+      const btn = document.getElementById('fullscreen-btn');
+      if (btn) {
+        btn.innerHTML = isFullscreen ? 
+          `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> Exit` :
+          `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg> Fullscreen`;
+      }
+      
+      document.body.classList.toggle('fullscreen', isFullscreen);
+    }
+
+    function setupOverlay() {
+      const activateBtn = document.getElementById('activate-btn');
+      const overlay = document.getElementById('map-overlay');
+      
+      activateBtn.addEventListener('click', activateMap);
+      
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          activateMap();
+        }
+      });
+      
+      const container = document.getElementById('container');
+      container.addEventListener('wheel', (e) => {
+        if (!mapActive) {
+          e.preventDefault();
+          showReactivateHint();
+        }
+      }, { passive: false });
+      
+      container.addEventListener('mousedown', (e) => {
+        if (!mapActive && !e.target.closest('#controls')) {
+          showReactivateHint();
+        }
+      });
+      
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && mapActive && !isFullscreen) {
+          deactivateMap();
+        }
+      });
+    }
+
+    // Build controls HTML
+    function buildControls() {
+      let html = `<h3>${VIZ_CONFIG.title}</h3>`;
+      
+      // Column selectors
+      html += `
+        <div class="control-group">
+          <div class="control-label">📊 Height (Elevation)</div>
+          <select id="height-column">
+            ${buildColumnOptions(currentHeightColumn)}
+          </select>
+        </div>
+        
+        <div class="control-group">
+          <div class="control-label">🎨 Color</div>
+          <select id="color-column">
+            ${buildColumnOptions(currentColorColumn)}
+          </select>
+        </div>
+      `;
+      
+      // Year slider
+      const yearFilter = VIZ_CONFIG.filters[0];
+      html += `
+        <div class="control-group">
+          <div class="value-display" id="year-display">${yearFilter.default}</div>
+          <input type="range" 
+                 id="year-slider" 
+                 min="${yearFilter.min}" 
+                 max="${yearFilter.max}" 
+                 step="${yearFilter.step}" 
+                 value="${yearFilter.default}">
+          <div style="display: flex; justify-content: space-between; font-size: 11px; color: #666;">
+            <span>${yearFilter.min}</span>
+            <span>${yearFilter.max}</span>
+          </div>
+          <div style="margin-top: 6px;">
+            <button id="play-year" style="padding: 4px 8px; font-size: 11px;">
+              ▶ Play
+            </button>
+          </div>
+        </div>
+      `;
+      
+      // Dynamic legend
+      html += '<div class="legend" id="legend-container"></div>';
+      
+      // Stats
+      html += '<div class="stats" id="stats"></div>';
+
+      // Button row
+      html += `
+        <div class="control-group button-row">
+          <button id="toggle-rotation" style="padding: 4px 8px; font-size: 11px;">
+            ▶ Auto-rotate
+          </button>
+          <button id="fullscreen-btn">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+            </svg>
+            Fullscreen
+          </button>
+        </div>
+      `;
+
+      return html;
+    }
+
+    // Build dropdown options
+    function buildColumnOptions(selected) {
+      let html = '';
+      for (const groupKey in VIZ_CONFIG.columnGroups) {
+        const group = VIZ_CONFIG.columnGroups[groupKey];
+        html += `<optgroup label="${group.label}">`;
+        group.columns.forEach(col => {
+          const isSelected = col.value === selected ? 'selected' : '';
+          html += `<option value="${col.value}" ${isSelected}>${col.label}</option>`;
+        });
+        html += '</optgroup>';
+      }
+      return html;
+    }
+
+    // Update legend dynamically
+    function updateLegend() {
+      const container = document.getElementById('legend-container');
+      if (!container) return;
+      
+      const heightLabel = VIZ_CONFIG.getColumnLabel(currentHeightColumn);
+      const colorLabel = VIZ_CONFIG.getColumnLabel(currentColorColumn);
+      
+      let html = `
+        <div class="legend-title">Color: ${colorLabel}</div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: rgb(237, 248, 251);"></div>
+          <span>Lowest values</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: rgb(179, 205, 227);"></div>
+          <span>Below average</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: rgb(140, 150, 198);"></div>
+          <span>Average</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: rgb(136, 86, 167);"></div>
+          <span>Above average</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: rgb(129, 15, 124);"></div>
+          <span>Highest values</span>
+        </div>
+        <div style="font-size: 10px; color: #666; margin-top: 8px;">
+          <strong>Height:</strong> ${heightLabel}
+        </div>
+      `;
+      
+      container.innerHTML = html;
+    }
+
+    // Filter data
+    function filterData() {
+      return allData.filter(d => {
+        const year = Math.round(d.year_int);
+        return year === currentFilters.year;
+      });
+    }
+
+    // Update statistics
+    function updateStats(filteredData) {
+      const statsEl = document.getElementById('stats');
+      if (!statsEl) return;
+      
+      const heightLabel = VIZ_CONFIG.getColumnLabel(currentHeightColumn);
+      const colorLabel = VIZ_CONFIG.getColumnLabel(currentColorColumn);
+      
+      // Calculate stats
+      const heightValues = filteredData.map(d => parseFloat(d[currentHeightColumn])).filter(v => !isNaN(v) && v > 0);
+      const colorValues = filteredData.map(d => parseFloat(d[currentColorColumn])).filter(v => !isNaN(v) && v > 0);
+      
+      const avgHeight = heightValues.length > 0 ? heightValues.reduce((a,b) => a+b, 0) / heightValues.length : 0;
+      const avgColor = colorValues.length > 0 ? colorValues.reduce((a,b) => a+b, 0) / colorValues.length : 0;
+      
+      let html = `
+        <strong>Hexagons:</strong> <span>${filteredData.length.toLocaleString()}</span><br>
+        <strong>Avg ${heightLabel}:</strong> <span>${avgHeight.toFixed(2)}</span><br>
+        <strong>Avg ${colorLabel}:</strong> <span>${avgColor.toFixed(2)}</span>
+      `;
+      
+      statsEl.innerHTML = html;
+    }
+
+    // Create H3 layer
+    function createH3Layer(config) {
+      const {H3HexagonLayer} = deck;
+      return new H3HexagonLayer({
+        id: config.id,
+        data: config.data,
+        getHexagon: config.getHexagon,
+        getFillColor: config.getFillColor,
+        getElevation: config.getElevation,
+        extruded: config.extruded !== false,
+        elevationScale: config.elevationScale || 1,
+        pickable: true,
+      });
+    }
+
+    // Create basemap
+    function createBasemap(style = 'dark') {
+      const {TileLayer} = deck;
+      const styles = {
+        dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+        positron: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      };
+      
+      return new TileLayer({
+        id: 'basemap',
+        data: styles[style] || styles.dark,
+        minZoom: 0,
+        maxZoom: 19,
+        tileSize: 256,
+        renderSubLayers: props => {
+          const {BitmapLayer} = deck;
+          const {
+            bbox: {west, south, east, north}
+          } = props.tile;
+          
+          return new BitmapLayer(props, {
+            data: null,
+            image: props.data,
+            bounds: [west, south, east, north]
+          });
+        }
+      });
+    }
+
+    // Get layers
+    function getLayers() {
+      const filteredData = filterData();
+      updateStats(filteredData);
+      
+      const layers = [createBasemap(VIZ_CONFIG.basemap)];
+      
+      const layerConfig = VIZ_CONFIG.createLayer(filteredData, currentFilters, currentHeightColumn, currentColorColumn);
+      layers.push(createH3Layer(layerConfig));
+      
+      return layers;
+    }
+
+    // Update visualization
+    function updateVisualization() {
+      if (deckInstance) {
+        deckInstance.setProps({ 
+          layers: getLayers(),
+          getTooltip: VIZ_CONFIG.createTooltip(currentHeightColumn, currentColorColumn)
+        });
+      }
+      updateLegend();
+    }
+
+    // Auto-rotation
+    function startAutoRotate() {
+      if (!deckInstance || rotationFrameId) return;
+      const rotate = () => {
+        const bearing = (viewState?.bearing ?? 0) + 0.1;
+        viewState = { ...viewState, bearing };
+        deckInstance.setProps({viewState});
+        rotationFrameId = requestAnimationFrame(rotate);
+      };
+      rotationFrameId = requestAnimationFrame(rotate);
+    }
+
+    function stopAutoRotate() {
+      if (!rotationFrameId) return;
+      cancelAnimationFrame(rotationFrameId);
+      rotationFrameId = null;
+    }
+
+    // Set year
+    function setYearFilter(value) {
+      const slider = document.getElementById('year-slider');
+      const display = document.getElementById('year-display');
+      if (!slider || !display) return;
+      slider.value = value;
+      currentFilters.year = value;
+      display.classList.add('updating');
+      display.textContent = value;
+      setTimeout(() => display.classList.remove('updating'), 300);
+      updateVisualization();
+    }
+
+    // Setup controls
+    function setupControls() {
+      // Year slider
+      const slider = document.getElementById('year-slider');
+      const display = document.getElementById('year-display');
+      if (slider && display) {
+        slider.addEventListener('input', (e) => {
+          currentFilters.year = parseInt(e.target.value);
+          display.classList.add('updating');
+          display.textContent = currentFilters.year;
+          setTimeout(() => display.classList.remove('updating'), 300);
+          updateVisualization();
+        });
+      }
+
+      // Column selectors
+      document.getElementById('height-column').addEventListener('change', (e) => {
+        currentHeightColumn = e.target.value;
+        updateVisualization();
+      });
+      
+      document.getElementById('color-column').addEventListener('change', (e) => {
+        currentColorColumn = e.target.value;
+        updateVisualization();
+      });
+
+      // Rotation
+      const rotationBtn = document.getElementById('toggle-rotation');
+      if (rotationBtn) {
+        rotationBtn.addEventListener('click', () => {
+          if (rotationFrameId) {
+            stopAutoRotate();
+            rotationBtn.textContent = '▶ Auto-rotate';
+          } else {
+            startAutoRotate();
+            rotationBtn.textContent = '⏸ Stop rotation';
+          }
+        });
+      }
+
+      // Fullscreen
+      const fullscreenBtn = document.getElementById('fullscreen-btn');
+      if (fullscreenBtn) {
+        fullscreenBtn.addEventListener('click', toggleFullscreen);
+      }
+
+      // Play button
+      const playBtn = document.getElementById('play-year');
+      if (playBtn) {
+        playBtn.addEventListener('click', () => {
+          if (yearPlayInterval) {
+            clearInterval(yearPlayInterval);
+            yearPlayInterval = null;
+            playBtn.textContent = '▶ Play';
+            return;
+          }
+          let current = currentFilters.year;
+          playBtn.textContent = '⏸ Pause';
+          yearPlayInterval = setInterval(() => {
+            current = current + 1;
+            if (current > 2023) current = 2018;
+            setYearFilter(current);
+          }, 600);
+        });
+      }
+    }
+
+    // Initialize
+    async function init() {
+      try {
+        console.log('🚀 Starting Data Explorer with DuckDB + Parquet...');
+        
+        // Initialize DuckDB
+        updateLoadingProgress('Initializing DuckDB...');
+        duckDBLoader = new DuckDBLoader();
+        await duckDBLoader.initialize();
+        
+        // Load Parquet file
+        updateLoadingProgress('Loading Parquet file (11 MB)...');
+        await duckDBLoader.loadParquetFile(VIZ_CONFIG.dataUrl);
+        
+        // Get all data
+        updateLoadingProgress('Reading data...');
+        allData = await duckDBLoader.getAllData();
+        
+        console.log(`✅ Loaded ${allData.length.toLocaleString()} rows`);
+        console.log(`✅ ${new Set(allData.map(d => d.h3_id)).size.toLocaleString()} unique H3 hexagons`);
+        
+        // Build and show controls
+        document.getElementById('controls').innerHTML = buildControls();
+        document.getElementById('controls').style.display = 'block';
+        setupControls();
+        setupOverlay();
+        updateLegend();
+        
+        // Initialize deck.gl
+        viewState = {...VIZ_CONFIG.initialView};
+
+        deckInstance = new DeckGL({
+          container: 'container',
+          initialViewState: VIZ_CONFIG.initialView,
+          viewState,
+          controller: false,
+          layers: getLayers(),
+          onViewStateChange: ({viewState: vs}) => {
+            viewState = vs;
+            deckInstance.setProps({viewState});
+          },
+          getTooltip: VIZ_CONFIG.createTooltip(currentHeightColumn, currentColorColumn)
+        });
+
+        document.getElementById('loading').style.display = 'none';
+        console.log('🎉 Visualization ready!');
+      } catch (error) {
+        console.error('❌ Error:', error);
+        document.getElementById('loading').innerHTML = `
+          <div>❌ Error Loading Data</div>
+          <div style="font-size: 14px; margin-top: 10px; color: #ff6b6b;">${error.message}</div>
+        `;
+      }
+    }
+
+    // Start
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>
