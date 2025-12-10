@@ -827,16 +827,40 @@
   </div>
 
   <script>
-    // Reading Progress Bar
+    // ---------- Plausible helpers & scroll depth state ----------
+    const scrollMilestones = { 25: false, 50: false, 75: false, 100: false };
+    let readCompleteSent = false;
+  
+    function track(eventName, props) {
+      if (window.plausible) {
+        window.plausible(eventName, { props: props || {} });
+      }
+    }
+  
+    // Reading Progress Bar + Scroll Depth
     function updateProgressBar() {
       const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
       const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
       const scrolled = (winScroll / height) * 100;
       document.getElementById('progressBar').style.width = scrolled + '%';
+  
+      // Scroll depth milestones: 25%, 50%, 75%, 100%
+      [25, 50, 75, 100].forEach((m) => {
+        if (!scrollMilestones[m] && scrolled >= m) {
+          scrollMilestones[m] = true;
+          track('scroll_depth', { percent: m });
+        }
+      });
+  
+      // Consider 95%+ as "article read"
+      if (!readCompleteSent && scrolled >= 95) {
+        readCompleteSent = true;
+        track('article_read_complete');
+      }
     }
-
+  
     window.addEventListener('scroll', updateProgressBar);
-
+  
     // Calculate Read Time (approximation based on word count)
     function calculateReadTime() {
       const text = document.querySelector('.page').innerText;
@@ -845,13 +869,13 @@
       const readTime = Math.ceil(wordCount / wordsPerMinute);
       document.getElementById('readTime').textContent = readTime + ' min read';
     }
-
+  
     calculateReadTime();
-
+  
     // Highlight active section in TOC
     const sections = document.querySelectorAll('h2[id]');
     const tocLinks = document.querySelectorAll('.toc-list a');
-
+  
     function highlightTOC() {
       let current = '';
       
@@ -863,7 +887,7 @@
           current = section.getAttribute('id');
         }
       });
-
+  
       tocLinks.forEach(link => {
         link.classList.remove('active');
         if (link.getAttribute('href') === '#' + current) {
@@ -871,33 +895,33 @@
         }
       });
     }
-
+  
     window.addEventListener('scroll', highlightTOC);
     highlightTOC();
-
+  
     // Social Sharing Functions
     const currentUrl = encodeURIComponent(window.location.href);
     const title = encodeURIComponent(document.title);
-
+  
     function setupShareButtons(prefix = '') {
       // Twitter/X
       document.getElementById('shareTwitter' + prefix).addEventListener('click', (e) => {
         e.preventDefault();
         window.open(`https://twitter.com/intent/tweet?url=${currentUrl}&text=${title}`, '_blank', 'width=550,height=420');
       });
-
+  
       // LinkedIn
       document.getElementById('shareLinkedIn' + prefix).addEventListener('click', (e) => {
         e.preventDefault();
         window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${currentUrl}`, '_blank', 'width=550,height=420');
       });
-
+  
       // Email
       document.getElementById('shareEmail' + prefix).addEventListener('click', (e) => {
         e.preventDefault();
         window.location.href = `mailto:?subject=${title}&body=Check out this article: ${currentUrl}`;
       });
-
+  
       // Copy Link
       document.getElementById('copyLink' + prefix).addEventListener('click', (e) => {
         e.preventDefault();
@@ -915,11 +939,12 @@
         });
       });
     }
-
+  
     // Setup desktop share buttons
     setupShareButtons('');
     // Setup mobile share buttons
     setupShareButtons('Mobile');
   </script>
+
 </body>
 </html>
