@@ -40,6 +40,21 @@
       position: relative;
       background: #0a0a0a;
     }
+
+    #fullscreen-wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* When in fullscreen, ensure wrapper takes full space */
+    #fullscreen-wrapper:fullscreen,
+    #fullscreen-wrapper:-webkit-full-screen,
+    #fullscreen-wrapper:-moz-full-screen,
+    #fullscreen-wrapper:-ms-fullscreen {
+      width: 100vw;
+      height: 100vh;
+    }
     
     #controls {
       position: absolute;
@@ -266,21 +281,24 @@
   </style>
 </head>
 <body>
-  <div id="container"></div>
-  <div id="loading">Loading data...</div>
-  <div id="controls" style="display:none;"></div>
+  <!-- Wrapper for fullscreen functionality -->
+  <div id="fullscreen-wrapper">
+    <div id="container"></div>
+    <div id="loading">Loading data...</div>
+    <div id="controls" style="display:none;"></div>
 
-  <!-- Click to Activate Overlay -->
-  <div id="map-overlay">
-    <div id="map-overlay-content">
-      <h2>🗺️ Interactive Map</h2>
-      <p>Click to activate the map and start exploring</p>
-      <button id="activate-btn">Activate Map</button>
+    <!-- Click to Activate Overlay -->
+    <div id="map-overlay">
+      <div id="map-overlay-content">
+        <h2>🗺️ Interactive Map</h2>
+        <p>Click to activate the map and start exploring</p>
+        <button id="activate-btn">Activate Map</button>
+      </div>
     </div>
-  </div>
 
-  <!-- Re-activate hint -->
-  <div id="reactivate-hint">Click to activate map</div>
+    <!-- Re-activate hint -->
+    <div id="reactivate-hint">Click to activate map</div>
+  </div>
 
   <script>
     // Main application
@@ -341,15 +359,15 @@
     }
 
     function enterFullscreen() {
-      const container = document.getElementById('container');
-      if (container.requestFullscreen) {
-        container.requestFullscreen();
-      } else if (container.webkitRequestFullscreen) {
-        container.webkitRequestFullscreen();
-      } else if (container.mozRequestFullScreen) {
-        container.mozRequestFullScreen();
-      } else if (container.msRequestFullscreen) {
-        container.msRequestFullscreen();
+      const wrapper = document.getElementById('fullscreen-wrapper');
+      if (wrapper.requestFullscreen) {
+        wrapper.requestFullscreen();
+      } else if (wrapper.webkitRequestFullscreen) {
+        wrapper.webkitRequestFullscreen();
+      } else if (wrapper.mozRequestFullScreen) {
+        wrapper.mozRequestFullScreen();
+      } else if (wrapper.msRequestFullscreen) {
+        wrapper.msRequestFullscreen();
       }
     }
 
