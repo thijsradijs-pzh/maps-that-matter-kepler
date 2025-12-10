@@ -2,7 +2,7 @@
 const VIZ_CONFIG = {
   
   // Basic info
-  title: '🗺️ Population Over Time',
+  title: '🗺️ Population vs Built-up Over Time',
   dataUrl: '/data/subset.csv',
   h3Field: 'h3_id',
   basemap: 'positron',
