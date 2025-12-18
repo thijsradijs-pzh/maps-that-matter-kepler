@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset='utf-8' />
+  <title>Stacked MCA Map</title>
+  <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+  
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
+  <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
+  <script src="/shared/deckgl-utils.js"></script>
+  <script src="config.js"></script>
+  
+  <style>
+    body { margin: 0; padding: 0; font-family: sans-serif; overflow: hidden; background: #0a0a0a; }
+    #container { width: 100vw; height: 100vh; position: relative; }
+    #map-overlay {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px);
+      display: flex; align-items: center; justify-content: center; z-index: 999;
+    }
+    #map-overlay.hidden { opacity: 0; pointer-events: none; }
+    #map-overlay-content { background: white; padding: 40px; border-radius: 12px; text-align: center; }
+    #controls {
+      position: absolute; top: 20px; left: 20px; background: white;
+      padding: 20px; border-radius: 8px; z-index: 1; width: 280px; max-height: 80vh; overflow-y: auto;
+    }
+    .control-group { margin: 15px 0; border-bottom: 1px solid #eee; padding-bottom: 10px;}
+    .value-display { font-size: 18px; font-weight: bold; color: #43A2CA; float: right; }
+    input[type="range"] { width: 100%; margin-top: 5px; }
+    #loading { position: absolute; top: 50%; left: 50%; color: white; transform: translate(-50%, -50%); }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  <div id="map-overlay">
+    <div id="map-overlay-content">
+      <h2>📊 Stacked Bar MCA</h2>
+      <p>Criteria contributions are visualized as segments in each hexagon.</p>
+      <button id="activate-btn" style="padding: 10px 20px; cursor: pointer; background: #43A2CA; color: white; border: none; border-radius: 4px;">Activate Map</button>
+    </div>
+  </div>
+  <div id="loading">Loading data...</div>
+  <div id="controls" style="display:none;"></div>
+
+  <script>
+    const {DeckGL} = deck;
+    let deckInstance, allData = [], currentWeights = {};
+
+    VIZ_CONFIG.filters.forEach(f => currentWeights[f.key] = f.default);
+
+    function buildControls() {
+      let html = `<h3 style="margin-top:0">${VIZ_CONFIG.title}</h3>`;
+      VIZ_CONFIG.filters.forEach(f => {
+        html += `
+          <div class="control-group">
+            <label style="font-size:12px; font-weight:bold;">${f.label}</label>
+            <span class="value-display" id="${f.key}-display">${f.default}</span>
+            <input type="range" id="${f.key}-slider" min="${f.min}" max="${f.max}" step="${f.step}" value="${f.default}">
+          </div>`;
+      });
+      return html;
+    }
+
+    function renderLayers() {
+      if (!deckInstance) return;
+      // Get the array of layer configs from config.js
+      const layerConfigs = VIZ_CONFIG.createLayer(allData, currentWeights);
+      
+      // Create actual deck.gl layers for each config
+      const vizLayers = layerConfigs.map(config => DeckGLUtils.createH3Layer(config));
+      
+      deckInstance.setProps({
+        layers: [
+          DeckGLUtils.createBasemap(VIZ_CONFIG.basemap),
+          ...vizLayers // Spread the array of viz layers
+        ]
+      });
+    }
+
+    async function init() {
+      try {
+        allData = await DeckGLUtils.loadCSV(VIZ_CONFIG.dataUrl);
+        document.getElementById('controls').innerHTML = buildControls();
+        document.getElementById('controls').style.display = 'block';
+
+        VIZ_CONFIG.filters.forEach(f => {
+          document.getElementById(`${f.key}-slider`).addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            currentWeights[f.key] = val;
+            document.getElementById(`${f.key}-display`).textContent = val;
+            renderLayers();
+          });
+        });
+
+        deckInstance = new DeckGL({
+          container: 'container',
+          initialViewState: VIZ_CONFIG.initialView,
+          controller: false,
+          layers: [],
+          getTooltip: (info) => VIZ_CONFIG.tooltip(info)
+        });
+
+        document.getElementById('activate-btn').onclick = () => {
+          document.getElementById('map-overlay').classList.add('hidden');
+          deckInstance.setProps({ controller: true });
+          renderLayers();
+        };
+        document.getElementById('loading').style.display = 'none';
+      } catch (e) { console.error(e); }
+    }
+    init();
+  </script>
+</body>
+</html>
