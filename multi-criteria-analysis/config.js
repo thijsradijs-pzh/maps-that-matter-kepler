@@ -3,7 +3,7 @@ const VIZ_CONFIG = {
   title: '📊 Stacked MCA Analysis',
   dataUrl: '/data/h3_binary_matrix.csv', 
   h3Field: 'h3',
-  basemap: 'dark',
+  basemap: 'positron',
   
   initialView: {
     longitude: 4.48, latitude: 51.90, zoom: 9.5, pitch: 55, bearing: 10
