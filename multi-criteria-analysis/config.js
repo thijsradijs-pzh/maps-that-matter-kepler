@@ -24,8 +24,7 @@ const VIZ_CONFIG = {
     { key: 'w_boerenlandvogels', label: 'Boerenlandvogels Weight', min: 0, max: 10, step: 1, default: 2 },
     { key: 'w_peilgebieden', label: 'Peilgebieden Weight', min: 0, max: 10, step: 1, default: 2 }
   ],
-
-  createLayer: (data, weights) => {
+createLayer: (data, weights) => {
     return VIZ_CONFIG.criteria.map((c, index) => {
       return {
         id: `mca-stack-${index}`,
@@ -35,15 +34,21 @@ const VIZ_CONFIG = {
         elevationScale: 150,
         getHexagon: d => d.h3,
         
-        // 1. VIBRANT COLORS: Use full alpha (255) for solid appearance
-        getFillColor: [...c.color, 100],
+        // 1. DYNAMIC RADIUS (The Fix)
+        // Each layer is slightly thinner than the one below it.
+        // This prevents "muddy" overlapping sides and creates a "nested" look.
+        coverage: 0.95 - (index * 0.12), 
 
-        // 2. BORDER FRAME: Enable wireframe and set a subtle white border
+        // 2. CONSISTENT OPACITY
+        // We use a slightly higher alpha so colors remain vibrant.
+        getFillColor: [...c.color, 210], 
+
+        // 3. SUBTLE WIREFRAME
+        // Helps define the "rings" or segments clearly.
         wireframe: true,
-        getLineColor: [255, 255, 255, 60], // Semi-transparent white
+        getLineColor: [255, 255, 255, 40],
         lineWidthMinPixels: 1,
         
-        // 3. FIX SHADING: Boost ambient light to 1.0 to keep sides bright/true-color
         material: {
           ambient: 1.0, 
           diffuse: 0.0,
@@ -70,7 +75,7 @@ const VIZ_CONFIG = {
           }
         }
       };
-    }).reverse(); 
+    }).reverse(); // Keep .reverse() so the tallest layers are rendered first
   },
 
   tooltip: (info) => {
