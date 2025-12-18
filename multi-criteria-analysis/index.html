@@ -2,123 +2,108 @@
 <html>
 <head>
   <meta charset='utf-8' />
-  <title>Stacked MCA Map</title>
-  <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
-  
+  <title>Advanced Stacked MCA</title>
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
   <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
-  <script src="/shared/deckgl-utils.js"></script>
-  <script src="/multi-criteria-analysis/config.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script> <script src="config.js"></script>
   
   <style>
-    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; background: #0a0a0a; }
-    #container { width: 100vw; height: 100vh; position: relative; }
-    #map-overlay {
-      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px);
-      display: flex; align-items: center; justify-content: center; z-index: 999;
-    }
-    #map-overlay.hidden { opacity: 0; pointer-events: none; transition: opacity 0.5s ease; }
-    #map-overlay-content { background: white; padding: 40px; border-radius: 16px; text-align: center; max-width: 400px; }
+    body { margin: 0; background: #111; font-family: 'Inter', sans-serif; color: white; }
+    #container { width: 100vw; height: 100vh; }
     #controls {
-      position: absolute; top: 20px; left: 20px; background: white;
-      padding: 24px; border-radius: 12px; z-index: 1; width: 300px; max-height: 85vh; overflow-y: auto;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      position: absolute; top: 20px; right: 20px;
+      background: rgba(0, 0, 0, 0.85); padding: 20px;
+      border-radius: 12px; width: 280px; z-index: 10;
+      backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1);
     }
-    .control-group { margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid #f0f0f0; }
-    .control-group:last-child { border: none; }
-    .value-display { font-size: 18px; font-weight: bold; color: #333; float: right; }
-    label { display: block; font-size: 13px; font-weight: 600; color: #666; margin-bottom: 4px; }
-    input[type="range"] { width: 100%; cursor: pointer; height: 6px; border-radius: 3px; background: #ddd; outline: none; }
-    
-    /* Legend Styles */
-    .legend-item { display: flex; align-items: center; margin-top: 4px; font-size: 12px; }
-    .color-box { width: 12px; height: 12px; border-radius: 2px; margin-right: 8px; }
-    
-    #loading { position: absolute; top: 50%; left: 50%; color: white; transform: translate(-50%, -50%); }
+    .control-row { margin-bottom: 15px; }
+    .label-group { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+    .color-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+    input[type=range] { width: 100%; cursor: pointer; }
+    .title { font-size: 18px; font-weight: bold; margin-bottom: 20px; color: #fff; }
+    #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
   </style>
 </head>
 <body>
   <div id="container"></div>
-  <div id="map-overlay">
-    <div id="map-overlay-content">
-      <h2 style="margin-top:0">📊 Stacked 3D MCA</h2>
-      <p style="color:#666">Each hexagon segment represents a specific criteria. Height represents the combined impact.</p>
-      <button id="activate-btn" style="padding: 12px 28px; cursor: pointer; background: #333; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px;">Activate Map</button>
-    </div>
+  <div id="controls">
+    <div class="title">📊 MCA Parameters</div>
+    <div id="filter-list"></div>
   </div>
-  <div id="loading">Loading binary matrix...</div>
-  <div id="controls" style="display:none;"></div>
+  <div id="loading">Loading Geospatial Data...</div>
 
   <script>
-    const {DeckGL} = deck;
-    let deckInstance, allData = [], currentWeights = {};
+    const { DeckGL, H3HexagonLayer, AmbientLight, DirectionalLight, LightingEffect } = deck;
 
-    VIZ_CONFIG.filters.forEach(f => currentWeights[f.key] = f.default);
+    // Create lighting effects
+    const ambientLight = new AmbientLight({ color: [255, 255, 255], intensity: 1.0 });
+    const dirLight = new DirectionalLight({
+      color: [255, 255, 255],
+      intensity: 2.0,
+      direction: [-1, -2, -3]
+    });
+    const lightingEffect = new LightingEffect({ ambientLight, dirLight });
+
+    let deckInstance;
+    let allData = [];
+    const currentWeights = {};
 
     function buildControls() {
-      let html = `<h2 style="margin:0 0 20px 0; font-size:20px; color:#1a1a1a;">${VIZ_CONFIG.title}</h2>`;
-      
-      VIZ_CONFIG.filters.forEach((f, i) => {
-        const color = VIZ_CONFIG.criteria[i].color;
-        html += `
-          <div class="control-group">
-            <span class="value-display" id="${f.key}-display">${f.default}</span>
-            <div class="legend-item">
-              <div class="color-box" style="background: rgb(${color.join(',')})"></div>
-              <label>${f.label}</label>
-            </div>
-            <input type="range" id="${f.key}-slider" min="${f.min}" max="${f.max}" step="${f.step}" value="${f.default}">
-          </div>`;
+      const list = document.getElementById('filter-list');
+      VIZ_CONFIG.filters.forEach(f => {
+        currentWeights[f.key] = f.default;
+        const criterion = VIZ_CONFIG.criteria.find(c => c.weightKey === f.key);
+        const color = criterion ? `rgb(${criterion.color.join(',')})` : '#fff';
+        
+        const row = document.createElement('div');
+        row.className = 'control-row';
+        row.innerHTML = `
+          <div class="label-group">
+            <span><span class="color-dot" style="background:${color}"></span>${criterion.label}</span>
+            <span id="${f.key}-display">${f.default}</span>
+          </div>
+          <input type="range" id="${f.key}-slider" min="${f.min}" max="${f.max}" step="${f.step}" value="${f.default}">
+        `;
+        list.appendChild(row);
+
+        row.querySelector('input').addEventListener('input', (e) => {
+          const val = parseInt(e.target.value);
+          currentWeights[f.key] = val;
+          document.getElementById(`${f.key}-display`).textContent = val;
+          renderLayers();
+        });
       });
-      return html;
     }
 
     function renderLayers() {
-      if (!deckInstance) return;
-      const layerConfigs = VIZ_CONFIG.createLayer(allData, currentWeights);
-      const vizLayers = layerConfigs.map(config => DeckGLUtils.createH3Layer(config));
-      
-      deckInstance.setProps({
-        layers: [
-          DeckGLUtils.createBasemap(VIZ_CONFIG.basemap),
-          ...vizLayers
-        ]
-      });
+      const layers = VIZ_CONFIG.createLayer(allData, currentWeights).map(props => new H3HexagonLayer(props));
+      deckInstance.setProps({ layers });
     }
 
     async function init() {
-      try {
-        allData = await DeckGLUtils.loadCSV(VIZ_CONFIG.dataUrl);
-        document.getElementById('controls').innerHTML = buildControls();
-        document.getElementById('controls').style.display = 'block';
-
-        VIZ_CONFIG.filters.forEach(f => {
-          document.getElementById(`${f.key}-slider`).addEventListener('input', (e) => {
-            const val = parseInt(e.target.value);
-            currentWeights[f.key] = val;
-            document.getElementById(`${f.key}-display`).textContent = val;
-            renderLayers();
+      Papa.parse(VIZ_CONFIG.dataUrl, {
+        download: true,
+        header: true,
+        complete: (results) => {
+          allData = results.data;
+          document.getElementById('loading').style.display = 'none';
+          
+          buildControls();
+          
+          deckInstance = new DeckGL({
+            container: 'container',
+            initialViewState: VIZ_CONFIG.initialView,
+            controller: true,
+            effects: [lightingEffect], // Add the 3D lighting here
+            getTooltip: VIZ_CONFIG.tooltip
           });
-        });
-
-        deckInstance = new DeckGL({
-          container: 'container',
-          initialViewState: VIZ_CONFIG.initialView,
-          controller: false,
-          layers: [],
-          getTooltip: (info) => VIZ_CONFIG.tooltip(info)
-        });
-
-        document.getElementById('activate-btn').onclick = () => {
-          document.getElementById('map-overlay').classList.add('hidden');
-          deckInstance.setProps({ controller: true });
+          
           renderLayers();
-        };
-        document.getElementById('loading').style.display = 'none';
-      } catch (e) { console.error(e); }
+        }
+      });
     }
+
     init();
   </script>
 </body>
