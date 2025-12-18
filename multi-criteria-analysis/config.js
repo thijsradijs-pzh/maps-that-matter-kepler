@@ -1,29 +1,29 @@
-// config.js - Stacked MCA Analysis (Strong 3D & Vibrant Colors)
+// config.js - Enhanced Stacked MCA Analysis
 const VIZ_CONFIG = {
-  title: '📊 Stacked MCA Analysis',
-  dataUrl: '/data/h3_binary_matrix.csv', 
+  title: '📊 Professional MCA Dashboard',
+  dataUrl: 'h3_binary_matrix.csv', 
   h3Field: 'h3',
   basemap: 'positron',
   
   initialView: {
-    longitude: 4.48, latitude: 51.90, zoom: 9.5, pitch: 55, bearing: 10
+    longitude: 4.48, latitude: 51.90, zoom: 9.5, pitch: 45, bearing: 0
   },
 
-  // A more professional, distinct color palette
+  // Refined palette with better contrast
   criteria: [
-    { key: 'verzilting', label: 'Verzilting', color: [0, 204, 150], weightKey: 'w_verzilting' },      // Teal
-    { key: 'bodemdaling', label: 'Bodemdaling', color: [255, 102, 102], weightKey: 'w_bodemdaling' }, // Soft Red
-    { key: 'wateroverlast', label: 'Wateroverlast', color: [25, 118, 210], weightKey: 'w_wateroverlast' }, // Deep Blue
-    { key: 'boerenlandvogels', label: 'Boerenlandvogels', color: [255, 160, 0], weightKey: 'w_boerenlandvogels' }, // Amber
-    { key: 'peilgebieden', label: 'Peilgebieden', color: [171, 71, 188], weightKey: 'w_peilgebieden' } // Purple
+    { key: 'verzilting', label: 'Verzilting', color: [0, 150, 136], weightKey: 'w_verzilting' },      // Teal
+    { key: 'bodemdaling', label: 'Bodemdaling', color: [239, 83, 80], weightKey: 'w_bodemdaling' },   // Red
+    { key: 'wateroverlast', label: 'Wateroverlast', color: [30, 136, 229], weightKey: 'w_wateroverlast' }, // Blue
+    { key: 'boerenlandvogels', label: 'Boerenlandvogels', color: [255, 179, 0], weightKey: 'w_boerenlandvogels' }, // Amber
+    { key: 'peilgebieden', label: 'Peilgebieden', color: [142, 68, 173], weightKey: 'w_peilgebieden' } // Purple
   ],
   
   filters: [
-    { key: 'w_verzilting', label: 'Verzilting Weight', min: 0, max: 5, step: 1, default: 1, format: (v) => v, filterFn: () => true },
-    { key: 'w_bodemdaling', label: 'Bodemdaling Weight', min: 0, max: 5, step: 1, default: 1, format: (v) => v, filterFn: () => true },
-    { key: 'w_wateroverlast', label: 'Wateroverlast Weight', min: 0, max: 5, step: 1, default: 1, format: (v) => v, filterFn: () => true },
-    { key: 'w_boerenlandvogels', label: 'Boerenlandvogels Weight', min: 0, max: 5, step: 1, default: 1, format: (v) => v, filterFn: () => true },
-    { key: 'w_peilgebieden', label: 'Peilgebieden Weight', min: 0, max: 5, step: 1, default: 1, format: (v) => v, filterFn: () => true }
+    { key: 'w_verzilting', label: 'Verzilting Weight', min: 0, max: 10, step: 1, default: 2 },
+    { key: 'w_bodemdaling', label: 'Bodemdaling Weight', min: 0, max: 10, step: 1, default: 2 },
+    { key: 'w_wateroverlast', label: 'Wateroverlast Weight', min: 0, max: 10, step: 1, default: 2 },
+    { key: 'w_boerenlandvogels', label: 'Boerenlandvogels Weight', min: 0, max: 10, step: 1, default: 2 },
+    { key: 'w_peilgebieden', label: 'Peilgebieden Weight', min: 0, max: 10, step: 1, default: 2 }
   ],
 
   createLayer: (data, weights) => {
@@ -32,10 +32,18 @@ const VIZ_CONFIG = {
         id: `mca-stack-${index}`,
         data: data,
         extruded: true,
-        elevationScale: 300, // INCREASED for stronger height difference
+        elevationScale: 150, // Adjusted for the 0-10 weight range
         getHexagon: d => d.h3,
-        getFillColor: [...c.color, 255],
+        getFillColor: [...c.color, 210], // Slight transparency for better stacking look
         
+        // Material for 3D lighting
+        material: {
+          ambient: 0.6,
+          diffuse: 0.7,
+          shininess: 32,
+          specularColor: [60, 60, 60]
+        },
+
         getElevation: d => {
           let sum = 0;
           for (let i = 0; i <= index; i++) {
@@ -47,6 +55,14 @@ const VIZ_CONFIG = {
 
         updateTriggers: {
           getElevation: [weights.w_verzilting, weights.w_bodemdaling, weights.w_wateroverlast, weights.w_boerenlandvogels, weights.w_peilgebieden]
+        },
+
+        // Animation: Makes the bars "grow" smoothly
+        transitions: {
+          getElevation: {
+            duration: 600,
+            easing: d3.easeCubicInOut // Note: ensure d3 is loaded or use default
+          }
         }
       };
     }).reverse(); 
@@ -57,13 +73,16 @@ const VIZ_CONFIG = {
     if (!d) return null;
     return {
       html: `
-        <div style="padding: 10px; background: white; color: black; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-          <strong style="font-size: 14px;">H3: ${d.h3}</strong><br/><hr style="margin: 8px 0; border: 0; border-top: 1px solid #eee;"/>
-          <div style="color: rgb(0, 204, 150)">Verzilting: ${d.verzilting == '1' ? 'Active' : 'None'}</div>
-          <div style="color: rgb(255, 102, 102)">Bodemdaling: ${d.bodemdaling == '1' ? 'Active' : 'None'}</div>
-          <div style="color: rgb(25, 118, 210)">Wateroverlast: ${d.wateroverlast == '1' ? 'Active' : 'None'}</div>
-          <div style="color: rgb(255, 160, 0)">Boerenlandvogels: ${d.boerenlandvogels == '1' ? 'Active' : 'None'}</div>
-          <div style="color: rgb(171, 71, 188)">Peilgebieden: ${d.peilgebieden == '1' ? 'Active' : 'None'}</div>
+        <div style="padding: 12px; font-family: sans-serif; min-width: 180px;">
+          <b style="font-size: 1.1em; color: #333;">Hex Cell Analysis</b><br/>
+          <small style="color: #888;">H3: ${d.h3}</small>
+          <hr style="margin: 8px 0; border: 0; border-top: 1px solid #eee;"/>
+          ${VIZ_CONFIG.criteria.map(c => `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span style="color: rgb(${c.color.join(',')}); font-weight: bold;">● ${c.label}</span>
+              <span>${d[c.key] == '1' ? 'Active' : '—'}</span>
+            </div>
+          `).join('')}
         </div>
       `
     };
