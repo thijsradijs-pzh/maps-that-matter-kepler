@@ -41,7 +41,7 @@ createLayer: (data, weights) => {
 
         // 2. CONSISTENT OPACITY
         // We use a slightly higher alpha so colors remain vibrant.
-        getFillColor: [...c.color, 210], 
+        getFillColor: [...c.color, 255], 
 
         // 3. SUBTLE WIREFRAME
         // Helps define the "rings" or segments clearly.
