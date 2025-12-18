@@ -55,15 +55,18 @@
     const currentWeights = {};
 
     function renderLayers() {
-      // Use your existing config to create layer properties
+      // 1. Haal de configuraties op uit config.js
+      // Zorg dat createLayer in config.js de .reverse() gebruikt!
       const layerConfigs = VIZ_CONFIG.createLayer(allData, currentWeights);
       
-      // Convert configs to actual H3Layers using your Utils
-      const vizLayers = layerConfigs.map(config => DeckGLUtils.createH3Layer(config));
+      // 2. Bouw de lagen op
+      // We gebruiken de config direct om er zeker van te zijn dat 
+      // getElevation en getFillColor exact worden overgenomen zoals we willen
+      const vizLayers = layerConfigs.map(config => new deck.H3HexagonLayer(config));
       
       deckInstance.setProps({
         layers: [
-          DeckGLUtils.createBasemap(VIZ_CONFIG.basemap), // Restores the basemap
+          DeckGLUtils.createBasemap(VIZ_CONFIG.basemap),
           ...vizLayers
         ]
       });
