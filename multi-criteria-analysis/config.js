@@ -36,7 +36,7 @@ const VIZ_CONFIG = {
         getHexagon: d => d.h3,
         
         // 1. VIBRANT COLORS: Use full alpha (255) for solid appearance
-        getFillColor: [...c.color, 200],
+        getFillColor: [...c.color, 100],
 
         // 2. BORDER FRAME: Enable wireframe and set a subtle white border
         wireframe: true,
