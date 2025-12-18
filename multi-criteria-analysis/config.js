@@ -1,4 +1,4 @@
-// config.js - Professional Stacked MCA Analysis (Clean Colors & Border Frame)
+// config.js - Naadloos Gestapelde MCA Analyse (Zonder witte randen)
 const VIZ_CONFIG = {
   title: '📊 Professional MCA Dashboard',
   dataUrl: '/data/h3_binary_matrix.csv', 
@@ -34,14 +34,24 @@ const VIZ_CONFIG = {
         pickable: true,
         elevationScale: 150,
         getHexagon: d => d.h3,
-        coverage: 0.9, // Allemaal even breed voor een strakke kolom
-        getFillColor: [...c.color, 255], // Volledig dekkend
         
-        // DE CRUCIALE AANPASSING:
-        // De 'offset' zorgt dat dit blokje pas begint waar de vorige ophield
+        // --- NAADLOZE LOOK ---
+        coverage: 0.95,        // Iets minder dan 1 om de kolommen van elkaar gescheiden te houden
+        wireframe: false,      // VERWIJDERT DE WITTE RANDEN
+        getFillColor: [...c.color, 255], // 100% ondoorzichtig voor strakke scheiding
+        
+        // Gebruik flat shading zodat de kleuren puur blijven
+        material: {
+          ambient: 1.0, 
+          diffuse: 0.0,
+          shininess: 0
+        },
+
+        // Hoogte van alleen dit specifieke blokje
         getElevation: d => (Number(d[c.key]) || 0) * (weights[c.weightKey] || 0),
         
-        offset: d => {
+        // Starthoogte: de som van alle blokjes onder dit index
+        getOffset: d => {
           let currentOffset = 0;
           for (let i = 0; i < index; i++) {
             const prevCrit = VIZ_CONFIG.criteria[i];
@@ -49,17 +59,18 @@ const VIZ_CONFIG = {
           }
           return currentOffset;
         },
-  
+
         updateTriggers: {
           getElevation: Object.values(weights),
-          offset: Object.values(weights)
+          getOffset: Object.values(weights)
         },
+
         transitions: {
           getElevation: 600,
-          offset: 600
+          getOffset: 600
         }
       };
-    }); // Geen .reverse() nodig hier, ze staan nu echt boven elkaar
+    }); 
   },
 
   tooltip: (info) => {
@@ -68,13 +79,13 @@ const VIZ_CONFIG = {
     return {
       html: `
         <div style="padding: 12px; font-family: sans-serif; min-width: 180px; background: white; border-radius: 8px; color: #333; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-          <b style="font-size: 1.1em;">Hex Cell Analysis</b><br/>
-          <small style="color: #888;">H3: ${d.h3}</small>
+          <b style="font-size: 1.1em;">Analyse Groene Hart</b><br/>
+          <small style="color: #888;">H3 Index: ${d.h3}</small>
           <hr style="margin: 8px 0; border: 0; border-top: 1px solid #eee;"/>
           ${VIZ_CONFIG.criteria.map(c => `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; ${d[c.key] != '1' ? 'opacity:0.3' : ''}">
               <span style="color: rgb(${c.color.join(',')}); font-weight: bold;">● ${c.label}</span>
-              <span>${d[c.key] == '1' ? 'Active' : '—'}</span>
+              <span>${d[c.key] == '1' ? 'Actief' : '—'}</span>
             </div>
           `).join('')}
         </div>
