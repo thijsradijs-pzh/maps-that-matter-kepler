@@ -26,30 +26,40 @@ const VIZ_CONFIG = {
   ],
 
   createLayer: (data, weights) => {
+    // We sorteren de criteria zo dat de volgorde van stapelen logisch is
     return VIZ_CONFIG.criteria.map((c, index) => {
       return {
         id: `mca-stack-${index}`,
         data: data,
         extruded: true,
         pickable: true,
-        elevationScale: 150,
+        elevationScale: 150, 
         getHexagon: d => d.h3,
         
-        // 1. VIBRANT COLORS: Use full alpha (255) for solid appearance
-        getFillColor: [...c.color, 255],
+        // --- DE VISUELE VERBETERING ---
+        // 1. Breedte aanpassen: Hoe hoger de laag (index), hoe smaller de hexagon.
+        // Laag 0 is 95% breed, laag 1 is 80%, laag 2 is 65%, etc.
+        coverage: 0.95 - (index * 0.12), 
 
-        // 2. BORDER FRAME: Enable wireframe and set a subtle white border
+        // 2. Kleur & Helderheid: 
+        // We gebruiken een hoge opacity (230) zodat de kleuren eruit springen.
+        getFillColor: [...c.color, 230], 
+
+        // 3. Draadframe (de witte randjes):
+        // Dit is essentieel om de "treden" van de trap te accentueren.
         wireframe: true,
-        getLineColor: [255, 255, 255, 60], // Semi-transparent white
+        getLineColor: [255, 255, 255, 100], // Iets fellere witte randjes
         lineWidthMinPixels: 1,
-        
-        // 3. FIX SHADING: Boost ambient light to 1.0 to keep sides bright/true-color
+         
+        // 4. Geen schaduw (Flat look):
+        // Hierdoor blijft de zijkant exact dezelfde kleur als de bovenkant.
         material: {
           ambient: 1.0, 
           diffuse: 0.0,
           shininess: 0
         },
 
+        // Bereken de hoogte: dit blijft de cumulatieve som
         getElevation: d => {
           let sum = 0;
           for (let i = 0; i <= index; i++) {
@@ -60,17 +70,17 @@ const VIZ_CONFIG = {
         },
 
         updateTriggers: {
-          getElevation: [weights.w_verzilting, weights.w_bodemdaling, weights.w_wateroverlast, weights.w_boerenlandvogels, weights.w_peilgebieden]
+          getElevation: Object.values(weights)
         },
 
         transitions: {
           getElevation: {
-            duration: 600,
+            duration: 800,
             easing: d3.easeCubicInOut
           }
         }
       };
-    }).reverse(); 
+    }).reverse(); // Reverse zorgt dat de onderste lagen als eerste getekend worden
   },
 
   tooltip: (info) => {
