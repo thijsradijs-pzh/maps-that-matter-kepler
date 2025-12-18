@@ -26,62 +26,41 @@ const VIZ_CONFIG = {
   ],
 
   createLayer: (data, weights) => {
-    // We sorteren de criteria zo dat de volgorde van stapelen logisch is
     return VIZ_CONFIG.criteria.map((c, index) => {
       return {
         id: `mca-stack-${index}`,
         data: data,
         extruded: true,
         pickable: true,
-        elevationScale: 150, 
+        elevationScale: 150,
         getHexagon: d => d.h3,
+        coverage: 0.9, // Allemaal even breed voor een strakke kolom
+        getFillColor: [...c.color, 255], // Volledig dekkend
         
-        // --- DE VISUELE VERBETERING ---
-        // 1. Breedte aanpassen: Hoe hoger de laag (index), hoe smaller de hexagon.
-        // Laag 0 is 95% breed, laag 1 is 80%, laag 2 is 65%, etc.
-        coverage: 0.95 - (index * 0.12), 
-
-        // 2. Kleur & Helderheid: 
-        // We gebruiken een hoge opacity (230) zodat de kleuren eruit springen.
-        getFillColor: [...c.color, 230], 
-
-        // 3. Draadframe (de witte randjes):
-        // Dit is essentieel om de "treden" van de trap te accentueren.
-        wireframe: true,
-        getLineColor: [255, 255, 255, 100], // Iets fellere witte randjes
-        lineWidthMinPixels: 1,
-         
-        // 4. Geen schaduw (Flat look):
-        // Hierdoor blijft de zijkant exact dezelfde kleur als de bovenkant.
-        material: {
-          ambient: 1.0, 
-          diffuse: 0.0,
-          shininess: 0
-        },
-
-        // Bereken de hoogte: dit blijft de cumulatieve som
-        getElevation: d => {
-          let sum = 0;
-          for (let i = 0; i <= index; i++) {
-            const crit = VIZ_CONFIG.criteria[i];
-            sum += (Number(d[crit.key]) || 0) * (weights[crit.weightKey] || 0);
+        // DE CRUCIALE AANPASSING:
+        // De 'offset' zorgt dat dit blokje pas begint waar de vorige ophield
+        getElevation: d => (Number(d[c.key]) || 0) * (weights[c.weightKey] || 0),
+        
+        offset: d => {
+          let currentOffset = 0;
+          for (let i = 0; i < index; i++) {
+            const prevCrit = VIZ_CONFIG.criteria[i];
+            currentOffset += (Number(d[prevCrit.key]) || 0) * (weights[prevCrit.weightKey] || 0);
           }
-          return sum;
+          return currentOffset;
         },
-
+  
         updateTriggers: {
-          getElevation: Object.values(weights)
+          getElevation: Object.values(weights),
+          offset: Object.values(weights)
         },
-
         transitions: {
-          getElevation: {
-            duration: 800,
-            easing: d3.easeCubicInOut
-          }
+          getElevation: 600,
+          offset: 600
         }
       };
-    }).reverse(); // Reverse zorgt dat de onderste lagen als eerste getekend worden
-  },
+    }); // Geen .reverse() nodig hier, ze staan nu echt boven elkaar
+  }
 
   tooltip: (info) => {
     const d = info.object;
