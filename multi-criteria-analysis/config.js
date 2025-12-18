@@ -1,4 +1,4 @@
-// config.js - Enhanced Stacked MCA Analysis
+// config.js - Professional Stacked MCA Analysis (Clean Colors & Border Frame)
 const VIZ_CONFIG = {
   title: '📊 Professional MCA Dashboard',
   dataUrl: '/data/h3_binary_matrix.csv', 
@@ -9,7 +9,6 @@ const VIZ_CONFIG = {
     longitude: 4.48, latitude: 51.90, zoom: 9.5, pitch: 45, bearing: 0
   },
 
-  // Refined palette with better contrast
   criteria: [
     { key: 'verzilting', label: 'Verzilting', color: [0, 150, 136], weightKey: 'w_verzilting' },      // Teal
     { key: 'bodemdaling', label: 'Bodemdaling', color: [239, 83, 80], weightKey: 'w_bodemdaling' },   // Red
@@ -32,16 +31,23 @@ const VIZ_CONFIG = {
         id: `mca-stack-${index}`,
         data: data,
         extruded: true,
-        elevationScale: 150, // Adjusted for the 0-10 weight range
+        pickable: true,
+        elevationScale: 150,
         getHexagon: d => d.h3,
-        getFillColor: [...c.color, 210], // Slight transparency for better stacking look
         
-        // Material for 3D lighting
+        // 1. VIBRANT COLORS: Use full alpha (255) for solid appearance
+        getFillColor: [...c.color, 255],
+
+        // 2. BORDER FRAME: Enable wireframe and set a subtle white border
+        wireframe: true,
+        getLineColor: [255, 255, 255, 60], // Semi-transparent white
+        lineWidthMinPixels: 1,
+        
+        // 3. FIX SHADING: Boost ambient light to 1.0 to keep sides bright/true-color
         material: {
-          ambient: 0.6,
-          diffuse: 0.7,
-          shininess: 32,
-          specularColor: [60, 60, 60]
+          ambient: 1.0, 
+          diffuse: 0.0,
+          shininess: 0
         },
 
         getElevation: d => {
@@ -57,11 +63,10 @@ const VIZ_CONFIG = {
           getElevation: [weights.w_verzilting, weights.w_bodemdaling, weights.w_wateroverlast, weights.w_boerenlandvogels, weights.w_peilgebieden]
         },
 
-        // Animation: Makes the bars "grow" smoothly
         transitions: {
           getElevation: {
             duration: 600,
-            easing: d3.easeCubicInOut // Note: ensure d3 is loaded or use default
+            easing: d3.easeCubicInOut
           }
         }
       };
@@ -73,8 +78,8 @@ const VIZ_CONFIG = {
     if (!d) return null;
     return {
       html: `
-        <div style="padding: 12px; font-family: sans-serif; min-width: 180px;">
-          <b style="font-size: 1.1em; color: #333;">Hex Cell Analysis</b><br/>
+        <div style="padding: 12px; font-family: sans-serif; min-width: 180px; background: white; border-radius: 8px; color: #333; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+          <b style="font-size: 1.1em;">Hex Cell Analysis</b><br/>
           <small style="color: #888;">H3: ${d.h3}</small>
           <hr style="margin: 8px 0; border: 0; border-top: 1px solid #eee;"/>
           ${VIZ_CONFIG.criteria.map(c => `
