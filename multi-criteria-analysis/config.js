@@ -60,7 +60,7 @@ const VIZ_CONFIG = {
         }
       };
     }); // Geen .reverse() nodig hier, ze staan nu echt boven elkaar
-  }
+  },
 
   tooltip: (info) => {
     const d = info.object;
