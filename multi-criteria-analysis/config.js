@@ -1,7 +1,7 @@
 // config.js - Enhanced Stacked MCA Analysis
 const VIZ_CONFIG = {
   title: '📊 Professional MCA Dashboard',
-  dataUrl: 'h3_binary_matrix.csv', 
+  dataUrl: '/data/h3_binary_matrix.csv', 
   h3Field: 'h3',
   basemap: 'positron',
   
