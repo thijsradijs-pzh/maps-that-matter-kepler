@@ -1,4 +1,4 @@
-// config.js - Naadloos Gestapelde MCA Analyse (Zonder witte randen)
+// config.js - Naadloos Gestapelde MCA Analyse
 const VIZ_CONFIG = {
   title: '📊 Professional MCA Dashboard',
   dataUrl: '/data/h3_binary_matrix.csv', 
@@ -10,11 +10,11 @@ const VIZ_CONFIG = {
   },
 
   criteria: [
-    { key: 'verzilting', label: 'Verzilting', color: [0, 150, 136], weightKey: 'w_verzilting' },      // Teal
-    { key: 'bodemdaling', label: 'Bodemdaling', color: [239, 83, 80], weightKey: 'w_bodemdaling' },   // Red
-    { key: 'wateroverlast', label: 'Wateroverlast', color: [30, 136, 229], weightKey: 'w_wateroverlast' }, // Blue
-    { key: 'boerenlandvogels', label: 'Boerenlandvogels', color: [255, 179, 0], weightKey: 'w_boerenlandvogels' }, // Amber
-    { key: 'peilgebieden', label: 'Peilgebieden', color: [142, 68, 173], weightKey: 'w_peilgebieden' } // Purple
+    { key: 'verzilting', label: 'Verzilting', color: [0, 150, 136], weightKey: 'w_verzilting' },
+    { key: 'bodemdaling', label: 'Bodemdaling', color: [239, 83, 80], weightKey: 'w_bodemdaling' },
+    { key: 'wateroverlast', label: 'Wateroverlast', color: [30, 136, 229], weightKey: 'w_wateroverlast' },
+    { key: 'boerenlandvogels', label: 'Boerenlandvogels', color: [255, 179, 0], weightKey: 'w_boerenlandvogels' },
+    { key: 'peilgebieden', label: 'Peilgebieden', color: [142, 68, 173], weightKey: 'w_peilgebieden' }
   ],
   
   filters: [
@@ -35,42 +35,36 @@ const VIZ_CONFIG = {
         elevationScale: 150,
         getHexagon: d => d.h3,
         
-        // --- NAADLOZE LOOK ---
-        coverage: 0.95,        // Iets minder dan 1 om de kolommen van elkaar gescheiden te houden
+        // --- STYLING ---
+        coverage: 0.95,        // Iets ruimte tussen de kolommen voor contrast
         wireframe: false,      // VERWIJDERT DE WITTE RANDEN
         getFillColor: [...c.color, 255], // 100% ondoorzichtig voor strakke scheiding
         
-        // Gebruik flat shading zodat de kleuren puur blijven
         material: {
-          ambient: 1.0, 
+          ambient: 1.0,        // Zorgt dat de kleuren overal gelijk en fel zijn
           diffuse: 0.0,
           shininess: 0
         },
 
-        // Hoogte van alleen dit specifieke blokje
-        getElevation: d => (Number(d[c.key]) || 0) * (weights[c.weightKey] || 0),
-        
-        // Starthoogte: de som van alle blokjes onder dit index
-        getOffset: d => {
-          let currentOffset = 0;
-          for (let i = 0; i < index; i++) {
-            const prevCrit = VIZ_CONFIG.criteria[i];
-            currentOffset += (Number(d[prevCrit.key]) || 0) * (weights[prevCrit.weightKey] || 0);
+        // DE TRUC: Bereken de cumulatieve hoogte (deze laag + alles eronder)
+        getElevation: d => {
+          let sum = 0;
+          for (let i = 0; i <= index; i++) {
+            const crit = VIZ_CONFIG.criteria[i];
+            sum += (Number(d[crit.key]) || 0) * (weights[crit.weightKey] || 0);
           }
-          return currentOffset;
+          return sum;
         },
 
         updateTriggers: {
-          getElevation: Object.values(weights),
-          getOffset: Object.values(weights)
+          getElevation: Object.values(weights)
         },
 
         transitions: {
-          getElevation: 600,
-          getOffset: 600
+          getElevation: 600
         }
       };
-    }); 
+    }).reverse(); // CRUCIAAL: Teken de langste staaf eerst, de kortere staven dekken de basis af.
   },
 
   tooltip: (info) => {
