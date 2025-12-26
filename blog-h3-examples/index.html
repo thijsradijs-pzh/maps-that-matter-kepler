@@ -9,13 +9,13 @@
     content="How H3 hexagons, a spatial datacube, and visualisations turn Dutch geo-data into insight, time travel, and foresight."
   />
 
-   <!-- Privacy-friendly analytics by Plausible -->
+  <!-- Privacy-friendly analytics by Plausible -->
   <script async src="https://plausible.io/js/pa-unGG15m6r6ufvAQNAPz3f.js"></script>
   <script>
     window.plausible = window.plausible || function () {
-      (plausible.q = plausible.q || []).push(arguments)
+      (plausible.q = plausible.q || []).push(arguments);
     };
-    plausible.init = plausible.init || function (i) { plausible.o = i || {} };
+    plausible.init = plausible.init || function (i) { plausible.o = i || {}; };
     plausible.init();
   </script>
 
@@ -29,15 +29,12 @@
       --max-width: 760px;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
       padding: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-        sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       line-height: 1.7;
       background: var(--bg);
       color: var(--text);
@@ -98,10 +95,7 @@
       transform: translateY(-2px);
     }
 
-    .share-button svg {
-      width: 18px;
-      height: 18px;
-    }
+    .share-button svg { width: 18px; height: 18px; }
 
     /* Table of Contents */
     .toc-wrapper {
@@ -109,10 +103,7 @@
       padding: 2.5rem 1rem 4rem 1.25rem;
     }
 
-    .toc {
-      position: sticky;
-      top: 2rem;
-    }
+    .toc { position: sticky; top: 2rem; }
 
     .toc-title {
       font-size: 0.875rem;
@@ -123,15 +114,9 @@
       margin: 0 0 1rem;
     }
 
-    .toc-list {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-    }
+    .toc-list { list-style: none; margin: 0; padding: 0; }
 
-    .toc-list li {
-      margin-bottom: 0.5rem;
-    }
+    .toc-list li { margin-bottom: 0.5rem; }
 
     .toc-list a {
       display: block;
@@ -162,9 +147,7 @@
       padding: 2.5rem 1.25rem 4rem;
     }
 
-    header {
-      margin-bottom: 2rem;
-    }
+    header { margin-bottom: 2rem; }
 
     h1 {
       font-size: clamp(2rem, 3vw, 2.6rem);
@@ -200,15 +183,9 @@
       border: 2px solid var(--border);
     }
 
-    .meta-item {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
+    .meta-item { display: flex; align-items: center; gap: 0.5rem; }
 
-    .meta-divider {
-      color: var(--border);
-    }
+    .meta-divider { color: var(--border); }
 
     h2 {
       margin-top: 2.5rem;
@@ -225,15 +202,9 @@
       font-size: 1.1rem;
     }
 
-    p {
-      margin: 0 0 1rem;
-      color: var(--text);
-    }
+    p { margin: 0 0 1rem; color: var(--text); }
 
-    p.lead {
-      font-size: 1.05rem;
-      color: var(--muted);
-    }
+    p.lead { font-size: 1.05rem; color: var(--muted); }
 
     a {
       color: var(--accent);
@@ -242,14 +213,10 @@
       text-underline-offset: 0.15em;
     }
 
-    a:hover {
-      opacity: 0.85;
-    }
+    a:hover { opacity: 0.85; }
 
     /* Section breaks */
-    section {
-      position: relative;
-    }
+    section { position: relative; }
 
     section:not(:last-child) {
       margin-bottom: 3rem;
@@ -282,19 +249,9 @@
       margin-top: 0.5rem;
     }
 
-    ul {
-      margin: 0 0 1rem 1.2rem;
-      padding: 0;
-    }
+    ul, ol { margin: 0 0 1rem 1.2rem; padding: 0; }
 
-    ol {
-      margin: 0 0 1rem 1.2rem;
-      padding: 0;
-    }
-
-    li {
-      margin-bottom: 0.25rem;
-    }
+    li { margin-bottom: 0.25rem; }
 
     /* Mobile Social Share */
     .mobile-share {
@@ -313,47 +270,25 @@
       margin: 0 0 1rem;
     }
 
-    .mobile-share-buttons {
-      display: flex;
-      gap: 1rem;
-    }
+    .mobile-share-buttons { display: flex; gap: 1rem; }
 
     /* Responsive Design */
     @media (max-width: 1024px) {
-      .social-share {
-        display: none;
-      }
-
-      .toc-wrapper {
-        display: none;
-      }
-
-      .container {
-        display: block;
-      }
-
-      .page {
-        max-width: 100%;
-        margin: 0 auto;
-      }
-
-      .mobile-share {
-        display: block;
-      }
+      .social-share { display: none; }
+      .toc-wrapper { display: none; }
+      .container { display: block; }
+      .page { max-width: 100%; margin: 0 auto; }
+      .mobile-share { display: block; }
     }
 
     @media (min-width: 900px) {
-      .page {
-        padding-top: 3rem;
-      }
+      .page { padding-top: 3rem; }
     }
 
-    /* Smooth scrolling */
-    html {
-      scroll-behavior: smooth;
-    }
+    html { scroll-behavior: smooth; }
   </style>
 </head>
+
 <body>
   <!-- Reading Progress Bar -->
   <div class="progress-bar" id="progressBar"></div>
@@ -362,7 +297,7 @@
     <!-- Social Sharing Sidebar -->
     <aside class="social-share">
       <div class="social-share-sticky">
-        <a href="#" class="share-button" id="shareTwitter" title="Share on Twitter" aria-label="Share on Twitter">
+        <a href="#" class="share-button" id="shareTwitter" title="Share on X" aria-label="Share on X">
           <svg fill="currentColor" viewBox="0 0 24 24">
             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
           </svg>
@@ -372,7 +307,7 @@
             <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
           </svg>
         </a>
-        <a href="#" class="share-button" id="shareEmail" title="Share via Email" aria-label="Share via Email">
+        <a href="#" class="share-button" id="shareEmail" title="Share via email" aria-label="Share via email">
           <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
           </svg>
@@ -408,9 +343,9 @@
       <header>
         <h1>From Hexagons to Foresight</h1>
         <p class="lead">
-          Not everything can fit everywhere, all the time, all at once, but cats certainly made a good attempt at it.
+          Not everything can fit everywhere, all the time, all at once. Cats, however, keep trying.
         </p>
-        
+
         <div class="post-meta">
           <div class="author-info">
             <img src="images/profile_pic_thijs_hexagons.png" alt="Thijs Oosterhuis" class="author-avatar" />
@@ -439,60 +374,49 @@
 
       <section>
         <p>
-          You might remember in my previous blog,
-          <em>From Chaos to Clarity</em>, when we turned messy datasets into a
-          single, structured foundation — a spatial datacube that finally made
-          sense of all those CSVs, shapefiles, and spreadsheets.
+          If you read my previous post, <em>From Chaos to Clarity</em>, you’ll remember the goal: turn a pile of CSVs,
+          shapefiles, and spreadsheets into one coherent thing — a spatial datacube you can actually work with.
         </p>
 
         <p>
-          Now that the data is clean and connected, the next question is:
-          <strong>What can we actually see when everything speaks the same
-          spatial language?</strong>
+          Once the data is clean and connected, the next question is the fun one:
+          <strong>what do you see when everything finally speaks the same spatial language?</strong>
         </p>
 
-        <p>That's where H3 comes in.</p>
+        <p>That’s where H3 comes in.</p>
       </section>
 
       <section>
         <h2 id="honeycomb">The honeycomb that makes data talk</h2>
 
         <p>
-          H3 divides the world into a honeycomb of hexagons, each one
-          representing an equal slice of the Earth's surface. Whether you're
-          looking at housing prices, noise levels, flood risk, or biodiversity,
-          each dataset aligns perfectly on the same grid.
+          H3 slices the world into a honeycomb of hexagons. Each cell covers a similar area, so whether you’re mapping
+          housing prices, noise, flood risk, or biodiversity, everything lines up on the same grid.
         </p>
 
         <p>
-          It turns chaotic maps into something more like building blocks. Once
-          everything fits, we can start constructing meaning, not just
-          visualizations.
+          Think of it as Lego for geography. Once the pieces fit, you can build meaning — not just pretty layers.
         </p>
       </section>
 
       <section>
         <h2 id="one-map">Step 1 – One map, one story</h2>
 
-        <p>Let's start simple.</p>
+        <p>Let’s start with one indicator.</p>
 
         <p>
-          Take one indicator from the datacube — <strong>groundheight</strong>,
-          the height above sea level. Visualized through H3, each hexagon tells
-          you how high (or low) the land sits relative to NAP.
+          Take <strong>groundheight</strong> (height above sea level). Put it on H3 and every hexagon becomes a simple
+          answer to: how high (or low) is this spot relative to NAP?
         </p>
 
         <p>
-          A map like this immediately shows why the Dutch saying
-          <em>"God created the world, but the Dutch created the Netherlands"</em>
-          is more than a cliché. Much of the country lies below sea level, yet we
-          live, build, and cycle there safely thanks to centuries of design and
-          engineering.
+          It also explains why the Dutch cliché <em>"God created the world, but the Dutch created the Netherlands"</em>
+          sticks around. A lot of the country is below sea level — yet we live, build, and cycle there because we’ve
+          engineered it that way.
         </p>
 
         <p>
-          An interactive map of groundheight, or a short video zooming across the
-          hexagons, turns an abstract number into something intuitive:
+          An interactive map (or a short flyover) makes that feel obvious in seconds:
         </p>
 
         <div class="iframe-wrapper">
@@ -505,8 +429,7 @@
         </div>
 
         <p>
-          This is the first step in developing spatial literacy: making data feel
-          real.
+          This is the first step of spatial literacy: make the numbers feel like a place.
         </p>
       </section>
 
@@ -514,100 +437,76 @@
         <h2 id="time-travel">Step 2 – When one layer isn't enough: travelling through time</h2>
 
         <p>
-          To understand how areas change, a single snapshot is rarely enough.
-          This is where H3 becomes especially powerful: because every hexagon is
-          tracked over multiple years, we can explore spatial change as a kind of
-          time travel.
+          A single snapshot rarely explains change. The nice part of an H3 datacube is that the grid stays the same
+          while the years move — which makes change feel a bit like time travel.
         </p>
 
-        <h3>A small detour: what happens when you compare landcover with people?</h3>
+        <h3>A quick detour: landcover vs. people</h3>
 
         <p>
-          While exploring the datacube, I ran a quick correlation check between
-          landcover (LGN) and demographic indicators (CBS). As expected, the
-          positive correlations brought no surprises. Places with more built-up
-          area show strong relationships with:
+          While poking around the datacube, I ran a simple correlation check between landcover (LGN) and a few
+          demographic indicators (CBS). The positive hits were exactly what you’d expect: more built-up area tends to go
+          together with more people and more homes:
         </p>
-        
+
         <ul>
           <li>Total inhabitants (r = 0.79)</li>
           <li>Men and women (r = 0.79)</li>
           <li>Households (r = 0.78)</li>
           <li>Housing units (r = 0.78)</li>
         </ul>
-        
+
         <p>
-          In other words: where you build more, more people live. Nothing
-          shocking.
+          In other words: where you build more, more people live. No plot twist there.
         </p>
-        
+
         <p>
-          The negative correlations, however, revealed something more unexpected—and
-          unintentionally funny.
+          The negative correlations were where it got more entertaining.
         </p>
-        
+
         <p>
-          The strongest negative relationships appear between
-          <strong>agrarisch grasland</strong> (agricultural grassland) and population density:
+          The strongest negative relationships show up between <strong>agrarisch grasland</strong> (agricultural
+          grassland) and population density:
         </p>
-        
+
         <ul>
           <li>Women: r = –0.43</li>
           <li>Total inhabitants: r = –0.43</li>
           <li>Men: r = –0.42</li>
           <li>Households: r = –0.40</li>
         </ul>
-        
+
         <p>
-          In plain language: the more agricultural grassland a hexagon contains, the
-          fewer people live there—with the correlation slightly stronger for women 
-          than men.
+          Translation: the more grassland a hexagon contains, the fewer people live there — and, very slightly,
+          the effect is stronger for women than men.
         </p>
+
         <p>
-          A perfectly logical spatial pattern… but also the exact data-driven
-          explanation for the existence of the TV show
+          Perfectly logical spatially… and also a very tidy, data-driven explanation for
           <em>"Boer zoekt Vrouw"</em> ("Farmer seeks a wife").
         </p>
 
         <p>
-          According to the hexagons, farmers quite literally live in places where
-          there are statistically fewer women — a demographic phenomenon neatly
-          confirmed by Pearson's r.
+          According to the hexagons, farmers quite literally live in places with statistically fewer women.
+          Pearson’s r has jokes, apparently.
         </p>
-
-        <p>Spatial analysis, it turns out, sometimes comes with its own punchline.</p>
 
         <h3>Time travel on the Maasvlakte</h3>
 
         <p>
-          The second interactive example shows temporal change beautifully. Built-up
-          area is visualised in 3D height, while the colour shows the number of
-          inhabitants. By moving the year slider, you can watch neighbourhoods
-          grow, densify, or shift in character over time.
+          The next example shows why this becomes useful. Built-up area is rendered in 3D height, colour shows the
+          number of inhabitants. Slide through the years and you can watch neighbourhoods grow, densify, or change
+          character.
         </p>
 
         <p>
-          A striking example appears on the <strong>Maasvlakte in Rotterdam</strong>.
-          Slide the timeline to <strong>2022</strong> and you will see tall blocks
-          of built-up area — yet the hexagons remain dark in colour, indicating
-          zero inhabitants. At first glance this looks like a data error, but it
-          is not. What you are seeing is the moment when newly created land was
-          developed for industrial use, not residential living. The map makes the
-          transformation visible: a landscape that didn't exist a decade ago
-          becomes a major industrial extension of the port, without adding new
-          population.
+          A nice “wait, what?” moment shows up on the <strong>Maasvlakte in Rotterdam</strong>. Jump to <strong>2022</strong>
+          and you’ll see tall blocks of built-up area — but the hexagons stay dark, meaning zero inhabitants. Not a bug:
+          that’s industrial development on newly created land, not housing. The map makes that transformation obvious.
         </p>
 
         <p>
-          This is the strength of hexagon-based time travel: the map shows not
-          just where things are, but how and when they appeared.
-        </p>
-
-        <p>
-          This interactive map makes this intuitive even for non-technical audiences. Changing
-          the year slider tells a story in seconds — urban expansion, industrial
-          growth, and changing spatial footprints become visible without reading
-          a single table.
+          That’s the real power here: not just where things are, but <em>when</em> they appeared.
         </p>
 
         <div class="iframe-wrapper">
@@ -624,74 +523,69 @@
         <h2 id="talking">Step 3 – Talking to your data</h2>
 
         <p>
-          Once the metadata is structured and described in JSON, something
-          interesting becomes possible: the data becomes conversational.
+          Once the metadata is clean and structured (JSON helps here), something interesting happens:
+          you can start treating the datacube like a thing you can talk to.
         </p>
 
         <p>
-          Imagine looking for a house in the province of South-Holland. The criteria you have are:
+          Say you’re looking for a house in South Holland, and you care about a few practical constraints:
         </p>
 
         <ul>
-          <li>Above sea-level by at least 0.3 m. I don't mind getting my feet wet, but anything below that becomes uncomfortable.</li>
-          <li>I don't want to build a new house. I want to know where there are already existing houses.</li>
-          <li>I like my peace and quiet, meaning I want to live in an area below a certain level of background noise.</li>
-          <li>I don't want to live near a toxic gas cloud attention area, so not in the vicinity of industrial areas.</li>
+          <li>At least 0.3 m above NAP — wet shoes are fine, regular flooding is not.</li>
+          <li>Not new-build only; show me places where living is already an existing function.</li>
+          <li>Quiet-ish: below a certain background noise level.</li>
+          <li>Not near a toxic gas cloud attention area (so not right next to heavy industry).</li>
         </ul>
 
-        <p>This set of criteria can then be explored by simply typing:</p>
+        <p>You can express that as normal questions:</p>
 
         <ol>
-          <li><em>Where is the terrain higher than 30 centimeters above sea level (NAP), so the risk of flooding is smaller?</em></li>
-          <li><em>Where is there already an existing residential function, so where people are already allowed or able to live?</em></li>
-          <li><em>Where is it relatively quiet, with a noise level below 50 decibels (Lden)?</em></li>
-          <li><em>Where is it outside a toxic cloud attention area, meaning there is no increased risk in case of a chemical incident?</em></li>
+          <li><em>Where is the terrain higher than 30 centimeters above sea level (NAP)?</em></li>
+          <li><em>Where is there already an existing residential function?</em></li>
+          <li><em>Where is it relatively quiet, with noise below 50 dB (Lden)?</em></li>
+          <li><em>Where is it outside a toxic cloud attention area?</em></li>
         </ol>
 
         <p>
-          An LLM interprets these sentences, looks up what each field means, and
-          translates it into a query on the H3 datacube. No SQL required. Just a
-          conversation with your map, as shown in the video below.
+          An LLM can map those questions to the right fields and turn them into a query on the H3 datacube. No SQL,
+          no hunting through column names — just a conversation, with the result showing up on the map.
         </p>
-        
+
         <div class="video-wrapper">
-          <video 
-              src="videos/llm_example_housing.mp4"
-              controls 
-              autoplay 
-              muted 
-              loop
+          <video
+            src="videos/llm_example_housing.mp4"
+            controls
+            autoplay
+            muted
+            loop
           ></video>
         </div>
-        
+
         <p>
-          This video of our tool at the Province of South-Holland shows a chat prompt on one side and a
-          map on the other which makes this interaction feel tangible. This works
-          because the data is described clearly enough for humans and machines to
-          understand it in the same way.
+          The video is from a tool we built at the Province of South Holland: prompt on one side, map on the other.
+          It works because the data is described clearly enough for humans and machines to mean the same thing.
         </p>
 
         <p>
-          Imagine taking it one step further. Since we have the data of several years in the datacube, 
-          we can even ask it temporal changes. So, suddenly a complex temporal change analysis becomes
-          a simple question in human language. 
-          
-          For example, ask: <em>"Where have the number of inhabitants decreased and where has the forest area increased 
-          between 2018 and 2023?"</em> and the visualization shows you these area's. This is showing a 
-          trend analysis in a simple way.
-        </p> 
+          And because the cube spans multiple years, you can ask time-based questions too. Suddenly, a trend analysis
+          becomes a sentence.
+        </p>
+
+        <p>
+          For example: <em>"Where did inhabitants decrease while forest area increased between 2018 and 2023?"</em>
+          The answer shows up as a map — and you can treat it like a new “quiet + green” criterion if you’re house-hunting.
+        </p>
 
         <div class="image-wrapper">
-          <img 
-          src="images/inhabitants_vs_forest_2018_2023.png" 
-          alt="Inhabitants vs Forest correlation between 2018–2023" 
+          <img
+            src="images/inhabitants_vs_forest_2018_2023.png"
+            alt="Inhabitants vs Forest correlation between 2018–2023"
           />
         </div>
-        
+
         <p>
-          This might be a criteria as well when looking for a new house, 
-          as you might want to focus on an areas where the population is decreasing, but the forest area 
-          is increasing, as this might indicate a more quiet and green environment.
+          If you’re trying to optimize for calm, it’s a useful signal: fewer people, more forest, more breathing room.
         </p>
       </section>
 
@@ -699,23 +593,18 @@
         <h2 id="predictions">Step 4 – From patterns to predictions</h2>
 
         <p>
-          The dataset spans 2018 to 2023, which means each hexagon contains a
-          small timeline. Plotting these values — for example, average WOZ value
-          or number of new homes — reveals how regions have evolved. Some areas
-          densify, others stabilize, some shift slowly without anyone noticing.
+          With 2018–2023 in one place, each hexagon holds a small timeline. Plot something like average WOZ value or
+          new housing units and you start seeing trajectories: areas densifying, areas stabilizing, and areas shifting
+          quietly in the background.
         </p>
 
         <p>
-          Even simple trend analysis allows us to project where growth, pressure,
-          or risk may increase if these patterns continue. These are not perfect
-          forecasts, but they provide foresight.
+          Even basic trend lines help you anticipate where pressure, growth, or risk could increase if the pattern keeps
+          going. It’s not a crystal ball — but it’s a solid head start.
         </p>
 
         <p>
-          An animated interactive timelapse showing the rise in WOZ values or
-          changes in population density makes these trajectories visible. Once you
-          see how areas evolve, the conversation moves from "what happened?" to
-          "what should we prepare for?"
+          Once you can <em>see</em> trajectories, the conversation changes from “what happened?” to “what should we prepare for?”
         </p>
       </section>
 
@@ -723,26 +612,21 @@
         <h2 id="explore">Step 5 – Play, explore, decide</h2>
 
         <p>
-          You do not need specialist software to explore these patterns. An
-          interactive dashboard works directly in the browser.
+          You don’t need specialist software to explore this. A good interactive dashboard runs straight in the browser.
         </p>
 
         <p>
-          In workshops, even non-technical teams immediately begin asking sharper
-          questions. Someone invariably points at the map and says:
-          <em>"So that's why those two areas feel so different."</em>
+          In workshops, even non-technical teams start asking better questions almost immediately. Someone points at the map
+          and goes: <em>"Ah. So that’s why those two areas feel so different."</em>
         </p>
 
         <p>
-          This is exactly the point: spatial data should be intuitive. A simple
-          interactive map with sliders for year, WOZ value, or noise level
-          invites managers and policymakers to explore and experiment.
+          That’s the goal: spatial data that’s intuitive enough to explore. Sliders for year, WOZ value, noise level —
+          suddenly managers and policymakers are testing ideas instead of reading tables.
         </p>
 
         <p>
-          Including an embedded interactive dashboard in this blog gives readers the
-          chance to hover over their neighbourhood and discover which hexagons
-          surprise them.
+          Embed that in a blog post and readers can hover over their own neighbourhood and find the hexagons that surprise them.
         </p>
       </section>
 
@@ -750,15 +634,13 @@
         <h2 id="looking-ahead">Step 6 – Looking ahead</h2>
 
         <p>
-          This is only the beginning. In the next blog, I will explore how the
-          same H3 grid can connect to real-time data streams such as satellite
-          imagery, weather sensors, or biodiversity indicators.
+          This is still the early version. Next up: connecting the same H3 grid to real-time streams — satellite imagery,
+          sensor feeds, weather, biodiversity, the whole lot.
         </p>
 
         <p>
-          When datasets share the same spatial language, collaboration becomes far
-          easier. Maps stop being static reports and start functioning as shared
-          interfaces for conversation and decision-making.
+          When datasets share one spatial language, collaboration gets easier. Maps stop being static reports and start
+          acting like shared interfaces for decisions.
         </p>
       </section>
 
@@ -766,20 +648,16 @@
         <h2 id="final">Final thought: the power of pattern recognition</h2>
 
         <p>
-          Each hexagon is a data point, but together they form a story about how
-          we live, build, and adapt.
+          Each hexagon is a data point. Together, they tell stories about how we live, build, and adapt.
         </p>
 
         <p>
-          The strength of H3 lies not only in precision but in perspective. It
-          allows managers, designers, citizens, and data specialists to see the
-          landscape through the same lens — whether they are searching for
-          opportunity, quality of life, or long-term resilience.
+          H3 isn’t just about precision — it’s about a shared perspective. It lets managers, designers, citizens, and data folks
+          look at the same landscape through the same lens.
         </p>
 
         <p>
-          From data to dialogue. From hexagons to foresight. From maps that
-          describe the world to maps that help us shape it.
+          From data to dialogue. From hexagons to foresight. From maps that describe the world to maps that help shape it.
         </p>
       </section>
 
@@ -787,13 +665,14 @@
         <h2 id="try">Try it yourself</h2>
 
         <p>
-          For the more data-savvy among you, the first version of the datacube with all land-cover, demographic, and climate data, as well as municipality names from 2018 to 2023,
-          <a href="https://github.com/thijsradijs-pzh/maps-that-matter-kepler/blob/main/data/volledige_tijdreeks_met_namen.parquet"> is available here as a parquet file </a>.
-          Download that, and upload it to: <a href="https://kepler-preview.foursquare.com/" target="_blank" rel="noopener">
-            kepler and duckDB.
+          If you want to play with it: the first version of the datacube (land-cover, demographics, climate, plus municipality
+          names from 2018–2023)
+          <a href="https://github.com/thijsradijs-pzh/maps-that-matter-kepler/blob/main/data/volledige_tijdreeks_met_namen.parquet">
+            is available here as a Parquet file
           </a>.
-          If you explore it, I would love to hear what you notice, which patterns
-          reveal themselves, and how you might use this in your own decisions.
+          Download it and upload it to
+          <a href="https://kepler-preview.foursquare.com/" target="_blank" rel="noopener">Kepler (with DuckDB)</a>.
+          If you spot interesting patterns, I’d genuinely love to hear what you find — and what you’d use it for.
         </p>
       </section>
 
@@ -801,22 +680,22 @@
       <div class="mobile-share">
         <div class="mobile-share-title">Share this article</div>
         <div class="mobile-share-buttons">
-          <a href="#" class="share-button" id="shareTwitterMobile" title="Share on Twitter">
+          <a href="#" class="share-button" id="shareTwitterMobile" title="Share on X" aria-label="Share on X">
             <svg fill="currentColor" viewBox="0 0 24 24">
               <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
             </svg>
           </a>
-          <a href="#" class="share-button" id="shareLinkedInMobile" title="Share on LinkedIn">
+          <a href="#" class="share-button" id="shareLinkedInMobile" title="Share on LinkedIn" aria-label="Share on LinkedIn">
             <svg fill="currentColor" viewBox="0 0 24 24">
-              <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+              <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
             </svg>
           </a>
-          <a href="#" class="share-button" id="shareEmailMobile" title="Share via Email">
+          <a href="#" class="share-button" id="shareEmailMobile" title="Share via email" aria-label="Share via email">
             <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
             </svg>
           </a>
-          <a href="#" class="share-button" id="copyLinkMobile" title="Copy link">
+          <a href="#" class="share-button" id="copyLinkMobile" title="Copy link" aria-label="Copy link">
             <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
             </svg>
@@ -830,121 +709,122 @@
     // ---------- Plausible helpers & scroll depth state ----------
     const scrollMilestones = { 25: false, 50: false, 75: false, 100: false };
     let readCompleteSent = false;
-  
+
     function track(eventName, props) {
-      if (window.plausible) {
-        window.plausible(eventName, { props: props || {} });
-      }
+      if (window.plausible) window.plausible(eventName, { props: props || {} });
     }
-  
+
     // Reading Progress Bar + Scroll Depth
     function updateProgressBar() {
       const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
       const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
       const scrolled = (winScroll / height) * 100;
-      document.getElementById('progressBar').style.width = scrolled + '%';
-  
+
+      document.getElementById("progressBar").style.width = scrolled + "%";
+
       // Scroll depth milestones: 25%, 50%, 75%, 100%
       [25, 50, 75, 100].forEach((m) => {
         if (!scrollMilestones[m] && scrolled >= m) {
           scrollMilestones[m] = true;
-          track('scroll_depth', { percent: m });
+          track("scroll_depth", { percent: m });
         }
       });
-  
-      // Consider 95%+ as "article read"
+
+      // Treat 95%+ as "read"
       if (!readCompleteSent && scrolled >= 95) {
         readCompleteSent = true;
-        track('article_read_complete');
+        track("article_read_complete");
       }
     }
-  
-    window.addEventListener('scroll', updateProgressBar);
-  
-    // Calculate Read Time (approximation based on word count)
+
+    window.addEventListener("scroll", updateProgressBar);
+
+    // Approx read time based on word count
     function calculateReadTime() {
-      const text = document.querySelector('.page').innerText;
+      const text = document.querySelector(".page").innerText;
       const wordCount = text.trim().split(/\s+/).length;
       const wordsPerMinute = 200;
       const readTime = Math.ceil(wordCount / wordsPerMinute);
-      document.getElementById('readTime').textContent = readTime + ' min read';
+      document.getElementById("readTime").textContent = readTime + " min read";
     }
-  
+
     calculateReadTime();
-  
+
     // Highlight active section in TOC
-    const sections = document.querySelectorAll('h2[id]');
-    const tocLinks = document.querySelectorAll('.toc-list a');
-  
+    const sections = document.querySelectorAll("h2[id]");
+    const tocLinks = document.querySelectorAll(".toc-list a");
+
     function highlightTOC() {
-      let current = '';
-      
-      sections.forEach(section => {
+      let current = "";
+
+      sections.forEach((section) => {
         const sectionTop = section.offsetTop;
         const scrollPos = window.scrollY + 100;
-        
-        if (scrollPos >= sectionTop) {
-          current = section.getAttribute('id');
-        }
+        if (scrollPos >= sectionTop) current = section.getAttribute("id");
       });
-  
-      tocLinks.forEach(link => {
-        link.classList.remove('active');
-        if (link.getAttribute('href') === '#' + current) {
-          link.classList.add('active');
-        }
+
+      tocLinks.forEach((link) => {
+        link.classList.remove("active");
+        if (link.getAttribute("href") === "#" + current) link.classList.add("active");
       });
     }
-  
-    window.addEventListener('scroll', highlightTOC);
+
+    window.addEventListener("scroll", highlightTOC);
     highlightTOC();
-  
-    // Social Sharing Functions
+
+    // Social Sharing
     const currentUrl = encodeURIComponent(window.location.href);
     const title = encodeURIComponent(document.title);
-  
-    function setupShareButtons(prefix = '') {
-      // Twitter/X
-      document.getElementById('shareTwitter' + prefix).addEventListener('click', (e) => {
+
+    function setupShareButtons(prefix = "") {
+      // X
+      document.getElementById("shareTwitter" + prefix).addEventListener("click", (e) => {
         e.preventDefault();
-        window.open(`https://twitter.com/intent/tweet?url=${currentUrl}&text=${title}`, '_blank', 'width=550,height=420');
+        window.open(
+          `https://twitter.com/intent/tweet?url=${currentUrl}&text=${title}`,
+          "_blank",
+          "width=550,height=420"
+        );
       });
-  
+
       // LinkedIn
-      document.getElementById('shareLinkedIn' + prefix).addEventListener('click', (e) => {
+      document.getElementById("shareLinkedIn" + prefix).addEventListener("click", (e) => {
         e.preventDefault();
-        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${currentUrl}`, '_blank', 'width=550,height=420');
+        window.open(
+          `https://www.linkedin.com/sharing/share-offsite/?url=${currentUrl}`,
+          "_blank",
+          "width=550,height=420"
+        );
       });
-  
+
       // Email
-      document.getElementById('shareEmail' + prefix).addEventListener('click', (e) => {
+      document.getElementById("shareEmail" + prefix).addEventListener("click", (e) => {
         e.preventDefault();
         window.location.href = `mailto:?subject=${title}&body=Check out this article: ${currentUrl}`;
       });
-  
+
       // Copy Link
-      document.getElementById('copyLink' + prefix).addEventListener('click', (e) => {
+      document.getElementById("copyLink" + prefix).addEventListener("click", (e) => {
         e.preventDefault();
         navigator.clipboard.writeText(window.location.href).then(() => {
           const button = e.currentTarget;
           const originalTitle = button.title;
-          button.title = 'Copied!';
-          button.style.background = '#4CAF50';
-          button.style.color = 'white';
+
+          button.title = "Copied!";
+          button.style.background = "#4CAF50";
+          button.style.color = "white";
+
           setTimeout(() => {
             button.title = originalTitle;
-            button.style.background = '';
-            button.style.color = '';
+            button.style.background = "";
+            button.style.color = "";
           }, 2000);
         });
       });
     }
-  
-    // Setup desktop share buttons
-    setupShareButtons('');
-    // Setup mobile share buttons
-    setupShareButtons('Mobile');
-  </script>
 
+    setupShareButtons("");
+    setupShareButtons("Mobile");
+  </script>
 </body>
 </html>
