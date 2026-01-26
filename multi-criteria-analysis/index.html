@@ -2,7 +2,8 @@
 <html>
 <head>
   <meta charset='utf-8' />
-  <title>Advanced Stacked MCA</title>
+  <title>Advanced Stacked MCA & Heatmap</title>
+  
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
   <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
@@ -14,34 +15,56 @@
   <style>
     body { margin: 0; background: #f0f0f0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     #container { width: 100vw; height: 100vh; position: relative; }
+    
     #controls {
       position: absolute; top: 20px; right: 20px;
       background: rgba(255, 255, 255, 0.9); padding: 20px;
       border-radius: 12px; width: 280px; z-index: 10;
       box-shadow: 0 8px 32px rgba(0,0,0,0.15); backdrop-filter: blur(8px);
+      max-height: 90vh; overflow-y: auto; /* Voor als het scherm klein is */
     }
+
     .control-row { margin-bottom: 15px; color: #333; }
     .label-group { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; font-weight: 600; }
     .color-dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; margin-right: 8px; }
     input[type=range] { width: 100%; cursor: pointer; accent-color: #333; }
+    
     .title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #000; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-    #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: bold; color: #666; }
+    .description { font-size: 12px; color: #555; line-height: 1.5; margin-bottom: 15px; background: rgba(0,0,0,0.05); padding: 10px; border-radius: 6px; }
+    
+    /* Nieuwe stijl voor de checkbox */
+    .toggle-row { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+    .toggle-label { display: flex; align-items: center; cursor: pointer; font-weight: bold; user-select: none; }
+    .toggle-label input { margin-right: 10px; transform: scale(1.2); cursor: pointer; }
+
+    #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: bold; color: #666; pointer-events: none; }
   </style>
 </head>
 <body>
   <div id="container"></div>
+  
   <div id="controls">
     <div class="title">📊 Analyse Groene Hart Noord</div>
-    <div style="font-size: 12px; color: #555; line-height: 1.5; margin-bottom: 15px; background: rgba(0,0,0,0.05); padding: 10px; border-radius: 6px;">
-    Deze interactieve kaart toont waar opgaven zoals bodemdaling, peilafwijkingen, wateroverlast en verzilting samenkomen. 
-    Stel de weging per indicator in om de cumulatieve waardes van de thema's in dit gebied te visualiseren.
+    
+    <div class="description">
+      Deze interactieve kaart toont waar opgaven zoals bodemdaling, peilafwijkingen, wateroverlast en verzilting samenkomen. 
+      Stel de weging per indicator in om de cumulatieve waardes te zien.
     </div>
+
+    <div class="toggle-row">
+      <label class="toggle-label">
+        <input type="checkbox" id="heatmap-toggle"> 
+        Toon als Heatmap
+      </label>
+    </div>
+
     <div id="filter-list"></div>
   </div>
+
   <div id="loading">Processing Hexgrid...</div>
 
   <script>
-    // Initialize Lighting from deck.gl
+    // Initialize Lighting (vooral voor de 3D staven)
     const ambientLight = new deck.AmbientLight({ color: [255, 255, 255], intensity: 1.0 });
     const dirLight = new deck.DirectionalLight({
       color: [255, 255, 255],
@@ -53,33 +76,60 @@
     let deckInstance;
     let allData = [];
     const currentWeights = {};
+    let showHeatmap = false; // Staat standaard uit (dus 3D staven)
 
     function renderLayers() {
-      // 1. Haal de configuraties op uit config.js
-      // Zorg dat createLayer in config.js de .reverse() gebruikt!
-      const layerConfigs = VIZ_CONFIG.createLayer(allData, currentWeights);
+      const layers = [];
+
+      // 1. Boundary Layer (De omtreklijn)
+      // We checken of er data is, en roepen dan de functie in config.js aan
+      if (allData.length > 0) {
+        // H3-js library heeft alleen de indexen nodig om een shape te maken
+        const allH3 = allData.map(d => d.h3);
+        
+        // We maken een GeoJsonLayer met de data van createBoundaryLayer
+        const boundaryLayer = new deck.GeoJsonLayer(VIZ_CONFIG.createBoundaryLayer(allH3));
+        layers.push(boundaryLayer);
+      }
+
+      // 2. Data Visualisatie: Heatmap OF Staven
+      if (showHeatmap) {
+        // --- HEATMAP MODUS ---
+        const heatmapLayer = new deck.HeatmapLayer(
+          VIZ_CONFIG.createHeatmapLayer(allData, currentWeights)
+        );
+        layers.push(heatmapLayer);
       
-      // 2. Bouw de lagen op
-      // We gebruiken de config direct om er zeker van te zijn dat 
-      // getElevation en getFillColor exact worden overgenomen zoals we willen
-      const vizLayers = layerConfigs.map(config => new deck.H3HexagonLayer(config));
+      } else {
+        // --- 3D STAVEN MODUS ---
+        // We halen de array van layer-configs op (reeds reversed in config.js)
+        const stackConfigs = VIZ_CONFIG.createLayer(allData, currentWeights);
+        
+        // Zet elke config om in een echte DeckGL laag
+        const vizLayers = stackConfigs.map(config => new deck.H3HexagonLayer(config));
+        
+        layers.push(...vizLayers);
+      }
       
+      // Update de kaart
       deckInstance.setProps({
         layers: [
           DeckGLUtils.createBasemap(VIZ_CONFIG.basemap),
-          ...vizLayers
+          ...layers
         ]
       });
     }
 
     async function init() {
       try {
-        // Use your Utils to load data
+        // Data laden
         allData = await DeckGLUtils.loadCSV(VIZ_CONFIG.dataUrl);
         document.getElementById('loading').style.display = 'none';
 
-        // Build the UI
+        // --- UI OPBOUWEN ---
         const list = document.getElementById('filter-list');
+        
+        // 1. Sliders aanmaken
         VIZ_CONFIG.filters.forEach(f => {
           currentWeights[f.key] = f.default;
           const crit = VIZ_CONFIG.criteria.find(c => c.weightKey === f.key);
@@ -95,6 +145,7 @@
           `;
           list.appendChild(row);
 
+          // Event listener voor sliders
           row.querySelector('input').addEventListener('input', (e) => {
             currentWeights[f.key] = parseInt(e.target.value);
             document.getElementById(`${f.key}-display`).textContent = e.target.value;
@@ -102,19 +153,27 @@
           });
         });
 
-        // Create the Deck instance
+        // 2. Heatmap Toggle event listener
+        document.getElementById('heatmap-toggle').addEventListener('change', (e) => {
+          showHeatmap = e.target.checked;
+          renderLayers();
+        });
+
+        // --- DECK.GL STARTEN ---
         deckInstance = new deck.DeckGL({
           container: 'container',
           initialViewState: VIZ_CONFIG.initialView,
           controller: true,
-          // effects: [lightingEffect],
+          // effects: [lightingEffect], // Licht aan/uit zetten naar smaak
           getTooltip: VIZ_CONFIG.tooltip
         });
 
+        // Eerste keer tekenen
         renderLayers();
+
       } catch (e) {
         console.error("Initialization failed:", e);
-        document.getElementById('loading').textContent = "Error loading data.";
+        document.getElementById('loading').textContent = "Error loading data. Check console.";
       }
     }
 
