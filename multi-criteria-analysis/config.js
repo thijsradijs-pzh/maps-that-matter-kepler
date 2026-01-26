@@ -1,9 +1,9 @@
-// config.js - Naadloos Gestapelde MCA Analyse
+// config.js
 const VIZ_CONFIG = {
   title: '📊 Professional MCA Dashboard',
   dataUrl: '/data/h3_binary_matrix.csv', 
   h3Field: 'h3',
-  basemap: 'positron',
+  basemap: 'positron', // of 'dark' voor mooi heatmap contrast
   
   initialView: {
     longitude: 4.48, latitude: 51.90, zoom: 9.5, pitch: 45, bearing: 0
@@ -25,6 +25,7 @@ const VIZ_CONFIG = {
     { key: 'w_peilgebieden', label: 'Peilgebieden Weight', min: 0, max: 10, step: 1, default: 2 }
   ],
 
+  // --- BESTAANDE 3D STAVEN ---
   createLayer: (data, weights) => {
     return VIZ_CONFIG.criteria.map((c, index) => {
       return {
@@ -34,19 +35,19 @@ const VIZ_CONFIG = {
         pickable: true,
         elevationScale: 150,
         getHexagon: d => d.h3,
+        coverage: 0.95,
+        wireframe: false,
         
-        // --- STYLING ---
-        coverage: 0.95,        // Iets ruimte tussen de kolommen voor contrast
-        wireframe: false,      // VERWIJDERT DE WITTE RANDEN
-        getFillColor: [...c.color, 255], // 100% ondoorzichtig voor strakke scheiding
-        
-        material: {
-          ambient: 1.0,        // Zorgt dat de kleuren overal gelijk en fel zijn
-          diffuse: 0.0,
-          shininess: 0
+        // Transparant fix van vorige stap
+        getFillColor: d => {
+            const weight = weights[c.weightKey] || 0;
+            const value = Number(d[c.key]) || 0;
+            if (weight === 0 || value === 0) return [0, 0, 0, 0];
+            return [...c.color, 255]; 
         },
+        
+        material: { ambient: 1.0, diffuse: 0.0, shininess: 0 },
 
-        // DE TRUC: Bereken de cumulatieve hoogte (deze laag + alles eronder)
         getElevation: d => {
           let sum = 0;
           for (let i = 0; i <= index; i++) {
@@ -57,19 +58,71 @@ const VIZ_CONFIG = {
         },
 
         updateTriggers: {
-          getElevation: Object.values(weights)
+          getElevation: Object.values(weights),
+          getFillColor: Object.values(weights)
         },
-
-        transitions: {
-          getElevation: 600
-        }
+        transitions: { getElevation: 600, getFillColor: 600 }
       };
-    }).reverse(); // CRUCIAAL: Teken de langste staaf eerst, de kortere staven dekken de basis af.
+    }).reverse();
+  },
+
+  // --- NIEUW: CONTOURLIJN (BOUNDARY) ---
+  createBoundaryLayer: (allH3Indices) => {
+    // Magie: H3 berekent zelf de omtrek van de set hexagoon-ID's
+    const polygon = h3.h3SetToMultiPolygon(allH3Indices, true);
+    
+    // Vormen naar GeoJSON
+    const geoJsonData = {
+      type: 'Feature',
+      geometry: {
+        type: 'MultiPolygon',
+        coordinates: polygon
+      }
+    };
+
+    return {
+      id: 'region-boundary',
+      data: [geoJsonData],
+      stroked: true,
+      filled: false,
+      lineWidthMinPixels: 3,
+      getLineColor: [50, 50, 50], // Donkergrijze rand
+      getLineWidth: 3
+    };
+  },
+
+  // --- NIEUW: HEATMAP ---
+  createHeatmapLayer: (data, weights) => {
+    return {
+      id: 'mca-heatmap',
+      data: data,
+      // Heatmap heeft coördinaten nodig, geen H3 index. We rekenen dit 'on the fly' om.
+      getPosition: d => {
+        const [lat, lng] = h3.h3ToGeo(d.h3);
+        return [lng, lat];
+      },
+      // De intensiteit is de som van alle gewogen criteria
+      getWeight: d => {
+        let sum = 0;
+        VIZ_CONFIG.criteria.forEach(c => {
+           sum += (Number(d[c.key]) || 0) * (weights[c.weightKey] || 0);
+        });
+        return sum;
+      },
+      radiusPixels: 40,
+      intensity: 1,
+      threshold: 0.05,
+      aggregation: 'SUM',
+      updateTriggers: {
+        getWeight: Object.values(weights)
+      }
+    };
   },
 
   tooltip: (info) => {
+    /* (Dezelfde tooltip code als je al had) */
     const d = info.object;
-    if (!d) return null;
+    if (!d || !d.h3) return null; // Check of d.h3 bestaat, anders is het misschien de boundary
     return {
       html: `
         <div style="padding: 12px; font-family: sans-serif; min-width: 180px; background: white; border-radius: 8px; color: #333; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
