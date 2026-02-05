@@ -23,7 +23,7 @@
 
     body { 
       margin: 0; padding: 0; 
-      font-family: 'Avenir Next', 'Segoe UI', 'Roboto', Helvetica, Arial, sans-serif; /* Esri font stack */
+      font-family: 'Avenir Next', 'Segoe UI', 'Roboto', Helvetica, Arial, sans-serif;
       background: #fff;
       height: 100vh;
       display: flex;
@@ -73,6 +73,7 @@
       cursor: pointer;
     }
 
+    /* --- TABS --- */
     .tabs {
       display: flex;
       border-bottom: 1px solid var(--border-color);
@@ -85,13 +86,57 @@
       color: #666;
       cursor: pointer;
       border-bottom: 3px solid transparent;
+      flex: 1;
+      text-align: center;
     }
+    .tab:hover { background: #f9f9f9; }
     .tab.active {
       color: #333;
       border-bottom: 3px solid var(--pzh-red);
       font-weight: 600;
+      background: white;
     }
 
+    /* --- CONTENT AREAS --- */
+    /* We verbergen secties die niet actief zijn */
+    .sidebar-content {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 0;
+    }
+    .sidebar-content.active {
+      display: block;
+    }
+
+    /* WELKOM CONTENT STIJL */
+    #welcome-content {
+      padding: 20px;
+      color: #333;
+      line-height: 1.6;
+      font-size: 14px;
+    }
+    #welcome-content h3 { color: var(--esri-blue); margin-top: 0; }
+    #welcome-content h4 { margin-bottom: 5px; color: #555; }
+    #welcome-content ul { padding-left: 20px; margin-bottom: 20px; }
+    #welcome-content li { margin-bottom: 8px; color: #555; }
+    
+    .start-btn {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      background: var(--esri-blue);
+      color: white;
+      text-align: center;
+      border-radius: 4px;
+      text-decoration: none;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    .start-btn:hover { background: #006099; }
+
+    /* LAYERS CONTENT STIJL */
     .action-bar {
       padding: 10px 15px;
       display: flex;
@@ -133,17 +178,16 @@
       position: absolute; right: 25px; top: 50%; transform: translateY(-50%); color: #aaa; font-size: 12px; cursor: pointer;
     }
 
-    #layer-content {
-      flex: 1;
-      overflow-y: auto;
-      padding-top: 5px;
+    /* LEGENDA CONTENT STIJL */
+    #legend-content {
+      padding: 20px;
     }
 
+    /* TREE ITEMS */
     .tree-item {
       font-size: 13px;
       color: #333;
     }
-
     details > summary {
       list-style: none;
       padding: 8px 15px;
@@ -197,17 +241,6 @@
     }
     .tool-pill:hover { background: #f9f9f9; color: var(--esri-blue); }
 
-    .zoom-controls {
-      position: absolute; top: 15px; left: 15px; z-index: 10;
-      display: flex; flex-direction: column; gap: 5px;
-    }
-    .zoom-btn {
-      width: 32px; height: 32px; background: white; border: 1px solid #bbb;
-      border-radius: 4px; display: flex; align-items: center; justify-content: center;
-      cursor: pointer; color: #444; font-size: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    .zoom-btn:hover { background: #eee; }
-
     .help-btn {
       position: absolute; top: 15px; right: 15px; z-index: 10;
       width: 32px; height: 32px;
@@ -218,6 +251,17 @@
       font-size: 16px;
     }
     .help-btn:hover { background: #f9f9f9; }
+
+    .zoom-controls {
+      position: absolute; top: 15px; left: 15px; z-index: 10;
+      display: flex; flex-direction: column; gap: 5px;
+    }
+    .zoom-btn {
+      width: 32px; height: 32px; background: white; border: 1px solid #bbb;
+      border-radius: 4px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: #444; font-size: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .zoom-btn:hover { background: #eee; }
 
     .scale-bar {
       position: absolute; bottom: 15px; left: 15px; z-index: 10;
@@ -241,12 +285,8 @@
         position: absolute; bottom: 0; width: 1px; height: 6px; background: #999;
     }
 
-    /* NIEUW: COÖRDINATEN WIDGET STIJL */
     .coords-widget {
-      position: absolute; 
-      bottom: 0; 
-      right: 0; 
-      z-index: 10;
+      position: absolute; bottom: 0; right: 0; z-index: 10;
       background: rgba(255,255,255,0.9);
       padding: 4px 10px;
       border-top-left-radius: 6px;
@@ -255,14 +295,12 @@
       font-family: monospace;
       border-top: 1px solid #ccc;
       border-left: 1px solid #ccc;
-      pointer-events: none; /* Klik er doorheen */
+      pointer-events: none;
     }
 
     .heatmap-legend {
       position: absolute; 
-      bottom: 25px; 
-      right: 15px; 
-      z-index: 10;
+      bottom: 25px; right: 15px; z-index: 10;
       background: rgba(255, 255, 255, 0.95);
       padding: 10px 12px;
       border-radius: 6px;
@@ -277,27 +315,15 @@
         font-size: 11px; font-weight: 700; color: #333; margin-bottom: 6px;
     }
     .gradient-bar {
-      width: 100%;
-      height: 14px;
+      width: 100%; height: 14px;
       background: linear-gradient(to right, 
-        rgb(65, 182, 196),
-        rgb(127, 205, 187),
-        rgb(199, 233, 180),
-        rgb(237, 248, 177),
-        rgb(253, 187, 132),
-        rgb(227, 74, 51)
+        rgb(65, 182, 196), rgb(127, 205, 187), rgb(199, 233, 180),
+        rgb(237, 248, 177), rgb(253, 187, 132), rgb(227, 74, 51)
       );
-      border-radius: 3px;
-      border: 1px solid rgba(0,0,0,0.1);
-      margin-bottom: 4px;
+      border-radius: 3px; border: 1px solid rgba(0,0,0,0.1); margin-bottom: 4px;
     }
     .legend-labels {
-      display: flex;
-      justify-content: space-between;
-      width: 100%;
-      font-size: 10px;
-      color: #666;
-      font-weight: 600;
+      display: flex; justify-content: space-between; width: 100%; font-size: 10px; color: #666; font-weight: 600;
     }
 
     #loading {
@@ -317,45 +343,87 @@
     </div>
     
     <div class="tabs">
-      <div class="tab">Welkom</div>
-      <div class="tab active">Kaartlagen</div>
-      <div class="tab">Legenda</div>
+      <div class="tab active" onclick="switchTab('welcome')">Welkom</div>
+      <div class="tab" onclick="switchTab('layers')">Kaartlagen</div>
+      <div class="tab" onclick="switchTab('legend')">Legenda</div>
     </div>
 
-    <div class="action-bar">
-      <div class="action-btn"><i class="fa fa-map"></i> Deelgebieden</div>
-      <div class="action-btn"><i class="fa fa-plus-circle"></i> Lagen toevoegen</div>
+    <div id="welcome-content" class="sidebar-content active">
+      <h3>Welkom bij de Gebiedsviewer</h3>
+      <p>
+        Deze interactieve viewer ondersteunt het gebiedsproces van het Provinciaal Programma Landelijk Gebied (PPLG) in Zuid-Holland.
+      </p>
+      
+      <h4>Hoe werkt het?</h4>
+      <ul>
+        <li><b>Kies een gebied:</b> Selecteer een regio in de lagenlijst (bijv. Groene Hart Noord).</li>
+        <li><b>Analyseer opgaves:</b> Verschuif de sliders om prioriteit te geven aan thema's zoals verzilting, bodemdaling of wateroverlast.</li>
+        <li><b>Visualiseer:</b> Bekijk het resultaat in 3D (stapeling) of als heatmap om hotspots te identificeren.</li>
+      </ul>
+
+      <p style="font-size:12px; color:#888; font-style:italic;">
+        Disclaimer: Dit betreft een prototype ten behoeve van de MCA verkenning. Aan de getoonde data kunnen geen rechten worden ontleend.
+      </p>
+
+      <div class="start-btn" onclick="switchTab('layers')">Aan de slag</div>
     </div>
 
-    <div class="filter-bar">
-      <input type="text" class="filter-input" placeholder="Filter lagen op titel...">
-      <i class="fa fa-times filter-icon"></i>
-    </div>
+    <div id="layer-content" class="sidebar-content">
+      <div class="action-bar">
+        <div class="action-btn"><i class="fa fa-map"></i> Deelgebieden</div>
+        <div class="action-btn"><i class="fa fa-plus-circle"></i> Lagen toevoegen</div>
+      </div>
 
-    <div id="layer-content">
-      <div class="tree-item"><details><summary><i class="fa fa-chevron-right toggle-arrow"></i><i class="fa fa-check-square checkbox-icon unchecked"></i><i class="fa fa-folder" style="color:#666; width:16px;"></i> Duin- en Bollenstreek</summary></details></div>
-      <div class="tree-item"><details><summary><i class="fa fa-chevron-right toggle-arrow"></i><i class="fa fa-check-square checkbox-icon unchecked"></i><i class="fa fa-folder" style="color:#666; width:16px;"></i> Duin Horst en Weide</summary></details></div>
-      <div class="tree-item"><details><summary><i class="fa fa-chevron-right toggle-arrow"></i><i class="fa fa-check-square checkbox-icon unchecked"></i><i class="fa fa-folder" style="color:#666; width:16px;"></i> Westland</summary></details></div>
+      <div class="filter-bar">
+        <input type="text" class="filter-input" placeholder="Filter lagen op titel...">
+        <i class="fa fa-times filter-icon"></i>
+      </div>
 
-      <div class="tree-item">
-        <details open>
-          <summary>
-            <i class="fa fa-chevron-right toggle-arrow"></i>
-            <i class="fa fa-check-square checkbox-icon"></i>
-            <i class="fa fa-folder-open" style="color:#007ac2; width:16px;"></i> 
-            Groene Hart Noord
-          </summary>
-          <div class="sub-level">
-            <div style="font-size:11px; font-weight:bold; color:#666; margin-bottom:8px;">MCA Analyse</div>
-            <div style="margin-bottom: 15px; display:flex; align-items:center; cursor:pointer;">
-               <input type="checkbox" id="heatmap-toggle" style="margin-right:8px;">
-               <label for="heatmap-toggle" style="font-size:12px;">Toon als Heatmap</label>
+      <div id="layer-tree" style="padding-top: 5px;">
+        <div class="tree-item"><details><summary><i class="fa fa-chevron-right toggle-arrow"></i><i class="fa fa-check-square checkbox-icon unchecked"></i><i class="fa fa-folder" style="color:#666; width:16px;"></i> Duin- en Bollenstreek</summary></details></div>
+        <div class="tree-item"><details><summary><i class="fa fa-chevron-right toggle-arrow"></i><i class="fa fa-check-square checkbox-icon unchecked"></i><i class="fa fa-folder" style="color:#666; width:16px;"></i> Duin Horst en Weide</summary></details></div>
+        <div class="tree-item"><details><summary><i class="fa fa-chevron-right toggle-arrow"></i><i class="fa fa-check-square checkbox-icon unchecked"></i><i class="fa fa-folder" style="color:#666; width:16px;"></i> Westland</summary></details></div>
+
+        <div class="tree-item">
+          <details open>
+            <summary>
+              <i class="fa fa-chevron-right toggle-arrow"></i>
+              <i class="fa fa-check-square checkbox-icon"></i>
+              <i class="fa fa-folder-open" style="color:#007ac2; width:16px;"></i> 
+              Groene Hart Noord
+            </summary>
+            <div class="sub-level">
+              <div style="font-size:11px; font-weight:bold; color:#666; margin-bottom:8px;">MCA Analyse</div>
+              <div style="margin-bottom: 15px; display:flex; align-items:center; cursor:pointer;">
+                 <input type="checkbox" id="heatmap-toggle" style="margin-right:8px;">
+                 <label for="heatmap-toggle" style="font-size:12px;">Toon als Heatmap</label>
+              </div>
+              <div id="mca-sliders-container"></div>
             </div>
-            <div id="mca-sliders-container"></div>
-          </div>
-        </details>
+          </details>
+        </div>
       </div>
     </div>
+
+    <div id="legend-content" class="sidebar-content">
+       <div style="padding: 15px;">
+         <h4 style="margin-top:0;">Legenda Heatmap</h4>
+         <p style="font-size:12px; color:#666;">Toont de geaggregeerde score op basis van de huidige wegingen.</p>
+         
+         <div style="border:1px solid #eee; padding:10px; border-radius:4px;">
+           <div class="gradient-bar" style="height:20px;"></div>
+           <div class="legend-labels">
+             <span>Laag (Weinig impact)</span>
+             <span>Hoog (Veel impact)</span>
+           </div>
+         </div>
+
+         <h4 style="margin-bottom:10px;">Thema's</h4>
+         <div id="static-legend-items">
+             </div>
+       </div>
+    </div>
+
   </div>
 
   <div id="map-container">
@@ -380,7 +448,6 @@
       <div class="zoom-btn" id="btn-basemap" onclick="toggleBasemap()" title="Wissel Achtergrondkaart" style="margin-top: 5px; font-weight:900; font-size:10px; color:#444; display: flex; align-items: center; justify-content: center;">
           Foto
       </div>
-      
       <div class="zoom-btn" title="Meten (Binnenkort)" style="margin-top: 5px; color:#666;">
           <i class="fa fa-ruler-combined"></i>
       </div>
@@ -393,7 +460,7 @@
     </div>
 
     <div id="coords-widget" class="coords-widget">
-       51.90000 | 4.48000
+       ... | ...
     </div>
 
     <div id="heatmap-legend" class="heatmap-legend">
@@ -418,8 +485,26 @@
     let currentViewState = VIZ_CONFIG.initialView;
     let isSatellite = false;
 
-    // --- FUNCTIES ---
+    // --- TAB SWITCHER FUNCTIE ---
+    function switchTab(tabName) {
+        // 1. Reset alle tabs
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.sidebar-content').forEach(c => c.classList.remove('active'));
 
+        // 2. Activeer de gekozen tab
+        if(tabName === 'welcome') {
+            document.querySelectorAll('.tab')[0].classList.add('active');
+            document.getElementById('welcome-content').classList.add('active');
+        } else if(tabName === 'layers') {
+            document.querySelectorAll('.tab')[1].classList.add('active');
+            document.getElementById('layer-content').classList.add('active');
+        } else if(tabName === 'legend') {
+            document.querySelectorAll('.tab')[2].classList.add('active');
+            document.getElementById('legend-content').classList.add('active');
+        }
+    }
+
+    // --- OVERIGE FUNCTIES ---
     function showCredits() {
         alert("Thijs accepteert de uitnodiging om de lay-out van de gebiedsviewer te jatten.");
     }
@@ -494,7 +579,6 @@
         text.innerText = label;
     }
 
-    // NIEUW: Functie om coördinaten te updaten bij muisbeweging
     function updateCoords(info) {
         if (info.coordinate) {
             const [lng, lat] = info.coordinate;
@@ -506,6 +590,9 @@
     function renderLayers() {
       const layers = [];
       const legend = document.getElementById('heatmap-legend');
+      // Alleen tonen als heatmap aan staat EN we op de Kaartlagen tab zitten (anders overlapt het)
+      // Echter, op een kaartviewer wil je de legenda op de kaart vaak altijd zien als de layer aan staat.
+      // We laten hem staan.
       if (showHeatmap) legend.style.display = 'flex';
       else legend.style.display = 'none';
 
@@ -557,12 +644,16 @@
         document.getElementById('loading').style.display = 'none';
 
         const sliderContainer = document.getElementById('mca-sliders-container');
+        const legendContainer = document.getElementById('static-legend-items');
+
         VIZ_CONFIG.filters.forEach(f => {
           currentWeights[f.key] = f.default;
           if (!window.currentWeights) window.currentWeights = {};
           window.currentWeights[f.key] = f.default;
 
           const crit = VIZ_CONFIG.criteria.find(c => c.weightKey === f.key);
+          
+          // 1. Sliders aanmaken
           const wrapper = document.createElement('div');
           wrapper.className = 'mca-control';
           wrapper.innerHTML = `
@@ -582,6 +673,18 @@
             document.getElementById(`${f.key}-display`).textContent = val;
             renderLayers();
           });
+
+          // 2. Statische Legenda Item aanmaken (voor de 3e tab)
+          const legendItem = document.createElement('div');
+          legendItem.style.display = 'flex';
+          legendItem.style.alignItems = 'center';
+          legendItem.style.marginBottom = '8px';
+          legendItem.innerHTML = `
+             <div style="width:16px; height:16px; background:rgb(${crit.color.join(',')}); border-radius:3px; margin-right:10px;"></div>
+             <div style="font-size:13px; color:#444;">${crit.label}</div>
+          `;
+          legendContainer.appendChild(legendItem);
+
         });
 
         document.getElementById('heatmap-toggle').addEventListener('change', (e) => {
@@ -603,7 +706,6 @@
               if (btn) btn.innerText = (viewState.pitch > 10) ? "2D" : "3D";
               return viewState; 
           },
-          // NIEUW: Event listener voor coördinaten
           onHover: updateCoords,
           onLoad: () => {
               updateScaleBar(VIZ_CONFIG.initialView);
