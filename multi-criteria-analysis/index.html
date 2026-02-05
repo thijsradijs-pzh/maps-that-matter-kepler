@@ -98,7 +98,6 @@
     }
 
     /* --- CONTENT AREAS --- */
-    /* We verbergen secties die niet actief zijn */
     .sidebar-content {
       display: none;
       flex: 1;
@@ -109,126 +108,63 @@
       display: block;
     }
 
-    /* WELKOM CONTENT STIJL */
-    #welcome-content {
-      padding: 20px;
-      color: #333;
-      line-height: 1.6;
-      font-size: 14px;
-    }
+    /* WELKOM STIJL */
+    #welcome-content { padding: 20px; color: #333; line-height: 1.6; font-size: 14px; }
     #welcome-content h3 { color: var(--esri-blue); margin-top: 0; }
     #welcome-content h4 { margin-bottom: 5px; color: #555; }
     #welcome-content ul { padding-left: 20px; margin-bottom: 20px; }
     #welcome-content li { margin-bottom: 8px; color: #555; }
     
     .start-btn {
-      display: block;
-      width: 100%;
-      padding: 10px;
-      background: var(--esri-blue);
-      color: white;
-      text-align: center;
-      border-radius: 4px;
-      text-decoration: none;
-      font-weight: 600;
-      cursor: pointer;
-      margin-top: 20px;
+      display: block; width: 100%; padding: 10px; background: var(--esri-blue);
+      color: white; text-align: center; border-radius: 4px; text-decoration: none;
+      font-weight: 600; cursor: pointer; margin-top: 20px;
     }
     .start-btn:hover { background: #006099; }
 
-    /* LAYERS CONTENT STIJL */
-    .action-bar {
-      padding: 10px 15px;
-      display: flex;
-      gap: 10px;
-      border-bottom: 1px solid #f0f0f0;
-      justify-content: flex-end;
-    }
+    /* LAYERS STIJL */
+    .action-bar { padding: 10px 15px; display: flex; gap: 10px; border-bottom: 1px solid #f0f0f0; justify-content: flex-end; }
     .action-btn {
-      background: white;
-      border: 1px solid #ccc;
-      border-radius: 15px;
-      padding: 4px 12px;
-      font-size: 11px;
-      font-weight: 600;
-      color: #555;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 5px;
+      background: white; border: 1px solid #ccc; border-radius: 15px; padding: 4px 12px;
+      font-size: 11px; font-weight: 600; color: #555; cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
     }
     .action-btn:hover { background: var(--esri-hover); }
 
-    .filter-bar {
-      padding: 8px 15px;
-      border-bottom: 1px solid var(--border-color);
-      position: relative;
-    }
+    .filter-bar { padding: 8px 15px; border-bottom: 1px solid var(--border-color); position: relative; }
     .filter-input {
-      width: 100%;
-      padding: 6px 10px 6px 10px;
-      border: 1px solid #ccc;
-      border-radius: 0;
-      font-size: 12px;
-      box-sizing: border-box;
-      outline: none;
+      width: 100%; padding: 6px 10px 6px 10px; border: 1px solid #ccc;
+      border-radius: 0; font-size: 12px; box-sizing: border-box; outline: none;
     }
-    .filter-input::placeholder { font-style: italic; color: #999; }
-    .filter-icon {
-      position: absolute; right: 25px; top: 50%; transform: translateY(-50%); color: #aaa; font-size: 12px; cursor: pointer;
-    }
+    .filter-icon { position: absolute; right: 25px; top: 50%; transform: translateY(-50%); color: #aaa; font-size: 12px; cursor: pointer; }
 
-    /* LEGENDA CONTENT STIJL */
-    #legend-content {
-      padding: 20px;
-    }
+    /* LEGENDA STIJL */
+    #legend-content { padding: 20px; }
 
     /* TREE ITEMS */
-    .tree-item {
-      font-size: 13px;
-      color: #333;
-    }
+    .tree-item { font-size: 13px; color: #333; }
     details > summary {
-      list-style: none;
-      padding: 8px 15px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      list-style: none; padding: 8px 15px; cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
     }
     details > summary:hover { background: #f0f8ff; } 
     details > summary::-webkit-details-marker { display: none; }
-
-    .toggle-arrow {
-      font-size: 10px; color: #666; width: 10px; transition: transform 0.2s;
-    }
+    .toggle-arrow { font-size: 10px; color: #666; width: 10px; transition: transform 0.2s; }
     details[open] > summary .toggle-arrow { transform: rotate(90deg); }
-    
     .checkbox-icon { color: var(--esri-blue); font-size: 14px; margin-right: 4px; }
     .checkbox-icon.unchecked { color: #ccc; }
-    
-    .sub-level {
-      padding-left: 38px; 
-      padding-right: 15px;
-      padding-bottom: 10px;
-    }
-
+    .sub-level { padding-left: 38px; padding-right: 15px; padding-bottom: 10px; }
     .mca-control { margin-bottom: 12px; }
-    .mca-label {
-      display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; color: #444; align-items: center;
-    }
-    input[type=range] {
-      width: 100%; height: 4px; background: #eee; border-radius: 2px; appearance: none;
-    }
-    input[type=range]::-webkit-slider-thumb {
-      appearance: none; width: 14px; height: 14px; background: var(--esri-blue); border-radius: 50%; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-    }
+    .mca-label { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; color: #444; align-items: center; }
+    input[type=range] { width: 100%; height: 4px; background: #eee; border-radius: 2px; appearance: none; }
+    input[type=range]::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; background: var(--esri-blue); border-radius: 50%; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
 
     /* --- MAP AREA --- */
-    #map-container {
-      flex: 1; position: relative; background: #e5e5e5;
-    }
+    #map-container { flex: 1; position: relative; background: #e5e5e5; }
     
+    /* Cursor verandert in crosshair tijdens meten */
+    .measuring-cursor { cursor: crosshair !important; }
+
     .top-toolbar {
       position: absolute; top: 15px; left: 60px; z-index: 10;
       display: flex; gap: 8px;
@@ -262,58 +198,34 @@
       cursor: pointer; color: #444; font-size: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     .zoom-btn:hover { background: #eee; }
+    /* Actieve status voor knoppen (zoals meten) */
+    .zoom-btn.active { background: var(--esri-blue); color: white; border-color: var(--esri-blue); }
 
     .scale-bar {
       position: absolute; bottom: 15px; left: 15px; z-index: 10;
-      background: rgba(255,255,255,0.85); 
-      border: 1px solid #999; 
-      border-top: none;
-      height: 6px; 
-      width: 100px;
-      font-size: 11px; 
-      color: #222;
-      display: flex; 
-      align-items: flex-end; 
-      padding: 0 0px;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-      transition: width 0.3s;
+      background: rgba(255,255,255,0.85); border: 1px solid #999; border-top: none;
+      height: 6px; width: 100px; font-size: 11px; color: #222;
+      display: flex; align-items: flex-end; padding: 0 0px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: width 0.3s;
     }
-    .scale-text { 
-      position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-weight: 600;
-    }
-    .scale-tick {
-        position: absolute; bottom: 0; width: 1px; height: 6px; background: #999;
-    }
+    .scale-text { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-weight: 600; }
+    .scale-tick { position: absolute; bottom: 0; width: 1px; height: 6px; background: #999; }
 
     .coords-widget {
       position: absolute; bottom: 0; right: 0; z-index: 10;
-      background: rgba(255,255,255,0.9);
-      padding: 4px 10px;
-      border-top-left-radius: 6px;
-      font-size: 11px;
-      color: #555;
-      font-family: monospace;
-      border-top: 1px solid #ccc;
-      border-left: 1px solid #ccc;
+      background: rgba(255,255,255,0.9); padding: 4px 10px;
+      border-top-left-radius: 6px; font-size: 11px; color: #555;
+      font-family: monospace; border-top: 1px solid #ccc; border-left: 1px solid #ccc;
       pointer-events: none;
     }
 
     .heatmap-legend {
-      position: absolute; 
-      bottom: 25px; right: 15px; z-index: 10;
-      background: rgba(255, 255, 255, 0.95);
-      padding: 10px 12px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-      display: none;
-      flex-direction: column;
-      align-items: flex-start;
-      min-width: 120px;
+      position: absolute; bottom: 25px; right: 15px; z-index: 10;
+      background: rgba(255, 255, 255, 0.95); padding: 10px 12px;
+      border-radius: 6px; border: 1px solid #ccc; box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      display: none; flex-direction: column; align-items: flex-start; min-width: 120px;
     }
-    .heatmap-title {
-        font-size: 11px; font-weight: 700; color: #333; margin-bottom: 6px;
-    }
+    .heatmap-title { font-size: 11px; font-weight: 700; color: #333; margin-bottom: 6px; }
     .gradient-bar {
       width: 100%; height: 14px;
       background: linear-gradient(to right, 
@@ -322,9 +234,7 @@
       );
       border-radius: 3px; border: 1px solid rgba(0,0,0,0.1); margin-bottom: 4px;
     }
-    .legend-labels {
-      display: flex; justify-content: space-between; width: 100%; font-size: 10px; color: #666; font-weight: 600;
-    }
+    .legend-labels { display: flex; justify-content: space-between; width: 100%; font-size: 10px; color: #666; font-weight: 600; }
 
     #loading {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -350,21 +260,13 @@
 
     <div id="welcome-content" class="sidebar-content active">
       <h3>Welkom bij de Gebiedsviewer</h3>
-      <p>
-        Deze interactieve viewer ondersteunt het gebiedsproces van het Provinciaal Programma Landelijk Gebied (PPLG) in Zuid-Holland.
-      </p>
-      
+      <p>Deze interactieve viewer ondersteunt het gebiedsproces van het Provinciaal Programma Landelijk Gebied (PPLG).</p>
       <h4>Hoe werkt het?</h4>
       <ul>
-        <li><b>Kies een gebied:</b> Selecteer een regio in de lagenlijst (bijv. Groene Hart Noord).</li>
-        <li><b>Analyseer opgaves:</b> Verschuif de sliders om prioriteit te geven aan thema's zoals verzilting, bodemdaling of wateroverlast.</li>
-        <li><b>Visualiseer:</b> Bekijk het resultaat in 3D (stapeling) of als heatmap om hotspots te identificeren.</li>
+        <li><b>Kies een gebied:</b> Selecteer een regio in de lagenlijst.</li>
+        <li><b>Analyseer:</b> Verschuif sliders om prioriteiten te stellen.</li>
+        <li><b>Meet:</b> Gebruik de meetlat om afstanden te bepalen.</li>
       </ul>
-
-      <p style="font-size:12px; color:#888; font-style:italic;">
-        Disclaimer: Dit betreft een prototype ten behoeve van de MCA verkenning. Aan de getoonde data kunnen geen rechten worden ontleend.
-      </p>
-
       <div class="start-btn" onclick="switchTab('layers')">Aan de slag</div>
     </div>
 
@@ -373,12 +275,10 @@
         <div class="action-btn"><i class="fa fa-map"></i> Deelgebieden</div>
         <div class="action-btn"><i class="fa fa-plus-circle"></i> Lagen toevoegen</div>
       </div>
-
       <div class="filter-bar">
         <input type="text" class="filter-input" placeholder="Filter lagen op titel...">
         <i class="fa fa-times filter-icon"></i>
       </div>
-
       <div id="layer-tree" style="padding-top: 5px;">
         <div class="tree-item"><details><summary><i class="fa fa-chevron-right toggle-arrow"></i><i class="fa fa-check-square checkbox-icon unchecked"></i><i class="fa fa-folder" style="color:#666; width:16px;"></i> Duin- en Bollenstreek</summary></details></div>
         <div class="tree-item"><details><summary><i class="fa fa-chevron-right toggle-arrow"></i><i class="fa fa-check-square checkbox-icon unchecked"></i><i class="fa fa-folder" style="color:#666; width:16px;"></i> Duin Horst en Weide</summary></details></div>
@@ -408,22 +308,14 @@
     <div id="legend-content" class="sidebar-content">
        <div style="padding: 15px;">
          <h4 style="margin-top:0;">Legenda Heatmap</h4>
-         <p style="font-size:12px; color:#666;">Toont de geaggregeerde score op basis van de huidige wegingen.</p>
-         
          <div style="border:1px solid #eee; padding:10px; border-radius:4px;">
            <div class="gradient-bar" style="height:20px;"></div>
-           <div class="legend-labels">
-             <span>Laag (Weinig impact)</span>
-             <span>Hoog (Veel impact)</span>
-           </div>
+           <div class="legend-labels"><span>Laag</span><span>Hoog</span></div>
          </div>
-
          <h4 style="margin-bottom:10px;">Thema's</h4>
-         <div id="static-legend-items">
-             </div>
+         <div id="static-legend-items"></div>
        </div>
     </div>
-
   </div>
 
   <div id="map-container">
@@ -435,9 +327,7 @@
       <div class="tool-pill"><i class="fa fa-print"></i> Afdrukken</div>
     </div>
 
-    <div class="help-btn" onclick="showCredits()" title="Klik hier voor meer info">
-      <i class="fa fa-question"></i>
-    </div>
+    <div class="help-btn" onclick="showCredits()" title="Klik hier voor meer info"><i class="fa fa-question"></i></div>
 
     <div class="zoom-controls">
       <div class="zoom-btn" onclick="zoomIn()" title="Zoom In"><i class="fa fa-plus"></i></div>
@@ -445,10 +335,9 @@
       <div class="zoom-btn" onclick="resetView()" title="Terug naar start"><i class="fa fa-home"></i></div>
       <div class="zoom-btn" id="btn-2d3d" onclick="toggle3D()" title="Wissel 2D/3D" style="font-weight:900; font-size:13px; color:#444;">2D</div>
       <div class="zoom-btn" onclick="resetBearing()" title="Noorden boven"><i class="fa fa-location-arrow"></i></div>
-      <div class="zoom-btn" id="btn-basemap" onclick="toggleBasemap()" title="Wissel Achtergrondkaart" style="margin-top: 5px; font-weight:900; font-size:10px; color:#444; display: flex; align-items: center; justify-content: center;">
-          Foto
-      </div>
-      <div class="zoom-btn" title="Meten (Binnenkort)" style="margin-top: 5px; color:#666;">
+      <div class="zoom-btn" id="btn-basemap" onclick="toggleBasemap()" title="Wissel Achtergrondkaart" style="margin-top: 5px; font-weight:900; font-size:10px; color:#444; display: flex; align-items: center; justify-content: center;">Foto</div>
+      
+      <div class="zoom-btn" id="btn-measure" onclick="toggleMeasure()" title="Meten" style="margin-top: 5px; color:#444;">
           <i class="fa fa-ruler-combined"></i>
       </div>
     </div>
@@ -459,17 +348,12 @@
       <span class="scale-text" id="scale-text">...</span>
     </div>
 
-    <div id="coords-widget" class="coords-widget">
-       ... | ...
-    </div>
+    <div id="coords-widget" class="coords-widget">... | ...</div>
 
     <div id="heatmap-legend" class="heatmap-legend">
         <div class="heatmap-title">Intensiteit Score</div>
         <div class="gradient-bar"></div>
-        <div class="legend-labels">
-            <span>Laag</span>
-            <span>Hoog</span>
-        </div>
+        <div class="legend-labels"><span>Laag</span><span>Hoog</span></div>
     </div>
 
     <div id="loading">Kaartdata laden...</div>
@@ -477,21 +361,23 @@
   </div>
 
   <script>
-    // --- APP LOGIC ---
+    // --- APP STATE ---
     let deckInstance;
     let allData = [];
     const currentWeights = {};
     let showHeatmap = false;
     let currentViewState = VIZ_CONFIG.initialView;
     let isSatellite = false;
+    
+    // MEETLAT STATE
+    let isMeasuring = false;
+    let measurePoints = []; // Array van coordinaten [[lng, lat], ...]
 
-    // --- TAB SWITCHER FUNCTIE ---
+    // --- FUNCTIES ---
+
     function switchTab(tabName) {
-        // 1. Reset alle tabs
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.sidebar-content').forEach(c => c.classList.remove('active'));
-
-        // 2. Activeer de gekozen tab
         if(tabName === 'welcome') {
             document.querySelectorAll('.tab')[0].classList.add('active');
             document.getElementById('welcome-content').classList.add('active');
@@ -504,47 +390,33 @@
         }
     }
 
-    // --- OVERIGE FUNCTIES ---
     function showCredits() {
         alert("Thijs accepteert de uitnodiging om de lay-out van de gebiedsviewer te jatten.");
     }
 
+    // MAP CONTROLS
     function zoomIn() {
       if (!deckInstance) return;
-      deckInstance.setProps({
-        initialViewState: { ...currentViewState, zoom: currentViewState.zoom + 1, transitionDuration: 300, transitionInterpolator: new deck.FlyToInterpolator() }
-      });
+      deckInstance.setProps({ initialViewState: { ...currentViewState, zoom: currentViewState.zoom + 1, transitionDuration: 300, transitionInterpolator: new deck.FlyToInterpolator() } });
     }
-
     function zoomOut() {
       if (!deckInstance) return;
-      deckInstance.setProps({
-        initialViewState: { ...currentViewState, zoom: currentViewState.zoom - 1, transitionDuration: 300, transitionInterpolator: new deck.FlyToInterpolator() }
-      });
+      deckInstance.setProps({ initialViewState: { ...currentViewState, zoom: currentViewState.zoom - 1, transitionDuration: 300, transitionInterpolator: new deck.FlyToInterpolator() } });
     }
-
     function resetView() {
       deckInstance.setProps({ initialViewState: { ...VIZ_CONFIG.initialView, transitionDuration: 800, transitionInterpolator: new deck.FlyToInterpolator() } });
     }
-
     function toggle3D() {
       if (!deckInstance) return;
-      const is3D = currentViewState.pitch > 10;
-      const newPitch = is3D ? 0 : 45;
-      deckInstance.setProps({
-        initialViewState: { ...currentViewState, pitch: newPitch, transitionDuration: 800, transitionInterpolator: new deck.FlyToInterpolator() }
-      });
+      const newPitch = currentViewState.pitch > 10 ? 0 : 45;
+      deckInstance.setProps({ initialViewState: { ...currentViewState, pitch: newPitch, transitionDuration: 800, transitionInterpolator: new deck.FlyToInterpolator() } });
       const btn = document.getElementById('btn-2d3d');
       if (btn) btn.innerText = (newPitch === 0) ? "3D" : "2D";
     }
-
     function resetBearing() {
       if (!deckInstance) return;
-      deckInstance.setProps({
-        initialViewState: { ...currentViewState, bearing: 0, transitionDuration: 800, transitionInterpolator: new deck.FlyToInterpolator() }
-      });
+      deckInstance.setProps({ initialViewState: { ...currentViewState, bearing: 0, transitionDuration: 800, transitionInterpolator: new deck.FlyToInterpolator() } });
     }
-
     function toggleBasemap() {
         isSatellite = !isSatellite;
         renderLayers();
@@ -552,31 +424,59 @@
         if (btn) btn.innerText = isSatellite ? "Kaart" : "Foto";
     }
 
+    // --- MEETLAT FUNCTIES ---
+    
+    // Haversine formule voor afstand in meters
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3; // meters
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180;
+      const Δλ = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    function toggleMeasure() {
+      isMeasuring = !isMeasuring;
+      measurePoints = []; // Reset punten bij aan/uit
+      
+      const btn = document.getElementById('btn-measure');
+      const container = document.getElementById('container');
+      
+      if (isMeasuring) {
+        btn.classList.add('active'); // Maak knop blauw
+        container.classList.add('measuring-cursor'); // Verander cursor
+      } else {
+        btn.classList.remove('active');
+        container.classList.remove('measuring-cursor');
+      }
+      renderLayers();
+    }
+
+    function onMapClick(info) {
+      if (isMeasuring && info.coordinate) {
+        // Voeg punt toe aan meetlijst
+        measurePoints = [...measurePoints, info.coordinate];
+        renderLayers();
+        return true; // Stop event propagation
+      }
+    }
+
+    // --- UTILS ---
     function updateScaleBar(viewState) {
         if (!viewState) return;
         const { zoom, latitude } = viewState;
         const metersPerPixel = (40075016 * Math.cos(latitude * Math.PI / 180)) / Math.pow(2, zoom + 8);
         const targetWidthPx = 120;
         const targetMeters = metersPerPixel * targetWidthPx;
-
-        let roundedMeters;
-        if (targetMeters >= 1000) {
-            const k = targetMeters / 1000;
-            if (k > 100) roundedMeters = Math.round(k / 50) * 50 * 1000;
-            else if (k > 10) roundedMeters = Math.round(k / 5) * 5 * 1000;
-            else roundedMeters = Math.round(k) * 1000;
-        } else {
-            roundedMeters = Math.round(targetMeters / 100) * 100;
-        }
+        let roundedMeters = targetMeters >= 1000 ? Math.round(targetMeters/1000)*1000 : Math.round(targetMeters/100)*100;
         if (roundedMeters === 0) roundedMeters = 100;
-
         const finalWidthPx = roundedMeters / metersPerPixel;
         let label = roundedMeters >= 1000 ? (roundedMeters / 1000) + " km" : roundedMeters + " m";
-
-        const bar = document.getElementById('scale-bar');
-        const text = document.getElementById('scale-text');
-        bar.style.width = `${finalWidthPx}px`;
-        text.innerText = label;
+        document.getElementById('scale-bar').style.width = `${finalWidthPx}px`;
+        document.getElementById('scale-text').innerText = label;
     }
 
     function updateCoords(info) {
@@ -586,39 +486,29 @@
         }
     }
 
-    // Render Layers
+    // --- RENDER LAYERS ---
     function renderLayers() {
       const layers = [];
       const legend = document.getElementById('heatmap-legend');
-      // Alleen tonen als heatmap aan staat EN we op de Kaartlagen tab zitten (anders overlapt het)
-      // Echter, op een kaartviewer wil je de legenda op de kaart vaak altijd zien als de layer aan staat.
-      // We laten hem staan.
-      if (showHeatmap) legend.style.display = 'flex';
-      else legend.style.display = 'none';
+      if (showHeatmap) legend.style.display = 'flex'; else legend.style.display = 'none';
 
+      // 1. BASEMAP
       let basemapLayer;
-      
       if (isSatellite) {
           basemapLayer = new deck.TileLayer({
               id: 'satellite-basemap',
               data: 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_ortho25/EPSG:3857/{z}/{x}/{y}.jpeg',
-              minZoom: 6,
-              maxZoom: 19,
-              tileSize: 256,
-              zIndex: 0,
+              minZoom: 6, maxZoom: 19, tileSize: 256, zIndex: 0,
               renderSubLayers: props => {
                 const {bbox: {west, south, east, north}} = props.tile;
-                return new deck.BitmapLayer(props, {
-                  data: null,
-                  image: props.data,
-                  bounds: [west, south, east, north]
-                });
+                return new deck.BitmapLayer(props, { data: null, image: props.data, bounds: [west, south, east, north] });
               }
           });
       } else {
           basemapLayer = DeckGLUtils.createBasemap(VIZ_CONFIG.basemap);
       }
 
+      // 2. DATA LAYERS
       if (allData.length > 0) {
         const allH3 = allData.map(d => d.h3);
         const boundaryLayer = new deck.GeoJsonLayer(VIZ_CONFIG.createBoundaryLayer(allH3));
@@ -632,17 +522,72 @@
         const vizLayers = stackConfigs.map(config => new deck.H3HexagonLayer(config));
         layers.push(...vizLayers);
       }
+
+      // 3. MEETLAT LAYERS (Overlay)
+      if (isMeasuring && measurePoints.length > 0) {
+        // Punten
+        layers.push(new deck.ScatterplotLayer({
+            id: 'measure-points',
+            data: measurePoints.map(p => ({position: p})),
+            getPosition: d => d.position,
+            getFillColor: [0, 122, 194],
+            getRadius: 5,
+            radiusUnits: 'pixels',
+            pickable: false
+        }));
+
+        // Lijnen
+        if (measurePoints.length > 1) {
+            const lineData = [];
+            for(let i=0; i < measurePoints.length - 1; i++) {
+                const p1 = measurePoints[i];
+                const p2 = measurePoints[i+1];
+                const dist = calculateDistance(p1[1], p1[0], p2[1], p2[0]);
+                // Bereken middenpunt voor label
+                const midX = (p1[0] + p2[0]) / 2;
+                const midY = (p1[1] + p2[1]) / 2;
+                
+                let label = dist >= 1000 ? (dist/1000).toFixed(2) + " km" : Math.round(dist) + " m";
+                
+                lineData.push({ source: p1, target: p2, label: label, mid: [midX, midY] });
+            }
+
+            layers.push(new deck.LineLayer({
+                id: 'measure-lines',
+                data: lineData,
+                getSourcePosition: d => d.source,
+                getTargetPosition: d => d.target,
+                getColor: [0, 122, 194],
+                getWidth: 3,
+                pickable: false
+            }));
+
+            // Tekstlabels (afstand)
+            layers.push(new deck.TextLayer({
+                id: 'measure-labels',
+                data: lineData,
+                getPosition: d => d.mid,
+                getText: d => d.label,
+                getSize: 14,
+                getColor: [0, 0, 0],
+                getBackgroundColor: [255, 255, 255],
+                background: true,
+                backgroundPadding: [4, 2],
+                getBorderColor: [0, 122, 194],
+                getBorderWidth: 1,
+                fontFamily: 'Arial, sans-serif',
+                fontWeight: 'bold'
+            }));
+        }
+      }
       
-      deckInstance.setProps({
-        layers: [basemapLayer, ...layers]
-      });
+      deckInstance.setProps({ layers: [basemapLayer, ...layers] });
     }
 
     async function init() {
       try {
         allData = await DeckGLUtils.loadCSV(VIZ_CONFIG.dataUrl);
         document.getElementById('loading').style.display = 'none';
-
         const sliderContainer = document.getElementById('mca-sliders-container');
         const legendContainer = document.getElementById('static-legend-items');
 
@@ -650,10 +595,7 @@
           currentWeights[f.key] = f.default;
           if (!window.currentWeights) window.currentWeights = {};
           window.currentWeights[f.key] = f.default;
-
           const crit = VIZ_CONFIG.criteria.find(c => c.weightKey === f.key);
-          
-          // 1. Sliders aanmaken
           const wrapper = document.createElement('div');
           wrapper.className = 'mca-control';
           wrapper.innerHTML = `
@@ -673,18 +615,10 @@
             document.getElementById(`${f.key}-display`).textContent = val;
             renderLayers();
           });
-
-          // 2. Statische Legenda Item aanmaken (voor de 3e tab)
           const legendItem = document.createElement('div');
-          legendItem.style.display = 'flex';
-          legendItem.style.alignItems = 'center';
-          legendItem.style.marginBottom = '8px';
-          legendItem.innerHTML = `
-             <div style="width:16px; height:16px; background:rgb(${crit.color.join(',')}); border-radius:3px; margin-right:10px;"></div>
-             <div style="font-size:13px; color:#444;">${crit.label}</div>
-          `;
+          legendItem.style.display = 'flex'; legendItem.style.alignItems = 'center'; legendItem.style.marginBottom = '8px';
+          legendItem.innerHTML = `<div style="width:16px; height:16px; background:rgb(${crit.color.join(',')}); border-radius:3px; margin-right:10px;"></div><div style="font-size:13px; color:#444;">${crit.label}</div>`;
           legendContainer.appendChild(legendItem);
-
         });
 
         document.getElementById('heatmap-toggle').addEventListener('change', (e) => {
@@ -695,10 +629,12 @@
         deckInstance = new deck.DeckGL({
           container: 'container',
           initialViewState: VIZ_CONFIG.initialView,
-          controller: true,
-          getTooltip: VIZ_CONFIG.tooltip,
-          width: '100%', height: '100%',
-          
+          controller: { doubleClickZoom: false }, // Double click uit om conflicten met meten te voorkomen
+          // Pas tooltip aan: GEEN tooltip als we aan het meten zijn
+          getTooltip: (info) => {
+              if(isMeasuring) return null;
+              return VIZ_CONFIG.tooltip(info);
+          },
           onViewStateChange: ({viewState}) => {
               currentViewState = viewState;
               updateScaleBar(viewState);
@@ -707,9 +643,8 @@
               return viewState; 
           },
           onHover: updateCoords,
-          onLoad: () => {
-              updateScaleBar(VIZ_CONFIG.initialView);
-          }
+          onClick: onMapClick, // NIEUW: Click handler voor meten
+          onLoad: () => { updateScaleBar(VIZ_CONFIG.initialView); }
         });
 
         renderLayers();
@@ -720,7 +655,6 @@
         document.getElementById('loading').textContent = "Kan data niet laden.";
       }
     }
-
     init();
   </script>
 </body>
