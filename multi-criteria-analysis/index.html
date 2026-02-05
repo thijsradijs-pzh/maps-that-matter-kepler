@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
   <meta charset='utf-8' />
-  <title>ZH-PLG Multi Criteria Analyse</title>
+  <title>ZH-PLG Multi-Criteria-Analyse</title>
   
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
@@ -284,7 +284,7 @@
   <div id="sidebar">
     <div class="sidebar-header">
       <img src="/multi-criteria-analysis/image_1.png" alt="Provincie Zuid-Holland Logo" class="sidebar-logo">
-      <div class="app-title">ZH-PLG<br>Multi Criteria Analyse</div>
+      <div class="app-title">ZH-PLG<br>Multi-Criteria-Analyse</div>
       <i class="fa fa-bars menu-icon"></i>
     </div>
     
@@ -349,6 +349,10 @@
       <div class="zoom-btn" id="btn-2d3d" onclick="toggle3D()" title="Wissel 2D/3D" style="font-weight:900; font-size:13px; color:#444;">2D</div>
       
       <div class="zoom-btn" onclick="resetBearing()" title="Noorden boven"><i class="fa fa-location-arrow"></i></div>
+      
+      <div class="zoom-btn" id="btn-basemap" onclick="toggleBasemap()" title="Wissel Achtergrondkaart" style="margin-top: 5px; font-weight:900; font-size:10px; color:#444; display: flex; align-items: center; justify-content: center;">
+          Foto
+      </div>
     </div>
 
     <div class="scale-bar" id="scale-bar">
@@ -376,11 +380,12 @@
     let allData = [];
     const currentWeights = {};
     let showHeatmap = false;
-    
-    // Global state
     let currentViewState = VIZ_CONFIG.initialView;
+    
+    // Basemap State
+    let isSatellite = false;
 
-    // --- NAVIGATIE FUNCTIES ---
+    // --- NAVIGATIE & CONTROL FUNCTIES ---
 
     function zoomIn() {
       if (!deckInstance) return;
@@ -416,17 +421,11 @@
       });
     }
 
-    // --- DYNAMISCHE 2D/3D KNOP ---
     function toggle3D() {
       if (!deckInstance) return;
-      
-      // Check of we nu in 3D zijn (pitch > 10)
       const is3D = currentViewState.pitch > 10;
-      
-      // Wissel naar de andere stand
       const newPitch = is3D ? 0 : 45;
       
-      // Voer de wissel uit op de kaart
       deckInstance.setProps({
         initialViewState: {
           ...currentViewState,
@@ -436,12 +435,8 @@
         }
       });
 
-      // Update de tekst in de knop
       const btn = document.getElementById('btn-2d3d');
-      if (btn) {
-         // Als we nu naar 2D gaan (newPitch 0), toon optie '3D'. En vice versa.
-         btn.innerText = (newPitch === 0) ? "3D" : "2D";
-      }
+      if (btn) btn.innerText = (newPitch === 0) ? "3D" : "2D";
     }
 
     function resetBearing() {
@@ -456,7 +451,19 @@
       });
     }
 
-    // --- SCALE BAR ---
+    function toggleBasemap() {
+        isSatellite = !isSatellite;
+        renderLayers();
+        
+        // Update de tekst in de knop
+        const btn = document.getElementById('btn-basemap');
+        if (btn) {
+            // Als isSatellite waar is, tonen we optie 'Kaart' om terug te gaan.
+            // Anders tonen we optie 'Foto' om naar luchtfoto te gaan.
+            btn.innerText = isSatellite ? "Kaart" : "Foto";
+        }
+    }
+
     function updateScaleBar(viewState) {
         if (!viewState) return;
         const { zoom, latitude } = viewState;
@@ -491,6 +498,33 @@
       if (showHeatmap) legend.style.display = 'flex';
       else legend.style.display = 'none';
 
+      // 1. BASEMAP KIEZEN (PDOK LUCHTFOTO VS STANDAARD)
+      let basemapLayer;
+      
+      if (isSatellite) {
+          basemapLayer = new deck.TileLayer({
+              id: 'satellite-basemap',
+              data: 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_ortho25/EPSG:3857/{z}/{x}/{y}.jpeg',
+              minZoom: 6,
+              maxZoom: 19,
+              tileSize: 256,
+              zIndex: 0,
+              
+              // FIX VOOR AFBEELDINGEN (JPG)
+              renderSubLayers: props => {
+                const {bbox: {west, south, east, north}} = props.tile;
+                return new deck.BitmapLayer(props, {
+                  data: null,
+                  image: props.data,
+                  bounds: [west, south, east, north]
+                });
+              }
+          });
+      } else {
+          basemapLayer = DeckGLUtils.createBasemap(VIZ_CONFIG.basemap);
+      }
+
+      // 2. DATA LAYERS
       if (allData.length > 0) {
         const allH3 = allData.map(d => d.h3);
         const boundaryLayer = new deck.GeoJsonLayer(VIZ_CONFIG.createBoundaryLayer(allH3));
@@ -506,7 +540,7 @@
       }
       
       deckInstance.setProps({
-        layers: [DeckGLUtils.createBasemap(VIZ_CONFIG.basemap), ...layers]
+        layers: [basemapLayer, ...layers]
       });
     }
 
@@ -558,12 +592,8 @@
           onViewStateChange: ({viewState}) => {
               currentViewState = viewState;
               updateScaleBar(viewState);
-              // Hier kunnen we ook de knop updaten als iemand handmatig kantelt met rechts-klik
               const btn = document.getElementById('btn-2d3d');
-              if (btn) {
-                  // Als pitch > 10 (3D), toon '2D'. Anders '3D'.
-                  btn.innerText = (viewState.pitch > 10) ? "2D" : "3D";
-              }
+              if (btn) btn.innerText = (viewState.pitch > 10) ? "2D" : "3D";
               return viewState; 
           },
           onLoad: () => {
