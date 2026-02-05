@@ -23,7 +23,7 @@
 
     body { 
       margin: 0; padding: 0; 
-      font-family: 'Segoe UI', 'Roboto', Helvetica, Arial, sans-serif; 
+      font-family: 'Avenir Next', 'Segoe UI', 'Roboto', Helvetica, Arial, sans-serif; /* Esri font stack */
       background: #fff;
       height: 100vh;
       display: flex;
@@ -208,7 +208,6 @@
     }
     .zoom-btn:hover { background: #eee; }
 
-    /* NIEUW: HELP BUTTON STYLE */
     .help-btn {
       position: absolute; top: 15px; right: 15px; z-index: 10;
       width: 32px; height: 32px;
@@ -240,6 +239,23 @@
     }
     .scale-tick {
         position: absolute; bottom: 0; width: 1px; height: 6px; background: #999;
+    }
+
+    /* NIEUW: COÖRDINATEN WIDGET STIJL */
+    .coords-widget {
+      position: absolute; 
+      bottom: 0; 
+      right: 0; 
+      z-index: 10;
+      background: rgba(255,255,255,0.9);
+      padding: 4px 10px;
+      border-top-left-radius: 6px;
+      font-size: 11px;
+      color: #555;
+      font-family: monospace;
+      border-top: 1px solid #ccc;
+      border-left: 1px solid #ccc;
+      pointer-events: none; /* Klik er doorheen */
     }
 
     .heatmap-legend {
@@ -357,17 +373,16 @@
 
     <div class="zoom-controls">
       <div class="zoom-btn" onclick="zoomIn()" title="Zoom In"><i class="fa fa-plus"></i></div>
-      
       <div class="zoom-btn" onclick="zoomOut()" title="Zoom Uit"><i class="fa fa-minus"></i></div>
-      
       <div class="zoom-btn" onclick="resetView()" title="Terug naar start"><i class="fa fa-home"></i></div>
-      
       <div class="zoom-btn" id="btn-2d3d" onclick="toggle3D()" title="Wissel 2D/3D" style="font-weight:900; font-size:13px; color:#444;">2D</div>
-      
       <div class="zoom-btn" onclick="resetBearing()" title="Noorden boven"><i class="fa fa-location-arrow"></i></div>
-      
       <div class="zoom-btn" id="btn-basemap" onclick="toggleBasemap()" title="Wissel Achtergrondkaart" style="margin-top: 5px; font-weight:900; font-size:10px; color:#444; display: flex; align-items: center; justify-content: center;">
           Foto
+      </div>
+      
+      <div class="zoom-btn" title="Meten (Binnenkort)" style="margin-top: 5px; color:#666;">
+          <i class="fa fa-ruler-combined"></i>
       </div>
     </div>
 
@@ -375,6 +390,10 @@
       <div class="scale-tick" style="left:0;"></div>
       <div class="scale-tick" style="right:0;"></div>
       <span class="scale-text" id="scale-text">...</span>
+    </div>
+
+    <div id="coords-widget" class="coords-widget">
+       51.90000 | 4.48000
     </div>
 
     <div id="heatmap-legend" class="heatmap-legend">
@@ -397,13 +416,10 @@
     const currentWeights = {};
     let showHeatmap = false;
     let currentViewState = VIZ_CONFIG.initialView;
-    
-    // Basemap State
     let isSatellite = false;
 
     // --- FUNCTIES ---
 
-    // De grap functie
     function showCredits() {
         alert("Thijs accepteert de uitnodiging om de lay-out van de gebiedsviewer te jatten.");
     }
@@ -411,51 +427,28 @@
     function zoomIn() {
       if (!deckInstance) return;
       deckInstance.setProps({
-        initialViewState: {
-          ...currentViewState,
-          zoom: currentViewState.zoom + 1,
-          transitionDuration: 300,
-          transitionInterpolator: new deck.FlyToInterpolator()
-        }
+        initialViewState: { ...currentViewState, zoom: currentViewState.zoom + 1, transitionDuration: 300, transitionInterpolator: new deck.FlyToInterpolator() }
       });
     }
 
     function zoomOut() {
       if (!deckInstance) return;
       deckInstance.setProps({
-        initialViewState: {
-          ...currentViewState,
-          zoom: currentViewState.zoom - 1,
-          transitionDuration: 300,
-          transitionInterpolator: new deck.FlyToInterpolator()
-        }
+        initialViewState: { ...currentViewState, zoom: currentViewState.zoom - 1, transitionDuration: 300, transitionInterpolator: new deck.FlyToInterpolator() }
       });
     }
 
     function resetView() {
-      deckInstance.setProps({ 
-        initialViewState: { 
-          ...VIZ_CONFIG.initialView, 
-          transitionDuration: 800,
-          transitionInterpolator: new deck.FlyToInterpolator()
-        }
-      });
+      deckInstance.setProps({ initialViewState: { ...VIZ_CONFIG.initialView, transitionDuration: 800, transitionInterpolator: new deck.FlyToInterpolator() } });
     }
 
     function toggle3D() {
       if (!deckInstance) return;
       const is3D = currentViewState.pitch > 10;
       const newPitch = is3D ? 0 : 45;
-      
       deckInstance.setProps({
-        initialViewState: {
-          ...currentViewState,
-          pitch: newPitch,
-          transitionDuration: 800,
-          transitionInterpolator: new deck.FlyToInterpolator()
-        }
+        initialViewState: { ...currentViewState, pitch: newPitch, transitionDuration: 800, transitionInterpolator: new deck.FlyToInterpolator() }
       });
-
       const btn = document.getElementById('btn-2d3d');
       if (btn) btn.innerText = (newPitch === 0) ? "3D" : "2D";
     }
@@ -463,23 +456,15 @@
     function resetBearing() {
       if (!deckInstance) return;
       deckInstance.setProps({
-        initialViewState: {
-          ...currentViewState,
-          bearing: 0,
-          transitionDuration: 800,
-          transitionInterpolator: new deck.FlyToInterpolator()
-        }
+        initialViewState: { ...currentViewState, bearing: 0, transitionDuration: 800, transitionInterpolator: new deck.FlyToInterpolator() }
       });
     }
 
     function toggleBasemap() {
         isSatellite = !isSatellite;
         renderLayers();
-        
         const btn = document.getElementById('btn-basemap');
-        if (btn) {
-            btn.innerText = isSatellite ? "Kaart" : "Foto";
-        }
+        if (btn) btn.innerText = isSatellite ? "Kaart" : "Foto";
     }
 
     function updateScaleBar(viewState) {
@@ -507,6 +492,14 @@
         const text = document.getElementById('scale-text');
         bar.style.width = `${finalWidthPx}px`;
         text.innerText = label;
+    }
+
+    // NIEUW: Functie om coördinaten te updaten bij muisbeweging
+    function updateCoords(info) {
+        if (info.coordinate) {
+            const [lng, lat] = info.coordinate;
+            document.getElementById('coords-widget').innerText = `${lat.toFixed(5)} | ${lng.toFixed(5)}`;
+        }
     }
 
     // Render Layers
@@ -539,7 +532,6 @@
           basemapLayer = DeckGLUtils.createBasemap(VIZ_CONFIG.basemap);
       }
 
-      // 2. DATA LAYERS
       if (allData.length > 0) {
         const allH3 = allData.map(d => d.h3);
         const boundaryLayer = new deck.GeoJsonLayer(VIZ_CONFIG.createBoundaryLayer(allH3));
@@ -611,6 +603,8 @@
               if (btn) btn.innerText = (viewState.pitch > 10) ? "2D" : "3D";
               return viewState; 
           },
+          // NIEUW: Event listener voor coördinaten
+          onHover: updateCoords,
           onLoad: () => {
               updateScaleBar(VIZ_CONFIG.initialView);
           }
