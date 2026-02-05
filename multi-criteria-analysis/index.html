@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
   <meta charset='utf-8' />
-  <title>ZH-PLG Multi Criteria Analyse</title>
+  <title>ZH-PLG Multi-Criteria-Analyse</title>
   
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
@@ -208,6 +208,18 @@
     }
     .zoom-btn:hover { background: #eee; }
 
+    /* NIEUW: HELP BUTTON STYLE */
+    .help-btn {
+      position: absolute; top: 15px; right: 15px; z-index: 10;
+      width: 32px; height: 32px;
+      background: white; border: 1px solid #bbb; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--esri-blue);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      font-size: 16px;
+    }
+    .help-btn:hover { background: #f9f9f9; }
+
     .scale-bar {
       position: absolute; bottom: 15px; left: 15px; z-index: 10;
       background: rgba(255,255,255,0.85); 
@@ -284,7 +296,7 @@
   <div id="sidebar">
     <div class="sidebar-header">
       <img src="/multi-criteria-analysis/image_1.png" alt="Provincie Zuid-Holland Logo" class="sidebar-logo">
-      <div class="app-title">ZH-PLG<br>Multi Criteria Analyse</div>
+      <div class="app-title">ZH-PLG<br>Multi-Criteria-Analyse</div>
       <i class="fa fa-bars menu-icon"></i>
     </div>
     
@@ -339,6 +351,10 @@
       <div class="tool-pill"><i class="fa fa-print"></i> Afdrukken</div>
     </div>
 
+    <div class="help-btn" onclick="showCredits()" title="Klik hier voor meer info">
+      <i class="fa fa-question"></i>
+    </div>
+
     <div class="zoom-controls">
       <div class="zoom-btn" onclick="zoomIn()" title="Zoom In"><i class="fa fa-plus"></i></div>
       
@@ -385,7 +401,12 @@
     // Basemap State
     let isSatellite = false;
 
-    // --- NAVIGATIE & CONTROL FUNCTIES ---
+    // --- FUNCTIES ---
+
+    // De grap functie
+    function showCredits() {
+        alert("Thijs accepteert de uitnodiging om de lay-out van de gebiedsviewer te jatten.");
+    }
 
     function zoomIn() {
       if (!deckInstance) return;
@@ -455,11 +476,8 @@
         isSatellite = !isSatellite;
         renderLayers();
         
-        // Update de tekst in de knop
         const btn = document.getElementById('btn-basemap');
         if (btn) {
-            // Als isSatellite waar is, tonen we optie 'Kaart' om terug te gaan.
-            // Anders tonen we optie 'Foto' om naar luchtfoto te gaan.
             btn.innerText = isSatellite ? "Kaart" : "Foto";
         }
     }
@@ -498,7 +516,6 @@
       if (showHeatmap) legend.style.display = 'flex';
       else legend.style.display = 'none';
 
-      // 1. BASEMAP KIEZEN (PDOK LUCHTFOTO VS STANDAARD)
       let basemapLayer;
       
       if (isSatellite) {
@@ -509,8 +526,6 @@
               maxZoom: 19,
               tileSize: 256,
               zIndex: 0,
-              
-              // FIX VOOR AFBEELDINGEN (JPG)
               renderSubLayers: props => {
                 const {bbox: {west, south, east, north}} = props.tile;
                 return new deck.BitmapLayer(props, {
