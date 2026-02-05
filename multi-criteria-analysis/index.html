@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
   <meta charset='utf-8' />
-  <title>ZH-PLG Multi-Criteria-Analyse</title>
+  <title>ZH-PLG Multi Criteria Analyse</title>
   
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
@@ -41,7 +41,6 @@
       box-shadow: 2px 0 5px rgba(0,0,0,0.05);
     }
 
-    /* --- HEADER --- */
     .sidebar-header {
       padding: 20px 20px;
       display: flex;
@@ -74,7 +73,6 @@
       cursor: pointer;
     }
 
-    /* Tabs */
     .tabs {
       display: flex;
       border-bottom: 1px solid var(--border-color);
@@ -94,7 +92,6 @@
       font-weight: 600;
     }
 
-    /* Action Bar */
     .action-bar {
       padding: 10px 15px;
       display: flex;
@@ -117,7 +114,6 @@
     }
     .action-btn:hover { background: var(--esri-hover); }
 
-    /* Filter Bar */
     .filter-bar {
       padding: 8px 15px;
       border-bottom: 1px solid var(--border-color);
@@ -137,7 +133,6 @@
       position: absolute; right: 25px; top: 50%; transform: translateY(-50%); color: #aaa; font-size: 12px; cursor: pointer;
     }
 
-    /* --- LAYER LIST --- */
     #layer-content {
       flex: 1;
       overflow-y: auto;
@@ -174,7 +169,6 @@
       padding-bottom: 10px;
     }
 
-    /* Slider styling */
     .mca-control { margin-bottom: 12px; }
     .mca-label {
       display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; color: #444; align-items: center;
@@ -216,11 +210,67 @@
 
     .scale-bar {
       position: absolute; bottom: 15px; left: 15px; z-index: 10;
-      background: rgba(255,255,255,0.8); border: 1px solid #999; border-top: none;
-      height: 6px; width: 100px; font-size: 10px; color: #333;
-      display: flex; align-items: flex-end; padding: 2px 5px;
+      background: rgba(255,255,255,0.85); 
+      border: 1px solid #999; 
+      border-top: none;
+      height: 6px; 
+      width: 100px;
+      font-size: 11px; 
+      color: #222;
+      display: flex; 
+      align-items: flex-end; 
+      padding: 0 0px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      transition: width 0.3s;
     }
-    .scale-text { position: absolute; bottom: 8px; left: 5px; }
+    .scale-text { 
+      position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-weight: 600;
+    }
+    .scale-tick {
+        position: absolute; bottom: 0; width: 1px; height: 6px; background: #999;
+    }
+
+    .heatmap-legend {
+      position: absolute; 
+      bottom: 25px; 
+      right: 15px; 
+      z-index: 10;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 10px 12px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      display: none;
+      flex-direction: column;
+      align-items: flex-start;
+      min-width: 120px;
+    }
+    .heatmap-title {
+        font-size: 11px; font-weight: 700; color: #333; margin-bottom: 6px;
+    }
+    .gradient-bar {
+      width: 100%;
+      height: 14px;
+      background: linear-gradient(to right, 
+        rgb(65, 182, 196),
+        rgb(127, 205, 187),
+        rgb(199, 233, 180),
+        rgb(237, 248, 177),
+        rgb(253, 187, 132),
+        rgb(227, 74, 51)
+      );
+      border-radius: 3px;
+      border: 1px solid rgba(0,0,0,0.1);
+      margin-bottom: 4px;
+    }
+    .legend-labels {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      font-size: 10px;
+      color: #666;
+      font-weight: 600;
+    }
 
     #loading {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -234,7 +284,7 @@
   <div id="sidebar">
     <div class="sidebar-header">
       <img src="/multi-criteria-analysis/image_1.png" alt="Provincie Zuid-Holland Logo" class="sidebar-logo">
-      <div class="app-title">ZH-PLG<br>Multi-Criteria-Analyse</div>
+      <div class="app-title">ZH-PLG<br>Multi Criteria Analyse</div>
       <i class="fa fa-bars menu-icon"></i>
     </div>
     
@@ -255,39 +305,9 @@
     </div>
 
     <div id="layer-content">
-      
-      <div class="tree-item">
-        <details>
-          <summary>
-            <i class="fa fa-chevron-right toggle-arrow"></i>
-            <i class="fa fa-check-square checkbox-icon unchecked"></i>
-            <i class="fa fa-folder" style="color:#666; width:16px;"></i> 
-            Duin- en Bollenstreek
-          </summary>
-        </details>
-      </div>
-
-      <div class="tree-item">
-        <details>
-          <summary>
-            <i class="fa fa-chevron-right toggle-arrow"></i>
-            <i class="fa fa-check-square checkbox-icon unchecked"></i>
-            <i class="fa fa-folder" style="color:#666; width:16px;"></i> 
-            Duin Horst en Weide
-          </summary>
-        </details>
-      </div>
-
-      <div class="tree-item">
-        <details>
-          <summary>
-            <i class="fa fa-chevron-right toggle-arrow"></i>
-            <i class="fa fa-check-square checkbox-icon unchecked"></i>
-            <i class="fa fa-folder" style="color:#666; width:16px;"></i> 
-            Westland
-          </summary>
-        </details>
-      </div>
+      <div class="tree-item"><details><summary><i class="fa fa-chevron-right toggle-arrow"></i><i class="fa fa-check-square checkbox-icon unchecked"></i><i class="fa fa-folder" style="color:#666; width:16px;"></i> Duin- en Bollenstreek</summary></details></div>
+      <div class="tree-item"><details><summary><i class="fa fa-chevron-right toggle-arrow"></i><i class="fa fa-check-square checkbox-icon unchecked"></i><i class="fa fa-folder" style="color:#666; width:16px;"></i> Duin Horst en Weide</summary></details></div>
+      <div class="tree-item"><details><summary><i class="fa fa-chevron-right toggle-arrow"></i><i class="fa fa-check-square checkbox-icon unchecked"></i><i class="fa fa-folder" style="color:#666; width:16px;"></i> Westland</summary></details></div>
 
       <div class="tree-item">
         <details open>
@@ -297,26 +317,20 @@
             <i class="fa fa-folder-open" style="color:#007ac2; width:16px;"></i> 
             Groene Hart Noord
           </summary>
-          
           <div class="sub-level">
             <div style="font-size:11px; font-weight:bold; color:#666; margin-bottom:8px;">MCA Analyse</div>
-            
             <div style="margin-bottom: 15px; display:flex; align-items:center; cursor:pointer;">
                <input type="checkbox" id="heatmap-toggle" style="margin-right:8px;">
                <label for="heatmap-toggle" style="font-size:12px;">Toon als Heatmap</label>
             </div>
-
-            <div id="mca-sliders-container">
-               </div>
+            <div id="mca-sliders-container"></div>
           </div>
         </details>
       </div>
-
     </div>
   </div>
 
   <div id="map-container">
-    
     <div class="top-toolbar">
       <div class="tool-pill"><i class="fa fa-folder-open"></i> Project</div>
       <div class="tool-pill"><i class="fa fa-search"></i> Zoeken</div>
@@ -326,16 +340,30 @@
     </div>
 
     <div class="zoom-controls">
-      <div class="zoom-btn" onclick="zoomIn()"><i class="fa fa-plus"></i></div>
-      <div class="zoom-btn" onclick="zoomOut()"><i class="fa fa-minus"></i></div>
-      <div class="zoom-btn" onclick="resetView()"><i class="fa fa-home"></i></div>
-      <div class="zoom-btn"><i class="fa fa-location-arrow"></i></div>
+      <div class="zoom-btn" onclick="zoomIn()" title="Zoom In"><i class="fa fa-plus"></i></div>
+      
+      <div class="zoom-btn" onclick="zoomOut()" title="Zoom Uit"><i class="fa fa-minus"></i></div>
+      
+      <div class="zoom-btn" onclick="resetView()" title="Terug naar start"><i class="fa fa-home"></i></div>
+      
+      <div class="zoom-btn" id="btn-2d3d" onclick="toggle3D()" title="Wissel 2D/3D" style="font-weight:900; font-size:13px; color:#444;">2D</div>
+      
+      <div class="zoom-btn" onclick="resetBearing()" title="Noorden boven"><i class="fa fa-location-arrow"></i></div>
     </div>
 
-    <div class="scale-bar">
-      <div style="background:black; height:4px; width:1px;"></div>
-      <div style="background:black; height:4px; width:1px; margin-left:auto;"></div>
-      <span class="scale-text">10 km</span>
+    <div class="scale-bar" id="scale-bar">
+      <div class="scale-tick" style="left:0;"></div>
+      <div class="scale-tick" style="right:0;"></div>
+      <span class="scale-text" id="scale-text">...</span>
+    </div>
+
+    <div id="heatmap-legend" class="heatmap-legend">
+        <div class="heatmap-title">Intensiteit Score</div>
+        <div class="gradient-bar"></div>
+        <div class="legend-labels">
+            <span>Laag</span>
+            <span>Hoog</span>
+        </div>
     </div>
 
     <div id="loading">Kaartdata laden...</div>
@@ -348,32 +376,126 @@
     let allData = [];
     const currentWeights = {};
     let showHeatmap = false;
+    
+    // Global state
+    let currentViewState = VIZ_CONFIG.initialView;
 
-    // Zoom Helpers
+    // --- NAVIGATIE FUNCTIES ---
+
     function zoomIn() {
-      const vs = deckInstance.viewState ? deckInstance.viewState.default_view : VIZ_CONFIG.initialView;
-      deckInstance.setProps({ initialViewState: { ...vs, zoom: vs.zoom + 1, transitionDuration: 300 }});
+      if (!deckInstance) return;
+      deckInstance.setProps({
+        initialViewState: {
+          ...currentViewState,
+          zoom: currentViewState.zoom + 1,
+          transitionDuration: 300,
+          transitionInterpolator: new deck.FlyToInterpolator()
+        }
+      });
     }
+
     function zoomOut() {
-      const vs = deckInstance.viewState ? deckInstance.viewState.default_view : VIZ_CONFIG.initialView;
-      deckInstance.setProps({ initialViewState: { ...vs, zoom: vs.zoom - 1, transitionDuration: 300 }});
+      if (!deckInstance) return;
+      deckInstance.setProps({
+        initialViewState: {
+          ...currentViewState,
+          zoom: currentViewState.zoom - 1,
+          transitionDuration: 300,
+          transitionInterpolator: new deck.FlyToInterpolator()
+        }
+      });
     }
+
     function resetView() {
-      deckInstance.setProps({ initialViewState: { ...VIZ_CONFIG.initialView, transitionDuration: 800 }});
+      deckInstance.setProps({ 
+        initialViewState: { 
+          ...VIZ_CONFIG.initialView, 
+          transitionDuration: 800,
+          transitionInterpolator: new deck.FlyToInterpolator()
+        }
+      });
+    }
+
+    // --- DYNAMISCHE 2D/3D KNOP ---
+    function toggle3D() {
+      if (!deckInstance) return;
+      
+      // Check of we nu in 3D zijn (pitch > 10)
+      const is3D = currentViewState.pitch > 10;
+      
+      // Wissel naar de andere stand
+      const newPitch = is3D ? 0 : 45;
+      
+      // Voer de wissel uit op de kaart
+      deckInstance.setProps({
+        initialViewState: {
+          ...currentViewState,
+          pitch: newPitch,
+          transitionDuration: 800,
+          transitionInterpolator: new deck.FlyToInterpolator()
+        }
+      });
+
+      // Update de tekst in de knop
+      const btn = document.getElementById('btn-2d3d');
+      if (btn) {
+         // Als we nu naar 2D gaan (newPitch 0), toon optie '3D'. En vice versa.
+         btn.innerText = (newPitch === 0) ? "3D" : "2D";
+      }
+    }
+
+    function resetBearing() {
+      if (!deckInstance) return;
+      deckInstance.setProps({
+        initialViewState: {
+          ...currentViewState,
+          bearing: 0,
+          transitionDuration: 800,
+          transitionInterpolator: new deck.FlyToInterpolator()
+        }
+      });
+    }
+
+    // --- SCALE BAR ---
+    function updateScaleBar(viewState) {
+        if (!viewState) return;
+        const { zoom, latitude } = viewState;
+        const metersPerPixel = (40075016 * Math.cos(latitude * Math.PI / 180)) / Math.pow(2, zoom + 8);
+        const targetWidthPx = 120;
+        const targetMeters = metersPerPixel * targetWidthPx;
+
+        let roundedMeters;
+        if (targetMeters >= 1000) {
+            const k = targetMeters / 1000;
+            if (k > 100) roundedMeters = Math.round(k / 50) * 50 * 1000;
+            else if (k > 10) roundedMeters = Math.round(k / 5) * 5 * 1000;
+            else roundedMeters = Math.round(k) * 1000;
+        } else {
+            roundedMeters = Math.round(targetMeters / 100) * 100;
+        }
+        if (roundedMeters === 0) roundedMeters = 100;
+
+        const finalWidthPx = roundedMeters / metersPerPixel;
+        let label = roundedMeters >= 1000 ? (roundedMeters / 1000) + " km" : roundedMeters + " m";
+
+        const bar = document.getElementById('scale-bar');
+        const text = document.getElementById('scale-text');
+        bar.style.width = `${finalWidthPx}px`;
+        text.innerText = label;
     }
 
     // Render Layers
     function renderLayers() {
       const layers = [];
+      const legend = document.getElementById('heatmap-legend');
+      if (showHeatmap) legend.style.display = 'flex';
+      else legend.style.display = 'none';
 
-      // 1. Boundary
       if (allData.length > 0) {
         const allH3 = allData.map(d => d.h3);
         const boundaryLayer = new deck.GeoJsonLayer(VIZ_CONFIG.createBoundaryLayer(allH3));
         layers.push(boundaryLayer);
       }
-
-      // 2. Data
       if (showHeatmap) {
         const heatmapLayer = new deck.HeatmapLayer(VIZ_CONFIG.createHeatmapLayer(allData, currentWeights));
         layers.push(heatmapLayer);
@@ -384,10 +506,7 @@
       }
       
       deckInstance.setProps({
-        layers: [
-          DeckGLUtils.createBasemap(VIZ_CONFIG.basemap),
-          ...layers
-        ]
+        layers: [DeckGLUtils.createBasemap(VIZ_CONFIG.basemap), ...layers]
       });
     }
 
@@ -396,53 +515,64 @@
         allData = await DeckGLUtils.loadCSV(VIZ_CONFIG.dataUrl);
         document.getElementById('loading').style.display = 'none';
 
-        // --- SLIDERS GENEREREN MET KLEUREN ---
         const sliderContainer = document.getElementById('mca-sliders-container');
-        
         VIZ_CONFIG.filters.forEach(f => {
           currentWeights[f.key] = f.default;
-          // Haal de juiste criteria op (inclusief kleur)
+          if (!window.currentWeights) window.currentWeights = {};
+          window.currentWeights[f.key] = f.default;
+
           const crit = VIZ_CONFIG.criteria.find(c => c.weightKey === f.key);
-          
           const wrapper = document.createElement('div');
           wrapper.className = 'mca-control';
-          
-          // Hier voegen we het bolletje toe
           wrapper.innerHTML = `
             <div class="mca-label">
               <span style="display:flex; align-items:center;">
-                <i class="fa fa-circle" style="color: rgb(${crit.color.join(',')}); font-size: 10px; margin-right: 6px;"></i>
-                ${crit.label}
+                <i class="fa fa-circle" style="color: rgb(${crit.color.join(',')}); font-size: 10px; margin-right: 6px;"></i>${crit.label}
               </span>
               <span id="${f.key}-display" style="font-weight:bold;">${f.default}</span>
             </div>
             <input type="range" id="${f.key}-slider" min="${f.min}" max="${f.max}" step="${f.step}" value="${f.default}">
           `;
           sliderContainer.appendChild(wrapper);
-
           wrapper.querySelector('input').addEventListener('input', (e) => {
-            currentWeights[f.key] = parseInt(e.target.value);
-            document.getElementById(`${f.key}-display`).textContent = e.target.value;
+            const val = parseInt(e.target.value);
+            currentWeights[f.key] = val;
+            window.currentWeights[f.key] = val;
+            document.getElementById(`${f.key}-display`).textContent = val;
             renderLayers();
           });
         });
 
-        // Heatmap Listener
         document.getElementById('heatmap-toggle').addEventListener('change', (e) => {
           showHeatmap = e.target.checked;
           renderLayers();
         });
 
-        // Init Deck
         deckInstance = new deck.DeckGL({
           container: 'container',
           initialViewState: VIZ_CONFIG.initialView,
           controller: true,
           getTooltip: VIZ_CONFIG.tooltip,
-          width: '100%', height: '100%'
+          width: '100%', height: '100%',
+          
+          onViewStateChange: ({viewState}) => {
+              currentViewState = viewState;
+              updateScaleBar(viewState);
+              // Hier kunnen we ook de knop updaten als iemand handmatig kantelt met rechts-klik
+              const btn = document.getElementById('btn-2d3d');
+              if (btn) {
+                  // Als pitch > 10 (3D), toon '2D'. Anders '3D'.
+                  btn.innerText = (viewState.pitch > 10) ? "2D" : "3D";
+              }
+              return viewState; 
+          },
+          onLoad: () => {
+              updateScaleBar(VIZ_CONFIG.initialView);
+          }
         });
 
         renderLayers();
+        updateScaleBar(VIZ_CONFIG.initialView);
 
       } catch (e) {
         console.error("Critical Error:", e);

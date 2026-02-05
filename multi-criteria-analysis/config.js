@@ -1,9 +1,9 @@
 // config.js
 const VIZ_CONFIG = {
-  title: '📊 Professional MCA Dashboard',
+  title: 'ZH-PLG MCA Dashboard',
   dataUrl: '/data/h3_binary_matrix.csv', 
   h3Field: 'h3',
-  basemap: 'positron', // of 'dark' voor mooi heatmap contrast
+  basemap: 'positron',
   
   initialView: {
     longitude: 4.48, latitude: 51.90, zoom: 9.5, pitch: 45, bearing: 0
@@ -25,7 +25,7 @@ const VIZ_CONFIG = {
     { key: 'w_peilgebieden', label: 'Peilgebieden Weight', min: 0, max: 10, step: 1, default: 2 }
   ],
 
-  // --- BESTAANDE 3D STAVEN ---
+  // --- 3D STAVEN LAAG (Zonder Lighting) ---
   createLayer: (data, weights) => {
     return VIZ_CONFIG.criteria.map((c, index) => {
       return {
@@ -35,10 +35,8 @@ const VIZ_CONFIG = {
         pickable: true,
         elevationScale: 150,
         getHexagon: d => d.h3,
-        coverage: 0.95,
-        wireframe: false,
+        coverage: 0.9,
         
-        // Transparant fix van vorige stap
         getFillColor: d => {
             const weight = weights[c.weightKey] || 0;
             const value = Number(d[c.key]) || 0;
@@ -46,7 +44,7 @@ const VIZ_CONFIG = {
             return [...c.color, 255]; 
         },
         
-        material: { ambient: 1.0, diffuse: 0.0, shininess: 0 },
+        // VERWIJDERD: material property is weggehaald voor snelheid
 
         getElevation: d => {
           let sum = 0;
@@ -61,47 +59,41 @@ const VIZ_CONFIG = {
           getElevation: Object.values(weights),
           getFillColor: Object.values(weights)
         },
-        transitions: { getElevation: 600, getFillColor: 600 }
+        
+        transitions: { 
+            getElevation: 600, 
+            getFillColor: 600 
+        }
       };
     }).reverse();
   },
 
-  // --- NIEUW: CONTOURLIJN (BOUNDARY) ---
+  // --- BOUNDARY ---
   createBoundaryLayer: (allH3Indices) => {
-    // Magie: H3 berekent zelf de omtrek van de set hexagoon-ID's
     const polygon = h3.h3SetToMultiPolygon(allH3Indices, true);
-    
-    // Vormen naar GeoJSON
-    const geoJsonData = {
-      type: 'Feature',
-      geometry: {
-        type: 'MultiPolygon',
-        coordinates: polygon
-      }
-    };
-
     return {
       id: 'region-boundary',
-      data: [geoJsonData],
+      data: [{
+        type: 'Feature',
+        geometry: { type: 'MultiPolygon', coordinates: polygon }
+      }],
       stroked: true,
       filled: false,
-      lineWidthMinPixels: 3,
-      getLineColor: [50, 50, 50], // Donkergrijze rand
-      getLineWidth: 3
+      lineWidthMinPixels: 2,
+      getLineColor: [80, 80, 80],
+      getLineWidth: 2
     };
   },
 
-  // --- NIEUW: HEATMAP ---
+  // --- HEATMAP ---
   createHeatmapLayer: (data, weights) => {
     return {
       id: 'mca-heatmap',
       data: data,
-      // Heatmap heeft coördinaten nodig, geen H3 index. We rekenen dit 'on the fly' om.
       getPosition: d => {
         const [lat, lng] = h3.h3ToGeo(d.h3);
         return [lng, lat];
       },
-      // De intensiteit is de som van alle gewogen criteria
       getWeight: d => {
         let sum = 0;
         VIZ_CONFIG.criteria.forEach(c => {
@@ -109,32 +101,81 @@ const VIZ_CONFIG = {
         });
         return sum;
       },
-      radiusPixels: 40,
-      intensity: 1,
-      threshold: 0.05,
+      radiusPixels: 30,
+      intensity: 1.5,
+      threshold: 0.1,
       aggregation: 'SUM',
+      colorRange: [
+        [65, 182, 196],
+        [127, 205, 187],
+        [199, 233, 180],
+        [237, 248, 177],
+        [253, 187, 132],
+        [227, 74, 51]
+      ],
       updateTriggers: {
         getWeight: Object.values(weights)
       }
     };
   },
 
+  // --- TOOLTIP ---
   tooltip: (info) => {
-    /* (Dezelfde tooltip code als je al had) */
     const d = info.object;
-    if (!d || !d.h3) return null; // Check of d.h3 bestaat, anders is het misschien de boundary
+    if (!d || !d.h3) return null;
+
+    const currentW = window.currentWeights || {};
+    let totalScore = 0;
+    const scores = VIZ_CONFIG.criteria.map(c => {
+      const w = currentW[c.weightKey] !== undefined ? currentW[c.weightKey] : 2;
+      const val = Number(d[c.key]) || 0;
+      const score = val * w;
+      totalScore += score;
+      return { ...c, score, val, w };
+    });
+    scores.sort((a, b) => b.score - a.score);
+
     return {
+      style: {
+        backgroundColor: '#fff',
+        boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
+        border: '1px solid #ddd',
+        borderRadius: '6px',
+        padding: '0',
+        color: '#333',
+        fontFamily: "'Segoe UI', Roboto, sans-serif",
+        zIndex: 1000,
+        pointerEvents: 'none'
+      },
       html: `
-        <div style="padding: 12px; font-family: sans-serif; min-width: 180px; background: white; border-radius: 8px; color: #333; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-          <b style="font-size: 1.1em;">Analyse Groene Hart</b><br/>
-          <small style="color: #888;">H3 Index: ${d.h3}</small>
-          <hr style="margin: 8px 0; border: 0; border-top: 1px solid #eee;"/>
-          ${VIZ_CONFIG.criteria.map(c => `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; ${d[c.key] != '1' ? 'opacity:0.3' : ''}">
-              <span style="color: rgb(${c.color.join(',')}); font-weight: bold;">● ${c.label}</span>
-              <span>${d[c.key] == '1' ? 'Actief' : '—'}</span>
-            </div>
-          `).join('')}
+        <div style="min-width: 240px;">
+          <div style="background: #f8f9fa; padding: 12px 15px; border-bottom: 1px solid #eee; border-radius: 6px 6px 0 0;">
+            <b style="color:#007ac2; font-size:14px;">Gebiedsanalyse</b><br/>
+            <small style="color:#666; font-size:11px;">H3 Index: ${d.h3}</small><br/>
+            <div style="margin-top:5px; font-size:12px;">Totale Score: <b>${totalScore}</b></div>
+          </div>
+          <div style="padding: 10px 15px;">
+            ${scores.map(s => {
+              const percentage = Math.min((s.score / 10) * 100, 100);
+              return `
+              <div style="margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 12px;">
+                <span style="width: 100px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color: ${s.val ? '#333' : '#aaa'};">
+                  ${s.label} <span style="color:#ccc; font-size:10px;">(x${s.w})</span>
+                </span>
+                <div style="flex: 1; height: 6px; background: #f0f0f0; border-radius: 3px; margin: 0 10px; position: relative;">
+                   <div style="
+                      width: ${s.val === 0 ? 0 : percentage}%; 
+                      height: 100%; 
+                      background: rgb(${s.color.join(',')}); 
+                      border-radius: 3px;
+                      transition: width 0.3s;
+                   "></div>
+                </div>
+                <span style="font-weight: 600; width: 20px; text-align: right; color: #555;">${s.score}</span>
+              </div>
+              `;
+            }).join('')}
+          </div>
         </div>
       `
     };
