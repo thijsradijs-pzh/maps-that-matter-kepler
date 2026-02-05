@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
   <meta charset='utf-8' />
-  <title>ZH-PLG Deelgebieden - MCA Analyse</title>
+  <title>ZH-PLG Multi-Criteria-Analyse</title>
   
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
@@ -15,264 +15,217 @@
   <style>
     :root {
       --pzh-red: #E3001B;
-      --esri-blue: #0079c1;
-      --header-bg: #ffffff;
-      --sidebar-width: 380px;
-      --border-color: #ddd;
-      --hover-bg: #f3f3f3;
+      --esri-blue: #007ac2;
+      --esri-hover: #f3f3f3;
+      --border-color: #e0e0e0;
+      --sidebar-width: 360px;
     }
 
     body { 
-      margin: 0; 
-      padding: 0; 
+      margin: 0; padding: 0; 
       font-family: 'Segoe UI', 'Roboto', Helvetica, Arial, sans-serif; 
-      background: #f8f9fa;
+      background: #fff;
       height: 100vh;
       display: flex;
       overflow: hidden;
     }
 
-    /* --- SIDEBAR (Links) --- */
+    /* --- SIDEBAR --- */
     #sidebar {
       width: var(--sidebar-width);
       background: white;
-      border-right: 1px solid var(--border-color);
+      border-right: 1px solid #ccc;
       display: flex;
       flex-direction: column;
       z-index: 100;
-      box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+      box-shadow: 2px 0 5px rgba(0,0,0,0.05);
     }
 
-    /* Header met Logo */
+    /* --- HEADER --- */
     .sidebar-header {
-      padding: 15px 20px;
-      border-bottom: 1px solid var(--border-color);
+      padding: 20px 20px;
       display: flex;
-      align-items: center;
+      flex-direction: column;
+      align-items: flex-start;
       gap: 15px;
-      background: white;
+      border-bottom: 1px solid transparent;
+      position: relative;
     }
     
-    /* NIEUWE CSS VOOR HET LOGO */
     .sidebar-logo {
-      height: 50px;    /* Vaste hoogte zodat het past in de header */
-      width: auto;     /* Breedte past zich automatisch aan om vervorming te voorkomen */
+      height: 55px;
+      width: auto;
       display: block;
     }
 
     .app-title {
       font-weight: 700;
-      font-size: 18px;
+      font-size: 20px;
       color: #333;
-      line-height: 1.2;
+      line-height: 1.3;
     }
 
-    /* Tabs (Welkom, Kaartlagen, Legenda) */
+    .menu-icon {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      font-size: 18px;
+      color: #999;
+      cursor: pointer;
+    }
+
+    /* Tabs */
     .tabs {
       display: flex;
       border-bottom: 1px solid var(--border-color);
-      background: #fafafa;
+      background: #fff;
+      margin-top: 5px;
     }
     .tab {
-      flex: 1;
-      text-align: center;
-      padding: 12px 0;
+      padding: 8px 15px;
       font-size: 13px;
       color: #666;
       cursor: pointer;
       border-bottom: 3px solid transparent;
     }
     .tab.active {
-      color: var(--pzh-red);
+      color: #333;
       border-bottom: 3px solid var(--pzh-red);
-      background: white;
       font-weight: 600;
     }
 
-    /* Tools strip (Filter lagen...) */
-    .tools-strip {
+    /* Action Bar */
+    .action-bar {
       padding: 10px 15px;
-      border-bottom: 1px solid var(--border-color);
       display: flex;
       gap: 10px;
+      border-bottom: 1px solid #f0f0f0;
+      justify-content: flex-end;
     }
-    .search-box {
-      flex: 1;
+    .action-btn {
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 15px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #555;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .action-btn:hover { background: var(--esri-hover); }
+
+    /* Filter Bar */
+    .filter-bar {
+      padding: 8px 15px;
+      border-bottom: 1px solid var(--border-color);
       position: relative;
     }
-    .search-box input {
+    .filter-input {
       width: 100%;
-      padding: 8px 10px 8px 30px;
+      padding: 6px 10px 6px 10px;
       border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 13px;
-      box-sizing: border-box;
-    }
-    .search-box i {
-      position: absolute;
-      left: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: #999;
+      border-radius: 0;
       font-size: 12px;
+      box-sizing: border-box;
+      outline: none;
+    }
+    .filter-input::placeholder { font-style: italic; color: #999; }
+    .filter-icon {
+      position: absolute; right: 25px; top: 50%; transform: translateY(-50%); color: #aaa; font-size: 12px; cursor: pointer;
     }
 
-    /* Layer Content Area */
+    /* --- LAYER LIST --- */
     #layer-content {
       flex: 1;
       overflow-y: auto;
-      padding: 0;
+      padding-top: 5px;
     }
 
-    /* Esri-style Tree/Accordion */
-    .layer-group {
-      border-bottom: 1px solid #eee;
+    .tree-item {
+      font-size: 13px;
+      color: #333;
     }
-    
-    /* Summary is de "folder" titel */
+
     details > summary {
       list-style: none;
-      padding: 12px 15px;
+      padding: 8px 15px;
       cursor: pointer;
-      font-size: 14px;
-      font-weight: 500;
-      color: #333;
       display: flex;
       align-items: center;
-      transition: background 0.2s;
+      gap: 8px;
     }
-    details > summary:hover {
-      background: var(--hover-bg);
-    }
+    details > summary:hover { background: #f0f8ff; } 
     details > summary::-webkit-details-marker { display: none; }
+
+    .toggle-arrow {
+      font-size: 10px; color: #666; width: 10px; transition: transform 0.2s;
+    }
+    details[open] > summary .toggle-arrow { transform: rotate(90deg); }
     
-    /* Pijl icoontje draaien */
-    .arrow-icon {
-      margin-right: 10px;
-      font-size: 10px;
-      color: #666;
-      transition: transform 0.2s;
-    }
-    details[open] .arrow-icon {
-      transform: rotate(90deg);
+    .checkbox-icon { color: var(--esri-blue); font-size: 14px; margin-right: 4px; }
+    .checkbox-icon.unchecked { color: #ccc; }
+    
+    .sub-level {
+      padding-left: 38px; 
+      padding-right: 15px;
+      padding-bottom: 10px;
     }
 
-    /* Map Layer Icoontjes */
-    .layer-icon {
-      margin-right: 8px;
-      color: #555;
-      width: 20px;
-      text-align: center;
-    }
-
-    /* Inhoud van de accordion (de sliders) */
-    .layer-controls {
-      padding: 10px 15px 20px 48px; /* Indentatie */
-      background: #fdfdfd;
-      border-top: 1px solid #f0f0f0;
-    }
-
-    .slider-row {
-      margin-bottom: 15px;
-    }
-    .slider-label {
-      display: flex;
-      justify-content: space-between;
-      font-size: 12px;
-      margin-bottom: 5px;
-      color: #555;
+    /* Slider styling */
+    .mca-control { margin-bottom: 12px; }
+    .mca-label {
+      display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; color: #444; align-items: center;
     }
     input[type=range] {
-      width: 100%;
-      height: 4px;
-      background: #ddd;
-      border-radius: 2px;
-      appearance: none;
+      width: 100%; height: 4px; background: #eee; border-radius: 2px; appearance: none;
     }
     input[type=range]::-webkit-slider-thumb {
-      appearance: none;
-      width: 16px;
-      height: 16px;
-      background: var(--esri-blue);
-      border-radius: 50%;
-      cursor: pointer;
-      border: 2px solid white;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      appearance: none; width: 14px; height: 14px; background: var(--esri-blue); border-radius: 50%; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.2);
     }
 
-    /* --- MAP AREA (Rechts) --- */
+    /* --- MAP AREA --- */
     #map-container {
-      flex: 1;
-      position: relative;
+      flex: 1; position: relative; background: #e5e5e5;
     }
-    #deck-canvas {
-      width: 100%;
-      height: 100%;
+    
+    .top-toolbar {
+      position: absolute; top: 15px; left: 60px; z-index: 10;
+      display: flex; gap: 8px;
     }
+    .tool-pill {
+      background: white; border: 1px solid #bbb; border-radius: 4px;
+      padding: 6px 12px; font-size: 12px; font-weight: 600; color: #444;
+      cursor: pointer; display: flex; align-items: center; gap: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .tool-pill:hover { background: #f9f9f9; color: var(--esri-blue); }
 
-    /* Top Bar Overlay */
-    .top-bar {
-      position: absolute;
-      top: 15px;
-      left: 60px; /* Ruimte voor zoom controls links */
-      right: 15px;
-      display: flex;
-      gap: 10px;
-      z-index: 10;
-      pointer-events: none; /* Klik doorheen lege ruimte */
+    .zoom-controls {
+      position: absolute; top: 15px; left: 15px; z-index: 10;
+      display: flex; flex-direction: column; gap: 5px;
     }
-    .top-btn {
-      pointer-events: auto;
-      background: white;
-      border: 1px solid #ccc;
-      padding: 8px 15px;
-      border-radius: 4px;
-      font-size: 13px;
-      font-weight: 600;
-      color: #444;
-      cursor: pointer;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      display: flex;
-      align-items: center;
-      gap: 6px;
+    .zoom-btn {
+      width: 32px; height: 32px; background: white; border: 1px solid #bbb;
+      border-radius: 4px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: #444; font-size: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
-    .top-btn:hover { background: #f8f8f8; color: var(--esri-blue); }
+    .zoom-btn:hover { background: #eee; }
 
-    /* Zoom Controls (Links Boven, Esri style) */
-    .map-controls-left {
-      position: absolute;
-      top: 15px;
-      left: 15px;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      z-index: 10;
+    .scale-bar {
+      position: absolute; bottom: 15px; left: 15px; z-index: 10;
+      background: rgba(255,255,255,0.8); border: 1px solid #999; border-top: none;
+      height: 6px; width: 100px; font-size: 10px; color: #333;
+      display: flex; align-items: flex-end; padding: 2px 5px;
     }
-    .ctrl-btn {
-      width: 32px;
-      height: 32px;
-      background: white;
-      border: 1px solid #ccc;
-      border-radius: 2px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      color: #444;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .ctrl-btn:hover { background: #eee; }
+    .scale-text { position: absolute; bottom: 8px; left: 5px; }
 
-    /* Loading */
     #loading {
-      position: absolute; top: 50%; left: 50%; 
-      transform: translate(-50%, -50%); 
-      background: rgba(255,255,255,0.9);
-      padding: 20px 40px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      z-index: 200;
-      font-weight: 600; color: #333;
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      font-weight: bold; z-index: 200;
     }
   </style>
 </head>
@@ -281,7 +234,8 @@
   <div id="sidebar">
     <div class="sidebar-header">
       <img src="/multi-criteria-analysis/image_1.png" alt="Provincie Zuid-Holland Logo" class="sidebar-logo">
-      <div class="app-title">ZH-PLG<br>MCA analyse</div>
+      <div class="app-title">ZH-PLG<br>Multi-Criteria-Analyse</div>
+      <i class="fa fa-bars menu-icon"></i>
     </div>
     
     <div class="tabs">
@@ -290,71 +244,98 @@
       <div class="tab">Legenda</div>
     </div>
 
-    <div class="tools-strip">
-      <div class="search-box">
-        <i class="fa fa-search"></i>
-        <input type="text" placeholder="Filter lagen op titel...">
-      </div>
-      <button class="top-btn" style="padding: 5px 10px;"><i class="fa fa-layer-group"></i></button>
+    <div class="action-bar">
+      <div class="action-btn"><i class="fa fa-map"></i> Deelgebieden</div>
+      <div class="action-btn"><i class="fa fa-plus-circle"></i> Lagen toevoegen</div>
+    </div>
+
+    <div class="filter-bar">
+      <input type="text" class="filter-input" placeholder="Filter lagen op titel...">
+      <i class="fa fa-times filter-icon"></i>
     </div>
 
     <div id="layer-content">
-      <div class="layer-group">
+      
+      <div class="tree-item">
         <details>
-          <summary><i class="fa fa-chevron-right arrow-icon"></i><i class="fa fa-vector-square layer-icon"></i> Grenzen</summary>
-        </details>
-      </div>
-      <div class="layer-group">
-        <details>
-          <summary><i class="fa fa-chevron-right arrow-icon"></i><i class="fa fa-tree layer-icon"></i> Natuur</summary>
+          <summary>
+            <i class="fa fa-chevron-right toggle-arrow"></i>
+            <i class="fa fa-check-square checkbox-icon unchecked"></i>
+            <i class="fa fa-folder" style="color:#666; width:16px;"></i> 
+            Duin- en Bollenstreek
+          </summary>
         </details>
       </div>
 
-      <div class="layer-group">
+      <div class="tree-item">
+        <details>
+          <summary>
+            <i class="fa fa-chevron-right toggle-arrow"></i>
+            <i class="fa fa-check-square checkbox-icon unchecked"></i>
+            <i class="fa fa-folder" style="color:#666; width:16px;"></i> 
+            Duin Horst en Weide
+          </summary>
+        </details>
+      </div>
+
+      <div class="tree-item">
+        <details>
+          <summary>
+            <i class="fa fa-chevron-right toggle-arrow"></i>
+            <i class="fa fa-check-square checkbox-icon unchecked"></i>
+            <i class="fa fa-folder" style="color:#666; width:16px;"></i> 
+            Westland
+          </summary>
+        </details>
+      </div>
+
+      <div class="tree-item">
         <details open>
           <summary>
-            <i class="fa fa-chevron-right arrow-icon"></i>
-            <i class="fa fa-water layer-icon" style="color: #0079c1;"></i> 
-            Analyse Groene Hart Noord (MCA)
+            <i class="fa fa-chevron-right toggle-arrow"></i>
+            <i class="fa fa-check-square checkbox-icon"></i>
+            <i class="fa fa-folder-open" style="color:#007ac2; width:16px;"></i> 
+            Groene Hart Noord
           </summary>
           
-          <div class="layer-controls">
-            <div style="margin-bottom: 20px; display: flex; align-items: center; cursor: pointer;">
-                <input type="checkbox" id="heatmap-toggle" style="margin-right: 10px; width: auto; height: auto;">
-                <label for="heatmap-toggle" style="font-size: 13px; font-weight: 600; color: #333;">Toon als Heatmap</label>
-             </div>
-
-            <div style="font-size: 12px; color: #777; margin-bottom: 10px; font-style: italic;">
-              Pas de weging aan per indicator:
-            </div>
+          <div class="sub-level">
+            <div style="font-size:11px; font-weight:bold; color:#666; margin-bottom:8px;">MCA Analyse</div>
             
-            <div id="mca-sliders"></div>
+            <div style="margin-bottom: 15px; display:flex; align-items:center; cursor:pointer;">
+               <input type="checkbox" id="heatmap-toggle" style="margin-right:8px;">
+               <label for="heatmap-toggle" style="font-size:12px;">Toon als Heatmap</label>
+            </div>
+
+            <div id="mca-sliders-container">
+               </div>
           </div>
         </details>
       </div>
 
-      <div class="layer-group">
-        <details>
-          <summary><i class="fa fa-chevron-right arrow-icon"></i><i class="fa fa-tractor layer-icon"></i> Landbouw</summary>
-        </details>
-      </div>
     </div>
   </div>
 
   <div id="map-container">
-    <div class="top-bar">
-      <button class="top-btn"><i class="fa fa-folder-open"></i> Project</button>
-      <button class="top-btn"><i class="fa fa-search"></i> Zoeken</button>
-      <button class="top-btn"><i class="fa fa-info-circle"></i> Gegevens</button>
-      <button class="top-btn"><i class="fa fa-pen"></i> Schetsen</button>
-      <button class="top-btn"><i class="fa fa-print"></i> Afdrukken</button>
+    
+    <div class="top-toolbar">
+      <div class="tool-pill"><i class="fa fa-folder-open"></i> Project</div>
+      <div class="tool-pill"><i class="fa fa-search"></i> Zoeken</div>
+      <div class="tool-pill"><i class="fa fa-info-circle"></i> Gegevens</div>
+      <div class="tool-pill"><i class="fa fa-pencil-alt"></i> Schetsen</div>
+      <div class="tool-pill"><i class="fa fa-print"></i> Afdrukken</div>
     </div>
 
-    <div class="map-controls-left">
-      <div class="ctrl-btn" onclick="zoomIn()"><i class="fa fa-plus"></i></div>
-      <div class="ctrl-btn" onclick="zoomOut()"><i class="fa fa-minus"></i></div>
-      <div class="ctrl-btn" onclick="resetView()"><i class="fa fa-home"></i></div>
-      <div class="ctrl-btn"><i class="fa fa-location-arrow"></i></div>
+    <div class="zoom-controls">
+      <div class="zoom-btn" onclick="zoomIn()"><i class="fa fa-plus"></i></div>
+      <div class="zoom-btn" onclick="zoomOut()"><i class="fa fa-minus"></i></div>
+      <div class="zoom-btn" onclick="resetView()"><i class="fa fa-home"></i></div>
+      <div class="zoom-btn"><i class="fa fa-location-arrow"></i></div>
+    </div>
+
+    <div class="scale-bar">
+      <div style="background:black; height:4px; width:1px;"></div>
+      <div style="background:black; height:4px; width:1px; margin-left:auto;"></div>
+      <span class="scale-text">10 km</span>
     </div>
 
     <div id="loading">Kaartdata laden...</div>
@@ -362,34 +343,37 @@
   </div>
 
   <script>
-    // --- DECK.GL SETUP ---
+    // --- APP LOGIC ---
     let deckInstance;
     let allData = [];
     const currentWeights = {};
     let showHeatmap = false;
 
-    // Handmatige Zoom Functies (gekoppeld aan knoppen)
+    // Zoom Helpers
     function zoomIn() {
-      const { zoom, latitude, longitude, pitch, bearing } = deckInstance.viewState.default_view;
-      deckInstance.setProps({ initialViewState: { longitude, latitude, zoom: zoom + 1, pitch, bearing, transitionDuration: 300 }});
+      const vs = deckInstance.viewState ? deckInstance.viewState.default_view : VIZ_CONFIG.initialView;
+      deckInstance.setProps({ initialViewState: { ...vs, zoom: vs.zoom + 1, transitionDuration: 300 }});
     }
     function zoomOut() {
-      const { zoom, latitude, longitude, pitch, bearing } = deckInstance.viewState.default_view;
-      deckInstance.setProps({ initialViewState: { longitude, latitude, zoom: zoom - 1, pitch, bearing, transitionDuration: 300 }});
+      const vs = deckInstance.viewState ? deckInstance.viewState.default_view : VIZ_CONFIG.initialView;
+      deckInstance.setProps({ initialViewState: { ...vs, zoom: vs.zoom - 1, transitionDuration: 300 }});
     }
     function resetView() {
-        deckInstance.setProps({ initialViewState: { ...VIZ_CONFIG.initialView, transitionDuration: 800 } });
+      deckInstance.setProps({ initialViewState: { ...VIZ_CONFIG.initialView, transitionDuration: 800 }});
     }
 
+    // Render Layers
     function renderLayers() {
       const layers = [];
 
+      // 1. Boundary
       if (allData.length > 0) {
         const allH3 = allData.map(d => d.h3);
         const boundaryLayer = new deck.GeoJsonLayer(VIZ_CONFIG.createBoundaryLayer(allH3));
         layers.push(boundaryLayer);
       }
 
+      // 2. Data
       if (showHeatmap) {
         const heatmapLayer = new deck.HeatmapLayer(VIZ_CONFIG.createHeatmapLayer(allData, currentWeights));
         layers.push(heatmapLayer);
@@ -412,18 +396,24 @@
         allData = await DeckGLUtils.loadCSV(VIZ_CONFIG.dataUrl);
         document.getElementById('loading').style.display = 'none';
 
-        // --- SLIDERS GENEREREN IN DE SIDEBAR ---
-        const sliderContainer = document.getElementById('mca-sliders');
+        // --- SLIDERS GENEREREN MET KLEUREN ---
+        const sliderContainer = document.getElementById('mca-sliders-container');
         
         VIZ_CONFIG.filters.forEach(f => {
           currentWeights[f.key] = f.default;
+          // Haal de juiste criteria op (inclusief kleur)
           const crit = VIZ_CONFIG.criteria.find(c => c.weightKey === f.key);
           
           const wrapper = document.createElement('div');
-          wrapper.className = 'slider-row';
+          wrapper.className = 'mca-control';
+          
+          // Hier voegen we het bolletje toe
           wrapper.innerHTML = `
-            <div class="slider-label">
-              <span><i class="fa fa-circle" style="color: rgb(${crit.color.join(',')}); font-size: 8px; margin-right:5px;"></i> ${crit.label}</span>
+            <div class="mca-label">
+              <span style="display:flex; align-items:center;">
+                <i class="fa fa-circle" style="color: rgb(${crit.color.join(',')}); font-size: 10px; margin-right: 6px;"></i>
+                ${crit.label}
+              </span>
               <span id="${f.key}-display" style="font-weight:bold;">${f.default}</span>
             </div>
             <input type="range" id="${f.key}-slider" min="${f.min}" max="${f.max}" step="${f.step}" value="${f.default}">
@@ -437,28 +427,26 @@
           });
         });
 
-        // Toggle Event
+        // Heatmap Listener
         document.getElementById('heatmap-toggle').addEventListener('change', (e) => {
           showHeatmap = e.target.checked;
           renderLayers();
         });
 
-        // Deck.gl Init
+        // Init Deck
         deckInstance = new deck.DeckGL({
           container: 'container',
           initialViewState: VIZ_CONFIG.initialView,
           controller: true,
           getTooltip: VIZ_CONFIG.tooltip,
-          // Voorkom dat de map onder de sidebar verdwijnt bij resize
-          width: '100%',
-          height: '100%'
+          width: '100%', height: '100%'
         });
 
         renderLayers();
 
       } catch (e) {
-        console.error("Fout:", e);
-        document.getElementById('loading').textContent = "Fout bij laden data.";
+        console.error("Critical Error:", e);
+        document.getElementById('loading').textContent = "Kan data niet laden.";
       }
     }
 
