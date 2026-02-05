@@ -1,117 +1,404 @@
 <!DOCTYPE html>
-<html>
+<html lang="nl">
 <head>
   <meta charset='utf-8' />
-  <title>Advanced Stacked MCA & Heatmap</title>
+  <title>ZH-PLG Deelgebieden - MCA Analyse</title>
   
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
   <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <script src="/shared/deckgl-utils.js"></script>
   <script src="/multi-criteria-analysis/config.js"></script>
   
   <style>
-    body { margin: 0; background: #f0f0f0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    #container { width: 100vw; height: 100vh; position: relative; }
-    
-    #controls {
-      position: absolute; top: 20px; right: 20px;
-      background: rgba(255, 255, 255, 0.9); padding: 20px;
-      border-radius: 12px; width: 280px; z-index: 10;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.15); backdrop-filter: blur(8px);
-      max-height: 90vh; overflow-y: auto; /* Voor als het scherm klein is */
+    :root {
+      --pzh-red: #E3001B;
+      --esri-blue: #0079c1;
+      --header-bg: #ffffff;
+      --sidebar-width: 380px;
+      --border-color: #ddd;
+      --hover-bg: #f3f3f3;
     }
 
-    .control-row { margin-bottom: 15px; color: #333; }
-    .label-group { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; font-weight: 600; }
-    .color-dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; margin-right: 8px; }
-    input[type=range] { width: 100%; cursor: pointer; accent-color: #333; }
-    
-    .title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #000; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-    .description { font-size: 12px; color: #555; line-height: 1.5; margin-bottom: 15px; background: rgba(0,0,0,0.05); padding: 10px; border-radius: 6px; }
-    
-    /* Nieuwe stijl voor de checkbox */
-    .toggle-row { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
-    .toggle-label { display: flex; align-items: center; cursor: pointer; font-weight: bold; user-select: none; }
-    .toggle-label input { margin-right: 10px; transform: scale(1.2); cursor: pointer; }
+    body { 
+      margin: 0; 
+      padding: 0; 
+      font-family: 'Segoe UI', 'Roboto', Helvetica, Arial, sans-serif; 
+      background: #f8f9fa;
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
 
-    #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: bold; color: #666; pointer-events: none; }
+    /* --- SIDEBAR (Links) --- */
+    #sidebar {
+      width: var(--sidebar-width);
+      background: white;
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+    }
+
+    /* Header met Logo */
+    .sidebar-header {
+      padding: 15px 20px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      background: white;
+    }
+    
+    /* NIEUWE CSS VOOR HET LOGO */
+    .sidebar-logo {
+      height: 50px;    /* Vaste hoogte zodat het past in de header */
+      width: auto;     /* Breedte past zich automatisch aan om vervorming te voorkomen */
+      display: block;
+    }
+
+    .app-title {
+      font-weight: 700;
+      font-size: 18px;
+      color: #333;
+      line-height: 1.2;
+    }
+
+    /* Tabs (Welkom, Kaartlagen, Legenda) */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-color);
+      background: #fafafa;
+    }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 12px 0;
+      font-size: 13px;
+      color: #666;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+    }
+    .tab.active {
+      color: var(--pzh-red);
+      border-bottom: 3px solid var(--pzh-red);
+      background: white;
+      font-weight: 600;
+    }
+
+    /* Tools strip (Filter lagen...) */
+    .tools-strip {
+      padding: 10px 15px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      gap: 10px;
+    }
+    .search-box {
+      flex: 1;
+      position: relative;
+    }
+    .search-box input {
+      width: 100%;
+      padding: 8px 10px 8px 30px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+    .search-box i {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #999;
+      font-size: 12px;
+    }
+
+    /* Layer Content Area */
+    #layer-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0;
+    }
+
+    /* Esri-style Tree/Accordion */
+    .layer-group {
+      border-bottom: 1px solid #eee;
+    }
+    
+    /* Summary is de "folder" titel */
+    details > summary {
+      list-style: none;
+      padding: 12px 15px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+      display: flex;
+      align-items: center;
+      transition: background 0.2s;
+    }
+    details > summary:hover {
+      background: var(--hover-bg);
+    }
+    details > summary::-webkit-details-marker { display: none; }
+    
+    /* Pijl icoontje draaien */
+    .arrow-icon {
+      margin-right: 10px;
+      font-size: 10px;
+      color: #666;
+      transition: transform 0.2s;
+    }
+    details[open] .arrow-icon {
+      transform: rotate(90deg);
+    }
+
+    /* Map Layer Icoontjes */
+    .layer-icon {
+      margin-right: 8px;
+      color: #555;
+      width: 20px;
+      text-align: center;
+    }
+
+    /* Inhoud van de accordion (de sliders) */
+    .layer-controls {
+      padding: 10px 15px 20px 48px; /* Indentatie */
+      background: #fdfdfd;
+      border-top: 1px solid #f0f0f0;
+    }
+
+    .slider-row {
+      margin-bottom: 15px;
+    }
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 5px;
+      color: #555;
+    }
+    input[type=range] {
+      width: 100%;
+      height: 4px;
+      background: #ddd;
+      border-radius: 2px;
+      appearance: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      background: var(--esri-blue);
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+
+    /* --- MAP AREA (Rechts) --- */
+    #map-container {
+      flex: 1;
+      position: relative;
+    }
+    #deck-canvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Top Bar Overlay */
+    .top-bar {
+      position: absolute;
+      top: 15px;
+      left: 60px; /* Ruimte voor zoom controls links */
+      right: 15px;
+      display: flex;
+      gap: 10px;
+      z-index: 10;
+      pointer-events: none; /* Klik doorheen lege ruimte */
+    }
+    .top-btn {
+      pointer-events: auto;
+      background: white;
+      border: 1px solid #ccc;
+      padding: 8px 15px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #444;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .top-btn:hover { background: #f8f8f8; color: var(--esri-blue); }
+
+    /* Zoom Controls (Links Boven, Esri style) */
+    .map-controls-left {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      z-index: 10;
+    }
+    .ctrl-btn {
+      width: 32px;
+      height: 32px;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #444;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .ctrl-btn:hover { background: #eee; }
+
+    /* Loading */
+    #loading {
+      position: absolute; top: 50%; left: 50%; 
+      transform: translate(-50%, -50%); 
+      background: rgba(255,255,255,0.9);
+      padding: 20px 40px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 200;
+      font-weight: 600; color: #333;
+    }
   </style>
 </head>
 <body>
-  <div id="container"></div>
-  
-  <div id="controls">
-    <div class="title">📊 Analyse Groene Hart Noord</div>
+
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <img src="image_1.png" alt="Provincie Zuid-Holland Logo" class="sidebar-logo">
+      <div class="app-title">ZH-PLG<br>MCA analyse</div>
+    </div>
     
-    <div class="description">
-      Deze interactieve kaart toont waar opgaven zoals bodemdaling, peilafwijkingen, wateroverlast en verzilting samenkomen. 
-      Stel de weging per indicator in om de cumulatieve waardes te zien.
+    <div class="tabs">
+      <div class="tab">Welkom</div>
+      <div class="tab active">Kaartlagen</div>
+      <div class="tab">Legenda</div>
     </div>
 
-    <div class="toggle-row">
-      <label class="toggle-label">
-        <input type="checkbox" id="heatmap-toggle"> 
-        Toon als Heatmap
-      </label>
+    <div class="tools-strip">
+      <div class="search-box">
+        <i class="fa fa-search"></i>
+        <input type="text" placeholder="Filter lagen op titel...">
+      </div>
+      <button class="top-btn" style="padding: 5px 10px;"><i class="fa fa-layer-group"></i></button>
     </div>
 
-    <div id="filter-list"></div>
+    <div id="layer-content">
+      <div class="layer-group">
+        <details>
+          <summary><i class="fa fa-chevron-right arrow-icon"></i><i class="fa fa-vector-square layer-icon"></i> Grenzen</summary>
+        </details>
+      </div>
+      <div class="layer-group">
+        <details>
+          <summary><i class="fa fa-chevron-right arrow-icon"></i><i class="fa fa-tree layer-icon"></i> Natuur</summary>
+        </details>
+      </div>
+
+      <div class="layer-group">
+        <details open>
+          <summary>
+            <i class="fa fa-chevron-right arrow-icon"></i>
+            <i class="fa fa-water layer-icon" style="color: #0079c1;"></i> 
+            Analyse Groene Hart Noord (MCA)
+          </summary>
+          
+          <div class="layer-controls">
+            <div style="margin-bottom: 20px; display: flex; align-items: center; cursor: pointer;">
+                <input type="checkbox" id="heatmap-toggle" style="margin-right: 10px; width: auto; height: auto;">
+                <label for="heatmap-toggle" style="font-size: 13px; font-weight: 600; color: #333;">Toon als Heatmap</label>
+             </div>
+
+            <div style="font-size: 12px; color: #777; margin-bottom: 10px; font-style: italic;">
+              Pas de weging aan per indicator:
+            </div>
+            
+            <div id="mca-sliders"></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="layer-group">
+        <details>
+          <summary><i class="fa fa-chevron-right arrow-icon"></i><i class="fa fa-tractor layer-icon"></i> Landbouw</summary>
+        </details>
+      </div>
+    </div>
   </div>
 
-  <div id="loading">Processing Hexgrid...</div>
+  <div id="map-container">
+    <div class="top-bar">
+      <button class="top-btn"><i class="fa fa-folder-open"></i> Project</button>
+      <button class="top-btn"><i class="fa fa-search"></i> Zoeken</button>
+      <button class="top-btn"><i class="fa fa-info-circle"></i> Gegevens</button>
+      <button class="top-btn"><i class="fa fa-pen"></i> Schetsen</button>
+      <button class="top-btn"><i class="fa fa-print"></i> Afdrukken</button>
+    </div>
+
+    <div class="map-controls-left">
+      <div class="ctrl-btn" onclick="zoomIn()"><i class="fa fa-plus"></i></div>
+      <div class="ctrl-btn" onclick="zoomOut()"><i class="fa fa-minus"></i></div>
+      <div class="ctrl-btn" onclick="resetView()"><i class="fa fa-home"></i></div>
+      <div class="ctrl-btn"><i class="fa fa-location-arrow"></i></div>
+    </div>
+
+    <div id="loading">Kaartdata laden...</div>
+    <div id="container" style="width:100%; height:100%;"></div>
+  </div>
 
   <script>
-    // Initialize Lighting (vooral voor de 3D staven)
-    const ambientLight = new deck.AmbientLight({ color: [255, 255, 255], intensity: 1.0 });
-    const dirLight = new deck.DirectionalLight({
-      color: [255, 255, 255],
-      intensity: 1.5,
-      direction: [-1, -2, -3]
-    });
-    const lightingEffect = new deck.LightingEffect({ ambientLight, dirLight });
-
+    // --- DECK.GL SETUP ---
     let deckInstance;
     let allData = [];
     const currentWeights = {};
-    let showHeatmap = false; // Staat standaard uit (dus 3D staven)
+    let showHeatmap = false;
+
+    // Handmatige Zoom Functies (gekoppeld aan knoppen)
+    function zoomIn() {
+      const { zoom, latitude, longitude, pitch, bearing } = deckInstance.viewState.default_view;
+      deckInstance.setProps({ initialViewState: { longitude, latitude, zoom: zoom + 1, pitch, bearing, transitionDuration: 300 }});
+    }
+    function zoomOut() {
+      const { zoom, latitude, longitude, pitch, bearing } = deckInstance.viewState.default_view;
+      deckInstance.setProps({ initialViewState: { longitude, latitude, zoom: zoom - 1, pitch, bearing, transitionDuration: 300 }});
+    }
+    function resetView() {
+        deckInstance.setProps({ initialViewState: { ...VIZ_CONFIG.initialView, transitionDuration: 800 } });
+    }
 
     function renderLayers() {
       const layers = [];
 
-      // 1. Boundary Layer (De omtreklijn)
-      // We checken of er data is, en roepen dan de functie in config.js aan
       if (allData.length > 0) {
-        // H3-js library heeft alleen de indexen nodig om een shape te maken
         const allH3 = allData.map(d => d.h3);
-        
-        // We maken een GeoJsonLayer met de data van createBoundaryLayer
         const boundaryLayer = new deck.GeoJsonLayer(VIZ_CONFIG.createBoundaryLayer(allH3));
         layers.push(boundaryLayer);
       }
 
-      // 2. Data Visualisatie: Heatmap OF Staven
       if (showHeatmap) {
-        // --- HEATMAP MODUS ---
-        const heatmapLayer = new deck.HeatmapLayer(
-          VIZ_CONFIG.createHeatmapLayer(allData, currentWeights)
-        );
+        const heatmapLayer = new deck.HeatmapLayer(VIZ_CONFIG.createHeatmapLayer(allData, currentWeights));
         layers.push(heatmapLayer);
-      
       } else {
-        // --- 3D STAVEN MODUS ---
-        // We halen de array van layer-configs op (reeds reversed in config.js)
         const stackConfigs = VIZ_CONFIG.createLayer(allData, currentWeights);
-        
-        // Zet elke config om in een echte DeckGL laag
         const vizLayers = stackConfigs.map(config => new deck.H3HexagonLayer(config));
-        
         layers.push(...vizLayers);
       }
       
-      // Update de kaart
       deckInstance.setProps({
         layers: [
           DeckGLUtils.createBasemap(VIZ_CONFIG.basemap),
@@ -122,58 +409,56 @@
 
     async function init() {
       try {
-        // Data laden
         allData = await DeckGLUtils.loadCSV(VIZ_CONFIG.dataUrl);
         document.getElementById('loading').style.display = 'none';
 
-        // --- UI OPBOUWEN ---
-        const list = document.getElementById('filter-list');
+        // --- SLIDERS GENEREREN IN DE SIDEBAR ---
+        const sliderContainer = document.getElementById('mca-sliders');
         
-        // 1. Sliders aanmaken
         VIZ_CONFIG.filters.forEach(f => {
           currentWeights[f.key] = f.default;
           const crit = VIZ_CONFIG.criteria.find(c => c.weightKey === f.key);
           
-          const row = document.createElement('div');
-          row.className = 'control-row';
-          row.innerHTML = `
-            <div class="label-group">
-              <span><span class="color-dot" style="background:rgb(${crit.color.join(',')})"></span>${crit.label}</span>
-              <span id="${f.key}-display">${f.default}</span>
+          const wrapper = document.createElement('div');
+          wrapper.className = 'slider-row';
+          wrapper.innerHTML = `
+            <div class="slider-label">
+              <span><i class="fa fa-circle" style="color: rgb(${crit.color.join(',')}); font-size: 8px; margin-right:5px;"></i> ${crit.label}</span>
+              <span id="${f.key}-display" style="font-weight:bold;">${f.default}</span>
             </div>
             <input type="range" id="${f.key}-slider" min="${f.min}" max="${f.max}" step="${f.step}" value="${f.default}">
           `;
-          list.appendChild(row);
+          sliderContainer.appendChild(wrapper);
 
-          // Event listener voor sliders
-          row.querySelector('input').addEventListener('input', (e) => {
+          wrapper.querySelector('input').addEventListener('input', (e) => {
             currentWeights[f.key] = parseInt(e.target.value);
             document.getElementById(`${f.key}-display`).textContent = e.target.value;
             renderLayers();
           });
         });
 
-        // 2. Heatmap Toggle event listener
+        // Toggle Event
         document.getElementById('heatmap-toggle').addEventListener('change', (e) => {
           showHeatmap = e.target.checked;
           renderLayers();
         });
 
-        // --- DECK.GL STARTEN ---
+        // Deck.gl Init
         deckInstance = new deck.DeckGL({
           container: 'container',
           initialViewState: VIZ_CONFIG.initialView,
           controller: true,
-          // effects: [lightingEffect], // Licht aan/uit zetten naar smaak
-          getTooltip: VIZ_CONFIG.tooltip
+          getTooltip: VIZ_CONFIG.tooltip,
+          // Voorkom dat de map onder de sidebar verdwijnt bij resize
+          width: '100%',
+          height: '100%'
         });
 
-        // Eerste keer tekenen
         renderLayers();
 
       } catch (e) {
-        console.error("Initialization failed:", e);
-        document.getElementById('loading').textContent = "Error loading data. Check console.";
+        console.error("Fout:", e);
+        document.getElementById('loading').textContent = "Fout bij laden data.";
       }
     }
 
