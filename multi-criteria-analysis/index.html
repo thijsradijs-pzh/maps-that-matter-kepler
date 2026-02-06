@@ -78,8 +78,11 @@
     
     /* Welcome Styles */
     #welcome-content { padding: 20px; color: #333; line-height: 1.6; font-size: 14px; }
-    #welcome-content h3 { color: var(--esri-blue); margin-top: 0; }
-    .start-btn { display: block; width: 100%; padding: 10px; background: var(--esri-blue); color: white; text-align: center; border-radius: 4px; text-decoration: none; font-weight: 600; cursor: pointer; margin-top: 20px; box-sizing:border-box; }
+    #welcome-content h3 { color: var(--esri-blue); margin-top: 0; font-size: 18px; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+    #welcome-content p { margin-bottom: 15px; }
+    .welcome-list { margin: 0; padding: 0 0 0 20px; color: #555; }
+    .welcome-list li { margin-bottom: 8px; }
+    .start-btn { display: block; width: 100%; padding: 12px; background: var(--esri-blue); color: white; text-align: center; border-radius: 4px; text-decoration: none; font-weight: 600; cursor: pointer; margin-top: 25px; box-sizing:border-box; transition: background 0.2s; }
     .start-btn:hover { background: #006099; }
   </style>
 </head>
@@ -99,9 +102,18 @@
     </div>
 
     <div id="welcome-content" class="sidebar-content active">
-      <h3>Welkom bij de Gebiedsviewer</h3>
-      <p>Deze interactieve viewer ondersteunt het gebiedsproces van het Provinciaal Programma Landelijk Gebied (PPLG).</p>
-      <div class="start-btn" onclick="switchTab('layers')">Aan de slag</div>
+      <h3>Integrale Afweging Landelijk Gebied</h3>
+      <p>Welkom bij de interactieve verkenner voor het Provinciaal Programma Landelijk Gebied (PPLG) van Zuid-Holland.</p>
+      
+      <p>Deze tool biedt inzicht in de stapeling van ruimtelijke opgaven zoals water, bodem en natuur. Met de Multi-Criteria Analyse (MCA) kunt u zelf scenario's verkennen:</p>
+      
+      <ul class="welcome-list">
+        <li><b>Verken data:</b> Bekijk datasets via het tabblad 'Kaartlagen'.</li>
+        <li><b>Weeg belangen:</b> Gebruik de sliders om het gewicht van thema's zoals verzilting of bodemdaling aan te passen.</li>
+        <li><b>Analyseer:</b> Zie direct waar opgaven cumuleren en waar kansen liggen.</li>
+      </ul>
+
+      <div class="start-btn" onclick="switchTab('layers')">Start de analyse</div>
     </div>
 
     <div id="layer-content" class="sidebar-content">
@@ -112,7 +124,7 @@
 
       <div class="filter-bar">
         <i class="fa fa-search filter-icon"></i>
-        <input type="text" id="layer-search" class="filter-input" placeholder="Zoek op kaartlaag (bijv. Natuur)...">
+        <input type="text" id="layer-search" class="filter-input" placeholder="Zoek kaartlagen (bijv. bodem, natuur)...">
       </div>
       <div id="search-results"></div>
       
