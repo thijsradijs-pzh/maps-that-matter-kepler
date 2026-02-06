@@ -244,7 +244,7 @@
             wmsUrl.searchParams.set('TRANSPARENT', 'true');
             wmsUrl.searchParams.set('BBOX', bbox.join(','));
 
-            // 2. Route through our Proxy to avoid CORS errors
+            // 2. Route through our Proxy to avoid CORS errors on images
             const originalUrl = wmsUrl.toString();
             const proxyUrl = `/api/proxy?url=${encodeURIComponent(originalUrl)}`;
 
@@ -271,6 +271,16 @@
       });
     }
 
+    // --- GEONETWORK CSW API SEARCH ---
+    // Point to our own Vercel API proxy
+    const GEONETWORK_CSW_URL = '/api/search-ngr'; 
+    
+    // Debug logging helper
+    const DEBUG = true;
+    function debugLog(...args) {
+        if (DEBUG) console.log('[MCA Debug]', ...args);
+    }
+    
     // Build CSW GetRecords request XML
     function buildCSWRequest(searchTerm, maxRecords = 50) {
         return `<?xml version="1.0" encoding="UTF-8"?>
@@ -301,7 +311,7 @@
 </csw:GetRecords>`;
     }
 
-    // Parse CSW XML response to extract WMS layers
+    // Parse CSW XML response to extract WMS layers (Robust / Greedy Version)
     function parseCSWResponse(xmlText) {
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlText, "text/xml");
@@ -364,14 +374,14 @@
                     name: title,
                     description: abstract.substring(0, 100) + '...',
                     url: wmsUrl,
-                    layer: '0', // Default layer (User might need to guess, standard limitation of NGR search)
+                    layer: '0', // Default layer, will be refined on selection
                     hasWms: true,
                     source: 'geonetwork'
                 });
             }
         }
         
-        console.log(`[MCA Debug] Parsed ${records.length} WMS layers from ${childNodes.length} records.`);
+        debugLog(`Parsed ${records.length} WMS layers from ${childNodes.length} records.`);
         return records;
     }
 
@@ -382,7 +392,7 @@
         debugLog('CSW Search term:', searchTerm);
         
         try {
-            // Note: This may fail due to CORS if the server doesn't allow cross-origin requests
+            // Send to our local proxy
             const response = await fetch(GEONETWORK_CSW_URL, {
                 method: 'POST',
                 headers: {
@@ -398,7 +408,6 @@
             
             const xmlText = await response.text();
             debugLog('CSW Response length:', xmlText.length);
-            debugLog('CSW Response preview:', xmlText.substring(0, 500));
             
             const records = parseCSWResponse(xmlText);
             debugLog('CSW Parsed records:', records.length);
@@ -412,6 +421,19 @@
                 item.description.toLowerCase().includes(searchTerm.toLowerCase())
             ).map(item => ({...item, hasWms: true}));
         }
+    }
+
+    // Debounce helper to prevent too many API calls
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
     }
 
     // --- SEARCH LOGIC ---
@@ -570,8 +592,7 @@
                 const layers = Array.from(xmlDoc.querySelectorAll('Layer > Name'));
                 
                 if (layers.length > 0) {
-                    // Pick the first one that isn't the root service name (usually usually nested)
-                    // If the list is long, we just grab the last one (often the most specific) or the first valid one.
+                    // Pick the last one (usually most specific) or first valid one
                     finalLayerName = layers[layers.length - 1].textContent;
                     console.log(`[MCA] Found layer name: ${finalLayerName}`);
                 } else {
@@ -581,13 +602,13 @@
 
             // Add to active list
             activeWmsLayers.push({
-                id: Date.now(),
+                id: Date.now(), // Unieke ID
                 url: item.url,
                 layer: finalLayerName,
                 title: item.name
             });
 
-            // Refresh UI
+            // UI Update
             document.getElementById('search-results').style.display = 'none';
             document.getElementById('layer-search').value = '';
             updateActiveLayersUI();
@@ -815,4 +836,4 @@
     init();
   </script>
 </body>
-</html></html>
+</html>
