@@ -3,14 +3,12 @@ const VIZ_CONFIG = {
   title: 'ZH-PLG MCA Dashboard',
   dataUrl: '/data/h3_binary_matrix.csv', 
   h3Field: 'h3',
-  basemap: 'positron', // Dit is de standaard start-kaart (grijs)
+  basemap: 'positron', // Startkaart
   
-  // Startpositie (Zuid-Holland)
   initialView: {
     longitude: 4.48, latitude: 51.90, zoom: 9.5, pitch: 45, bearing: 0
   },
 
-  // De onderwerpen en hun basiskleuren
   criteria: [
     { key: 'verzilting', label: 'Verzilting', color: [0, 150, 136], weightKey: 'w_verzilting' },
     { key: 'bodemdaling', label: 'Bodemdaling', color: [239, 83, 80], weightKey: 'w_bodemdaling' },
@@ -19,13 +17,86 @@ const VIZ_CONFIG = {
     { key: 'peilgebieden', label: 'Peilgebieden', color: [142, 68, 173], weightKey: 'w_peilgebieden' }
   ],
   
-  // De sliders instellingen
   filters: [
     { key: 'w_verzilting', label: 'Verzilting Weight', min: 0, max: 10, step: 1, default: 2 },
     { key: 'w_bodemdaling', label: 'Bodemdaling Weight', min: 0, max: 10, step: 1, default: 2 },
     { key: 'w_wateroverlast', label: 'Wateroverlast Weight', min: 0, max: 10, step: 1, default: 2 },
     { key: 'w_boerenlandvogels', label: 'Boerenlandvogels Weight', min: 0, max: 10, step: 1, default: 2 },
     { key: 'w_peilgebieden', label: 'Peilgebieden Weight', min: 0, max: 10, step: 1, default: 2 }
+  ],
+
+  // --- CATALOGUS VOOR ZOEKBALK (WMS LAGEN) ---
+  // 
+  // HOE VOEG JE WMS LAGEN TOE VANAF opendata.zuid-holland.nl:
+  // 
+  // 1. Ga naar https://opendata.zuid-holland.nl/geonetwork/srv/dut/catalog.search#/home
+  // 2. Zoek een dataset (bijv. "Water", "Natuur", "Luchtkwaliteit")
+  // 3. Klik op een dataset → Ga naar tab "Informatie over de bron"
+  // 4. Zoek naar links met protocol "OGC:WMS" of "WMS"
+  // 5. Kopieer de URL en laagnaam
+  // 6. Voeg toe aan deze catalog array:
+  //    {
+  //      name: "Mijn Laag Naam",
+  //      description: "Beschrijving",
+  //      url: "https://geoservices.zuid-holland.nl/arcgis/services/.../MapServer/WMSServer",
+  //      layer: "0"  // of de specifieke laagnaam
+  //    }
+  //
+  // LET OP: Sommige ZH-services vereisen authenticatie of hebben CORS-beperkingen.
+  // PDOK-services werken meestal probleemloos.
+  //
+  // Voorbeelden van werkende services:
+  catalog: [
+    {
+      name: "Natuurnetwerk Nederland (NNN)",
+      description: "Begrensde natuurgebieden",
+      url: "https://service.pdok.nl/provincies/natuurnetwerk-nederland/wms/v1_0",
+      layer: "NatuurnetwerkNederland",
+      legend: "https://service.pdok.nl/provincies/natuurnetwerk-nederland/wms/v1_0?request=GetLegendGraphic&layer=NatuurnetwerkNederland&format=image/png"
+    },
+    {
+      name: "Bodemkaart van Nederland (1:50.000)",
+      description: "Grondsoorten (Klei, Veen, Zand)",
+      url: "https://service.pdok.nl/bzk/bro-bodemkaart/wms/v1_0",
+      layer: "bodemkaart", 
+      legend: ""
+    },
+    // Note: The Provinciale Vaarwegen WMS service appears to be unavailable or requires authentication
+    // {
+    //   name: "Provinciale Vaarwegen",
+    //   description: "Vaarwegen in beheer bij Provincie",
+    //   url: "https://geoservices.zuid-holland.nl/arcgis/services/Water/Vaarwegen/MapServer/WMSServer",
+    //   layer: "0",
+    //   legend: ""
+    // },
+    {
+      name: "Water (Oppervlaktewater)",
+      description: "Oppervlaktewater uit de BRT",
+      url: "https://service.pdok.nl/brt/top10nl/wms/v1_0",
+      layer: "waterdeel_vlak",
+      legend: ""
+    },
+    {
+      name: "Grondwaterbeschermingsgebieden",
+      description: "Drinkwaterwinning zones",
+      url: "https://service.pdok.nl/provincies/aardkundige-waarden/wms/v1_0", 
+      layer: "AardkundigeWaarden", // Placeholder layer, vaak specifiek per provincie
+      legend: ""
+    },
+    {
+      name: "Natura 2000 Gebieden",
+      description: "Europees beschermde natuur",
+      url: "https://service.pdok.nl/rvo/natura2000/wms/v1_0",
+      layer: "natura2000",
+      legend: ""
+    },
+    {
+      name: "Hoogtekaart (AHN4 - Maaiveld)",
+      description: "Actueel Hoogtebestand Nederland",
+      url: "https://service.pdok.nl/rws/ahn/wms/v1_0",
+      layer: "ahn4_5m_dsm", // Digital Surface Model
+      legend: ""
+    }
   ],
 
   // --- 3D STAVEN LAAG (Geoptimaliseerd: Geen schaduwen) ---
