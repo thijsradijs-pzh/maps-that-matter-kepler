@@ -318,7 +318,7 @@
     }
 
     // Build CSW GetRecords request XML
-    function buildCSWRequest(searchTerm, maxRecords = 20) {
+    function buildCSWRequest(searchTerm, maxRecords = 50) {
         return `<?xml version="1.0" encoding="UTF-8"?>
 <csw:GetRecords xmlns:csw="http://www.opengis.net/cat/csw/2.0.2"
                 xmlns:ogc="http://www.opengis.net/ogc"
@@ -355,14 +355,13 @@
         
         // Handle "SearchResults" container or root
         const searchResults = xmlDoc.querySelector('SearchResults') || xmlDoc.documentElement;
-
         const childNodes = searchResults.children || searchResults.childNodes;
         
         for (let i = 0; i < childNodes.length; i++) {
             const node = childNodes[i];
             if (node.nodeType !== 1) continue; // Skip non-element nodes
 
-            // 1. Get Title (Handle namespaces leniently)
+            // 1. Get Title
             let title = node.querySelector('title')?.textContent || 
                         Array.from(node.getElementsByTagNameNS('*', 'title'))[0]?.textContent || 
                         "Naamloos";
@@ -372,65 +371,53 @@
                            Array.from(node.getElementsByTagNameNS('*', 'abstract'))[0]?.textContent || 
                            "";
 
-            // 3. Find WMS URL and Layer Name
+            // 3. Find WMS URL (Greedy Method)
             let wmsUrl = null;
-            let layerName = null;
+            let layerName = null; // NGR rarely provides the layer name in the search result
 
-            // Helper to clean URL
-            const cleanUrl = (u) => {
-                if (!u) return null;
-                let url = u.trim();
-                if (url.startsWith('http:')) url = url.replace('http:', 'https:'); // Force HTTPS
-                return url.split('?')[0]; // Remove query params
-            };
+            // Get ALL references or links
+            const allLinks = [
+                ...Array.from(node.getElementsByTagNameNS('*', 'references')),
+                ...Array.from(node.getElementsByTagNameNS('*', 'URI')),
+                ...Array.from(node.getElementsByTagNameNS('*', 'URL'))
+            ];
 
-            // Strategy A: Look for dc:references (Standard NGR format)
-            const references = Array.from(node.getElementsByTagNameNS('*', 'references'));
-            for (const ref of references) {
-                const text = ref.textContent;
-                const scheme = ref.getAttribute('scheme') || '';
+            for (const link of allLinks) {
+                const text = link.textContent;
+                const scheme = link.getAttribute('scheme') || '';
+                const protocol = link.getAttribute('protocol') || '';
                 
-                // Check if it's a WMS link
-                if ((scheme.toUpperCase().includes('WMS')) || 
-                    (text && text.toLowerCase().includes('service=wms'))) {
-                    wmsUrl = cleanUrl(text);
-                    break; 
-                }
-            }
-
-            // Strategy B: Look for CI_OnlineResource (ISO Metadata format)
-            if (!wmsUrl) {
-                const resources = Array.from(node.getElementsByTagNameNS('*', 'CI_OnlineResource'));
-                for (const res of resources) {
-                    const protocol = res.getElementsByTagNameNS('*', 'protocol')[0]?.textContent || "";
-                    const urlNode = res.getElementsByTagNameNS('*', 'URL')[0] || 
-                                    res.getElementsByTagNameNS('*', 'linkage')[0];
-                    const url = urlNode?.textContent;
-
-                    if (url && (protocol.toUpperCase().includes('WMS') || url.toLowerCase().includes('wms'))) {
-                        wmsUrl = cleanUrl(url);
-                        // Try to grab layer name if available
-                        layerName = res.getElementsByTagNameNS('*', 'name')[0]?.textContent;
-                        break; 
-                    }
+                // Check Scheme, Protocol, OR the URL itself for "wms"
+                if (
+                    (scheme && scheme.toLowerCase().includes('wms')) ||
+                    (protocol && protocol.toLowerCase().includes('wms')) ||
+                    (text && text.toLowerCase().includes('wms')) || 
+                    (text && text.toLowerCase().includes('mapserver')) // ArcGIS WMS often uses this
+                ) {
+                    // Cleanup URL
+                    let url = text.trim();
+                    if (url.startsWith('http:')) url = url.replace('http:', 'https:');
+                    url = url.split('?')[0]; // Remove query params like ?request=GetCapabilities
+                    
+                    wmsUrl = url;
+                    break; // Found one!
                 }
             }
             
-            // Only add if we found a valid WMS link
+            // Only add if we found a valid URL
             if (wmsUrl) {
                 records.push({
                     name: title,
                     description: abstract.substring(0, 100) + '...',
                     url: wmsUrl,
-                    // If no layer name found, default to '0' (works for ArcGIS) 
-                    // or let the user try it. For PDOK you often need the specific layer name.
-                    layer: layerName || '0', 
+                    layer: '0', // Default layer (User might need to guess, standard limitation of NGR search)
                     hasWms: true,
                     source: 'geonetwork'
                 });
             }
         }
         
+        console.log(`[MCA Debug] Parsed ${records.length} WMS layers from ${childNodes.length} records.`);
         return records;
     }
 
