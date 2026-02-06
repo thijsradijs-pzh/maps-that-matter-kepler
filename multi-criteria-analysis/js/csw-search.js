@@ -27,7 +27,7 @@ function buildCSWRequest(searchTerm, maxRecords = 50) {
 </csw:GetRecords>`;
 }
 
-// 2. Parse XML Response (Greedy/Robust)
+// 2. Parse XML Response (Extract Publisher too!)
 function parseCSWResponse(xmlText) {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlText, "text/xml");
@@ -40,8 +40,28 @@ function parseCSWResponse(xmlText) {
         const node = childNodes[i];
         if (node.nodeType !== 1) continue;
 
-        let title = node.querySelector('title')?.textContent || Array.from(node.getElementsByTagNameNS('*', 'title'))[0]?.textContent || "Naamloos";
-        let abstract = node.querySelector('abstract')?.textContent || Array.from(node.getElementsByTagNameNS('*', 'abstract'))[0]?.textContent || "";
+        // Title
+        let title = node.querySelector('title')?.textContent || 
+                    Array.from(node.getElementsByTagNameNS('*', 'title'))[0]?.textContent || 
+                    "Naamloos";
+
+        // Abstract
+        let abstract = node.querySelector('abstract')?.textContent || 
+                       Array.from(node.getElementsByTagNameNS('*', 'abstract'))[0]?.textContent || 
+                       "";
+
+        // Publisher / Source (NIEUW)
+        let publisher = "NGR"; // Default
+        const pubNode = node.querySelector('publisher') || 
+                        Array.from(node.getElementsByTagNameNS('*', 'publisher'))[0] ||
+                        node.querySelector('source') || 
+                        Array.from(node.getElementsByTagNameNS('*', 'source'))[0];
+        
+        if (pubNode) {
+            publisher = pubNode.textContent.trim();
+            // Maak het iets korter als het te lang is
+            if (publisher.length > 20) publisher = publisher.substring(0, 20) + "..";
+        }
 
         let wmsUrl = null;
         
@@ -77,6 +97,7 @@ function parseCSWResponse(xmlText) {
                 url: wmsUrl,
                 layer: '0', 
                 hasWms: true,
+                publisher: publisher, // Add publisher to record
                 source: 'geonetwork'
             });
         }

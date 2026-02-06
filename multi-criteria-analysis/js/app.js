@@ -44,7 +44,7 @@ function initSearch() {
 
         // Combine
         const combinedMap = new Map();
-        localResults.forEach(item => combinedMap.set(item.name, {...item, hasWms: true, source: 'local'}));
+        localResults.forEach(item => combinedMap.set(item.name, {...item, hasWms: true, source: 'local', publisher: 'Lokaal'}));
         geonetworkResults.forEach(item => { if (item.hasWms) combinedMap.set(item.name, {...item, source: 'geonetwork'}); });
         
         displayResults(Array.from(combinedMap.values()));
@@ -75,14 +75,19 @@ function initSearch() {
         const iconClass = item.source === 'geonetwork' ? 'fa-globe' : 'fa-layer-group';
         const iconColor = item.source === 'geonetwork' ? '#E3001B' : '#007ac2';
         
+        // Bepaal de badge tekst (Publisher) en kleur
+        const pubText = item.publisher || "NGR";
+        const pubColor = item.source === 'geonetwork' ? '#E3001B' : '#666';
+        
         div.innerHTML = `
             <div style="flex:1;">
-               <i class="fa ${iconClass}" style="color:${iconColor}; margin-right:8px;"></i>
-               <b>${item.name}</b>
-               ${item.source === 'geonetwork' ? '<span style="background:#E3001B;color:white;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:5px;">ZH</span>' : ''}
-               <br/><span style="color:#888; font-size:11px;">${item.description}</span>
+               <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <span><i class="fa ${iconClass}" style="color:${iconColor}; margin-right:8px;"></i> <b>${item.name}</b></span>
+                    <span style="background:${pubColor}; color:white; font-size:9px; padding:1px 4px; border-radius:3px; white-space:nowrap; margin-left:5px;">${pubText}</span>
+               </div>
+               <span style="color:#888; font-size:11px;">${item.description}</span>
             </div>
-            <i class="fa fa-plus-circle" style="color:#ccc;"></i>
+            <i class="fa fa-plus-circle" style="color:#ccc; margin-left:8px;"></i>
         `;
         div.onclick = () => addWmsLayer(item);
         return div;
@@ -165,13 +170,9 @@ async function addWmsLayer(item) {
             }
         }
 
-        // --- FIXED LEGEND LOGIC ---
+        // Legend URL
         let baseUrl = item.url.split('?')[0];
-        // 1. Build the clean WMS GetLegendGraphic URL
-        // We do NOT set WIDTH/HEIGHT to allow the server to send the full legend image
         const rawLegendUrl = `${baseUrl}?SERVICE=WMS&REQUEST=GetLegendGraphic&VERSION=1.3.0&FORMAT=image/png&LAYER=${encodeURIComponent(finalLayerName)}`;
-        
-        // 2. Wrap it in our Proxy to avoid Mixed Content / CORS issues
         const legendUrl = `/api/proxy?url=${encodeURIComponent(rawLegendUrl)}`;
 
         activeWmsLayers.push({ 
@@ -179,8 +180,9 @@ async function addWmsLayer(item) {
             url: item.url, 
             layer: finalLayerName, 
             title: item.name,
+            publisher: item.publisher || 'NGR', // Store publisher
             bbox: bbox,
-            legendUrl: legendUrl, // Now proxied!
+            legendUrl: legendUrl,
             showLegend: false 
         });
         
@@ -201,15 +203,9 @@ async function addWmsLayer(item) {
 function zoomToBbox(bbox) {
     if (!bbox) return;
     const [minLon, minLat, maxLon, maxLat] = bbox;
-    
-    // Simple fit bounds approximation
     const centerLon = (minLon + maxLon) / 2;
     const centerLat = (minLat + maxLat) / 2;
-    
-    // Calculate rough zoom level
-    const lonDiff = maxLon - minLon;
-    const latDiff = maxLat - minLat;
-    const maxDiff = Math.max(lonDiff, latDiff);
+    const maxDiff = Math.max(maxLon - minLon, maxLat - minLat);
     
     let zoom = 8;
     if (maxDiff < 0.05) zoom = 14;
@@ -262,8 +258,17 @@ function updateActiveLayersUI() {
             header.style.display = 'flex';
             header.style.justifyContent = 'space-between';
             header.style.width = '100%';
+            header.style.alignItems = 'center';
+
+            // Gebruik de publisher in de UI (bijv. [RWS])
+            const pubBadge = `<span style="font-size:9px; color:#999; border:1px solid #ddd; border-radius:3px; padding:0 3px; margin-left:6px;">${l.publisher}</span>`;
+
             header.innerHTML = `
-                <span><i class="fa fa-check-square" style="color:#007ac2; margin-right:5px;"></i> ${l.title}</span>
+                <div style="display:flex; align-items:center;">
+                    <i class="fa fa-check-square" style="color:#007ac2; margin-right:5px;"></i> 
+                    <span>${l.title}</span>
+                    ${pubBadge}
+                </div>
                 <i class="fa fa-trash" style="cursor:pointer; color:#999;" onclick="removeWmsLayer(${l.id})"></i>
             `;
             div.appendChild(header);
@@ -291,7 +296,6 @@ function updateActiveLayersUI() {
                 const img = document.createElement('img');
                 img.src = l.legendUrl;
                 img.className = 'layer-legend-img';
-                // Add error handling to show text if image fails
                 img.onerror = function() { 
                     this.style.display = 'none'; 
                     const err = document.createElement('div');
