@@ -219,102 +219,56 @@
     }
 
     function createWMSLayer(layerConfig) {
-      debugLog('Creating WMS layer:', layerConfig.title, 'URL:', layerConfig.url, 'Layer:', layerConfig.layer);
-      
       return new deck.TileLayer({
         id: `wms-${layerConfig.id}`,
         tileSize: 256,
         minZoom: 0,
         maxZoom: 19,
-        // Zorg dat de WMS laag netjes onder de data (hexagons) ligt, maar boven de basemap
-        zIndex: 5, 
+        zIndex: 5,
         
-        // DE FIX: We gebruiken 'getTileData' (alias voor data) en halen het plaatje expliciet op
         getTileData: async (props) => {
             const {x, y, z} = props.index;
             const bbox = tileToBoundingBox(x, y, z);
             
-            const url = new URL(layerConfig.url);
-            url.searchParams.set('SERVICE', 'WMS');
-            url.searchParams.set('VERSION', '1.1.1');
-            url.searchParams.set('REQUEST', 'GetMap');
-            url.searchParams.set('LAYERS', layerConfig.layer);
-            url.searchParams.set('STYLES', '');
-            url.searchParams.set('SRS', 'EPSG:3857');
-            url.searchParams.set('WIDTH', '256');
-            url.searchParams.set('HEIGHT', '256');
-            url.searchParams.set('FORMAT', 'image/png');
-            url.searchParams.set('TRANSPARENT', 'true');
-            url.searchParams.set('BBOX', bbox.join(','));
+            // 1. Construct the WMS URL carefully
+            const wmsUrl = new URL(layerConfig.url);
+            wmsUrl.searchParams.set('SERVICE', 'WMS');
+            wmsUrl.searchParams.set('VERSION', '1.1.1');
+            wmsUrl.searchParams.set('REQUEST', 'GetMap');
+            wmsUrl.searchParams.set('LAYERS', layerConfig.layer); // The correct layer name!
+            wmsUrl.searchParams.set('STYLES', '');
+            wmsUrl.searchParams.set('SRS', 'EPSG:3857');
+            wmsUrl.searchParams.set('WIDTH', '256');
+            wmsUrl.searchParams.set('HEIGHT', '256');
+            wmsUrl.searchParams.set('FORMAT', 'image/png');
+            wmsUrl.searchParams.set('TRANSPARENT', 'true');
+            wmsUrl.searchParams.set('BBOX', bbox.join(','));
 
-            const urlString = url.toString();
-            debugLog('Fetching WMS tile:', urlString);
+            // 2. Route through our Proxy to avoid CORS errors
+            const originalUrl = wmsUrl.toString();
+            const proxyUrl = `/api/proxy?url=${encodeURIComponent(originalUrl)}`;
 
             try {
-                // Haal de data op als Blob en maak er een Bitmap van
-                const response = await fetch(urlString);
-                if (!response.ok) {
-                    console.warn(`WMS tile failed for ${layerConfig.title || layerConfig.layer}: ${response.status}`, urlString);
-                    return null;
-                }
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error('Proxy failed');
                 const blob = await response.blob();
-                
-                // Check if the blob is actually an image (not an error XML/JSON)
-                if (!blob.type.startsWith('image/')) {
-                    // Log OGC exception details for debugging
-                    if (blob.type.includes('xml') || blob.type.includes('se_xml')) {
-                        const text = await blob.text();
-                        console.warn(`WMS Service Exception for ${layerConfig.title || layerConfig.layer}:`, text.substring(0, 500));
-                        debugLog('WMS Error URL:', urlString);
-                    }
-                    console.warn(`WMS tile for ${layerConfig.title || layerConfig.layer} returned non-image content-type: ${blob.type}`);
-                    return null;
-                }
-                
-                const bitmap = await createImageBitmap(blob);
-                return bitmap;
+                return await createImageBitmap(blob);
             } catch (error) {
-                console.warn(`Error loading WMS tile for ${layerConfig.title || layerConfig.layer}:`, error);
-                debugLog('WMS Error URL:', urlString);
+                console.warn(`Error loading tile for ${layerConfig.title}:`, error);
                 return null;
             }
         },
 
         renderSubLayers: props => {
-          // Don't render if no data (tile failed to load)
           if (!props.data) return null;
-          
           const {bbox: {west, south, east, north}} = props.tile;
-          
           return new deck.BitmapLayer(props, {
             data: null,
-            image: props.data, // Dit is nu de bitmap die we hierboven hebben opgehaald
+            image: props.data,
             bounds: [west, south, east, north]
           });
         }
       });
-    }
-    // --- GEONETWORK CSW API SEARCH ---
-    // Point to our own Vercel API proxy
-    const GEONETWORK_CSW_URL = '/api/search-ngr';
-    
-    // Debug logging helper
-    const DEBUG = true;
-    function debugLog(...args) {
-        if (DEBUG) console.log('[MCA Debug]', ...args);
-    }
-    
-    // Debounce helper to prevent too many API calls
-    function debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
     }
 
     // Build CSW GetRecords request XML
@@ -582,23 +536,68 @@
         });
     }
 
-    function addWmsLayer(item) {
-        // Check of hij al bestaat
-        if (activeWmsLayers.find(l => l.layerName === item.layer)) return;
+    async function addWmsLayer(item) {
+        // Prevent duplicates
+        if (activeWmsLayers.find(l => l.title === item.name)) return;
 
-        // Voeg toe aan lijst
-        activeWmsLayers.push({
-            id: Date.now(), // Unieke ID
-            url: item.url,
-            layer: item.layer,
-            title: item.name
-        });
+        // Show loading state
+        const originalText = document.getElementById('search-results').innerHTML;
+        const resultItem = Array.from(document.querySelectorAll('.result-item')).find(el => el.innerText.includes(item.name));
+        if(resultItem) resultItem.style.opacity = '0.5';
 
-        // UI Update
-        document.getElementById('search-results').style.display = 'none';
-        document.getElementById('layer-search').value = '';
-        updateActiveLayersUI();
-        renderLayers();
+        try {
+            let finalLayerName = item.layer;
+
+            // If we don't have a valid layer name (it is '0'), we must find it!
+            if (finalLayerName === '0') {
+                console.log(`[MCA] Detecting layer name for: ${item.name}...`);
+                
+                // Construct GetCapabilities URL
+                const capUrl = new URL(item.url);
+                capUrl.searchParams.set('service', 'WMS');
+                capUrl.searchParams.set('request', 'GetCapabilities');
+
+                // Fetch via Proxy
+                const proxyUrl = `/api/proxy?url=${encodeURIComponent(capUrl.toString())}`;
+                const resp = await fetch(proxyUrl);
+                const xmlText = await resp.text();
+
+                // Parse XML to find the first valid Layer Name
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+                
+                // Find all <Layer> elements that have a <Name>
+                const layers = Array.from(xmlDoc.querySelectorAll('Layer > Name'));
+                
+                if (layers.length > 0) {
+                    // Pick the first one that isn't the root service name (usually usually nested)
+                    // If the list is long, we just grab the last one (often the most specific) or the first valid one.
+                    finalLayerName = layers[layers.length - 1].textContent;
+                    console.log(`[MCA] Found layer name: ${finalLayerName}`);
+                } else {
+                    throw new Error("Geen lagen gevonden in WMS service.");
+                }
+            }
+
+            // Add to active list
+            activeWmsLayers.push({
+                id: Date.now(),
+                url: item.url,
+                layer: finalLayerName,
+                title: item.name
+            });
+
+            // Refresh UI
+            document.getElementById('search-results').style.display = 'none';
+            document.getElementById('layer-search').value = '';
+            updateActiveLayersUI();
+            renderLayers();
+
+        } catch (err) {
+            console.error(err);
+            alert(`Kon laag niet toevoegen: ${err.message}`);
+            if(resultItem) resultItem.style.opacity = '1';
+        }
     }
 
     function removeWmsLayer(id) {
