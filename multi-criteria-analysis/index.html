@@ -256,6 +256,11 @@
                 
                 // Check if the blob is actually an image (not an error XML/JSON)
                 if (!blob.type.startsWith('image/')) {
+                    // Log OGC exception details for debugging
+                    if (blob.type.includes('xml') || blob.type.includes('se_xml')) {
+                        const text = await blob.text();
+                        console.warn(`WMS Service Exception for ${layerConfig.title || layerConfig.layer}:`, text.substring(0, 500));
+                    }
                     console.warn(`WMS tile for ${layerConfig.title || layerConfig.layer} returned non-image content-type: ${blob.type}`);
                     return null;
                 }
