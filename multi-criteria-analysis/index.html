@@ -295,8 +295,8 @@
       });
     }
     // --- GEONETWORK CSW API SEARCH ---
-    // CSW Endpoint for Nationaal Geo Register (NGR) - Better CORS support
-    const GEONETWORK_CSW_URL = 'https://www.nationaalgeoregister.nl/geonetwork/srv/dut/csw';
+    // Point to our own Vercel API proxy
+    const GEONETWORK_CSW_URL = '/api/search-ngr';
     
     // Debug logging helper
     const DEBUG = true;
