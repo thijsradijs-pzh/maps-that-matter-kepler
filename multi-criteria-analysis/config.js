@@ -51,8 +51,9 @@ const VIZ_CONFIG = {
       name: "Natuurnetwerk Nederland (NNN)",
       description: "Begrensde natuurgebieden",
       url: "https://service.pdok.nl/provincies/natuurnetwerk-nederland/wms/v1_0",
-      layer: "natuurnetwerk_nederland",
-      legend: "https://service.pdok.nl/provincies/natuurnetwerk-nederland/wms/v1_0?request=GetLegendGraphic&layer=natuurnetwerk_nederland&format=image/png"
+      // OUDE WAARDE: "natuurnetwerk_nederland" (FOUT)
+      layer: "PS.ProtectedSite", // CORRECTE INSPIRE NAAM
+      legend: "https://service.pdok.nl/provincies/natuurnetwerk-nederland/wms/v1_0?request=GetLegendGraphic&layer=PS.ProtectedSite&format=image/png"
     },
     // NOTE: Bodemkaart layer temporarily disabled - layer name needs to be verified
     // {
