@@ -353,61 +353,83 @@
         const xmlDoc = parser.parseFromString(xmlText, "text/xml");
         const records = [];
         
-        // Handle different CSW record types
-        const recordElements = xmlDoc.querySelectorAll('SearchResults > *');
+        // Handle "SearchResults" container or root
+        const searchResults = xmlDoc.querySelector('SearchResults') || xmlDoc.documentElement;
+
+        const childNodes = searchResults.children || searchResults.childNodes;
         
-        recordElements.forEach(record => {
-            const title = record.querySelector('title')?.textContent || 
-                         record.getElementsByTagNameNS('*', 'title')[0]?.textContent ||
-                         'Onbekende titel';
-            
-            const abstract = record.querySelector('abstract')?.textContent || 
-                            record.getElementsByTagNameNS('*', 'abstract')[0]?.textContent ||
-                            '';
-            
-            // Find WMS links - look for protocol containing "WMS"
-            const links = record.querySelectorAll('URI, linkage, URL, onlineResource');
+        for (let i = 0; i < childNodes.length; i++) {
+            const node = childNodes[i];
+            if (node.nodeType !== 1) continue; // Skip non-element nodes
+
+            // 1. Get Title (Handle namespaces leniently)
+            let title = node.querySelector('title')?.textContent || 
+                        Array.from(node.getElementsByTagNameNS('*', 'title'))[0]?.textContent || 
+                        "Naamloos";
+
+            // 2. Get Abstract
+            let abstract = node.querySelector('abstract')?.textContent || 
+                           Array.from(node.getElementsByTagNameNS('*', 'abstract'))[0]?.textContent || 
+                           "";
+
+            // 3. Find WMS URL and Layer Name
             let wmsUrl = null;
-            let wmsLayer = null;
-            
-            // Also check for CI_OnlineResource elements
-            const onlineResources = record.querySelectorAll('CI_OnlineResource, OnlineResource');
-            
-            for (const resource of onlineResources) {
-                const protocol = resource.querySelector('protocol')?.textContent || '';
-                const linkage = resource.querySelector('linkage URL, linkage, url')?.textContent || 
-                               resource.querySelector('URL')?.textContent || '';
-                const name = resource.querySelector('name')?.textContent || 
-                            resource.querySelector('CI_OnlineResource > name')?.textContent || '';
+            let layerName = null;
+
+            // Helper to clean URL
+            const cleanUrl = (u) => {
+                if (!u) return null;
+                let url = u.trim();
+                if (url.startsWith('http:')) url = url.replace('http:', 'https:'); // Force HTTPS
+                return url.split('?')[0]; // Remove query params
+            };
+
+            // Strategy A: Look for dc:references (Standard NGR format)
+            const references = Array.from(node.getElementsByTagNameNS('*', 'references'));
+            for (const ref of references) {
+                const text = ref.textContent;
+                const scheme = ref.getAttribute('scheme') || '';
                 
-                if (protocol.toLowerCase().includes('wms') || linkage.toLowerCase().includes('wms')) {
-                    wmsUrl = linkage;
-                    wmsLayer = name || '0';
-                    break;
+                // Check if it's a WMS link
+                if ((scheme.toUpperCase().includes('WMS')) || 
+                    (text && text.toLowerCase().includes('service=wms'))) {
+                    wmsUrl = cleanUrl(text);
+                    break; 
                 }
             }
-            
-            // Fallback: check all references for WMS in URL
+
+            // Strategy B: Look for CI_OnlineResource (ISO Metadata format)
             if (!wmsUrl) {
-                const allRefs = record.querySelectorAll('[xlink\\:href], href');
-                for (const ref of allRefs) {
-                    const href = ref.getAttribute('xlink:href') || ref.textContent || '';
-                    if (href.toLowerCase().includes('wms') || href.toLowerCase().includes('geoserver')) {
-                        wmsUrl = href;
-                        wmsLayer = '0';
-                        break;
+                const resources = Array.from(node.getElementsByTagNameNS('*', 'CI_OnlineResource'));
+                for (const res of resources) {
+                    const protocol = res.getElementsByTagNameNS('*', 'protocol')[0]?.textContent || "";
+                    const urlNode = res.getElementsByTagNameNS('*', 'URL')[0] || 
+                                    res.getElementsByTagNameNS('*', 'linkage')[0];
+                    const url = urlNode?.textContent;
+
+                    if (url && (protocol.toUpperCase().includes('WMS') || url.toLowerCase().includes('wms'))) {
+                        wmsUrl = cleanUrl(url);
+                        // Try to grab layer name if available
+                        layerName = res.getElementsByTagNameNS('*', 'name')[0]?.textContent;
+                        break; 
                     }
                 }
             }
             
-            records.push({
-                name: title,
-                description: abstract.substring(0, 100) + (abstract.length > 100 ? '...' : ''),
-                url: wmsUrl,
-                layer: wmsLayer,
-                hasWms: !!wmsUrl
-            });
-        });
+            // Only add if we found a valid WMS link
+            if (wmsUrl) {
+                records.push({
+                    name: title,
+                    description: abstract.substring(0, 100) + '...',
+                    url: wmsUrl,
+                    // If no layer name found, default to '0' (works for ArcGIS) 
+                    // or let the user try it. For PDOK you often need the specific layer name.
+                    layer: layerName || '0', 
+                    hasWms: true,
+                    source: 'geonetwork'
+                });
+            }
+        }
         
         return records;
     }
