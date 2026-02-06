@@ -58,7 +58,7 @@ const VIZ_CONFIG = {
       name: "Bodemkaart van Nederland (1:50.000)",
       description: "Grondsoorten (Klei, Veen, Zand)",
       url: "https://service.pdok.nl/bzk/bro-bodemkaart/wms/v1_0",
-      layer: "bodemkaart", 
+      layer: "bodemsoorten", 
       legend: ""
     },
     // Note: The Provinciale Vaarwegen WMS service appears to be unavailable or requires authentication
