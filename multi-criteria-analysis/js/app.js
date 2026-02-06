@@ -5,6 +5,7 @@ let deckInstance;
 let allData = [];
 const currentWeights = {};
 let showHeatmap = false;
+let showMainLayer = true; // NIEUW: Houdt bij of Groene Hart Noord aan staat
 let currentViewState = VIZ_CONFIG.initialView;
 let isSatellite = false;
 let isMeasuring = false;
@@ -97,14 +98,12 @@ function initSearch() {
 async function addWmsLayer(item) {
     if (activeWmsLayers.find(l => l.title === item.name)) return;
     
-    // Show loading indicator
     const resultItem = Array.from(document.querySelectorAll('.result-item')).find(el => el.innerText.includes(item.name));
     if(resultItem) resultItem.style.opacity = '0.5';
 
     try {
         let finalLayerName = item.layer;
         
-        // Auto-detect layer name if missing
         if (finalLayerName === '0') {
             console.log(`[MCA] Detecting layer name for: ${item.name}...`);
             const capUrl = new URL(item.url);
@@ -121,7 +120,6 @@ async function addWmsLayer(item) {
             
             if (layers.length > 0) finalLayerName = layers[layers.length - 1].textContent;
             else throw new Error("Geen lagen gevonden.");
-            console.log(`[MCA] Found: ${finalLayerName}`);
         }
 
         activeWmsLayers.push({ id: Date.now(), url: item.url, layer: finalLayerName, title: item.name });
@@ -161,7 +159,7 @@ function updateActiveLayersUI() {
 // --- MAIN RENDER ---
 function renderLayers() {
     const layers = [];
-    document.getElementById('heatmap-legend').style.display = showHeatmap ? 'flex' : 'none';
+    document.getElementById('heatmap-legend').style.display = showHeatmap && showMainLayer ? 'flex' : 'none';
 
     // 1. Basemap
     if (isSatellite) {
@@ -178,11 +176,11 @@ function renderLayers() {
         layers.push(DeckGLUtils.createBasemap(VIZ_CONFIG.basemap));
     }
 
-    // 2. Active WMS Layers
+    // 2. Active WMS Layers (Always visible if added)
     activeWmsLayers.forEach(l => layers.push(createWMSLayer(l)));
 
-    // 3. Data Layers (H3)
-    if (allData.length > 0) {
+    // 3. Data Layers (H3) - Controlled by "Groene Hart Noord" toggle
+    if (showMainLayer && allData.length > 0) {
         const allH3 = allData.map(d => d.h3);
         layers.push(new deck.GeoJsonLayer(VIZ_CONFIG.createBoundaryLayer(allH3)));
         if (showHeatmap) {
@@ -211,34 +209,78 @@ function renderLayers() {
     deckInstance.setProps({ layers: layers });
 }
 
-// --- UI INTERACTIONS ---
+// --- UI INTERACTIONS & TOOLBAR FUNCTIONS ---
+
+// Toggle the Main "Groene Hart Noord" Layer
+function toggleMainLayer(e) {
+    e.preventDefault(); // Stop <details> from closing
+    e.stopPropagation();
+    
+    showMainLayer = !showMainLayer;
+    
+    // Update Icon
+    const icon = document.getElementById('ghn-checkbox');
+    if (showMainLayer) {
+        icon.className = 'fa fa-check-square checkbox-icon';
+        icon.style.color = 'var(--esri-blue)';
+    } else {
+        icon.className = 'fa fa-square checkbox-icon unchecked';
+        icon.style.color = '#ccc';
+    }
+    
+    renderLayers();
+}
+
+// Toolbar: Activate Search
+function activateSearch() {
+    switchTab('layers');
+    setTimeout(() => {
+        document.getElementById('layer-search').focus();
+    }, 100);
+}
+
+// Toolbar: Show Data Info
+function showDataInfo() {
+    const info = `
+GEGEVENS & BRONNEN
+------------------
+Dataset: Groene Hart Noord (MCA)
+Records: ${allData.length} hexagonen
+
+BRONNEN:
+- Provincie Zuid-Holland (PPLG)
+- PDOK / Nationaal Geo Register
+- Basisregistratie Ondergrond (BRO)
+
+Deze applicatie combineert diverse datastromen voor integrale ruimtelijke afwegingen.
+    `;
+    alert(info);
+}
+
+// Toolbar: Print Map
+function printMap() {
+    window.print();
+}
+
 function switchTab(t) {
-    // 1. Hide all active states
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     document.querySelectorAll('.sidebar-content').forEach(x => x.classList.remove('active'));
     
-    // 2. Map the input string to the correct ID and Index
     const map = {
         'welcome': { idx: 0, id: 'welcome-content' },
-        'layers':  { idx: 1, id: 'layer-content' }, // Correct mapping for 'layers' -> 'layer-content'
-        'layer':   { idx: 1, id: 'layer-content' }, // Fallback
+        'layers':  { idx: 1, id: 'layer-content' },
+        'layer':   { idx: 1, id: 'layer-content' },
         'legend':  { idx: 2, id: 'legend-content' }
     };
 
     const target = map[t];
-    
     if (target) {
-        // 3. Activate the correct tab and content
-        const tabs = document.querySelectorAll('.tab');
-        if (tabs[target.idx]) tabs[target.idx].classList.add('active');
-
-        const content = document.getElementById(target.id);
-        if (content) content.classList.add('active');
-        else console.error('Tab content not found:', target.id);
+        document.querySelectorAll('.tab')[target.idx].classList.add('active');
+        document.getElementById(target.id).classList.add('active');
     }
 }
 
-function showCredits() { alert("Thijs accepteert de uitnodiging om de lay-out van de gebiedsviewer te jatten."); }
+function showCredits() { alert("Gemaakt voor Provincie Zuid-Holland."); }
 function zoomIn() { if(deckInstance) deckInstance.setProps({ initialViewState: { ...currentViewState, zoom: currentViewState.zoom + 1, transitionDuration: 300, transitionInterpolator: new deck.FlyToInterpolator() } }); }
 function zoomOut() { if(deckInstance) deckInstance.setProps({ initialViewState: { ...currentViewState, zoom: currentViewState.zoom - 1, transitionDuration: 300, transitionInterpolator: new deck.FlyToInterpolator() } }); }
 function resetView() { deckInstance.setProps({ initialViewState: { ...VIZ_CONFIG.initialView, transitionDuration: 800, transitionInterpolator: new deck.FlyToInterpolator() } }); }

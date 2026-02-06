@@ -58,15 +58,15 @@
       </div>
 
       <div id="layer-tree">
-        <div class="tree-item"><details><summary><i class="fa fa-chevron-right toggle-arrow"></i><i class="fa fa-check-square checkbox-icon unchecked"></i><i class="fa fa-folder" style="color:#666; width:16px;"></i> Duin- en Bollenstreek</summary></details></div>
-        <div class="tree-item"><details><summary><i class="fa fa-chevron-right toggle-arrow"></i><i class="fa fa-check-square checkbox-icon unchecked"></i><i class="fa fa-folder" style="color:#666; width:16px;"></i> Duin Horst en Weide</summary></details></div>
-        <div class="tree-item"><details><summary><i class="fa fa-chevron-right toggle-arrow"></i><i class="fa fa-check-square checkbox-icon unchecked"></i><i class="fa fa-folder" style="color:#666; width:16px;"></i> Westland</summary></details></div>
+        <div class="tree-item"><details><summary><i class="fa fa-chevron-right toggle-arrow"></i><i class="fa fa-square checkbox-icon unchecked"></i><i class="fa fa-folder" style="color:#666; width:16px;"></i> Duin- en Bollenstreek</summary></details></div>
+        <div class="tree-item"><details><summary><i class="fa fa-chevron-right toggle-arrow"></i><i class="fa fa-square checkbox-icon unchecked"></i><i class="fa fa-folder" style="color:#666; width:16px;"></i> Duin Horst en Weide</summary></details></div>
+        <div class="tree-item"><details><summary><i class="fa fa-chevron-right toggle-arrow"></i><i class="fa fa-square checkbox-icon unchecked"></i><i class="fa fa-folder" style="color:#666; width:16px;"></i> Westland</summary></details></div>
 
         <div class="tree-item">
           <details open>
             <summary>
               <i class="fa fa-chevron-right toggle-arrow"></i>
-              <i class="fa fa-check-square checkbox-icon"></i>
+              <i id="ghn-checkbox" class="fa fa-check-square checkbox-icon" onclick="toggleMainLayer(event)"></i>
               <i class="fa fa-folder-open" style="color:#007ac2; width:16px;"></i> 
               Groene Hart Noord
             </summary>
@@ -98,10 +98,9 @@
 
   <div id="map-container">
     <div class="top-toolbar">
-      <div class="tool-pill"><i class="fa fa-folder-open"></i> Project</div>
-      <div class="tool-pill"><i class="fa fa-search"></i> Zoeken</div>
-      <div class="tool-pill"><i class="fa fa-info-circle"></i> Gegevens</div>
-      <div class="tool-pill"><i class="fa fa-print"></i> Afdrukken</div>
+      <div class="tool-pill" onclick="activateSearch()"><i class="fa fa-search"></i> Zoeken</div>
+      <div class="tool-pill" onclick="showDataInfo()"><i class="fa fa-info-circle"></i> Gegevens</div>
+      <div class="tool-pill" onclick="printMap()"><i class="fa fa-print"></i> Afdrukken</div>
     </div>
     <div class="help-btn" onclick="showCredits()" title="Info"><i class="fa fa-question"></i></div>
     

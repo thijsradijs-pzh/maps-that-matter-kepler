@@ -65,3 +65,12 @@ input[type=range]::-webkit-slider-thumb { appearance: none; width: 14px; height:
 .welcome-list li { margin-bottom: 8px; }
 .start-btn { display: block; width: 100%; padding: 12px; background: var(--esri-blue); color: white; text-align: center; border-radius: 4px; text-decoration: none; font-weight: 600; cursor: pointer; margin-top: 25px; box-sizing:border-box; transition: background 0.2s; }
 .start-btn:hover { background: #006099; }
+
+/* PRINT STYLES */
+@media print {
+    #sidebar { display: none !important; }
+    .top-toolbar, .zoom-controls, .help-btn { display: none !important; }
+    #map-container { width: 100vw !important; height: 100vh !important; position: fixed; top: 0; left: 0; }
+    #container { width: 100% !important; height: 100% !important; }
+    .scale-bar, .heatmap-legend, .coords-widget { display: flex !important; } /* Keep essential map elements */
+}
