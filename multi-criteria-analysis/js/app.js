@@ -1,0 +1,311 @@
+// js/app.js
+
+// --- GLOBAL STATE ---
+let deckInstance;
+let allData = [];
+const currentWeights = {};
+let showHeatmap = false;
+let currentViewState = VIZ_CONFIG.initialView;
+let isSatellite = false;
+let isMeasuring = false;
+let measurePoints = [];
+let activeWmsLayers = [];
+
+// --- DEBOUNCE HELPER ---
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => { clearTimeout(timeout); func(...args); };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// --- SEARCH UI LOGIC ---
+function initSearch() {
+    const input = document.getElementById('layer-search');
+    const resultsContainer = document.getElementById('search-results');
+    
+    const performSearch = debounce(async (term) => {
+        if (term.length < 2) { resultsContainer.style.display = 'none'; return; }
+
+        resultsContainer.innerHTML = '<div style="padding:10px;color:#888;font-size:12px;"><i class="fa fa-spinner fa-spin"></i> Zoeken...</div>';
+        resultsContainer.style.display = 'block';
+
+        // Run Search
+        const [geonetworkResults, localResults] = await Promise.all([
+            searchGeoNetwork(term),
+            Promise.resolve(VIZ_CONFIG.catalog.filter(item => 
+                item.name.toLowerCase().includes(term.toLowerCase()) || 
+                item.description.toLowerCase().includes(term.toLowerCase())
+            ))
+        ]);
+
+        // Combine
+        const combinedMap = new Map();
+        localResults.forEach(item => combinedMap.set(item.name, {...item, hasWms: true, source: 'local'}));
+        geonetworkResults.forEach(item => { if (item.hasWms) combinedMap.set(item.name, {...item, source: 'geonetwork'}); });
+        
+        displayResults(Array.from(combinedMap.values()));
+    }, 500);
+
+    function displayResults(results) {
+        resultsContainer.innerHTML = '';
+        if (results.length === 0) { resultsContainer.innerHTML = '<div style="padding:10px;color:#888;font-size:12px;">Geen resultaten gevonden</div>'; return; }
+        
+        const geoItems = results.filter(r => r.source === 'geonetwork');
+        const localItems = results.filter(r => r.source === 'local');
+
+        if (geoItems.length > 0) appendSection('Nationaal Geo Register', geoItems, '#f0f8ff', '#007ac2');
+        if (localItems.length > 0) appendSection('Lokale catalogus', localItems, '#f9f9f9', '#666');
+    }
+
+    function appendSection(title, items, bg, color) {
+        const header = document.createElement('div');
+        header.style.cssText = `padding:5px 15px;background:${bg};font-size:11px;font-weight:bold;color:${color};`;
+        header.textContent = `${title} (${items.length})`;
+        resultsContainer.appendChild(header);
+        items.forEach(item => resultsContainer.appendChild(createResultItem(item)));
+    }
+
+    function createResultItem(item) {
+        const div = document.createElement('div');
+        div.className = 'result-item';
+        const iconClass = item.source === 'geonetwork' ? 'fa-globe' : 'fa-layer-group';
+        const iconColor = item.source === 'geonetwork' ? '#E3001B' : '#007ac2';
+        
+        div.innerHTML = `
+            <div style="flex:1;">
+               <i class="fa ${iconClass}" style="color:${iconColor}; margin-right:8px;"></i>
+               <b>${item.name}</b>
+               ${item.source === 'geonetwork' ? '<span style="background:#E3001B;color:white;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:5px;">ZH</span>' : ''}
+               <br/><span style="color:#888; font-size:11px;">${item.description}</span>
+            </div>
+            <i class="fa fa-plus-circle" style="color:#ccc;"></i>
+        `;
+        div.onclick = () => addWmsLayer(item);
+        return div;
+    }
+
+    input.addEventListener('input', (e) => performSearch(e.target.value));
+    document.addEventListener('click', (e) => {
+        if (!input.contains(e.target) && !resultsContainer.contains(e.target)) resultsContainer.style.display = 'none';
+    });
+}
+
+// --- LAYER MANAGEMENT ---
+async function addWmsLayer(item) {
+    if (activeWmsLayers.find(l => l.title === item.name)) return;
+    
+    // Show loading indicator in search result
+    const resultItem = Array.from(document.querySelectorAll('.result-item')).find(el => el.innerText.includes(item.name));
+    if(resultItem) resultItem.style.opacity = '0.5';
+
+    try {
+        let finalLayerName = item.layer;
+        
+        // Auto-detect layer name if missing
+        if (finalLayerName === '0') {
+            console.log(`[MCA] Detecting layer name for: ${item.name}...`);
+            const capUrl = new URL(item.url);
+            capUrl.searchParams.set('service', 'WMS');
+            capUrl.searchParams.set('request', 'GetCapabilities');
+            
+            const proxyUrl = `/api/proxy?url=${encodeURIComponent(capUrl.toString())}`;
+            const resp = await fetch(proxyUrl);
+            const xmlText = await resp.text();
+            
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+            const layers = Array.from(xmlDoc.querySelectorAll('Layer > Name'));
+            
+            if (layers.length > 0) finalLayerName = layers[layers.length - 1].textContent;
+            else throw new Error("Geen lagen gevonden.");
+            console.log(`[MCA] Found: ${finalLayerName}`);
+        }
+
+        activeWmsLayers.push({ id: Date.now(), url: item.url, layer: finalLayerName, title: item.name });
+        
+        document.getElementById('search-results').style.display = 'none';
+        document.getElementById('layer-search').value = '';
+        updateActiveLayersUI();
+        renderLayers();
+    } catch (err) {
+        console.error(err);
+        alert(`Kon laag niet toevoegen: ${err.message}`);
+        if(resultItem) resultItem.style.opacity = '1';
+    }
+}
+
+function removeWmsLayer(id) {
+    activeWmsLayers = activeWmsLayers.filter(l => l.id !== id);
+    updateActiveLayersUI();
+    renderLayers();
+}
+
+function updateActiveLayersUI() {
+    const container = document.getElementById('active-wms-layers');
+    const list = document.getElementById('wms-list-content');
+    list.innerHTML = '';
+    if (activeWmsLayers.length > 0) {
+        container.style.display = 'block';
+        activeWmsLayers.forEach(l => {
+            const div = document.createElement('div');
+            div.className = 'active-wms-item';
+            div.innerHTML = `<span><i class="fa fa-check-square" style="color:#007ac2; margin-right:5px;"></i> ${l.title}</span><i class="fa fa-trash" style="cursor:pointer; color:#999;" onclick="removeWmsLayer(${l.id})"></i>`;
+            list.appendChild(div);
+        });
+    } else { container.style.display = 'none'; }
+}
+
+// --- MAIN RENDER ---
+function renderLayers() {
+    const layers = [];
+    document.getElementById('heatmap-legend').style.display = showHeatmap ? 'flex' : 'none';
+
+    // 1. Basemap
+    if (isSatellite) {
+        layers.push(new deck.TileLayer({
+            id: 'satellite-basemap',
+            data: 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_ortho25/EPSG:3857/{z}/{x}/{y}.jpeg',
+            minZoom: 6, maxZoom: 19, tileSize: 256, zIndex: 0,
+            renderSubLayers: props => {
+                const {bbox: {west, south, east, north}} = props.tile;
+                return new deck.BitmapLayer(props, { data: null, image: props.data, bounds: [west, south, east, north] });
+            }
+        }));
+    } else {
+        layers.push(DeckGLUtils.createBasemap(VIZ_CONFIG.basemap));
+    }
+
+    // 2. Active WMS Layers
+    activeWmsLayers.forEach(l => layers.push(createWMSLayer(l)));
+
+    // 3. Data Layers (H3)
+    if (allData.length > 0) {
+        const allH3 = allData.map(d => d.h3);
+        layers.push(new deck.GeoJsonLayer(VIZ_CONFIG.createBoundaryLayer(allH3)));
+        if (showHeatmap) {
+            layers.push(new deck.HeatmapLayer(VIZ_CONFIG.createHeatmapLayer(allData, currentWeights)));
+        } else {
+            const stackConfigs = VIZ_CONFIG.createLayer(allData, currentWeights);
+            stackConfigs.forEach(conf => layers.push(new deck.H3HexagonLayer(conf)));
+        }
+    }
+
+    // 4. Measuring Tools
+    if (isMeasuring && measurePoints.length > 0) {
+        layers.push(new deck.ScatterplotLayer({ id: 'measure-p', data: measurePoints.map(p=>({p})), getPosition: d=>d.p, getFillColor:[0,122,194], getRadius:5, radiusUnits:'pixels' }));
+        if (measurePoints.length > 1) {
+             const lineData = [];
+             for(let i=0; i<measurePoints.length-1; i++){
+                 const p1=measurePoints[i], p2=measurePoints[i+1];
+                 const dist = calculateDistance(p1[1], p1[0], p2[1], p2[0]);
+                 const mid = [(p1[0]+p2[0])/2, (p1[1]+p2[1])/2];
+                 lineData.push({s:p1, t:p2, l: dist>=1000?(dist/1000).toFixed(2)+" km":Math.round(dist)+" m", mid});
+             }
+             layers.push(new deck.LineLayer({ id: 'measure-l', data: lineData, getSourcePosition:d=>d.s, getTargetPosition:d=>d.t, getColor:[0,122,194], getWidth:3 }));
+             layers.push(new deck.TextLayer({ id: 'measure-t', data: lineData, getPosition:d=>d.mid, getText:d=>d.l, getSize:14, getColor:[0,0,0], getBackgroundColor:[255,255,255], background:true }));
+        }
+    }
+    deckInstance.setProps({ layers: layers });
+}
+
+// --- UI INTERACTIONS ---
+function switchTab(t) {
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.sidebar-content').forEach(x=>x.classList.remove('active'));
+    const idx = t === 'welcome' ? 0 : t === 'layers' ? 1 : 2;
+    document.querySelectorAll('.tab')[idx].classList.add('active');
+    document.getElementById(`${t}-content`).classList.add('active');
+}
+function showCredits() { alert("Thijs accepteert de uitnodiging om de lay-out van de gebiedsviewer te jatten."); }
+function zoomIn() { if(deckInstance) deckInstance.setProps({ initialViewState: { ...currentViewState, zoom: currentViewState.zoom + 1, transitionDuration: 300, transitionInterpolator: new deck.FlyToInterpolator() } }); }
+function zoomOut() { if(deckInstance) deckInstance.setProps({ initialViewState: { ...currentViewState, zoom: currentViewState.zoom - 1, transitionDuration: 300, transitionInterpolator: new deck.FlyToInterpolator() } }); }
+function resetView() { deckInstance.setProps({ initialViewState: { ...VIZ_CONFIG.initialView, transitionDuration: 800, transitionInterpolator: new deck.FlyToInterpolator() } }); }
+function toggle3D() { 
+    const newPitch = currentViewState.pitch > 10 ? 0 : 45;
+    deckInstance.setProps({ initialViewState: { ...currentViewState, pitch: newPitch, transitionDuration: 800, transitionInterpolator: new deck.FlyToInterpolator() } });
+    document.getElementById('btn-2d3d').innerText = newPitch === 0 ? "3D" : "2D";
+}
+function resetBearing() { deckInstance.setProps({ initialViewState: { ...currentViewState, bearing: 0, transitionDuration: 800, transitionInterpolator: new deck.FlyToInterpolator() } }); }
+function toggleBasemap() { isSatellite = !isSatellite; renderLayers(); document.getElementById('btn-basemap').innerText = isSatellite ? "Kaart" : "Foto"; }
+function toggleMeasure() {
+  isMeasuring = !isMeasuring; measurePoints = [];
+  const btn = document.getElementById('btn-measure');
+  const container = document.getElementById('container');
+  if (isMeasuring) { btn.classList.add('active'); container.classList.add('measuring-cursor'); } 
+  else { btn.classList.remove('active'); container.classList.remove('measuring-cursor'); }
+  renderLayers();
+}
+function onMapClick(info) { if (isMeasuring && info.coordinate) { measurePoints = [...measurePoints, info.coordinate]; renderLayers(); return true; } }
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; const φ1 = lat1 * Math.PI/180; const φ2 = lat2 * Math.PI/180;
+  const Δφ = (lat2-lat1)*Math.PI/180; const Δλ = (lon2-lon1)*Math.PI/180;
+  const a = Math.sin(Δφ/2)*Math.sin(Δφ/2) + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)*Math.sin(Δλ/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+function updateScaleBar(vs) {
+    if(!vs)return; const {zoom, latitude} = vs;
+    const metersPerPixel = (40075016 * Math.cos(latitude * Math.PI/180)) / Math.pow(2, zoom + 8);
+    const targetW = 120; const targetM = metersPerPixel * targetW;
+    let rounded = targetM >= 1000 ? Math.round(targetM/1000)*1000 : Math.round(targetM/100)*100; if(rounded===0) rounded=100;
+    document.getElementById('scale-bar').style.width = `${rounded/metersPerPixel}px`;
+    document.getElementById('scale-text').innerText = rounded >= 1000 ? (rounded/1000)+" km" : rounded+" m";
+}
+function updateCoords(info) { if (info.coordinate) document.getElementById('coords-widget').innerText = `${info.coordinate[1].toFixed(5)} | ${info.coordinate[0].toFixed(5)}`; }
+
+// --- INITIALIZATION ---
+async function init() {
+  try {
+    allData = await DeckGLUtils.loadCSV(VIZ_CONFIG.dataUrl);
+    document.getElementById('loading').style.display = 'none';
+    
+    initSearch();
+
+    // Build Sliders & Legend
+    const sliderContainer = document.getElementById('mca-sliders-container');
+    const legendContainer = document.getElementById('static-legend-items');
+    VIZ_CONFIG.filters.forEach(f => {
+      currentWeights[f.key] = f.default;
+      const crit = VIZ_CONFIG.criteria.find(c => c.weightKey === f.key);
+      
+      const wrapper = document.createElement('div');
+      wrapper.className = 'mca-control';
+      wrapper.innerHTML = `<div class="mca-label"><span style="display:flex; align-items:center;"><i class="fa fa-circle" style="color:rgb(${crit.color.join(',')}); font-size:10px; margin-right:6px;"></i>${crit.label}</span><span id="${f.key}-display" style="font-weight:bold;">${f.default}</span></div><input type="range" id="${f.key}-slider" min="${f.min}" max="${f.max}" step="${f.step}" value="${f.default}">`;
+      sliderContainer.appendChild(wrapper);
+      
+      wrapper.querySelector('input').addEventListener('input', (e) => {
+        const val = parseInt(e.target.value);
+        currentWeights[f.key] = val; 
+        document.getElementById(`${f.key}-display`).textContent = val;
+        renderLayers();
+      });
+
+      const legendItem = document.createElement('div');
+      legendItem.style.display='flex'; legendItem.style.alignItems='center'; legendItem.style.marginBottom='8px';
+      legendItem.innerHTML=`<div style="width:16px; height:16px; background:rgb(${crit.color.join(',')}); border-radius:3px; margin-right:10px;"></div><div style="font-size:13px; color:#444;">${crit.label}</div>`;
+      legendContainer.appendChild(legendItem);
+    });
+
+    document.getElementById('heatmap-toggle').addEventListener('change', (e) => { showHeatmap = e.target.checked; renderLayers(); });
+
+    // Initialize Map
+    deckInstance = new deck.DeckGL({
+      container: 'container',
+      initialViewState: VIZ_CONFIG.initialView,
+      controller: { doubleClickZoom: false },
+      getTooltip: (info) => isMeasuring ? null : VIZ_CONFIG.tooltip(info),
+      onViewStateChange: ({viewState}) => { currentViewState = viewState; updateScaleBar(viewState); document.getElementById('btn-2d3d').innerText = viewState.pitch > 10 ? "2D" : "3D"; return viewState; },
+      onHover: updateCoords,
+      onClick: onMapClick,
+      onLoad: () => updateScaleBar(VIZ_CONFIG.initialView)
+    });
+
+    renderLayers();
+    updateScaleBar(VIZ_CONFIG.initialView);
+
+  } catch (e) { console.error(e); document.getElementById('loading').textContent = "Kan data niet laden."; }
+}
+
+init();
