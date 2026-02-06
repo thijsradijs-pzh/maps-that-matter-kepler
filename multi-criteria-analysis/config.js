@@ -51,8 +51,8 @@ const VIZ_CONFIG = {
       name: "Natuurnetwerk Nederland (NNN)",
       description: "Begrensde natuurgebieden",
       url: "https://service.pdok.nl/provincies/natuurnetwerk-nederland/wms/v1_0",
-      layer: "NatuurnetwerkNederland",
-      legend: "https://service.pdok.nl/provincies/natuurnetwerk-nederland/wms/v1_0?request=GetLegendGraphic&layer=NatuurnetwerkNederland&format=image/png"
+      layer: "natuurnetwerk_nederland",
+      legend: "https://service.pdok.nl/provincies/natuurnetwerk-nederland/wms/v1_0?request=GetLegendGraphic&layer=natuurnetwerk_nederland&format=image/png"
     },
     {
       name: "Bodemkaart van Nederland (1:50.000)",
