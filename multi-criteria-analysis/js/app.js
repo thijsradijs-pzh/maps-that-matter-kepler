@@ -117,7 +117,6 @@ async function addWmsLayer(item) {
         const xmlDoc = parser.parseFromString(xmlText, "text/xml");
         
         // Find all Layer nodes
-        // We need to flatten the tree to find the correct layer
         const allLayers = Array.from(xmlDoc.querySelectorAll('Layer'));
         
         let targetLayerNode = null;
@@ -138,13 +137,12 @@ async function addWmsLayer(item) {
                 const n = l.querySelector('Name');
                 return n && n.textContent === finalLayerName;
             });
-            // Fallback: if not found by exact name, just take the root or last one
             if (!targetLayerNode && allLayers.length > 0) targetLayerNode = allLayers[allLayers.length - 1];
         }
 
         console.log(`[MCA] Selected Layer: ${finalLayerName}`);
 
-        // Extract BBOX for Zoom (Look for geographic bounding box)
+        // Extract BBOX for Zoom
         let bbox = null;
         if (targetLayerNode) {
             const geoBbox = targetLayerNode.querySelector('EX_GeographicBoundingBox');
@@ -167,10 +165,14 @@ async function addWmsLayer(item) {
             }
         }
 
-        // Construct Legend URL
-        // We build a standard GetLegendGraphic request because metadata LegendURL is often messy or missing
+        // --- FIXED LEGEND LOGIC ---
         let baseUrl = item.url.split('?')[0];
-        const legendUrl = `${baseUrl}?SERVICE=WMS&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${encodeURIComponent(finalLayerName)}`;
+        // 1. Build the clean WMS GetLegendGraphic URL
+        // We do NOT set WIDTH/HEIGHT to allow the server to send the full legend image
+        const rawLegendUrl = `${baseUrl}?SERVICE=WMS&REQUEST=GetLegendGraphic&VERSION=1.3.0&FORMAT=image/png&LAYER=${encodeURIComponent(finalLayerName)}`;
+        
+        // 2. Wrap it in our Proxy to avoid Mixed Content / CORS issues
+        const legendUrl = `/api/proxy?url=${encodeURIComponent(rawLegendUrl)}`;
 
         activeWmsLayers.push({ 
             id: Date.now(), 
@@ -178,8 +180,8 @@ async function addWmsLayer(item) {
             layer: finalLayerName, 
             title: item.name,
             bbox: bbox,
-            legendUrl: legendUrl,
-            showLegend: false // Toggle state
+            legendUrl: legendUrl, // Now proxied!
+            showLegend: false 
         });
         
         document.getElementById('search-results').style.display = 'none';
@@ -187,7 +189,6 @@ async function addWmsLayer(item) {
         updateActiveLayersUI();
         renderLayers();
         
-        // Auto-zoom if bbox found
         if(bbox) zoomToBbox(bbox);
 
     } catch (err) {
@@ -256,7 +257,7 @@ function updateActiveLayersUI() {
             div.style.flexDirection = 'column';
             div.style.alignItems = 'flex-start';
             
-            // Header row
+            // Header
             const header = document.createElement('div');
             header.style.display = 'flex';
             header.style.justifyContent = 'space-between';
@@ -267,19 +268,17 @@ function updateActiveLayersUI() {
             `;
             div.appendChild(header);
 
-            // Controls row
+            // Controls
             const controls = document.createElement('div');
             controls.className = 'layer-controls';
             
             let html = ``;
-            // Zoom button (only if bbox exists)
             if (l.bbox) {
                 html += `<button class="layer-btn" onclick="zoomToWmsLayer(${l.id})"><i class="fa fa-crosshairs"></i> Zoom</button>`;
             } else {
                  html += `<span style="color:#ccc; font-size:11px;"><i class="fa fa-ban"></i> Geen zoom</span>`;
             }
 
-            // Legend toggle
             html += `<button class="layer-btn" onclick="toggleLegend(${l.id})">
                         <i class="fa ${l.showLegend ? 'fa-chevron-up' : 'fa-list'}"></i> Legenda
                      </button>`;
@@ -292,7 +291,13 @@ function updateActiveLayersUI() {
                 const img = document.createElement('img');
                 img.src = l.legendUrl;
                 img.className = 'layer-legend-img';
-                img.onerror = function() { this.style.display = 'none'; }; // Hide if fails
+                // Add error handling to show text if image fails
+                img.onerror = function() { 
+                    this.style.display = 'none'; 
+                    const err = document.createElement('div');
+                    err.style.color = 'red'; err.style.fontSize='10px'; err.innerText = '(Legenda niet beschikbaar)';
+                    div.appendChild(err);
+                }; 
                 div.appendChild(img);
             }
 
@@ -303,7 +308,6 @@ function updateActiveLayersUI() {
     }
 }
 
-// Wrapper for HTML onclick
 window.zoomToWmsLayer = function(id) {
     const layer = activeWmsLayers.find(l => l.id === id);
     if (layer && layer.bbox) zoomToBbox(layer.bbox);
@@ -329,10 +333,10 @@ function renderLayers() {
         layers.push(DeckGLUtils.createBasemap(VIZ_CONFIG.basemap));
     }
 
-    // 2. Active WMS Layers (Always visible if added)
+    // 2. Active WMS Layers
     activeWmsLayers.forEach(l => layers.push(createWMSLayer(l)));
 
-    // 3. Data Layers (H3) - Controlled by "Groene Hart Noord" toggle
+    // 3. Data Layers
     if (showMainLayer && allData.length > 0) {
         const allH3 = allData.map(d => d.h3);
         layers.push(new deck.GeoJsonLayer(VIZ_CONFIG.createBoundaryLayer(allH3)));
@@ -344,7 +348,7 @@ function renderLayers() {
         }
     }
 
-    // 4. Measuring Tools
+    // 4. Measuring
     if (isMeasuring && measurePoints.length > 0) {
         layers.push(new deck.ScatterplotLayer({ id: 'measure-p', data: measurePoints.map(p=>({p})), getPosition: d=>d.p, getFillColor:[0,122,194], getRadius:5, radiusUnits:'pixels' }));
         if (measurePoints.length > 1) {
@@ -362,7 +366,7 @@ function renderLayers() {
     deckInstance.setProps({ layers: layers });
 }
 
-// --- UI INTERACTIONS & TOOLBAR FUNCTIONS ---
+// --- UI INTERACTIONS ---
 function toggleMainLayer(e) {
     e.preventDefault(); e.stopPropagation();
     showMainLayer = !showMainLayer;
@@ -428,7 +432,6 @@ async function init() {
     
     initSearch();
 
-    // Build Sliders & Legend
     const sliderContainer = document.getElementById('mca-sliders-container');
     const legendContainer = document.getElementById('static-legend-items');
     VIZ_CONFIG.filters.forEach(f => {
@@ -449,7 +452,6 @@ async function init() {
 
     document.getElementById('heatmap-toggle').addEventListener('change', (e) => { showHeatmap = e.target.checked; renderLayers(); });
 
-    // Initialize Map
     deckInstance = new deck.DeckGL({
       container: 'container',
       initialViewState: VIZ_CONFIG.initialView,
