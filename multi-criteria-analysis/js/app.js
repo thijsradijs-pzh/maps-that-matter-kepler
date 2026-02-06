@@ -5,7 +5,7 @@ let deckInstance;
 let allData = [];
 const currentWeights = {};
 let showHeatmap = false;
-let showMainLayer = true; // NIEUW: Houdt bij of Groene Hart Noord aan staat
+let showMainLayer = true;
 let currentViewState = VIZ_CONFIG.initialView;
 let isSatellite = false;
 let isMeasuring = false;
@@ -94,7 +94,7 @@ function initSearch() {
     });
 }
 
-// --- LAYER MANAGEMENT ---
+// --- LAYER MANAGEMENT & ZOOM ---
 async function addWmsLayer(item) {
     if (activeWmsLayers.find(l => l.title === item.name)) return;
     
@@ -102,37 +102,131 @@ async function addWmsLayer(item) {
     if(resultItem) resultItem.style.opacity = '0.5';
 
     try {
-        let finalLayerName = item.layer;
+        console.log(`[MCA] Fetching capabilities for: ${item.name}...`);
         
-        if (finalLayerName === '0') {
-            console.log(`[MCA] Detecting layer name for: ${item.name}...`);
-            const capUrl = new URL(item.url);
-            capUrl.searchParams.set('service', 'WMS');
-            capUrl.searchParams.set('request', 'GetCapabilities');
-            
-            const proxyUrl = `/api/proxy?url=${encodeURIComponent(capUrl.toString())}`;
-            const resp = await fetch(proxyUrl);
-            const xmlText = await resp.text();
-            
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-            const layers = Array.from(xmlDoc.querySelectorAll('Layer > Name'));
-            
-            if (layers.length > 0) finalLayerName = layers[layers.length - 1].textContent;
-            else throw new Error("Geen lagen gevonden.");
+        // Always fetch capabilities to get BBOX and check layer name
+        const capUrl = new URL(item.url);
+        capUrl.searchParams.set('service', 'WMS');
+        capUrl.searchParams.set('request', 'GetCapabilities');
+        
+        const proxyUrl = `/api/proxy?url=${encodeURIComponent(capUrl.toString())}`;
+        const resp = await fetch(proxyUrl);
+        const xmlText = await resp.text();
+        
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+        
+        // Find all Layer nodes
+        // We need to flatten the tree to find the correct layer
+        const allLayers = Array.from(xmlDoc.querySelectorAll('Layer'));
+        
+        let targetLayerNode = null;
+        let finalLayerName = item.layer;
+
+        if (finalLayerName === '0' || !finalLayerName) {
+            // Strategy: Pick the last layer with a Name (usually the most specific one)
+            const namedLayers = allLayers.filter(l => l.querySelector('Name'));
+            if (namedLayers.length > 0) {
+                targetLayerNode = namedLayers[namedLayers.length - 1];
+                finalLayerName = targetLayerNode.querySelector('Name').textContent;
+            } else {
+                throw new Error("Geen lagen gevonden in WMS.");
+            }
+        } else {
+            // Find the specific layer node by name
+            targetLayerNode = allLayers.find(l => {
+                const n = l.querySelector('Name');
+                return n && n.textContent === finalLayerName;
+            });
+            // Fallback: if not found by exact name, just take the root or last one
+            if (!targetLayerNode && allLayers.length > 0) targetLayerNode = allLayers[allLayers.length - 1];
         }
 
-        activeWmsLayers.push({ id: Date.now(), url: item.url, layer: finalLayerName, title: item.name });
+        console.log(`[MCA] Selected Layer: ${finalLayerName}`);
+
+        // Extract BBOX for Zoom (Look for geographic bounding box)
+        let bbox = null;
+        if (targetLayerNode) {
+            const geoBbox = targetLayerNode.querySelector('EX_GeographicBoundingBox');
+            const llBbox = targetLayerNode.querySelector('LatLonBoundingBox');
+            
+            if (geoBbox) {
+                bbox = [
+                    parseFloat(geoBbox.querySelector('westBoundLongitude').textContent),
+                    parseFloat(geoBbox.querySelector('southBoundLatitude').textContent),
+                    parseFloat(geoBbox.querySelector('eastBoundLongitude').textContent),
+                    parseFloat(geoBbox.querySelector('northBoundLatitude').textContent)
+                ];
+            } else if (llBbox) {
+                bbox = [
+                    parseFloat(llBbox.getAttribute('minx')),
+                    parseFloat(llBbox.getAttribute('miny')),
+                    parseFloat(llBbox.getAttribute('maxx')),
+                    parseFloat(llBbox.getAttribute('maxy'))
+                ];
+            }
+        }
+
+        // Construct Legend URL
+        // We build a standard GetLegendGraphic request because metadata LegendURL is often messy or missing
+        let baseUrl = item.url.split('?')[0];
+        const legendUrl = `${baseUrl}?SERVICE=WMS&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${encodeURIComponent(finalLayerName)}`;
+
+        activeWmsLayers.push({ 
+            id: Date.now(), 
+            url: item.url, 
+            layer: finalLayerName, 
+            title: item.name,
+            bbox: bbox,
+            legendUrl: legendUrl,
+            showLegend: false // Toggle state
+        });
         
         document.getElementById('search-results').style.display = 'none';
         document.getElementById('layer-search').value = '';
         updateActiveLayersUI();
         renderLayers();
+        
+        // Auto-zoom if bbox found
+        if(bbox) zoomToBbox(bbox);
+
     } catch (err) {
         console.error(err);
         alert(`Kon laag niet toevoegen: ${err.message}`);
         if(resultItem) resultItem.style.opacity = '1';
     }
+}
+
+function zoomToBbox(bbox) {
+    if (!bbox) return;
+    const [minLon, minLat, maxLon, maxLat] = bbox;
+    
+    // Simple fit bounds approximation
+    const centerLon = (minLon + maxLon) / 2;
+    const centerLat = (minLat + maxLat) / 2;
+    
+    // Calculate rough zoom level
+    const lonDiff = maxLon - minLon;
+    const latDiff = maxLat - minLat;
+    const maxDiff = Math.max(lonDiff, latDiff);
+    
+    let zoom = 8;
+    if (maxDiff < 0.05) zoom = 14;
+    else if (maxDiff < 0.1) zoom = 12;
+    else if (maxDiff < 0.5) zoom = 10;
+    else if (maxDiff < 2.0) zoom = 8;
+    else zoom = 7;
+
+    deckInstance.setProps({
+        initialViewState: {
+            ...currentViewState,
+            longitude: centerLon,
+            latitude: centerLat,
+            zoom: zoom,
+            transitionDuration: 1000,
+            transitionInterpolator: new deck.FlyToInterpolator()
+        }
+    });
 }
 
 function removeWmsLayer(id) {
@@ -141,20 +235,79 @@ function removeWmsLayer(id) {
     renderLayers();
 }
 
+function toggleLegend(id) {
+    const layer = activeWmsLayers.find(l => l.id === id);
+    if (layer) {
+        layer.showLegend = !layer.showLegend;
+        updateActiveLayersUI();
+    }
+}
+
 function updateActiveLayersUI() {
     const container = document.getElementById('active-wms-layers');
     const list = document.getElementById('wms-list-content');
     list.innerHTML = '';
+    
     if (activeWmsLayers.length > 0) {
         container.style.display = 'block';
         activeWmsLayers.forEach(l => {
             const div = document.createElement('div');
             div.className = 'active-wms-item';
-            div.innerHTML = `<span><i class="fa fa-check-square" style="color:#007ac2; margin-right:5px;"></i> ${l.title}</span><i class="fa fa-trash" style="cursor:pointer; color:#999;" onclick="removeWmsLayer(${l.id})"></i>`;
+            div.style.flexDirection = 'column';
+            div.style.alignItems = 'flex-start';
+            
+            // Header row
+            const header = document.createElement('div');
+            header.style.display = 'flex';
+            header.style.justifyContent = 'space-between';
+            header.style.width = '100%';
+            header.innerHTML = `
+                <span><i class="fa fa-check-square" style="color:#007ac2; margin-right:5px;"></i> ${l.title}</span>
+                <i class="fa fa-trash" style="cursor:pointer; color:#999;" onclick="removeWmsLayer(${l.id})"></i>
+            `;
+            div.appendChild(header);
+
+            // Controls row
+            const controls = document.createElement('div');
+            controls.className = 'layer-controls';
+            
+            let html = ``;
+            // Zoom button (only if bbox exists)
+            if (l.bbox) {
+                html += `<button class="layer-btn" onclick="zoomToWmsLayer(${l.id})"><i class="fa fa-crosshairs"></i> Zoom</button>`;
+            } else {
+                 html += `<span style="color:#ccc; font-size:11px;"><i class="fa fa-ban"></i> Geen zoom</span>`;
+            }
+
+            // Legend toggle
+            html += `<button class="layer-btn" onclick="toggleLegend(${l.id})">
+                        <i class="fa ${l.showLegend ? 'fa-chevron-up' : 'fa-list'}"></i> Legenda
+                     </button>`;
+            
+            controls.innerHTML = html;
+            div.appendChild(controls);
+
+            // Legend Image
+            if (l.showLegend) {
+                const img = document.createElement('img');
+                img.src = l.legendUrl;
+                img.className = 'layer-legend-img';
+                img.onerror = function() { this.style.display = 'none'; }; // Hide if fails
+                div.appendChild(img);
+            }
+
             list.appendChild(div);
         });
-    } else { container.style.display = 'none'; }
+    } else { 
+        container.style.display = 'none'; 
+    }
 }
+
+// Wrapper for HTML onclick
+window.zoomToWmsLayer = function(id) {
+    const layer = activeWmsLayers.find(l => l.id === id);
+    if (layer && layer.bbox) zoomToBbox(layer.bbox);
+};
 
 // --- MAIN RENDER ---
 function renderLayers() {
@@ -210,74 +363,25 @@ function renderLayers() {
 }
 
 // --- UI INTERACTIONS & TOOLBAR FUNCTIONS ---
-
-// Toggle the Main "Groene Hart Noord" Layer
 function toggleMainLayer(e) {
-    e.preventDefault(); // Stop <details> from closing
-    e.stopPropagation();
-    
+    e.preventDefault(); e.stopPropagation();
     showMainLayer = !showMainLayer;
-    
-    // Update Icon
     const icon = document.getElementById('ghn-checkbox');
-    if (showMainLayer) {
-        icon.className = 'fa fa-check-square checkbox-icon';
-        icon.style.color = 'var(--esri-blue)';
-    } else {
-        icon.className = 'fa fa-square checkbox-icon unchecked';
-        icon.style.color = '#ccc';
-    }
-    
+    if (showMainLayer) { icon.className = 'fa fa-check-square checkbox-icon'; icon.style.color = 'var(--esri-blue)'; } 
+    else { icon.className = 'fa fa-square checkbox-icon unchecked'; icon.style.color = '#ccc'; }
     renderLayers();
 }
 
-// Toolbar: Activate Search
-function activateSearch() {
-    switchTab('layers');
-    setTimeout(() => {
-        document.getElementById('layer-search').focus();
-    }, 100);
-}
-
-// Toolbar: Show Data Info
-function showDataInfo() {
-    const info = `
-GEGEVENS & BRONNEN
-------------------
-Dataset: Groene Hart Noord (MCA)
-Records: ${allData.length} hexagonen
-
-BRONNEN:
-- Provincie Zuid-Holland (PPLG)
-- PDOK / Nationaal Geo Register
-- Basisregistratie Ondergrond (BRO)
-
-Deze applicatie combineert diverse datastromen voor integrale ruimtelijke afwegingen.
-    `;
-    alert(info);
-}
-
-// Toolbar: Print Map
-function printMap() {
-    window.print();
-}
+function activateSearch() { switchTab('layers'); setTimeout(() => { document.getElementById('layer-search').focus(); }, 100); }
+function showDataInfo() { alert("GEGEVENS & BRONNEN\n------------------\nDataset: Groene Hart Noord (MCA)\nRecords: " + allData.length + " hexagonen\n\nBRONNEN:\n- Provincie Zuid-Holland (PPLG)\n- PDOK / Nationaal Geo Register\n- Basisregistratie Ondergrond (BRO)"); }
+function printMap() { window.print(); }
 
 function switchTab(t) {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     document.querySelectorAll('.sidebar-content').forEach(x => x.classList.remove('active'));
-    
-    const map = {
-        'welcome': { idx: 0, id: 'welcome-content' },
-        'layers':  { idx: 1, id: 'layer-content' },
-        'layer':   { idx: 1, id: 'layer-content' },
-        'legend':  { idx: 2, id: 'legend-content' }
-    };
-
+    const map = { 'welcome': { idx: 0, id: 'welcome-content' }, 'layers': { idx: 1, id: 'layer-content' }, 'layer': { idx: 1, id: 'layer-content' }, 'legend': { idx: 2, id: 'legend-content' } };
     const target = map[t];
-    if (target) {
-        document.querySelectorAll('.tab')[target.idx].classList.add('active');
-        document.getElementById(target.id).classList.add('active');
-    }
+    if (target) { document.querySelectorAll('.tab')[target.idx].classList.add('active'); document.getElementById(target.id).classList.add('active'); }
 }
 
 function showCredits() { alert("Gemaakt voor Provincie Zuid-Holland."); }
@@ -330,19 +434,13 @@ async function init() {
     VIZ_CONFIG.filters.forEach(f => {
       currentWeights[f.key] = f.default;
       const crit = VIZ_CONFIG.criteria.find(c => c.weightKey === f.key);
-      
       const wrapper = document.createElement('div');
       wrapper.className = 'mca-control';
       wrapper.innerHTML = `<div class="mca-label"><span style="display:flex; align-items:center;"><i class="fa fa-circle" style="color:rgb(${crit.color.join(',')}); font-size:10px; margin-right:6px;"></i>${crit.label}</span><span id="${f.key}-display" style="font-weight:bold;">${f.default}</span></div><input type="range" id="${f.key}-slider" min="${f.min}" max="${f.max}" step="${f.step}" value="${f.default}">`;
       sliderContainer.appendChild(wrapper);
-      
       wrapper.querySelector('input').addEventListener('input', (e) => {
-        const val = parseInt(e.target.value);
-        currentWeights[f.key] = val; 
-        document.getElementById(`${f.key}-display`).textContent = val;
-        renderLayers();
+        const val = parseInt(e.target.value); currentWeights[f.key] = val; document.getElementById(`${f.key}-display`).textContent = val; renderLayers();
       });
-
       const legendItem = document.createElement('div');
       legendItem.style.display='flex'; legendItem.style.alignItems='center'; legendItem.style.marginBottom='8px';
       legendItem.innerHTML=`<div style="width:16px; height:16px; background:rgb(${crit.color.join(',')}); border-radius:3px; margin-right:10px;"></div><div style="font-size:13px; color:#444;">${crit.label}</div>`;
@@ -365,7 +463,6 @@ async function init() {
 
     renderLayers();
     updateScaleBar(VIZ_CONFIG.initialView);
-
   } catch (e) { console.error(e); document.getElementById('loading').textContent = "Kan data niet laden."; }
 }
 

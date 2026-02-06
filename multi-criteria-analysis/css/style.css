@@ -66,6 +66,13 @@ input[type=range]::-webkit-slider-thumb { appearance: none; width: 14px; height:
 .start-btn { display: block; width: 100%; padding: 12px; background: var(--esri-blue); color: white; text-align: center; border-radius: 4px; text-decoration: none; font-weight: 600; cursor: pointer; margin-top: 25px; box-sizing:border-box; transition: background 0.2s; }
 .start-btn:hover { background: #006099; }
 
+
+/* WMS Layer Controls */
+.layer-controls { display: flex; gap: 10px; margin-top: 4px; font-size: 11px; }
+.layer-btn { cursor: pointer; color: #007ac2; background: none; border: none; padding: 0; text-decoration: none; display: flex; align-items: center; gap: 4px; }
+.layer-btn:hover { text-decoration: underline; color: #005a8d; }
+.layer-legend-img { margin-top: 8px; display: block; max-width: 100%; border: 1px solid #eee; padding: 2px; background: white; border-radius: 4px; }
+
 /* PRINT STYLES */
 @media print {
     #sidebar { display: none !important; }
