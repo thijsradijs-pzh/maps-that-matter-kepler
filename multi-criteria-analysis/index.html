@@ -219,6 +219,8 @@
     }
 
     function createWMSLayer(layerConfig) {
+      debugLog('Creating WMS layer:', layerConfig.title, 'URL:', layerConfig.url, 'Layer:', layerConfig.layer);
+      
       return new deck.TileLayer({
         id: `wms-${layerConfig.id}`,
         tileSize: 256,
@@ -245,11 +247,14 @@
             url.searchParams.set('TRANSPARENT', 'true');
             url.searchParams.set('BBOX', bbox.join(','));
 
+            const urlString = url.toString();
+            debugLog('Fetching WMS tile:', urlString);
+
             try {
                 // Haal de data op als Blob en maak er een Bitmap van
-                const response = await fetch(url.toString());
+                const response = await fetch(urlString);
                 if (!response.ok) {
-                    console.warn(`WMS tile failed for ${layerConfig.title || layerConfig.layer}: ${response.status}`);
+                    console.warn(`WMS tile failed for ${layerConfig.title || layerConfig.layer}: ${response.status}`, urlString);
                     return null;
                 }
                 const blob = await response.blob();
@@ -260,6 +265,7 @@
                     if (blob.type.includes('xml') || blob.type.includes('se_xml')) {
                         const text = await blob.text();
                         console.warn(`WMS Service Exception for ${layerConfig.title || layerConfig.layer}:`, text.substring(0, 500));
+                        debugLog('WMS Error URL:', urlString);
                     }
                     console.warn(`WMS tile for ${layerConfig.title || layerConfig.layer} returned non-image content-type: ${blob.type}`);
                     return null;
@@ -269,6 +275,7 @@
                 return bitmap;
             } catch (error) {
                 console.warn(`Error loading WMS tile for ${layerConfig.title || layerConfig.layer}:`, error);
+                debugLog('WMS Error URL:', urlString);
                 return null;
             }
         },
@@ -289,7 +296,13 @@
     }
     // --- GEONETWORK CSW API SEARCH ---
     // CSW Endpoint for Nationaal Geo Register (NGR) - Better CORS support
-    const GEONETWORK_CSW_URL = 'https://nationaalgeoregister.nl/geonetwork/srv/dut/csw';
+    const GEONETWORK_CSW_URL = 'https://www.nationaalgeoregister.nl/geonetwork/srv/dut/csw';
+    
+    // Debug logging helper
+    const DEBUG = true;
+    function debugLog(...args) {
+        if (DEBUG) console.log('[MCA Debug]', ...args);
+    }
     
     // Debounce helper to prevent too many API calls
     function debounce(func, wait) {
@@ -402,6 +415,8 @@
     // Search GeoNetwork CSW API
     async function searchGeoNetwork(searchTerm) {
         const xmlRequest = buildCSWRequest(searchTerm);
+        debugLog('CSW Search URL:', GEONETWORK_CSW_URL);
+        debugLog('CSW Search term:', searchTerm);
         
         try {
             // Note: This may fail due to CORS if the server doesn't allow cross-origin requests
@@ -415,13 +430,19 @@
             });
             
             if (!response.ok) {
-                throw new Error(`CSW request failed: ${response.status}`);
+                throw new Error(`CSW request failed: ${response.status} ${response.statusText}`);
             }
             
             const xmlText = await response.text();
-            return parseCSWResponse(xmlText);
+            debugLog('CSW Response length:', xmlText.length);
+            debugLog('CSW Response preview:', xmlText.substring(0, 500));
+            
+            const records = parseCSWResponse(xmlText);
+            debugLog('CSW Parsed records:', records.length);
+            return records;
         } catch (error) {
             console.warn('CSW search failed, falling back to local catalog:', error);
+            debugLog('CSW Error details:', error.message);
             // Fall back to searching local catalog
             return VIZ_CONFIG.catalog.filter(item => 
                 item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 

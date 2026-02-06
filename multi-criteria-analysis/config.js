@@ -54,13 +54,14 @@ const VIZ_CONFIG = {
       layer: "natuurnetwerk_nederland",
       legend: "https://service.pdok.nl/provincies/natuurnetwerk-nederland/wms/v1_0?request=GetLegendGraphic&layer=natuurnetwerk_nederland&format=image/png"
     },
-    {
-      name: "Bodemkaart van Nederland (1:50.000)",
-      description: "Grondsoorten (Klei, Veen, Zand)",
-      url: "https://service.pdok.nl/bzk/bro-bodemkaart/wms/v1_0",
-      layer: "bodemsoorten", 
-      legend: ""
-    },
+    // NOTE: Bodemkaart layer temporarily disabled - layer name needs to be verified
+    // {
+    //   name: "Bodemkaart van Nederland (1:50.000)",
+    //   description: "Grondsoorten (Klei, Veen, Zand)",
+    //   url: "https://service.pdok.nl/bzk/bro-bodemkaart/wms/v1_0",
+    //   layer: "soil", 
+    //   legend: ""
+    // },
     // Note: The Provinciale Vaarwegen WMS service appears to be unavailable or requires authentication
     // {
     //   name: "Provinciale Vaarwegen",
