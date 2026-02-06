@@ -97,7 +97,7 @@ function initSearch() {
 async function addWmsLayer(item) {
     if (activeWmsLayers.find(l => l.title === item.name)) return;
     
-    // Show loading indicator in search result
+    // Show loading indicator
     const resultItem = Array.from(document.querySelectorAll('.result-item')).find(el => el.innerText.includes(item.name));
     if(resultItem) resultItem.style.opacity = '0.5';
 
@@ -213,12 +213,31 @@ function renderLayers() {
 
 // --- UI INTERACTIONS ---
 function switchTab(t) {
-    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-    document.querySelectorAll('.sidebar-content').forEach(x=>x.classList.remove('active'));
-    const idx = t === 'welcome' ? 0 : t === 'layers' ? 1 : 2;
-    document.querySelectorAll('.tab')[idx].classList.add('active');
-    document.getElementById(`${t}-content`).classList.add('active');
+    // 1. Hide all active states
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.sidebar-content').forEach(x => x.classList.remove('active'));
+    
+    // 2. Map the input string to the correct ID and Index
+    const map = {
+        'welcome': { idx: 0, id: 'welcome-content' },
+        'layers':  { idx: 1, id: 'layer-content' }, // Correct mapping for 'layers' -> 'layer-content'
+        'layer':   { idx: 1, id: 'layer-content' }, // Fallback
+        'legend':  { idx: 2, id: 'legend-content' }
+    };
+
+    const target = map[t];
+    
+    if (target) {
+        // 3. Activate the correct tab and content
+        const tabs = document.querySelectorAll('.tab');
+        if (tabs[target.idx]) tabs[target.idx].classList.add('active');
+
+        const content = document.getElementById(target.id);
+        if (content) content.classList.add('active');
+        else console.error('Tab content not found:', target.id);
+    }
 }
+
 function showCredits() { alert("Thijs accepteert de uitnodiging om de lay-out van de gebiedsviewer te jatten."); }
 function zoomIn() { if(deckInstance) deckInstance.setProps({ initialViewState: { ...currentViewState, zoom: currentViewState.zoom + 1, transitionDuration: 300, transitionInterpolator: new deck.FlyToInterpolator() } }); }
 function zoomOut() { if(deckInstance) deckInstance.setProps({ initialViewState: { ...currentViewState, zoom: currentViewState.zoom - 1, transitionDuration: 300, transitionInterpolator: new deck.FlyToInterpolator() } }); }
