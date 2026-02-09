@@ -415,10 +415,14 @@ function initAddressSearch() {
         }
 
         try {
-            // PDOK Suggest API
-            const response = await fetch(`https://api.pdok.nl/bzk/locatieserver/v3/suggest?q=${encodeURIComponent(term)}&fq=type:(adres OR woonplaats OR weg OR postcode)`);
-            const data = await response.json();
+            // Construct the PDOK URL
+            const pdokUrl = `https://api.pdok.nl/bzk/locatieserver/v3/suggest?q=${encodeURIComponent(term)}&fq=type:(adres OR woonplaats OR weg OR postcode)`;
             
+            // ROUTE THROUGH PROXY TO AVOID CORS
+            const proxyUrl = `/api/proxy?url=${encodeURIComponent(pdokUrl)}`;
+            const response = await fetch(proxyUrl);
+            
+            const data = await response.json();
             displayAddressResults(data.response.docs);
         } catch (err) {
             console.error("PDOK Search error:", err);
@@ -448,8 +452,13 @@ function initAddressSearch() {
 
 async function selectAddress(id) {
     try {
-        // PDOK Lookup API to get coordinates
-        const response = await fetch(`https://api.pdok.nl/bzk/locatieserver/v3/lookup?id=${id}`);
+        // Construct the PDOK Lookup URL
+        const lookupUrl = `https://api.pdok.nl/bzk/locatieserver/v3/lookup?id=${id}`;
+        
+        // ROUTE THROUGH PROXY
+        const proxyUrl = `/api/proxy?url=${encodeURIComponent(lookupUrl)}`;
+        const response = await fetch(proxyUrl);
+        
         const data = await response.json();
         const doc = data.response.docs[0];
 
@@ -457,13 +466,13 @@ async function selectAddress(id) {
         const coordsStr = doc.centroide_ll.replace('POINT(', '').replace(')', '');
         const [lon, lat] = coordsStr.split(' ').map(parseFloat);
 
-        // Zoom map to location
+        // Zoom map to location using your deckInstance
         deckInstance.setProps({
             initialViewState: {
                 ...currentViewState,
                 longitude: lon,
                 latitude: lat,
-                zoom: 16, // Zoom in close for addresses
+                zoom: 16, 
                 transitionDuration: 1500,
                 transitionInterpolator: new deck.FlyToInterpolator()
             }
