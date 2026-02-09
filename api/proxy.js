@@ -1,3 +1,4 @@
+// api/proxy.js
 export default async function handler(req, res) {
   const { url } = req.query;
 
@@ -6,24 +7,27 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Fetch the requested URL (WMS Image or XML)
-    const response = await fetch(url);
+    // Add a User-Agent, as some APIs (like PDOK) block generic 'fetch' requests
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'MapsThatMatter-Proxy/1.0'
+      }
+    });
 
     if (!response.ok) {
-      throw new Error(`Proxy error: ${response.status} ${response.statusText}`);
+      // If the upstream (PDOK) fails, forward that specific status
+      const errorText = await response.text();
+      return res.status(response.status).send(errorText);
     }
 
-    // 2. Get the data as a buffer (works for both images and text)
+    const contentType = response.headers.get('content-type');
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // 3. Forward the Content-Type (e.g., image/png or application/xml)
-    const contentType = response.headers.get('content-type');
     if (contentType) {
       res.setHeader('Content-Type', contentType);
     }
 
-    // 4. Send back to your app
     res.send(buffer);
 
   } catch (error) {

@@ -408,6 +408,8 @@ function initAddressSearch() {
     const input = document.getElementById('address-input');
     const resultsContainer = document.getElementById('address-results');
 
+// Inside multi-criteria-analysis/js/app.js
+
     const performAddressSearch = debounce(async (term) => {
         if (term.length < 3) {
             resultsContainer.style.display = 'none';
@@ -415,20 +417,30 @@ function initAddressSearch() {
         }
 
         try {
-            // Construct the PDOK URL
-            const pdokUrl = `https://api.pdok.nl/bzk/locatieserver/v3/suggest?q=${encodeURIComponent(term)}&fq=type:(adres OR woonplaats OR weg OR postcode)`;
+            // Use URLSearchParams to ensure the filter and query are perfectly encoded
+            const params = new URLSearchParams({
+                q: term,
+                fq: 'type:(adres OR woonplaats OR weg OR postcode)'
+            });
             
-            // ROUTE THROUGH PROXY TO AVOID CORS
+            const pdokUrl = `https://api.pdok.nl/bzk/locatieserver/v3/suggest?${params.toString()}`;
             const proxyUrl = `/api/proxy?url=${encodeURIComponent(pdokUrl)}`;
+            
             const response = await fetch(proxyUrl);
+            
+            // CHECK if the response is OK before parsing JSON
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Proxy error (${response.status}): ${errorText}`);
+            }
             
             const data = await response.json();
             displayAddressResults(data.response.docs);
         } catch (err) {
             console.error("PDOK Search error:", err);
+            // Optionally show a small error message in the UI instead of just logging
         }
     }, 300);
-
     function displayAddressResults(results) {
         resultsContainer.innerHTML = '';
         if (results.length === 0) {
