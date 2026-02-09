@@ -381,6 +381,100 @@ function toggleMainLayer(e) {
 }
 
 function activateSearch() { switchTab('layers'); setTimeout(() => { document.getElementById('layer-search').focus(); }, 100); }
+// --- ADDRESS SEARCH LOGIC ---
+
+// Update the existing activateSearch function
+function activateSearch() {
+    // Hide the sidebar layer search behavior if you want to focus on map search
+    const container = document.getElementById('address-search-container');
+    container.style.display = 'block';
+    const input = document.getElementById('address-input');
+    input.focus();
+    
+    // Initialize the listener once
+    if (!input.dataset.initialized) {
+        initAddressSearch();
+        input.dataset.initialized = "true";
+    }
+}
+
+function closeAddressSearch() {
+    document.getElementById('address-search-container').style.display = 'none';
+    document.getElementById('address-results').style.display = 'none';
+    document.getElementById('address-input').value = '';
+}
+
+function initAddressSearch() {
+    const input = document.getElementById('address-input');
+    const resultsContainer = document.getElementById('address-results');
+
+    const performAddressSearch = debounce(async (term) => {
+        if (term.length < 3) {
+            resultsContainer.style.display = 'none';
+            return;
+        }
+
+        try {
+            // PDOK Suggest API
+            const response = await fetch(`https://api.pdok.nl/bzk/locatieserver/v3/suggest?q=${encodeURIComponent(term)}&fq=type:(adres OR woonplaats OR weg OR postcode)`);
+            const data = await response.json();
+            
+            displayAddressResults(data.response.docs);
+        } catch (err) {
+            console.error("PDOK Search error:", err);
+        }
+    }, 300);
+
+    function displayAddressResults(results) {
+        resultsContainer.innerHTML = '';
+        if (results.length === 0) {
+            resultsContainer.style.display = 'none';
+            return;
+        }
+
+        resultsContainer.style.display = 'block';
+        results.forEach(res => {
+            const div = document.createElement('div');
+            div.className = 'result-item'; // Re-use your existing CSS class
+            div.style.padding = '8px 12px';
+            div.innerHTML = `<i class="fa fa-location-dot" style="color:#007ac2; margin-right:8px;"></i> ${res.weergavenaam}`;
+            div.onclick = () => selectAddress(res.id);
+            resultsContainer.appendChild(div);
+        });
+    }
+
+    input.addEventListener('input', (e) => performAddressSearch(e.target.value));
+}
+
+async function selectAddress(id) {
+    try {
+        // PDOK Lookup API to get coordinates
+        const response = await fetch(`https://api.pdok.nl/bzk/locatieserver/v3/lookup?id=${id}`);
+        const data = await response.json();
+        const doc = data.response.docs[0];
+
+        // PDOK returns centroide_ll as "POINT(lon lat)"
+        const coordsStr = doc.centroide_ll.replace('POINT(', '').replace(')', '');
+        const [lon, lat] = coordsStr.split(' ').map(parseFloat);
+
+        // Zoom map to location
+        deckInstance.setProps({
+            initialViewState: {
+                ...currentViewState,
+                longitude: lon,
+                latitude: lat,
+                zoom: 16, // Zoom in close for addresses
+                transitionDuration: 1500,
+                transitionInterpolator: new deck.FlyToInterpolator()
+            }
+        });
+
+        closeAddressSearch();
+    } catch (err) {
+        console.error("PDOK Lookup error:", err);
+        alert("Kon locatie niet ophalen.");
+    }
+}
 function showDataInfo() { alert("GEGEVENS & BRONNEN\n------------------\nDataset: Groene Hart Noord (MCA)\nRecords: " + allData.length + " hexagonen\n\nBRONNEN:\n- Provincie Zuid-Holland (PPLG)\n- PDOK / Nationaal Geo Register\n- Basisregistratie Ondergrond (BRO)"); }
 function printMap() { window.print(); }
 

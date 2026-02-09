@@ -19,6 +19,22 @@ body { margin: 0; padding: 0; font-family: 'Avenir Next', 'Segoe UI', 'Roboto', 
 #search-results { max-height: 200px; overflow-y: auto; border-bottom: 1px solid #eee; background: #fff; display: none; }
 .result-item { padding: 10px 15px; cursor: pointer; border-bottom: 1px solid #f5f5f5; font-size: 13px; display: flex; align-items: center; justify-content: space-between; }
 .result-item:hover { background: #f0f8ff; }
+/* Ensure the result list looks good on top of the map */
+#address-results .result-item {
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+    background: white;
+    font-size: 13px;
+    transition: background 0.2s;
+}
+
+#address-results .result-item:hover {
+    background: #f0f8ff;
+}
+
+#address-results .result-item:last-child {
+    border-bottom: none;
+}
 
 /* Active Layers */
 #active-wms-layers { padding: 10px 15px; border-bottom: 1px solid #eee; background: #fafafa; display: none; }
@@ -81,3 +97,4 @@ input[type=range]::-webkit-slider-thumb { appearance: none; width: 14px; height:
     #container { width: 100% !important; height: 100% !important; }
     .scale-bar, .heatmap-legend, .coords-widget { display: flex !important; } /* Keep essential map elements */
 }
+
