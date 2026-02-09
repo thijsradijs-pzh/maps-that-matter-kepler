@@ -423,7 +423,7 @@ function initAddressSearch() {
                 fq: 'type:(adres OR woonplaats OR weg OR postcode)'
             });
             
-            const pdokUrl = `https://api.pdok.nl/bzk/locatieserver/v3/suggest?${params.toString()}`;
+            const pdokUrl = `https://api.pdok.nl/bzk/locatieserver/v3_1/suggest?${params.toString()}`;
             const proxyUrl = `/api/proxy?url=${encodeURIComponent(pdokUrl)}`;
             
             const response = await fetch(proxyUrl);
@@ -465,7 +465,7 @@ function initAddressSearch() {
 async function selectAddress(id) {
     try {
         // Construct the PDOK Lookup URL
-        const lookupUrl = `https://api.pdok.nl/bzk/locatieserver/v3/lookup?id=${id}`;
+        const lookupUrl = `https://api.pdok.nl/bzk/locatieserver/v3_1/lookup?id=${id}`;
         
         // ROUTE THROUGH PROXY
         const proxyUrl = `/api/proxy?url=${encodeURIComponent(lookupUrl)}`;
