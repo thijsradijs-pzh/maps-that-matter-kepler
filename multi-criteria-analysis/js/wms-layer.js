@@ -10,7 +10,7 @@ function tileToBoundingBox(x, y, z) {
     const south = north - resolution;
     return [west, south, east, north];
 }
-
+// extra check
 // Create a DeckGL TileLayer for WMS
 function createWMSLayer(layerConfig) {
     return new deck.TileLayer({
