@@ -55,46 +55,47 @@
     <div id="data-content" class="sidebar-content active">
       <div style="padding:20px;">
         
-        <div class="agro-control-group" style="background:#f0f8ff; padding:10px; border-radius:4px; border:1px solid #cce5ff;">
-            <label style="color:#005c99; margin-bottom:8px;"><i class="fa fa-layer-group"></i> Referentie Lagen</label>
+        <div class="agro-control-group" style="background:#f0f8ff; padding:12px; border-radius:4px; border:1px solid #cce5ff;">
+            <label style="color:#005c99; margin-bottom:10px; display:flex; align-items:center;">
+                <i class="fa fa-satellite" style="margin-right:8px;"></i> Satelliet (NSO)
+            </label>
             
-            <div style="display:flex; align-items:center; margin-bottom:8px;">
-                <input type="checkbox" id="toggle-pzh" onchange="window.togglePreset('pzh')" style="margin-right:8px; cursor:pointer;">
-                <span style="font-size:12px;">Natuurnetwerk (NNN)</span>
+            <div style="display:flex; align-items:center; margin-bottom:10px;">
+                <input type="checkbox" id="toggle-nso" onchange="window.toggleNSO()" style="margin-right:8px; cursor:pointer;">
+                <span style="font-size:12px; font-weight:600;">Toon Satellietbeelden</span>
             </div>
-
-            <div style="display:flex; align-items:center;">
-                <input type="checkbox" id="toggle-ahn" onchange="window.togglePreset('ahn')" style="margin-right:8px; cursor:pointer;">
-                <span style="font-size:12px;">AHN4 Hoogte (Maaiveld)</span>
+            
+            <div id="nso-options" style="display:none; padding-top:10px; border-top:1px solid #dde;">
+                 <label style="font-size:11px; color:#555; margin-bottom:4px; display:block;">Beeldmateriaal:</label>
+                 <select id="nso-layer-select" onchange="window.updateNSOLayer()" class="agro-select" style="font-size:11px;">
+                     <option value="Pleiades-NEO-2024-5-RGB">2024 - Mei (Pleiades Neo 30cm)</option>
+                     <option value="SuperView-2023-RGB">2023 - Zomer (SuperView 50cm)</option>
+                     <option value="HogeResolutie-2022-RGB">2022 - Zomer</option>
+                 </select>
+                 
+                 <div style="margin-top:8px; font-size:10px; color:#666; font-style:italic;">
+                    <i class="fa fa-lock"></i> Vereist NSO account
+                 </div>
             </div>
         </div>
 
         <hr style="border:0; border-top:1px solid #eee; margin:15px 0;">
 
-        <p style="font-size:13px; color:#666; margin-top:0;">
-          <b>Agro Data Analysis</b><br>
-          Selecteer data van de WUR.
-        </p>
-        
+        <p style="font-size:13px; color:#666;"><b>Agro Data (WUR)</b></p>
         <div class="agro-control-group">
             <label>Dataset</label>
             <select id="agro-endpoint" class="agro-select">
                 <option value="rest/fields">Gewaspercelen (Fields)</option>
             </select>
         </div>
-        
         <div class="agro-control-group">
             <label>Jaar</label>
             <input type="number" id="agro-year" value="2022" class="agro-input">
         </div>
-
         <div class="start-btn" onclick="window.fetchAgroDataTrigger()">
-            <i class="fa fa-pen-nib"></i> Gebied Selecteren & Start
+            <i class="fa fa-pen-nib"></i> Gebied Selecteren
         </div>
-        
-        <div id="agro-status">
-            <i class="fa fa-info-circle"></i> Nog geen data opgehaald.
-        </div>
+        <div id="agro-status"><i class="fa fa-info-circle"></i> Nog geen data.</div>
       </div>
     </div>
 

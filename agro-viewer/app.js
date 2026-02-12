@@ -9,6 +9,8 @@ let drawState = { active: false, start: null, end: null };
 let currentViewState = VIZ_CONFIG.initialView;
 let isSatellite = false;
 let userToken = '';
+let nsoCreds = null; 
+let nsoActive = false;
 // --- PRESET LAYERS CONFIG ---
 const PRESETS = {
     'pzh': {
@@ -28,6 +30,67 @@ const PRESETS = {
         version: '1.3.0'
     }
 };
+
+// --- NSO LOGIC ---
+
+window.toggleNSO = function() {
+    const checkbox = document.getElementById('toggle-nso');
+    const optionsDiv = document.getElementById('nso-options');
+    
+    nsoActive = checkbox.checked;
+    
+    if (nsoActive) {
+        optionsDiv.style.display = 'block';
+        if (!nsoCreds) {
+            askForNSOCreds();
+        } else {
+            renderLayers();
+        }
+    } else {
+        optionsDiv.style.display = 'none';
+        renderLayers();
+    }
+};
+
+window.updateNSOLayer = function() {
+    if (nsoActive) renderLayers();
+};
+
+function askForNSOCreds() {
+    const modal = document.getElementById('key-modal');
+    if(!modal) return;
+    
+    // Reuse modal for NSO Login
+    modal.querySelector('h3').innerHTML = '<i class="fa fa-satellite"></i> NSO Login';
+    modal.querySelector('p').innerHTML = 'Voor <b>Satellietdataportaal.nl</b> is een account nodig.<br>Voer in: <code>gebruikersnaam:wachtwoord</code>';
+    
+    const input = document.getElementById('user-api-key');
+    input.placeholder = 'bv. thijs:Wachtwoord123';
+    input.value = '';
+    input.type = 'text'; // Visible typing
+    
+    // Override confirm button temporarily
+    const btn = modal.querySelector('button:last-child');
+    const originalOnClick = btn.onclick; // Save original handler
+    
+    btn.onclick = function() {
+        const val = input.value;
+        if (!val || !val.includes(':')) {
+            alert("Gebruik formaat: gebruikersnaam:wachtwoord");
+            return;
+        }
+        nsoCreds = val;
+        window.closeModal();
+        
+        // Restore original handler for next time
+        btn.onclick = window.confirmFetch; 
+        
+        renderLayers();
+    };
+    
+    window.openModal();
+}
+
 // --- HELPER: DEBOUNCE ---
 function debounce(func, wait) {
     let timeout;
@@ -174,7 +237,133 @@ function initSearch() {
         if (!input.contains(e.target) && !resultsContainer.contains(e.target)) resultsContainer.style.display = 'none';
     });
 }
+// --- RENDER FUNCTION ---
 
+function renderLayers() {
+    const layers = [];
+
+    // 1. BASEMAP (Only show if NSO is NOT active to avoid clutter)
+    if (!nsoActive) {
+        if (isSatellite) {
+            layers.push(new deck.TileLayer({
+                id: 'pdok-aerial',
+                data: 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_ortho25/EPSG:3857/{z}/{x}/{y}.jpeg',
+                minZoom: 6, maxZoom: 19, tileSize: 256,
+                renderSubLayers: props => {
+                    const {bbox: {west, south, east, north}} = props.tile;
+                    return new deck.BitmapLayer(props, { data: null, image: props.data, bounds: [west, south, east, north] });
+                }
+            }));
+        } else {
+            layers.push(DeckGLUtils.createBasemap(VIZ_CONFIG.basemap));
+        }
+    }
+
+    // 2. NSO SATELLITE LAYER (The New Logic)
+    if (nsoActive && nsoCreds) {
+        const layerName = document.getElementById('nso-layer-select').value;
+        const authString = btoa(nsoCreds); // Encode credentials
+        
+        // Construct WMTS URL (EPSG:3857 is crucial for DeckGL)
+        // We use the "Key-Value Pair" (KVP) syntax because it's safer with proxies
+        const wmtsParams = [
+            `SERVICE=WMTS`,
+            `REQUEST=GetTile`,
+            `VERSION=1.0.0`,
+            `LAYER=${layerName}`,
+            `STYLE=default`,
+            `TILEMATRIXSET=EPSG:3857`, // Web Mercator
+            `TILEMATRIX={z}`,          // Zoom
+            `TILEROW={y}`,             // Y
+            `TILECOL={x}`,             // X
+            `FORMAT=image/png`
+        ].join('&');
+
+        const targetUrl = `https://wmts.satellietdataportaal.nl/wmts/${layerName}/wmts?${wmtsParams}`;
+        const proxyUrl = `https://maps.mapsthatmatter.io/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+
+        layers.push(new deck.TileLayer({
+            id: 'nso-layer',
+            data: proxyUrl,
+            minZoom: 0,
+            maxZoom: 20,
+            tileSize: 256,
+            // Custom Fetch to inject Headers
+            getTileData: async ({url}) => {
+                const response = await fetch(url, {
+                    headers: { 'x-proxy-auth': `Basic ${authString}` }
+                });
+                if (!response.ok) return null; // Gracefully fail on auth error
+                return response.arrayBuffer();
+            },
+            renderSubLayers: props => {
+                const {bbox: {west, south, east, north}} = props.tile;
+                return new deck.BitmapLayer(props, {
+                    data: null,
+                    image: props.data,
+                    bounds: [west, south, east, north]
+                });
+            }
+        }));
+    }
+
+    // 3. SELECTION & DRAWING (Existing)
+    if (drawState.active && drawState.start && drawState.end) {
+        // ... (Keep existing drawing code) ...
+        const tempPoly = {
+            type: 'Feature',
+            geometry: {
+                type: 'Polygon',
+                coordinates: [[
+                    [drawState.start[0], drawState.start[1]],
+                    [drawState.end[0], drawState.start[1]],
+                    [drawState.end[0], drawState.end[1]],
+                    [drawState.start[0], drawState.end[1]],
+                    [drawState.start[0], drawState.start[1]]
+                ]]
+            }
+        };
+        layers.push(new deck.GeoJsonLayer({
+            id: 'drawing-box',
+            data: [tempPoly],
+            filled: true, stroked: true,
+            getFillColor: [0, 122, 194, 50],
+            getLineColor: [0, 122, 194, 255],
+            getLineWidth: 2, lineWidthMinPixels: 2,
+            getLineDashArray: [4, 2],
+            extensions: [new deck.PathStyleExtension({dash: true})]
+        }));
+    }
+
+    if (selectionPoly && !drawState.active) {
+        layers.push(new deck.GeoJsonLayer({
+            id: 'selection-box',
+            data: [selectionPoly],
+            filled: false, stroked: true,
+            getLineColor: [0, 122, 194, 255],
+            getLineWidth: 3
+        }));
+    }
+
+    // 4. AGRO DATA (Existing)
+    if (agroData.length > 0) {
+        layers.push(new deck.GeoJsonLayer({
+            id: 'agro-data',
+            data: agroData,
+            filled: true, stroked: true,
+            getFillColor: [0, 255, 100, 120],
+            getLineColor: [255, 255, 255, 200],
+            getLineWidth: 1,
+            pickable: true,
+            autoHighlight: true
+        }));
+    }
+    
+    // 5. WMS LAYERS (Existing)
+    activeWmsLayers.forEach(l => layers.push(createWMSLayer(l)));
+
+    deckInstance.setProps({ layers: layers });
+}
 // --- WMS LOGIC ---
 async function addWmsLayer(item) {
     if (activeWmsLayers.find(l => l.title === item.name)) return;

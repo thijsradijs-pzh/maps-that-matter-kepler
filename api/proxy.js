@@ -1,41 +1,59 @@
 // api/proxy.js
 export default async function handler(req, res) {
   const { url } = req.query;
+  
+  // Get Auth Header (Only used if the frontend sends it, e.g. for NSO)
+  const authHeader = req.headers['x-proxy-auth'] || req.headers['authorization'];
 
-  // 1. CORS Headers (Safety net: ensures browser allows the request)
+  // 1. Robust CORS Headers (Safety net for all requests)
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  // We MUST allow these headers so the browser lets us send the password
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-proxy-auth, Authorization');
+
+  // Handle "Pre-flight" checks (Browsers ask: "Can I send a password?")
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
 
   if (!url) {
     return res.status(400).send('Missing "url" parameter');
   }
 
   try {
-    // 2. Add User-Agent (Keeps PDOK/WUR happy)
-    const response = await fetch(url, {
+    // 2. Prepare the Fetch Options
+    const fetchOptions = {
       headers: {
-        'User-Agent': 'MapsThatMatter-Proxy/1.0'
+        'User-Agent': 'MapsThatMatter-Proxy/1.0' // Keeps PDOK happy
       }
-    });
+    };
+
+    // ONLY add the password if the frontend actually sent one
+    if (authHeader) {
+        fetchOptions.headers['Authorization'] = authHeader;
+    }
+
+    const response = await fetch(url, fetchOptions);
 
     if (!response.ok) {
       const errorText = await response.text();
       return res.status(response.status).send(errorText);
     }
 
-    // 3. Handle Headers (Forward Content-Type and Cache-Control)
+    // 3. Handle Content-Type
     const contentType = response.headers.get('content-type');
     if (contentType) res.setHeader('Content-Type', contentType);
 
-    // Cache Control: Tell browser to cache tiles for 1 hour (speeds up map)
+    // 4. Smart Caching (Your original logic + fallback)
     const cacheControl = response.headers.get('cache-control');
     if (cacheControl) {
         res.setHeader('Cache-Control', cacheControl);
     } else {
-        res.setHeader('Cache-Control', 'public, max-age=3600');
+        // Default to 24 hours for tiles (speeds up the map significantly)
+        res.setHeader('Cache-Control', 'public, max-age=86400');
     }
 
-    // 4. Send Binary Data
+    // 5. Send Binary Data
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     res.send(buffer);
