@@ -2,100 +2,114 @@
 <html lang="nl">
 <head>
   <meta charset='utf-8' />
-  <title>Agro Data Viewer</title>
+  <title>Agro & Satelliet Viewer</title>
   
-  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <script src="/shared/deckgl-utils.js"></script>
   <script src="/agro-viewer/config.js"></script>
-  
   <link rel="stylesheet" href="/multi-criteria-analysis/css/style.css">
   
   <style>
-      /* Extra styling for the specific Agro features */
-      #agro-status { margin-top:15px; padding:10px; background:#f8f9fa; border-radius:4px; font-size:12px; color:#555; border:1px solid #eee; }
+      /* Custom Styles for this Viewer */
+      #agro-status, #nso-status { margin-top:15px; padding:10px; background:#f8f9fa; border-radius:4px; font-size:12px; color:#555; border:1px solid #eee; }
       .agro-control-group { margin-bottom: 15px; }
       .agro-control-group label { display:block; font-size:11px; font-weight:700; color:#444; margin-bottom:5px; text-transform:uppercase; letter-spacing:0.5px; }
       .agro-select, .agro-input { width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; font-family:inherit; box-sizing: border-box; }
       .agro-select:focus, .agro-input:focus { border-color:#007ac2; outline:none; }
+      
+      /* Toggle Switch Style */
+      .toggle-row { display:flex; align-items:center; background:#e6f7ff; padding:10px; border-radius:4px; border:1px solid #bae7ff; margin-bottom:15px; }
+      .toggle-row input { margin-right:10px; cursor:pointer; transform: scale(1.2); }
+      .toggle-row span { font-weight:600; color:#005c99; font-size:13px; }
   </style>
 </head>
 <body>
 
   <div id="key-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(2px);">
       <div style="background:white; padding:30px; border-radius:8px; width:400px; box-shadow:0 10px 40px rgba(0,0,0,0.2);">
-        <h3 style="margin-top:0; color:#007ac2; display:flex; align-items:center; gap:10px;"><i class="fa fa-key"></i> AgroDataCube Toegang</h3>
-        <p style="font-size:13px; color:#666; line-height:1.5;">
-          Je hebt een gebied geselecteerd. Om data op te halen van de WUR servers is een persoonlijk API Token nodig.
-        </p>
+        <h3 style="margin-top:0; color:#007ac2; display:flex; align-items:center; gap:10px;">
+            <i class="fa fa-key"></i> <span id="modal-title">API Toegang</span>
+        </h3>
+        <p id="modal-desc" style="font-size:13px; color:#666; line-height:1.5;">Credentials vereist.</p>
         
-        <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:6px;">Jouw API Token:</label>
-        <input type="password" id="user-api-key" placeholder="Plak hier je token..." style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; margin-bottom:20px; font-family:monospace;">
+        <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:6px;">Input:</label>
+        <input type="password" id="user-api-key" placeholder="..." style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; margin-bottom:20px; font-family:monospace;">
         
         <div style="display:flex; justify-content:flex-end; gap:10px;">
           <button onclick="window.closeModal()" style="padding:10px 20px; border:none; background:#f0f0f0; color:#555; cursor:pointer; border-radius:4px; font-weight:600;">Annuleren</button>
-          <button onclick="window.confirmFetch()" style="padding:10px 20px; border:none; background:#007ac2; color:white; font-weight:bold; cursor:pointer; border-radius:4px; box-shadow:0 2px 5px rgba(0,122,194,0.3);">Data Ophalen</button>
+          <button id="modal-confirm-btn" style="padding:10px 20px; border:none; background:#007ac2; color:white; font-weight:bold; cursor:pointer; border-radius:4px; box-shadow:0 2px 5px rgba(0,122,194,0.3);">Bevestigen</button>
         </div>
       </div>
-    </div>
+  </div>
 
   <div id="sidebar">
     <div class="sidebar-header">
-      <div class="app-title">Agro Data<br>Viewer</div>
+      <div class="app-title">Agro & Satelliet<br>Viewer</div>
       <i class="fa fa-bars menu-icon"></i>
     </div>
     
     <div class="tabs">
-      <div class="tab active" onclick="window.switchTab('data')">Agro Data</div>
-      <div class="tab" onclick="window.switchTab('layers')">Kaartlagen</div>
+      <div class="tab active" onclick="window.switchTab('data')">Agro</div>
+      <div class="tab" onclick="window.switchTab('nso')">Satelliet</div>
+      <div class="tab" onclick="window.switchTab('layers')">Lagen</div>
     </div>
 
     <div id="data-content" class="sidebar-content active">
       <div style="padding:20px;">
+        <p style="font-size:13px; color:#666; margin-top:0;">
+          <b>Agro Data Cube (WUR)</b><br>
+          Haal gewaspercelen en bodemdata op.
+        </p>
         
-        <div class="agro-control-group" style="background:#f0f8ff; padding:12px; border-radius:4px; border:1px solid #cce5ff;">
-            <label style="color:#005c99; margin-bottom:10px; display:flex; align-items:center;">
-                <i class="fa fa-satellite" style="margin-right:8px;"></i> Satelliet (NSO)
-            </label>
-            
-            <div style="display:flex; align-items:center; margin-bottom:10px;">
-                <input type="checkbox" id="toggle-nso" onchange="window.toggleNSO()" style="margin-right:8px; cursor:pointer;">
-                <span style="font-size:12px; font-weight:600;">Toon Satellietbeelden</span>
-            </div>
-            
-            <div id="nso-options" style="display:none; padding-top:10px; border-top:1px solid #dde;">
-                 <label style="font-size:11px; color:#555; margin-bottom:4px; display:block;">Beeldmateriaal:</label>
-                 <select id="nso-layer-select" onchange="window.updateNSOLayer()" class="agro-select" style="font-size:11px;">
-                     <option value="Pleiades-NEO-2024-5-RGB">2024 - Mei (Pleiades Neo 30cm)</option>
-                     <option value="SuperView-2023-RGB">2023 - Zomer (SuperView 50cm)</option>
-                     <option value="HogeResolutie-2022-RGB">2022 - Zomer</option>
-                 </select>
-                 
-                 <div style="margin-top:8px; font-size:10px; color:#666; font-style:italic;">
-                    <i class="fa fa-lock"></i> Vereist NSO account
-                 </div>
-            </div>
-        </div>
-
-        <hr style="border:0; border-top:1px solid #eee; margin:15px 0;">
-
-        <p style="font-size:13px; color:#666;"><b>Agro Data (WUR)</b></p>
         <div class="agro-control-group">
             <label>Dataset</label>
             <select id="agro-endpoint" class="agro-select">
                 <option value="rest/fields">Gewaspercelen (Fields)</option>
             </select>
         </div>
+        
         <div class="agro-control-group">
             <label>Jaar</label>
             <input type="number" id="agro-year" value="2022" class="agro-input">
         </div>
+
         <div class="start-btn" onclick="window.fetchAgroDataTrigger()">
-            <i class="fa fa-pen-nib"></i> Gebied Selecteren
+            <i class="fa fa-pen-nib"></i> Gebied Selecteren & Start
         </div>
-        <div id="agro-status"><i class="fa fa-info-circle"></i> Nog geen data.</div>
+        
+        <div id="agro-status">
+            <i class="fa fa-info-circle"></i> Teken een gebied op de kaart.
+        </div>
+      </div>
+    </div>
+
+    <div id="nso-content" class="sidebar-content">
+      <div style="padding:20px;">
+        <p style="font-size:13px; color:#666; margin-top:0;">
+          <b>Satellietdataportaal (NSO)</b><br>
+          Hoge resolutie (30-50cm) beelden.
+        </p>
+
+        <div class="agro-control-group">
+            <div class="toggle-row">
+                <input type="checkbox" id="toggle-nso" onchange="window.toggleNSO()">
+                <span>Toon Satellietbeelden</span>
+            </div>
+
+            <label>Beeldmateriaal</label>
+            <select id="nso-layer-select" onchange="window.updateNSOLayer()" class="agro-select">
+                 <option value="Pleiades-NEO-2024-5-RGB">2024 - Mei (30cm Pleiades)</option>
+                 <option value="SuperView-2023-RGB">2023 - Zomer (50cm SuperView)</option>
+                 <option value="HogeResolutie-2022-RGB">2022 - Zomer</option>
+            </select>
+            
+             <div style="margin-top:15px; font-size:11px; color:#888; background:#fff3cd; padding:8px; border-radius:4px; border:1px solid #ffeeba;">
+                <i class="fa fa-lock"></i> <b>Let op:</b> Account vereist.<br>
+                Gebruik formaat: <code>gebruiker:wachtwoord</code>
+             </div>
+        </div>
       </div>
     </div>
 
@@ -104,9 +118,7 @@
         <i class="fa fa-search filter-icon"></i>
         <input type="text" id="layer-search" class="filter-input" placeholder="Zoek PDOK / NGR kaartlagen...">
       </div>
-      
       <div id="search-results"></div>
-      
       <div id="active-wms-layers" style="display:none;">
           <div style="font-size:11px; font-weight:bold; color:#888; margin: 15px 15px 5px;">ACTIEVE LAGEN:</div>
           <div id="wms-list-content"></div>
@@ -128,7 +140,6 @@
 
   <script src="/multi-criteria-analysis/js/csw-search.js"></script>
   <script src="/multi-criteria-analysis/js/wms-layer.js"></script>
-  
   <script src="/agro-viewer/app.js"></script>
 </body>
 </html>

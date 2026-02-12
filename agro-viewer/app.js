@@ -1,5 +1,3 @@
-// agro-viewer/app.js
-
 // --- STATE ---
 let deckInstance;
 let activeWmsLayers = [];
@@ -8,106 +6,19 @@ let selectionPoly = null;
 let drawState = { active: false, start: null, end: null };
 let currentViewState = VIZ_CONFIG.initialView;
 let isSatellite = false;
-let userToken = '';
+
+// Credentials State
 let nsoCreds = null; 
 let nsoActive = false;
-// --- PRESET LAYERS CONFIG ---
-const PRESETS = {
-    'pzh': {
-        id: 'pzh-nnn',
-        title: 'Natuurnetwerk Nederland (PZH)',
-        // PZH ArcGIS WMS (Supports EPSG:3857 for web maps)
-        url: 'https://geoservices.zuid-holland.nl/arcgis/services/PGR/PGR_Natuur/MapServer/WMSServer',
-        layer: 'Natuurnetwerk Nederland (NNN)', 
-        version: '1.3.0'
-    },
-    'ahn': {
-        id: 'ahn-4',
-        title: 'AHN4 Maaiveld (Hoogte)',
-        // PDOK AHN (Supports EPSG:3857)
-        url: 'https://service.pdok.nl/rws/ahn/wms/v1_0',
-        layer: 'dtm_05m',
-        version: '1.3.0'
-    }
-};
-
-// --- NSO LOGIC ---
-
-window.toggleNSO = function() {
-    const checkbox = document.getElementById('toggle-nso');
-    const optionsDiv = document.getElementById('nso-options');
-    
-    nsoActive = checkbox.checked;
-    
-    if (nsoActive) {
-        optionsDiv.style.display = 'block';
-        if (!nsoCreds) {
-            askForNSOCreds();
-        } else {
-            renderLayers();
-        }
-    } else {
-        optionsDiv.style.display = 'none';
-        renderLayers();
-    }
-};
-
-window.updateNSOLayer = function() {
-    if (nsoActive) renderLayers();
-};
-
-function askForNSOCreds() {
-    const modal = document.getElementById('key-modal');
-    if(!modal) return;
-    
-    // Reuse modal for NSO Login
-    modal.querySelector('h3').innerHTML = '<i class="fa fa-satellite"></i> NSO Login';
-    modal.querySelector('p').innerHTML = 'Voor <b>Satellietdataportaal.nl</b> is een account nodig.<br>Voer in: <code>gebruikersnaam:wachtwoord</code>';
-    
-    const input = document.getElementById('user-api-key');
-    input.placeholder = 'bv. thijs:Wachtwoord123';
-    input.value = '';
-    input.type = 'text'; // Visible typing
-    
-    // Override confirm button temporarily
-    const btn = modal.querySelector('button:last-child');
-    const originalOnClick = btn.onclick; // Save original handler
-    
-    btn.onclick = function() {
-        const val = input.value;
-        if (!val || !val.includes(':')) {
-            alert("Gebruik formaat: gebruikersnaam:wachtwoord");
-            return;
-        }
-        nsoCreds = val;
-        window.closeModal();
-        
-        // Restore original handler for next time
-        btn.onclick = window.confirmFetch; 
-        
-        renderLayers();
-    };
-    
-    window.openModal();
-}
-
-// --- HELPER: DEBOUNCE ---
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => { clearTimeout(timeout); func(...args); };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
 
 // --- GLOBAL UI FUNCTIONS ---
+
 window.switchTab = function(t) {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     document.querySelectorAll('.sidebar-content').forEach(x => x.classList.remove('active'));
     
-    const tabMap = { 'data': 0, 'layers': 1 };
-    const contentMap = { 'data': 'data-content', 'layers': 'layer-content' };
+    const tabMap = { 'data': 0, 'nso': 1, 'layers': 2 };
+    const contentMap = { 'data': 'data-content', 'nso': 'nso-content', 'layers': 'layer-content' };
     
     if(document.querySelectorAll('.tab')[tabMap[t]]) document.querySelectorAll('.tab')[tabMap[t]].classList.add('active');
     if(document.getElementById(contentMap[t])) document.getElementById(contentMap[t]).classList.add('active');
@@ -116,7 +27,7 @@ window.switchTab = function(t) {
 window.toggleBasemap = function() {
     isSatellite = !isSatellite;
     const btn = document.getElementById('btn-basemap');
-    if(btn) btn.innerText = isSatellite ? "Kaart" : "Foto";
+    if(btn) btn.innerText = isSatellite ? "Kaart" : "Satelliet";
     renderLayers();
 };
 
@@ -125,344 +36,28 @@ window.zoomOut = function() { deckInstance.setProps({ initialViewState: { ...cur
 window.resetView = function() { deckInstance.setProps({ initialViewState: VIZ_CONFIG.initialView }); };
 
 window.closeModal = function() { document.getElementById('key-modal').style.display = 'none'; };
+window.openModal = function() { document.getElementById('key-modal').style.display = 'flex'; };
 
-window.openModal = function() {
-    if(userToken) document.getElementById('user-api-key').value = userToken;
-    document.getElementById('key-modal').style.display = 'flex';
-};
-
-window.confirmFetch = async function() {
-    const inputKey = document.getElementById('user-api-key').value;
-    if (!inputKey) { alert("Vul een API token in."); return; }
-    userToken = inputKey;
-    window.closeModal();
-    await fetchAgroData(userToken);
-};
+// --- DRAWING LOGIC (Agro) ---
 
 window.fetchAgroDataTrigger = function() {
+    // If we have a box, ask for token. If not, start drawing.
     if(!selectionPoly) {
         window.startDrawMode();
     } else {
-        window.openModal();
+        askForAgroToken();
     }
 };
 
 window.startDrawMode = function() {
     drawState.active = true;
-    drawState.start = null;
-    drawState.end = null;
-    selectionPoly = null;
-    
+    drawState.start = null; selectionPoly = null;
     deckInstance.setProps({ controller: { dragPan: false } });
     document.getElementById('container').style.cursor = 'crosshair';
-    document.getElementById('agro-status').innerHTML = '<b><i class="fa fa-pen"></i> Teken Modus:</b> Klik 1x om te starten, beweeg muis, klik nogmaals om te stoppen.';
+    document.getElementById('agro-status').innerHTML = '<b><i class="fa fa-pen"></i> Teken Modus:</b> Klik start, beweeg, klik stop.';
     renderLayers();
 };
 
-window.togglePreset = function(key) {
-    const checkbox = document.getElementById(`toggle-${key}`);
-    const config = PRESETS[key];
-    
-    if (checkbox.checked) {
-        // Add to activeWmsLayers if not present
-        if (!activeWmsLayers.find(l => l.id === config.id)) {
-            activeWmsLayers.push({
-                id: config.id,
-                title: config.title,
-                url: config.url,
-                layer: config.layer,
-                version: config.version
-            });
-        }
-    } else {
-        // Remove
-        activeWmsLayers = activeWmsLayers.filter(l => l.id !== config.id);
-    }
-    
-    // Update the "Active Layers" list in the other tab just in case
-    if(typeof updateActiveLayersUI === 'function') updateActiveLayersUI();
-    
-    renderLayers();
-};
-
-// --- SEARCH LOGIC (Restored) ---
-function initSearch() {
-    const input = document.getElementById('layer-search');
-    const resultsContainer = document.getElementById('search-results');
-    
-    if (!input || !resultsContainer) return;
-
-    const performSearch = debounce(async (term) => {
-        if (term.length < 2) { resultsContainer.style.display = 'none'; return; }
-
-        resultsContainer.innerHTML = '<div style="padding:10px;color:#888;font-size:12px;"><i class="fa fa-spinner fa-spin"></i> Zoeken...</div>';
-        resultsContainer.style.display = 'block';
-
-        // Uses csw-search.js functions
-        const results = await searchGeoNetwork(term);
-        displayResults(results);
-    }, 500);
-
-    function displayResults(results) {
-        resultsContainer.innerHTML = '';
-        if (results.length === 0) { 
-            resultsContainer.innerHTML = '<div style="padding:10px;color:#888;font-size:12px;">Geen resultaten gevonden</div>'; 
-            return; 
-        }
-        
-        const header = document.createElement('div');
-        header.style.cssText = `padding:5px 15px;background:#f0f8ff;font-size:11px;font-weight:bold;color:#007ac2;`;
-        header.textContent = `Resultaten (${results.length})`;
-        resultsContainer.appendChild(header);
-
-        results.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'result-item'; // Style comes from style.css
-            div.innerHTML = `
-                <div style="flex:1;">
-                   <div style="display:flex; justify-content:space-between;">
-                        <span><i class="fa fa-layer-group" style="color:#007ac2; margin-right:8px;"></i> <b>${item.name}</b></span>
-                   </div>
-                   <span style="color:#888; font-size:11px;">${item.description.substring(0,60)}...</span>
-                </div>
-                <i class="fa fa-plus-circle" style="color:#ccc; margin-left:8px;"></i>
-            `;
-            div.onclick = () => addWmsLayer(item);
-            resultsContainer.appendChild(div);
-        });
-    }
-
-    input.addEventListener('input', (e) => performSearch(e.target.value));
-    document.addEventListener('click', (e) => {
-        if (!input.contains(e.target) && !resultsContainer.contains(e.target)) resultsContainer.style.display = 'none';
-    });
-}
-// --- RENDER FUNCTION ---
-
-function renderLayers() {
-    const layers = [];
-
-    // 1. BASEMAP (Only show if NSO is NOT active to avoid clutter)
-    if (!nsoActive) {
-        if (isSatellite) {
-            layers.push(new deck.TileLayer({
-                id: 'pdok-aerial',
-                data: 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_ortho25/EPSG:3857/{z}/{x}/{y}.jpeg',
-                minZoom: 6, maxZoom: 19, tileSize: 256,
-                renderSubLayers: props => {
-                    const {bbox: {west, south, east, north}} = props.tile;
-                    return new deck.BitmapLayer(props, { data: null, image: props.data, bounds: [west, south, east, north] });
-                }
-            }));
-        } else {
-            layers.push(DeckGLUtils.createBasemap(VIZ_CONFIG.basemap));
-        }
-    }
-
-    // 2. NSO SATELLITE LAYER (The New Logic)
-    if (nsoActive && nsoCreds) {
-        const layerName = document.getElementById('nso-layer-select').value;
-        const authString = btoa(nsoCreds); // Encode credentials
-        
-        // Construct WMTS URL (EPSG:3857 is crucial for DeckGL)
-        // We use the "Key-Value Pair" (KVP) syntax because it's safer with proxies
-        const wmtsParams = [
-            `SERVICE=WMTS`,
-            `REQUEST=GetTile`,
-            `VERSION=1.0.0`,
-            `LAYER=${layerName}`,
-            `STYLE=default`,
-            `TILEMATRIXSET=EPSG:3857`, // Web Mercator
-            `TILEMATRIX={z}`,          // Zoom
-            `TILEROW={y}`,             // Y
-            `TILECOL={x}`,             // X
-            `FORMAT=image/png`
-        ].join('&');
-
-        const targetUrl = `https://wmts.satellietdataportaal.nl/wmts/${layerName}/wmts?${wmtsParams}`;
-        const proxyUrl = `https://maps.mapsthatmatter.io/api/proxy?url=${encodeURIComponent(targetUrl)}`;
-
-        layers.push(new deck.TileLayer({
-            id: 'nso-layer',
-            data: proxyUrl,
-            minZoom: 0,
-            maxZoom: 20,
-            tileSize: 256,
-            // Custom Fetch to inject Headers
-            getTileData: async ({url}) => {
-                const response = await fetch(url, {
-                    headers: { 'x-proxy-auth': `Basic ${authString}` }
-                });
-                if (!response.ok) return null; // Gracefully fail on auth error
-                return response.arrayBuffer();
-            },
-            renderSubLayers: props => {
-                const {bbox: {west, south, east, north}} = props.tile;
-                return new deck.BitmapLayer(props, {
-                    data: null,
-                    image: props.data,
-                    bounds: [west, south, east, north]
-                });
-            }
-        }));
-    }
-
-    // 3. SELECTION & DRAWING (Existing)
-    if (drawState.active && drawState.start && drawState.end) {
-        // ... (Keep existing drawing code) ...
-        const tempPoly = {
-            type: 'Feature',
-            geometry: {
-                type: 'Polygon',
-                coordinates: [[
-                    [drawState.start[0], drawState.start[1]],
-                    [drawState.end[0], drawState.start[1]],
-                    [drawState.end[0], drawState.end[1]],
-                    [drawState.start[0], drawState.end[1]],
-                    [drawState.start[0], drawState.start[1]]
-                ]]
-            }
-        };
-        layers.push(new deck.GeoJsonLayer({
-            id: 'drawing-box',
-            data: [tempPoly],
-            filled: true, stroked: true,
-            getFillColor: [0, 122, 194, 50],
-            getLineColor: [0, 122, 194, 255],
-            getLineWidth: 2, lineWidthMinPixels: 2,
-            getLineDashArray: [4, 2],
-            extensions: [new deck.PathStyleExtension({dash: true})]
-        }));
-    }
-
-    if (selectionPoly && !drawState.active) {
-        layers.push(new deck.GeoJsonLayer({
-            id: 'selection-box',
-            data: [selectionPoly],
-            filled: false, stroked: true,
-            getLineColor: [0, 122, 194, 255],
-            getLineWidth: 3
-        }));
-    }
-
-    // 4. AGRO DATA (Existing)
-    if (agroData.length > 0) {
-        layers.push(new deck.GeoJsonLayer({
-            id: 'agro-data',
-            data: agroData,
-            filled: true, stroked: true,
-            getFillColor: [0, 255, 100, 120],
-            getLineColor: [255, 255, 255, 200],
-            getLineWidth: 1,
-            pickable: true,
-            autoHighlight: true
-        }));
-    }
-    
-    // 5. WMS LAYERS (Existing)
-    activeWmsLayers.forEach(l => layers.push(createWMSLayer(l)));
-
-    deckInstance.setProps({ layers: layers });
-}
-// --- WMS LOGIC ---
-async function addWmsLayer(item) {
-    if (activeWmsLayers.find(l => l.title === item.name)) return;
-    
-    // UI Feedback
-    document.getElementById('loading').style.display = 'block';
-
-    try {
-        const capUrl = new URL(item.url);
-        capUrl.searchParams.set('service', 'WMS');
-        capUrl.searchParams.set('request', 'GetCapabilities');
-        
-        const proxyUrl = `/api/proxy?url=${encodeURIComponent(capUrl.toString())}`;
-        const resp = await fetch(proxyUrl);
-        const xmlText = await resp.text();
-        
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-        
-        // Find layer
-        const allLayers = Array.from(xmlDoc.querySelectorAll('Layer'));
-        const targetLayerNode = allLayers.filter(l => l.querySelector('Name')).pop();
-        
-        if (!targetLayerNode) throw new Error("Geen lagen gevonden");
-        const finalLayerName = targetLayerNode.querySelector('Name').textContent;
-
-        // BBOX
-        let bbox = null;
-        const geoBbox = targetLayerNode.querySelector('EX_GeographicBoundingBox');
-        if (geoBbox) {
-            bbox = [
-                parseFloat(geoBbox.querySelector('westBoundLongitude').textContent),
-                parseFloat(geoBbox.querySelector('southBoundLatitude').textContent),
-                parseFloat(geoBbox.querySelector('eastBoundLongitude').textContent),
-                parseFloat(geoBbox.querySelector('northBoundLatitude').textContent)
-            ];
-        }
-
-        activeWmsLayers.push({ id: Date.now(), url: item.url, layer: finalLayerName, title: item.name, bbox: bbox });
-        
-        document.getElementById('search-results').style.display = 'none';
-        document.getElementById('layer-search').value = '';
-        updateActiveLayersUI();
-        renderLayers();
-        if(bbox) zoomToBbox(bbox);
-
-    } catch (err) {
-        console.error(err);
-        alert("Kon laag niet laden (CORS of Proxy fout).");
-    } finally {
-        document.getElementById('loading').style.display = 'none';
-    }
-}
-
-function removeWmsLayer(id) {
-    activeWmsLayers = activeWmsLayers.filter(l => l.id !== id);
-    updateActiveLayersUI();
-    renderLayers();
-}
-
-function updateActiveLayersUI() {
-    const container = document.getElementById('active-wms-layers');
-    const list = document.getElementById('wms-list-content');
-    list.innerHTML = '';
-    
-    if (activeWmsLayers.length > 0) {
-        container.style.display = 'block';
-        activeWmsLayers.forEach(l => {
-            const div = document.createElement('div');
-            div.className = 'active-wms-item';
-            div.innerHTML = `
-                <div style="display:flex; align-items:center;">
-                    <i class="fa fa-check-square" style="color:#007ac2; margin-right:5px;"></i> 
-                    <span>${l.title}</span>
-                </div>
-                <i class="fa fa-trash" style="cursor:pointer; color:#999;" onclick="removeWmsLayer(${l.id})"></i>
-            `;
-            list.appendChild(div);
-        });
-    } else { 
-        container.style.display = 'none'; 
-    }
-}
-
-function zoomToBbox(bbox) {
-    if (!bbox) return;
-    const [minLon, minLat, maxLon, maxLat] = bbox;
-    deckInstance.setProps({
-        initialViewState: {
-            ...currentViewState,
-            longitude: (minLon + maxLon) / 2,
-            latitude: (minLat + maxLat) / 2,
-            zoom: 10,
-            transitionDuration: 1000
-        }
-    });
-}
-
-// --- MAP & DATA LOGIC ---
 function onMapClick(info) {
     if (!info.coordinate || !drawState.active) return;
     const [lon, lat] = info.coordinate;
@@ -470,19 +65,18 @@ function onMapClick(info) {
     if (!drawState.start) {
         drawState.start = [lon, lat];
         drawState.end = [lon, lat];
-        document.getElementById('agro-status').innerHTML = '<b><i class="fa fa-pen"></i> Bezig...</b> Klik nogmaals om het vak te sluiten.';
         renderLayers();
         return;
     }
 
+    // Finish Drawing
     drawState.end = [lon, lat];
     drawState.active = false;
     deckInstance.setProps({ controller: true });
     document.getElementById('container').style.cursor = 'default';
-
     createSelectionPoly(drawState.start, drawState.end);
-    document.getElementById('agro-status').innerHTML = '✅ Gebied geselecteerd. Klik op "Data Ophalen" in de popup.';
-    setTimeout(window.openModal, 200);
+    document.getElementById('agro-status').innerHTML = '✅ Gebied geselecteerd. Bevestig nu.';
+    setTimeout(askForAgroToken, 300); // Auto-open modal
     renderLayers();
 }
 
@@ -494,165 +88,210 @@ function onMapHover(info) {
 }
 
 function createSelectionPoly(p1, p2) {
-    const minLon = Math.min(p1[0], p2[0]);
-    const maxLon = Math.max(p1[0], p2[0]);
-    const minLat = Math.min(p1[1], p2[1]);
-    const maxLat = Math.max(p1[1], p2[1]);
-
+    const minLon = Math.min(p1[0], p2[0]), maxLon = Math.max(p1[0], p2[0]);
+    const minLat = Math.min(p1[1], p2[1]), maxLat = Math.max(p1[1], p2[1]);
     selectionPoly = {
-        type: 'Feature',
-        geometry: {
-            type: 'Polygon',
-            coordinates: [[
-                [minLon, minLat],
-                [maxLon, minLat],
-                [maxLon, maxLat],
-                [minLon, maxLat],
-                [minLon, minLat]
-            ]]
-        },
-        properties: { bboxString: `${minLon},${minLat},${maxLon},${maxLat}` }
+        type: 'Feature', geometry: { type: 'Polygon', coordinates: [[[minLon, minLat],[maxLon, minLat],[maxLon, maxLat],[minLon, maxLat],[minLon, minLat]]] }
     };
 }
 
-// In agro-viewer/app.js
+// --- CREDENTIALS LOGIC ---
+
+function askForAgroToken() {
+    setupModal(
+        'AgroDataCube Token', 
+        'Voer je <b>WUR API Token</b> in.', 
+        'Token...', 
+        'password',
+        (val) => { fetchAgroData(val); }
+    );
+}
+
+function askForNSOCreds() {
+    setupModal(
+        'NSO Satelliet Login',
+        'Voer in: <code>gebruikersnaam:wachtwoord</code>',
+        'bv. thijs:Geheim123',
+        'text',
+        (val) => {
+            if (!val || !val.includes(':')) { alert("Gebruik formaat: user:pass"); return; }
+            nsoCreds = val;
+            window.closeModal();
+            renderLayers();
+        }
+    );
+}
+
+function setupModal(title, desc, placeholder, type, onConfirm) {
+    const modal = document.getElementById('key-modal');
+    document.getElementById('modal-title').innerText = title;
+    document.getElementById('modal-desc').innerHTML = desc;
+    
+    const input = document.getElementById('user-api-key');
+    input.placeholder = placeholder;
+    input.type = type;
+    input.value = '';
+
+    const btn = document.getElementById('modal-confirm-btn');
+    btn.onclick = () => {
+        if(!input.value) { alert("Invoer vereist."); return; }
+        onConfirm(input.value);
+        // Note: fetchAgroData closes modal inside itself on success
+    };
+    window.openModal();
+}
+
+// --- DATA FETCHING ---
 
 async function fetchAgroData(token) {
-    if (!selectionPoly) return;
-
     const endpoint = document.getElementById('agro-endpoint').value;
     const year = document.getElementById('agro-year').value;
     const statusDiv = document.getElementById('agro-status');
     
-    // 1. Convert BBOX to WKT (Well Known Text) Polygon
-    // format: POLYGON((minx miny, maxx miny, maxx maxy, minx maxy, minx miny))
+    // WKT Geometry for V2 API
     const coords = selectionPoly.geometry.coordinates[0];
     const wkt = `POLYGON((${coords.map(p => p.join(' ')).join(',')}))`;
-
-    statusDiv.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Ophalen bij WUR...';
+    
+    statusDiv.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Ophalen...';
+    window.closeModal();
     
     try {
-        // 2. Construct Query Parameters
         const params = new URLSearchParams({
-            year: year,
-            page_size: 1000,     // Limit results
-            geometry: wkt,       // WKT Geometry
-            epsg: 4326,          // Input Geometry is WGS84
-            output_epsg: 4326    // OUTPUT MUST BE WGS84 (for DeckGL)
+            year: year, page_size: 1000, geometry: wkt, epsg: 4326, output_epsg: 4326
         });
 
-        // 3. Construct Proxy URL
-        // We use the 'endpoint' from the dropdown (e.g., "rest/fields")
+        // Use V2 API via Proxy
         const queryPath = `${endpoint}?${params.toString()}`;
-        console.log("Requesting:", queryPath);
-        
         const res = await fetch(`/api/agro-proxy?path=${encodeURIComponent(queryPath)}`, {
             headers: { 'x-agro-token': token }
         });
         
         if(!res.ok) {
-            const errTxt = await res.text();
-            // Handle specific 404 (Path not found) vs 401 (Unauthorized)
-            if (res.status === 404) throw new Error("Endpoint bestaat niet (404).");
-            if (res.status === 401) throw new Error("Token geweigerd (401).");
-            throw new Error(`API Fout (${res.status}): ${errTxt.substring(0,100)}`);
+            if(res.status === 403) throw new Error("Token ongeldig (403).");
+            throw new Error(`Fout ${res.status}`);
         }
         
         const data = await res.json();
-        
-        if(data.features && data.features.length > 0) {
+        if(data.features) {
             agroData = data.features;
-            statusDiv.innerHTML = `✅ <b>Succes!</b> ${agroData.length} percelen geladen.`;
+            statusDiv.innerHTML = `✅ ${agroData.length} percelen geladen.`;
         } else {
-             statusDiv.innerHTML = `⚠️ Geen data gevonden in dit gebied.`;
+             statusDiv.innerHTML = `⚠️ Geen data (0)`;
              agroData = [];
         }
-        
         renderLayers();
-
     } catch (e) {
         console.error(e);
-        statusDiv.innerHTML = `<span style="color:#d9534f;">❌ ${e.message}</span>`;
+        statusDiv.innerHTML = `<span style="color:red">❌ ${e.message}</span>`;
+        alert(e.message);
     }
 }
+
+// --- NSO LOGIC ---
+
+window.toggleNSO = function() {
+    nsoActive = document.getElementById('toggle-nso').checked;
+    if (nsoActive && !nsoCreds) {
+        askForNSOCreds();
+    } else {
+        renderLayers();
+    }
+};
+
+window.updateNSOLayer = function() {
+    if (nsoActive) renderLayers();
+};
+
+// --- RENDER ---
 
 function renderLayers() {
     const layers = [];
 
-    // 1. Basemap
-    if (isSatellite) {
+    // 1. BASEMAP (Only if NSO is OFF)
+    if (!nsoActive) {
+        if (isSatellite) {
+            layers.push(new deck.TileLayer({
+                id: 'basemap-sat',
+                data: 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_ortho25/EPSG:3857/{z}/{x}/{y}.jpeg',
+                minZoom: 0, maxZoom: 19, tileSize: 256,
+                renderSubLayers: props => {
+                    const {bbox: {west, south, east, north}} = props.tile;
+                    return new deck.BitmapLayer(props, { data: null, image: props.data, bounds: [west, south, east, north] });
+                }
+            }));
+        } else {
+            layers.push(DeckGLUtils.createBasemap(VIZ_CONFIG.basemap));
+        }
+    }
+
+    // 2. NSO SATELLITE (Requires Proxy + Auth)
+    if (nsoActive && nsoCreds) {
+        const layerName = document.getElementById('nso-layer-select').value;
+        const authString = btoa(nsoCreds); // Base64 encode user:pass
+        
+        // WMTS KVP URL for DeckGL (EPSG:3857)
+        const wmtsParams = [
+            `SERVICE=WMTS`, `REQUEST=GetTile`, `VERSION=1.0.0`,
+            `LAYER=${layerName}`, `STYLE=default`,
+            `TILEMATRIXSET=EPSG:3857`,
+            `TILEMATRIX={z}`, `TILEROW={y}`, `TILECOL={x}`,
+            `FORMAT=image/png`
+        ].join('&');
+
+        const targetUrl = `https://wmts.satellietdataportaal.nl/wmts/${layerName}/wmts?${wmtsParams}`;
+        const proxyUrl = `https://maps.mapsthatmatter.io/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+
         layers.push(new deck.TileLayer({
-            id: 'satellite',
-            data: 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_ortho25/EPSG:3857/{z}/{x}/{y}.jpeg',
-            minZoom: 6, maxZoom: 19, tileSize: 256,
+            id: 'nso-sat-layer',
+            data: proxyUrl,
+            minZoom: 0, maxZoom: 19, tileSize: 256,
+            // Custom fetcher to inject header
+            getTileData: async ({url}) => {
+                const response = await fetch(url, {
+                    headers: { 'x-proxy-auth': `Basic ${authString}` }
+                });
+                if (!response.ok) return null;
+                return response.arrayBuffer();
+            },
             renderSubLayers: props => {
                 const {bbox: {west, south, east, north}} = props.tile;
-                return new deck.BitmapLayer(props, { data: null, image: props.data, bounds: [west, south, east, north] });
+                return new deck.BitmapLayer(props, {
+                    data: null, image: props.data, bounds: [west, south, east, north]
+                });
             }
         }));
-    } else {
-        layers.push(DeckGLUtils.createBasemap(VIZ_CONFIG.basemap));
     }
 
-    // 2. Drawing State
+    // 3. DRAWING
     if (drawState.active && drawState.start && drawState.end) {
+        const poly = {
+            type: 'Feature', geometry: { type: 'Polygon', coordinates: [[[drawState.start[0], drawState.start[1]], [drawState.end[0], drawState.start[1]], [drawState.end[0], drawState.end[1]], [drawState.start[0], drawState.end[1]], [drawState.start[0], drawState.start[1]]]] }
+        };
         layers.push(new deck.GeoJsonLayer({
-            id: 'drawing',
-            data: [{
-                type: 'Feature',
-                geometry: {
-                    type: 'Polygon',
-                    coordinates: [[
-                        [drawState.start[0], drawState.start[1]],
-                        [drawState.end[0], drawState.start[1]],
-                        [drawState.end[0], drawState.end[1]],
-                        [drawState.start[0], drawState.end[1]],
-                        [drawState.start[0], drawState.start[1]]
-                    ]]
-                }
-            }],
-            filled: true,
-            stroked: true,
-            getFillColor: [0, 122, 194, 50],
-            getLineColor: [0, 122, 194, 255],
-            getLineWidth: 2,
-            getLineDashArray: [4,2],
-            extensions: [new deck.PathStyleExtension({dash: true})]
+            id: 'drawing', data: [poly], filled: true, stroked: true, getFillColor: [0, 122, 194, 50], getLineColor: [0, 122, 194, 255], getLineWidth: 2, getLineDashArray: [4,2], extensions: [new deck.PathStyleExtension({dash:true})]
         }));
     }
-
-    // 3. Selection
+    
     if (selectionPoly && !drawState.active) {
         layers.push(new deck.GeoJsonLayer({
-            id: 'selection',
-            data: [selectionPoly],
-            filled: false,
-            stroked: true,
-            getLineColor: [0, 122, 194, 255],
-            getLineWidth: 2
+            id: 'selection', data: [selectionPoly], filled: false, stroked: true, getLineColor: [0, 122, 194, 255], getLineWidth: 2
         }));
     }
 
-    // 4. Results
+    // 4. AGRO DATA
     if (agroData.length > 0) {
         layers.push(new deck.GeoJsonLayer({
-            id: 'agro-data',
-            data: agroData,
-            filled: true,
-            stroked: true,
-            getFillColor: [50, 200, 100, 140],
-            getLineColor: [255, 255, 255, 100],
-            getLineWidth: 1,
-            pickable: true,
-            autoHighlight: true
+            id: 'agro-data', data: agroData, filled: true, stroked: true, getFillColor: [0, 255, 100, 100], getLineColor: [255, 255, 255, 200], getLineWidth: 1, pickable: true, autoHighlight: true
         }));
     }
 
-    // 5. WMS
+    // 5. WMS LAYERS
     activeWmsLayers.forEach(l => layers.push(createWMSLayer(l)));
 
     deckInstance.setProps({ layers: layers });
 }
+
+// --- INIT ---
 
 function init() {
     deckInstance = new deck.DeckGL({
@@ -663,22 +302,15 @@ function init() {
         onHover: onMapHover,
         getTooltip: ({object}) => {
              if (!object || !object.properties) return null;
-             // Basic Tooltip
+             if (object.geometry.type === 'Polygon' && !object.properties.fieldid) return null; // Skip selection box
              const props = object.properties;
-             let content = '';
-             // Fields
-             if(props.fieldid) content += `<b>ID:</b> ${props.fieldid}<br><b>Gewas:</b> ${props.crop_name || '-'}`;
-             // Soil
-             else if(props.soilcode) content += `<b>Bodem:</b> ${props.soilcode}<br><b>Type:</b> ${props.soilname}`;
-             // General
-             else content = JSON.stringify(props).substring(0,100);
-             
-             return { html: `<div style="background:white; padding:8px; border-radius:4px; box-shadow:0 2px 5px rgba(0,0,0,0.2); font-size:12px;">${content}</div>` };
+             return { html: `<div style="background:white; padding:8px; border-radius:4px; font-size:12px;"><b>ID:</b> ${props.fieldid || '-'}<br><b>Gewas:</b> ${props.crop_name || '-'}</div>` };
         },
         onViewStateChange: ({viewState}) => { currentViewState = viewState; return viewState; }
     });
     
-    initSearch();
+    // Init Search (imported from csw-search.js)
+    if(typeof initSearch === 'function') initSearch();
     renderLayers();
 }
 
