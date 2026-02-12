@@ -276,23 +276,31 @@ function renderLayers() {
         }
     }
 
-    // 2. NSO Satellite (FIXED URL)
+// 2. NSO SATELLITE (Inside renderLayers)
     if (nsoActive && nsoCreds) {
         const layerName = document.getElementById('nso-layer-select').value;
         const authString = btoa(nsoCreds);
         
-        // CORRECTED URL PATTERN: /wmts/{layer}/service
-        const wmtsParams = [
-            `SERVICE=WMTS`, `REQUEST=GetTile`, `VERSION=1.0.0`,
-            `LAYER=${layerName}`, `STYLE=default`,
-            `TILEMATRIXSET=EPSG:3857`,
-            `TILEMATRIX={z}`, `TILEROW={y}`, `TILECOL={x}`,
-            `FORMAT=image/png`
-        ].join('&');
+        // Use the generic WMTS endpoint which is often more robust
+        // Endpoint: https://wmts.satellietdataportaal.nl/wmts/{layer}/service
+        const baseUrl = `https://wmts.satellietdataportaal.nl/wmts/${layerName}/service`;
+        
+        const wmtsParams = new URLSearchParams({
+            SERVICE: 'WMTS',
+            REQUEST: 'GetTile',
+            VERSION: '1.0.0',
+            LAYER: layerName,
+            STYLE: 'default',
+            TILEMATRIXSET: 'EPSG:3857', // Ensure this matches NSO capabilities
+            TILEMATRIX: '{z}',
+            TILEROW: '{y}',
+            TILECOL: '{x}',
+            FORMAT: 'image/png'
+        });
 
-        const targetUrl = `https://wmts.satellietdataportaal.nl/wmts/${layerName}/service?${wmtsParams}`;
+        // We decodeURIComponent the params to keep them clean in the proxy URL
+        const targetUrl = `${baseUrl}?${wmtsParams.toString()}`;
         const proxyUrl = `https://maps.mapsthatmatter.io/api/proxy?url=${encodeURIComponent(targetUrl)}`;
-
         layers.push(new deck.TileLayer({
             id: 'nso-sat-layer',
             data: proxyUrl,
