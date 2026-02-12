@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset='utf-8' />
+  <title>Agro Data Viewer</title>
+  
+  <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <script src="/shared/deckgl-utils.js"></script>
+  
+  <script src="config.js"></script>
+  <link rel="stylesheet" href="/multi-criteria-analysis/css/style.css"> </head>
+<body>
+
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <div class="app-title">Agro Data<br>Viewer</div>
+      <i class="fa fa-bars menu-icon"></i>
+    </div>
+    
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('data')">Data</div>
+      <div class="tab" onclick="switchTab('layers')">Kaartlagen</div>
+    </div>
+
+    <div id="data-content" class="sidebar-content active">
+      <h3>AgroDataCube</h3>
+      <p>Haal data op via de WUR AgroDataCube API.</p>
+      
+      <div style="padding: 0 15px;">
+        <label style="font-size:12px; font-weight:bold;">Endpoint selectie:</label>
+        <select id="agro-endpoint" style="width:100%; padding:8px; margin-bottom:10px;">
+            <option value="rest/v1/fields">Gewaspercelen (Fields)</option>
+            <option value="rest/v1/soiltypes">Bodemtypes</option>
+            <option value="rest/v1/ahn">Hoogte (AHN)</option>
+        </select>
+        
+        <label style="font-size:12px; font-weight:bold;">Jaar:</label>
+        <input type="number" id="agro-year" value="2022" style="width:100%; padding:8px; margin-bottom:15px;">
+
+        <div class="start-btn" onclick="fetchAgroData()">Data Ophalen</div>
+        <div id="agro-status" style="margin-top:10px; font-size:11px; color:#666;"></div>
+      </div>
+    </div>
+
+    <div id="layer-content" class="sidebar-content">
+      <div class="filter-bar">
+        <i class="fa fa-search filter-icon"></i>
+        <input type="text" id="layer-search" class="filter-input" placeholder="Zoek PDOK / NGR kaartlagen...">
+      </div>
+      <div id="search-results"></div>
+      
+      <div id="active-wms-layers">
+          <div style="font-size:11px; font-weight:bold; color:#888; margin-bottom:5px;">ACTIEVE LAGEN:</div>
+          <div id="wms-list-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="map-container">
+    <div class="zoom-controls">
+      <div class="zoom-btn" onclick="zoomIn()"><i class="fa fa-plus"></i></div>
+      <div class="zoom-btn" onclick="zoomOut()"><i class="fa fa-minus"></i></div>
+      <div class="zoom-btn" onclick="resetView()"><i class="fa fa-home"></i></div>
+      <div class="zoom-btn" id="btn-basemap" onclick="toggleBasemap()">Satelliet</div>
+    </div>
+    <div id="container" style="width:100%; height:100%;"></div>
+  </div>
+
+  <script src="/multi-criteria-analysis/js/csw-search.js"></script> <script src="/multi-criteria-analysis/js/wms-layer.js"></script> <script src="app.js"></script>
+</body>
+</html>
