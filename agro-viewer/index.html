@@ -3,42 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <title>AgroDataCube Viewer</title>
-    <script src="https://unpkg.com/react@16.14.0/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@16.14.0/umd/react-dom.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react@16.14.0/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@16.14.0/umd/react-dom.production.min.js"></script>
     
-    <script src="https://unpkg.com/redux@4.1.2/dist/redux.js"></script>
-    <script src="https://unpkg.com/react-redux@7.2.6/dist/react-redux.min.js"></script>
-    <script src="https://unpkg.com/styled-components@5.3.3/dist/styled-components.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-is/umd/react-is.production.min.js"></script>
     
-    <script src="https://unpkg.com/kepler.gl@2.5.5/dist/kepler-gl.js"></script>
+    <script crossorigin src="https://unpkg.com/redux@4.1.2/dist/redux.js"></script>
+    <script crossorigin src="https://unpkg.com/react-redux@7.2.6/dist/react-redux.min.js"></script>
+    <script crossorigin src="https://unpkg.com/styled-components@5.3.3/dist/styled-components.min.js"></script>
+    
+    <script crossorigin src="https://unpkg.com/kepler.gl@2.5.5/dist/kepler-gl.js"></script>
     
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background: #000; }
+        body { margin: 0; padding: 0; overflow: hidden; background: #1a1a1a; }
         #app { width: 100vw; height: 100vh; }
     </style>
 </head>
 <body>
     <div id="app"></div>
     <script>
-        // Accessing the globals safely
-        const { createStore, combineReducers, applyMiddleware } = Redux;
-        const { Provider, useDispatch } = ReactRedux;
+        // Access globals via window to avoid variable collisions
+        const { createStore, combineReducers, applyMiddleware } = window.Redux;
+        const { Provider, useDispatch } = window.ReactRedux;
         
-        // Fix: Use a different name for the library vs the component
-        const keplerLib = window.keplerGl;
-        const KeplerMap = keplerLib.KeplerGl; 
-        const { addDataToMap } = keplerLib.actions;
-        const { processGeojson } = keplerLib.processors;
+        // Use a distinct name for the component to avoid "KeplerGl is undefined"
+        const KeplerElement = window.keplerGl.KeplerGl; 
+        const { addDataToMap } = window.keplerGl.actions;
+        const { processGeojson } = window.keplerGl.processors;
 
-        // Setup Redux Store
-        const reducers = combineReducers({ keplerGl: keplerLib.keplerGlReducer });
-        const store = createStore(reducers, {}, applyMiddleware(keplerLib.taskMiddleware));
+        const reducers = combineReducers({ keplerGl: window.keplerGl.keplerGlReducer });
+        const store = createStore(reducers, {}, applyMiddleware(window.keplerGl.taskMiddleware));
 
         function App() {
             const dispatch = useDispatch();
 
             React.useEffect(() => {
-                // Fetch from your proxy
+                // Point to your Vercel Proxy
                 fetch('/api/agro-proxy')
                     .then(res => res.json())
                     .then(data => {
@@ -52,11 +52,11 @@
                     });
             }, [dispatch]);
 
-            return React.createElement(KeplerMap, {
+            return React.createElement(KeplerElement, {
                 id: "agro-map",
                 width: window.innerWidth,
                 height: window.innerHeight,
-                mapboxApiAccessToken: "" // Dark background default
+                mapboxApiAccessToken: "" 
             });
         }
 
