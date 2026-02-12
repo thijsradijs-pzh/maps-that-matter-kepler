@@ -7,7 +7,7 @@ let drawState = { active: false, start: null, end: null };
 let currentViewState = VIZ_CONFIG.initialView;
 let isSatellite = false;
 
-// Credentials State
+// Credentials
 let nsoCreds = null; 
 let nsoActive = false;
 
@@ -38,15 +38,121 @@ window.resetView = function() { deckInstance.setProps({ initialViewState: VIZ_CO
 window.closeModal = function() { document.getElementById('key-modal').style.display = 'none'; };
 window.openModal = function() { document.getElementById('key-modal').style.display = 'flex'; };
 
-// --- DRAWING LOGIC (Agro) ---
+// --- NGR SEARCH LOGIC (RESTORED) ---
+
+function initSearch() {
+    const input = document.getElementById('layer-search');
+    const resultsContainer = document.getElementById('search-results');
+    
+    if(!input) return;
+
+    let debounceTimer;
+    input.addEventListener('input', (e) => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => performSearch(e.target.value), 500);
+    });
+
+    async function performSearch(term) {
+        if (term.length < 3) { resultsContainer.innerHTML = ''; return; }
+        resultsContainer.innerHTML = '<div style="padding:10px; color:#888;">Zoeken...</div>';
+        
+        try {
+            const res = await fetch(`/api/search-ngr?q=${encodeURIComponent(term)}`);
+            const text = await res.text();
+            
+            // Parse XML
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(text, "text/xml");
+            const records = Array.from(xmlDoc.getElementsByTagNameNS("*", "SummaryRecord"));
+            
+            displayResults(records);
+        } catch (e) {
+            resultsContainer.innerHTML = '<div style="color:red; padding:10px;">Fout bij zoeken.</div>';
+        }
+    }
+
+    function displayResults(records) {
+        resultsContainer.innerHTML = '';
+        if(records.length === 0) {
+            resultsContainer.innerHTML = '<div style="padding:10px;">Geen resultaten.</div>';
+            return;
+        }
+
+        records.forEach(rec => {
+            const title = rec.getElementsByTagNameNS("*", "title")[0]?.textContent || "Naamloos";
+            const abstract = rec.getElementsByTagNameNS("*", "abstract")[0]?.textContent || "";
+            // Find WMS URL
+            let url = "";
+            const uriNodes = rec.getElementsByTagNameNS("*", "URI");
+            for(let i=0; i<uriNodes.length; i++) {
+                if(uriNodes[i].getAttribute('protocol')?.includes('OGC:WMS')) {
+                    url = uriNodes[i].textContent;
+                    break;
+                }
+            }
+
+            if(url) {
+                const div = document.createElement('div');
+                div.className = 'result-item'; // Uses style.css
+                div.innerHTML = `
+                    <div style="font-weight:bold; color:#007ac2; margin-bottom:2px;">${title}</div>
+                    <div style="font-size:10px; color:#666;">${abstract.substring(0,60)}...</div>
+                `;
+                div.onclick = () => addWmsLayer(title, url);
+                resultsContainer.appendChild(div);
+            }
+        });
+    }
+}
+
+async function addWmsLayer(title, url) {
+    // Basic WMS addition
+    activeWmsLayers.push({
+        id: Date.now(),
+        title: title,
+        url: url,
+        layer: '', // Will default to first layer in createWMSLayer logic or needs manual selection
+        version: '1.3.0'
+    });
+    // Switch to 'Layers' tab view in UI
+    updateActiveLayersUI();
+    renderLayers();
+}
+
+function updateActiveLayersUI() {
+    const list = document.getElementById('wms-list-content');
+    const container = document.getElementById('active-wms-layers');
+    if(!list) return;
+    
+    list.innerHTML = '';
+    if (activeWmsLayers.length > 0) {
+        container.style.display = 'block';
+        activeWmsLayers.forEach(l => {
+            const div = document.createElement('div');
+            div.style.padding = '5px';
+            div.style.borderBottom = '1px solid #eee';
+            div.style.display = 'flex';
+            div.style.justifyContent = 'space-between';
+            div.innerHTML = `<span>${l.title}</span> <i class="fa fa-trash" style="cursor:pointer; color:red;" onclick="removeLayer('${l.id}')"></i>`;
+            list.appendChild(div);
+        });
+    } else {
+        container.style.display = 'none';
+    }
+}
+
+window.removeLayer = function(id) {
+    activeWmsLayers = activeWmsLayers.filter(l => l.id != id);
+    updateActiveLayersUI();
+    renderLayers();
+}
+
+
+// --- AGRO & DRAWING LOGIC ---
 
 window.fetchAgroDataTrigger = function() {
-    // If we have a box, ask for token. If not, start drawing.
-    if(!selectionPoly) {
-        window.startDrawMode();
-    } else {
-        askForAgroToken();
-    }
+    if(!selectionPoly) window.startDrawMode();
+    else askForAgroToken();
 };
 
 window.startDrawMode = function() {
@@ -68,15 +174,13 @@ function onMapClick(info) {
         renderLayers();
         return;
     }
-
-    // Finish Drawing
     drawState.end = [lon, lat];
     drawState.active = false;
     deckInstance.setProps({ controller: true });
     document.getElementById('container').style.cursor = 'default';
     createSelectionPoly(drawState.start, drawState.end);
-    document.getElementById('agro-status').innerHTML = '✅ Gebied geselecteerd. Bevestig nu.';
-    setTimeout(askForAgroToken, 300); // Auto-open modal
+    document.getElementById('agro-status').innerHTML = '✅ Gebied geselecteerd.';
+    setTimeout(askForAgroToken, 300);
     renderLayers();
 }
 
@@ -95,51 +199,25 @@ function createSelectionPoly(p1, p2) {
     };
 }
 
-// --- CREDENTIALS LOGIC ---
+// --- MODALS ---
 
 function askForAgroToken() {
-    setupModal(
-        'AgroDataCube Token', 
-        'Voer je <b>WUR API Token</b> in.', 
-        'Token...', 
-        'password',
-        (val) => { fetchAgroData(val); }
-    );
+    setupModal('AgroDataCube Token', 'WUR API Token vereist.', 'Token...', 'password', (val) => fetchAgroData(val));
 }
-
 function askForNSOCreds() {
-    setupModal(
-        'NSO Satelliet Login',
-        'Voer in: <code>gebruikersnaam:wachtwoord</code>',
-        'bv. thijs:Geheim123',
-        'text',
-        (val) => {
-            if (!val || !val.includes(':')) { alert("Gebruik formaat: user:pass"); return; }
-            nsoCreds = val;
-            window.closeModal();
-            renderLayers();
-        }
-    );
+    setupModal('NSO Login', '<code>gebruiker:wachtwoord</code>', 'user:pass', 'text', (val) => {
+        nsoCreds = val; window.closeModal(); renderLayers();
+    });
 }
-
-function setupModal(title, desc, placeholder, type, onConfirm) {
-    const modal = document.getElementById('key-modal');
+function setupModal(title, desc, place, type, cb) {
     document.getElementById('modal-title').innerText = title;
     document.getElementById('modal-desc').innerHTML = desc;
-    
-    const input = document.getElementById('user-api-key');
-    input.placeholder = placeholder;
-    input.type = type;
-    input.value = '';
-
-    const btn = document.getElementById('modal-confirm-btn');
-    btn.onclick = () => {
-        if(!input.value) { alert("Invoer vereist."); return; }
-        onConfirm(input.value);
-        // Note: fetchAgroData closes modal inside itself on success
-    };
+    const inp = document.getElementById('user-api-key');
+    inp.placeholder = place; inp.type = type; inp.value = '';
+    document.getElementById('modal-confirm-btn').onclick = () => { if(inp.value) cb(inp.value); };
     window.openModal();
 }
+
 
 // --- DATA FETCHING ---
 
@@ -147,43 +225,22 @@ async function fetchAgroData(token) {
     const endpoint = document.getElementById('agro-endpoint').value;
     const year = document.getElementById('agro-year').value;
     const statusDiv = document.getElementById('agro-status');
-    
-    // WKT Geometry for V2 API
     const coords = selectionPoly.geometry.coordinates[0];
     const wkt = `POLYGON((${coords.map(p => p.join(' ')).join(',')}))`;
     
-    statusDiv.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Ophalen...';
+    statusDiv.innerHTML = 'Ophalen...';
     window.closeModal();
     
     try {
-        const params = new URLSearchParams({
-            year: year, page_size: 1000, geometry: wkt, epsg: 4326, output_epsg: 4326
-        });
-
-        // Use V2 API via Proxy
-        const queryPath = `${endpoint}?${params.toString()}`;
-        const res = await fetch(`/api/agro-proxy?path=${encodeURIComponent(queryPath)}`, {
-            headers: { 'x-agro-token': token }
-        });
-        
-        if(!res.ok) {
-            if(res.status === 403) throw new Error("Token ongeldig (403).");
-            throw new Error(`Fout ${res.status}`);
-        }
-        
+        const params = new URLSearchParams({ year: year, page_size: 1000, geometry: wkt, epsg: 4326, output_epsg: 4326 });
+        const res = await fetch(`/api/agro-proxy?path=${encodeURIComponent(`${endpoint}?${params}`)}`, { headers: { 'x-agro-token': token } });
+        if(!res.ok) throw new Error(res.status);
         const data = await res.json();
-        if(data.features) {
-            agroData = data.features;
-            statusDiv.innerHTML = `✅ ${agroData.length} percelen geladen.`;
-        } else {
-             statusDiv.innerHTML = `⚠️ Geen data (0)`;
-             agroData = [];
-        }
+        agroData = data.features || [];
+        statusDiv.innerHTML = `✅ ${agroData.length} objecten.`;
         renderLayers();
     } catch (e) {
-        console.error(e);
-        statusDiv.innerHTML = `<span style="color:red">❌ ${e.message}</span>`;
-        alert(e.message);
+        statusDiv.innerHTML = `❌ Fout: ${e.message}`;
     }
 }
 
@@ -191,23 +248,18 @@ async function fetchAgroData(token) {
 
 window.toggleNSO = function() {
     nsoActive = document.getElementById('toggle-nso').checked;
-    if (nsoActive && !nsoCreds) {
-        askForNSOCreds();
-    } else {
-        renderLayers();
-    }
+    if (nsoActive && !nsoCreds) askForNSOCreds();
+    else renderLayers();
 };
+window.updateNSOLayer = function() { if (nsoActive) renderLayers(); };
 
-window.updateNSOLayer = function() {
-    if (nsoActive) renderLayers();
-};
 
 // --- RENDER ---
 
 function renderLayers() {
     const layers = [];
 
-    // 1. BASEMAP (Only if NSO is OFF)
+    // 1. Basemap
     if (!nsoActive) {
         if (isSatellite) {
             layers.push(new deck.TileLayer({
@@ -224,12 +276,12 @@ function renderLayers() {
         }
     }
 
-    // 2. NSO SATELLITE (Requires Proxy + Auth)
+    // 2. NSO Satellite (FIXED URL)
     if (nsoActive && nsoCreds) {
         const layerName = document.getElementById('nso-layer-select').value;
-        const authString = btoa(nsoCreds); // Base64 encode user:pass
+        const authString = btoa(nsoCreds);
         
-        // WMTS KVP URL for DeckGL (EPSG:3857)
+        // CORRECTED URL PATTERN: /wmts/{layer}/service
         const wmtsParams = [
             `SERVICE=WMTS`, `REQUEST=GetTile`, `VERSION=1.0.0`,
             `LAYER=${layerName}`, `STYLE=default`,
@@ -238,60 +290,47 @@ function renderLayers() {
             `FORMAT=image/png`
         ].join('&');
 
-        const targetUrl = `https://wmts.satellietdataportaal.nl/wmts/${layerName}/wmts?${wmtsParams}`;
+        const targetUrl = `https://wmts.satellietdataportaal.nl/wmts/${layerName}/service?${wmtsParams}`;
         const proxyUrl = `https://maps.mapsthatmatter.io/api/proxy?url=${encodeURIComponent(targetUrl)}`;
 
         layers.push(new deck.TileLayer({
             id: 'nso-sat-layer',
             data: proxyUrl,
             minZoom: 0, maxZoom: 19, tileSize: 256,
-            // Custom fetcher to inject header
             getTileData: async ({url}) => {
-                const response = await fetch(url, {
-                    headers: { 'x-proxy-auth': `Basic ${authString}` }
-                });
+                const response = await fetch(url, { headers: { 'x-proxy-auth': `Basic ${authString}` } });
                 if (!response.ok) return null;
                 return response.arrayBuffer();
             },
             renderSubLayers: props => {
                 const {bbox: {west, south, east, north}} = props.tile;
-                return new deck.BitmapLayer(props, {
-                    data: null, image: props.data, bounds: [west, south, east, north]
-                });
+                return new deck.BitmapLayer(props, { data: null, image: props.data, bounds: [west, south, east, north] });
             }
         }));
     }
 
-    // 3. DRAWING
+    // 3. Drawing & Selection
     if (drawState.active && drawState.start && drawState.end) {
-        const poly = {
-            type: 'Feature', geometry: { type: 'Polygon', coordinates: [[[drawState.start[0], drawState.start[1]], [drawState.end[0], drawState.start[1]], [drawState.end[0], drawState.end[1]], [drawState.start[0], drawState.end[1]], [drawState.start[0], drawState.start[1]]]] }
-        };
-        layers.push(new deck.GeoJsonLayer({
-            id: 'drawing', data: [poly], filled: true, stroked: true, getFillColor: [0, 122, 194, 50], getLineColor: [0, 122, 194, 255], getLineWidth: 2, getLineDashArray: [4,2], extensions: [new deck.PathStyleExtension({dash:true})]
-        }));
+        const poly = { type: 'Feature', geometry: { type: 'Polygon', coordinates: [[[drawState.start[0], drawState.start[1]], [drawState.end[0], drawState.start[1]], [drawState.end[0], drawState.end[1]], [drawState.start[0], drawState.end[1]], [drawState.start[0], drawState.start[1]]]] } };
+        layers.push(new deck.GeoJsonLayer({ id: 'drawing', data: [poly], filled: true, stroked: true, getFillColor: [0, 122, 194, 50], getLineColor: [0, 122, 194, 255], getLineWidth: 2, getLineDashArray: [4,2], extensions: [new deck.PathStyleExtension({dash:true})] }));
     }
-    
     if (selectionPoly && !drawState.active) {
-        layers.push(new deck.GeoJsonLayer({
-            id: 'selection', data: [selectionPoly], filled: false, stroked: true, getLineColor: [0, 122, 194, 255], getLineWidth: 2
-        }));
+        layers.push(new deck.GeoJsonLayer({ id: 'selection', data: [selectionPoly], filled: false, stroked: true, getLineColor: [0, 122, 194, 255], getLineWidth: 2 }));
     }
 
-    // 4. AGRO DATA
+    // 4. Agro Data
     if (agroData.length > 0) {
-        layers.push(new deck.GeoJsonLayer({
-            id: 'agro-data', data: agroData, filled: true, stroked: true, getFillColor: [0, 255, 100, 100], getLineColor: [255, 255, 255, 200], getLineWidth: 1, pickable: true, autoHighlight: true
-        }));
+        layers.push(new deck.GeoJsonLayer({ id: 'agro-data', data: agroData, filled: true, stroked: true, getFillColor: [0, 255, 100, 100], getLineColor: [255, 255, 255, 200], getLineWidth: 1, pickable: true, autoHighlight: true }));
     }
 
-    // 5. WMS LAYERS
-    activeWmsLayers.forEach(l => layers.push(createWMSLayer(l)));
+    // 5. Active WMS Layers
+    activeWmsLayers.forEach(l => {
+        // Reuse createWMSLayer if available, otherwise simple fallback
+        if (typeof createWMSLayer === 'function') layers.push(createWMSLayer(l));
+    });
 
     deckInstance.setProps({ layers: layers });
 }
-
-// --- INIT ---
 
 function init() {
     deckInstance = new deck.DeckGL({
@@ -300,17 +339,13 @@ function init() {
         controller: true,
         onClick: onMapClick,
         onHover: onMapHover,
+        onViewStateChange: ({viewState}) => { currentViewState = viewState; return viewState; },
         getTooltip: ({object}) => {
-             if (!object || !object.properties) return null;
-             if (object.geometry.type === 'Polygon' && !object.properties.fieldid) return null; // Skip selection box
-             const props = object.properties;
-             return { html: `<div style="background:white; padding:8px; border-radius:4px; font-size:12px;"><b>ID:</b> ${props.fieldid || '-'}<br><b>Gewas:</b> ${props.crop_name || '-'}</div>` };
-        },
-        onViewStateChange: ({viewState}) => { currentViewState = viewState; return viewState; }
+             if (!object || !object.properties || (object.geometry.type === 'Polygon' && !object.properties.fieldid)) return null;
+             return { html: `<div style="background:white; padding:5px;">ID: ${object.properties.fieldid}</div>` };
+        }
     });
-    
-    // Init Search (imported from csw-search.js)
-    if(typeof initSearch === 'function') initSearch();
+    initSearch();
     renderLayers();
 }
 

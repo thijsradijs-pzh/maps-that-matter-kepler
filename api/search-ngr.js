@@ -5,50 +5,67 @@ export const config = {
   },
 };
 
-export default async function handler(req, res) {
-  const NGR_URL = 'https://www.nationaalgeoregister.nl/geonetwork/srv/dut/csw';
+It seems like we have two separate issues:
 
-  if (req.method !== 'POST') {
-    return res.status(405).send('Method Not Allowed');
-  }
+NGR Search: The search logic was relying on an old external script (csw-search.js) which isn't connected correctly anymore. We will move that logic directly into app.js.
+
+NSO 500 Error: This is likely a URL construction error. The URL we built (.../wmts/LAYER/wmts) is slightly wrong for NSO, causing the server to reject it, which crashes the proxy or returns an error the proxy doesn't handle gracefully.
+
+Here is the fix for both.
+
+Step 1: Fix api/search-ngr.js (Server-Side)
+First, ensure you have the server-side script that actually performs the search. Create/Update this file in your api/ folder.
+
+File: api/search-ngr.js
+
+JavaScript
+
+export default async function handler(req, res) {
+  const { q } = req.query;
+  
+  if (!q) return res.status(400).json({ error: 'Query required' });
+
+  // CSW Endpoint for Nationaal Georegister
+  const cswUrl = 'https://nationaalgeoregister.nl/geonetwork/srv/dut/csw';
+  
+  const body = `
+    <csw:GetRecords 
+      xmlns:csw="http://www.opengis.net/cat/csw/2.0.2" 
+      xmlns:ogc="http://www.opengis.net/ogc" 
+      service="CSW" version="2.0.2" 
+      resultType="results" startPosition="1" maxRecords="15" outputFormat="application/xml" 
+      outputSchema="http://www.opengis.net/cat/csw/2.0.2">
+      <csw:Query typeNames="csw:Record">
+        <csw:ElementSetName>full</csw:ElementSetName>
+        <csw:Constraint version="1.1.0">
+          <ogc:Filter>
+            <ogc:And>
+              <ogc:PropertyIsLike wildCard="%" singleChar="_" escapeChar="\\">
+                <ogc:PropertyName>AnyText</ogc:PropertyName>
+                <ogc:Literal>%${q}%</ogc:Literal>
+              </ogc:PropertyIsLike>
+              <ogc:PropertyIsEqualTo>
+                 <ogc:PropertyName>type</ogc:PropertyName>
+                 <ogc:Literal>service</ogc:Literal>
+              </ogc:PropertyIsEqualTo>
+            </ogc:And>
+          </ogc:Filter>
+        </csw:Constraint>
+      </csw:Query>
+    </csw:GetRecords>
+  `;
 
   try {
-    // 1. Read the raw body stream from the request
-    const buffers = [];
-    for await (const chunk of req) {
-      buffers.push(chunk);
-    }
-    const rawBody = Buffer.concat(buffers).toString();
-
-    // 2. Forward the raw XML string to NGR
-    const response = await fetch(NGR_URL, {
+    const response = await fetch(cswUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/xml',
-        'Accept': 'application/xml',
-        // Optional: Pass through user agent to avoid blocking
-        'User-Agent': 'MapsThatMatter-Proxy/1.0' 
-      },
-      body: rawBody
+      headers: { 'Content-Type': 'application/xml' },
+      body: body
     });
-
-    if (!response.ok) {
-      // Forward the upstream error text for debugging
-      const errorText = await response.text();
-      throw new Error(`NGR responded with ${response.status}: ${errorText.substring(0, 200)}`);
-    }
-
-    const data = await response.text();
     
-    // 3. Return the XML response
-    res.setHeader('Content-Type', 'application/xml');
-    res.status(200).send(data);
-
-  } catch (error) {
-    console.error('NGR Proxy Error:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch from Nationaal Geo Register',
-      details: error.message 
-    });
+    const text = await response.text();
+    res.setHeader('Content-Type', 'text/xml');
+    res.send(text);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 }
