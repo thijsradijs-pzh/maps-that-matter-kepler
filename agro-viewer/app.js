@@ -56,84 +56,78 @@ function initSearch() {
         if (term.length < 3) { resultsContainer.innerHTML = ''; return; }
         resultsContainer.innerHTML = '<div style="padding:10px; color:#888;">Zoeken in NGR...</div>';
         
-        // MCA Style XML request
-        const xmlRequest = `<?xml version="1.0" encoding="UTF-8"?>
-<csw:GetRecords xmlns:csw="http://www.opengis.net/cat/csw/2.0.2" xmlns:ogc="http://www.opengis.net/ogc" service="CSW" version="2.0.2" resultType="results" startPosition="1" maxRecords="20">
-    <csw:Query typeNames="csw:Record">
-        <csw:ElementSetName>full</csw:ElementSetName>
-        <csw:Constraint version="1.1.0">
-            <ogc:Filter>
-                <ogc:Or>
-                    <ogc:PropertyIsLike wildCard="%" singleChar="_" escapeChar="\\\\"><ogc:PropertyName>title</ogc:PropertyName><ogc:Literal>%${term}%</ogc:Literal></ogc:PropertyIsLike>
-                    <ogc:PropertyIsLike wildCard="%" singleChar="_" escapeChar="\\\\"><ogc:PropertyName>abstract</ogc:PropertyName><ogc:Literal>%${term}%</ogc:Literal></ogc:PropertyIsLike>
-                </ogc:Or>
-            </ogc:Filter>
-        </csw:Constraint>
-    </csw:Query>
-</csw:GetRecords>`;
-
         try {
-            const response = await fetch('/api/search-ngr', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/xml' },
-                body: xmlRequest
-            });
-            const text = await response.text();
-            
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(text, "text/xml");
-            const records = Array.from(xmlDoc.getElementsByTagNameNS("*", "SummaryRecord"));
-            
-            displayResults(records);
+            // Gebruik de MCA-zoeklogica uit csw-search.js (via POST)
+            const results = await searchGeoNetwork(term);
+            displayResults(results);
         } catch (e) {
+            console.error("Search Error:", e);
             resultsContainer.innerHTML = '<div style="color:red; padding:10px;">Fout bij zoeken.</div>';
         }
     }
 
-    function displayResults(records) {
+    function displayResults(results) {
         resultsContainer.innerHTML = '';
-        if(records.length === 0) {
+        if(results.length === 0) {
             resultsContainer.innerHTML = '<div style="padding:10px;">Geen resultaten gevonden.</div>';
             return;
         }
 
-        records.forEach(rec => {
-            const title = rec.getElementsByTagNameNS("*", "title")[0]?.textContent || "Naamloos";
-            const abstract = rec.getElementsByTagNameNS("*", "abstract")[0]?.textContent || "";
-            
-            let url = "";
-            const uriNodes = rec.getElementsByTagNameNS("*", "URI");
-            for(let i=0; i<uriNodes.length; i++) {
-                if(uriNodes[i].getAttribute('protocol')?.includes('OGC:WMS')) {
-                    url = uriNodes[i].textContent;
-                    break;
-                }
-            }
-
-            if(url) {
-                const div = document.createElement('div');
-                div.className = 'result-item';
-                div.innerHTML = `
-                    <div style="font-weight:bold; color:#007ac2; margin-bottom:2px;">${title}</div>
-                    <div style="font-size:10px; color:#666;">${abstract.substring(0,60)}...</div>
-                `;
-                div.onclick = () => addWmsLayer(title, url);
-                resultsContainer.appendChild(div);
-            }
+        results.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'result-item';
+            div.innerHTML = `
+                <div style="flex:1;">
+                   <div style="font-weight:bold; color:#007ac2; margin-bottom:2px;">${item.name || item.title}</div>
+                   <div style="font-size:10px; color:#666;">${(item.description || "").substring(0,60)}...</div>
+                </div>
+            `;
+            // MCA-stijl: addWmsLayer haalt nu ook capabilities op
+            div.onclick = () => addWmsLayer(item);
+            resultsContainer.appendChild(div);
         });
     }
 }
 
-async function addWmsLayer(title, url) {
-    activeWmsLayers.push({
-        id: Date.now(),
-        title: title,
-        url: url,
-        layer: '0', 
-        version: '1.3.0'
-    });
-    updateActiveLayersUI();
-    renderLayers();
+// Uitgebreide addWmsLayer logica zoals in MCA
+async function addWmsLayer(item) {
+    if (activeWmsLayers.find(l => l.title === item.name)) return;
+
+    try {
+        const capUrl = new URL(item.url);
+        capUrl.searchParams.set('service', 'WMS');
+        capUrl.searchParams.set('request', 'GetCapabilities');
+        
+        const proxyUrl = `/api/proxy?url=${encodeURIComponent(capUrl.toString())}`;
+        const resp = await fetch(proxyUrl);
+        const xmlText = await resp.text();
+        const xmlDoc = new DOMParser().parseFromString(xmlText, "text/xml");
+        
+        const allLayers = Array.from(xmlDoc.querySelectorAll('Layer'));
+        let finalLayerName = item.layer || '0';
+
+        if (finalLayerName === '0' || !finalLayerName) {
+            const namedLayers = allLayers.filter(l => l.querySelector('Name'));
+            if (namedLayers.length > 0) {
+                finalLayerName = namedLayers[namedLayers.length - 1].querySelector('Name').textContent;
+            }
+        }
+
+        activeWmsLayers.push({
+            id: Date.now(),
+            title: item.name,
+            url: item.url,
+            layer: finalLayerName, 
+            publisher: item.publisher || 'NGR',
+            version: '1.3.0'
+        });
+        
+        updateActiveLayersUI();
+        renderLayers();
+    } catch (err) {
+        console.error(err);
+        alert(`Kon laag niet toevoegen: ${err.message}`);
+    }
 }
 
 function updateActiveLayersUI() {
@@ -211,7 +205,7 @@ function onMapHover(info) {
     }
 }
 
-// MISSING FUNCTION RESTORED
+// Herstelde functie voor het maken van de selectie-rechthoek
 function createSelectionPoly(p1, p2) {
     const minLon = Math.min(p1[0], p2[0]), maxLon = Math.max(p1[0], p2[0]);
     const minLat = Math.min(p1[1], p2[1]), maxLat = Math.max(p1[1], p2[1]);
@@ -284,7 +278,6 @@ async function fetchAgroData(token) {
         const data = await response.json();
         agroData = data.features || [];
         
-        // Bereken gewasstatistieken voor de zijbalk
         const cropCounts = {};
         agroData.forEach(f => {
             const crop = f.properties.crop_name || 'Onbekend';
@@ -397,7 +390,7 @@ function renderLayers() {
     if (agroData.length > 0) {
         layers.push(new deck.GeoJsonLayer({ 
             id: 'agro-data', data: agroData, filled: true, stroked: true, 
-            getFillColor: [0, 255, 100, 100], getLineColor: [255, 255, 255, 200], 
+            getFillColor: [0, 255, 100, 120], getLineColor: [255, 255, 255, 200], 
             getLineWidth: 1, pickable: true, autoHighlight: true 
         }));
     }
@@ -424,7 +417,7 @@ function init() {
              
              if (object.properties.fieldid || object.properties.crop_name) {
                  return {
-                    html: `<div style="background:white; padding:8px; border-radius:4px; font-size:12px; box-shadow: 0 4px 8px rgba(0,0,0,0.15); border-left: 4px solid #007ac2;">
+                    html: `<div style="background:white; padding:10px; border-radius:4px; font-size:12px; box-shadow: 0 4px 8px rgba(0,0,0,0.15); border-left: 4px solid #007ac2;">
                            <b style="color:#007ac2;">${object.properties.crop_name || 'Onbekend'}</b><br>
                            <b>ID:</b> ${object.properties.fieldid}<br>
                            <b>Oppervlakte:</b> ${(object.properties.area / 10000).toFixed(2)} ha
