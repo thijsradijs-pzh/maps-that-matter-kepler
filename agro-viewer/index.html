@@ -2,68 +2,79 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>AgroDataCube Viewer</title>
-    <script crossorigin src="https://unpkg.com/react@16.14.0/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@16.14.0/umd/react-dom.production.min.js"></script>
-    
-    <script crossorigin src="https://unpkg.com/react-is/umd/react-is.production.min.js"></script>
-    
-    <script crossorigin src="https://unpkg.com/redux@4.1.2/dist/redux.js"></script>
-    <script crossorigin src="https://unpkg.com/react-redux@7.2.6/dist/react-redux.min.js"></script>
-    <script crossorigin src="https://unpkg.com/styled-components@5.3.3/dist/styled-components.min.js"></script>
-    
-    <script crossorigin src="https://unpkg.com/kepler.gl@2.5.5/dist/kepler-gl.js"></script>
-    
+    <title>AgroDataCube Deck.gl Viewer</title>
+    <script src="https://unpkg.com/deck.gl@latest/dist.min.js"></script>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background: #1a1a1a; }
-        #app { width: 100vw; height: 100vh; }
+        body { margin: 0; padding: 0; overflow: hidden; background: #0b0c0d; }
+        #container { width: 100vw; height: 100vh; }
+        .stats-panel {
+            position: absolute; top: 20px; left: 20px; z-index: 10;
+            background: rgba(11, 12, 13, 0.85); color: #fff; padding: 15px;
+            font-family: -apple-system, sans-serif; border-left: 4px solid #00f2ff;
+            pointer-events: none; backdrop-filter: blur(5px);
+        }
     </style>
 </head>
 <body>
-    <div id="app"></div>
+    <div id="container"></div>
+    <div class="stats-panel">
+        <h3 style="margin:0">AgroDataCube Explorer</h3>
+        <p id="status" style="font-size: 12px; color: #aaa;">Fetching parcels...</p>
+    </div>
+
     <script>
-        // Access globals via window to avoid variable collisions
-        const { createStore, combineReducers, applyMiddleware } = window.Redux;
-        const { Provider, useDispatch } = window.ReactRedux;
-        
-        // Use a distinct name for the component to avoid "KeplerGl is undefined"
-        const KeplerElement = window.keplerGl.KeplerGl; 
-        const { addDataToMap } = window.keplerGl.actions;
-        const { processGeojson } = window.keplerGl.processors;
+        const { DeckGL, GeoJsonLayer } = deck;
 
-        const reducers = combineReducers({ keplerGl: window.keplerGl.keplerGlReducer });
-        const store = createStore(reducers, {}, applyMiddleware(window.keplerGl.taskMiddleware));
+        const INITIAL_VIEW_STATE = {
+            longitude: 5.66,
+            latitude: 51.97, // Centered near Wageningen
+            zoom: 13,
+            pitch: 45,
+            bearing: 0
+        };
 
-        function App() {
-            const dispatch = useDispatch();
+        const deckInstance = new DeckGL({
+            container: 'container',
+            initialViewState: INITIAL_VIEW_STATE,
+            controller: true,
+            layers: []
+        });
 
-            React.useEffect(() => {
-                // Point to your Vercel Proxy
-                fetch('/api/agro-proxy')
-                    .then(res => res.json())
-                    .then(data => {
-                        dispatch(addDataToMap({
-                            datasets: [{
-                                info: { label: 'Agro Parcels', id: 'agro_data' },
-                                data: processGeojson(data)
-                            }],
-                            options: { centerMap: true }
-                        }));
-                    });
-            }, [dispatch]);
+        // 1. Fetching logic that talks to your Vercel Proxy
+        async function updateMap() {
+            try {
+                // Adjust bbox or remove query to use proxy's default
+                const response = await fetch('/api/agro-proxy'); 
+                const data = await response.json();
 
-            return React.createElement(KeplerElement, {
-                id: "agro-map",
-                width: window.innerWidth,
-                height: window.innerHeight,
-                mapboxApiAccessToken: "" 
-            });
+                const layer = new GeoJsonLayer({
+                    id: 'agro-parcels',
+                    data: data,
+                    filled: true,
+                    extruded: true,
+                    getElevation: 5, // Slight 3D lift for visibility
+                    getFillColor: f => {
+                        // Logic for coloring by crop (example)
+                        const code = f.properties.crop_code || 0;
+                        return [30 + (code % 225), 180, 200, 200]; // Cyan-ish aesthetic
+                    },
+                    getLineColor: [0, 242, 255, 255],
+                    getLineWidth: 1,
+                    lineWidthUnits: 'pixels',
+                    pickable: true,
+                    autoHighlight: true,
+                    highlightColor: [255, 255, 255, 100]
+                });
+
+                deckInstance.setProps({ layers: [layer] });
+                document.getElementById('status').innerText = `${data.features.length} parcels loaded`;
+            } catch (err) {
+                document.getElementById('status').innerText = 'Error loading data';
+                console.error(err);
+            }
         }
 
-        ReactDOM.render(
-            React.createElement(Provider, { store: store }, React.createElement(App)),
-            document.getElementById('app')
-        );
+        updateMap();
     </script>
 </body>
 </html>
