@@ -282,6 +282,8 @@ function createSelectionPoly(p1, p2) {
     };
 }
 
+// In agro-viewer/app.js
+
 async function fetchAgroData(token) {
     if (!selectionPoly) return;
 
@@ -289,15 +291,26 @@ async function fetchAgroData(token) {
     const year = document.getElementById('agro-year').value;
     const statusDiv = document.getElementById('agro-status');
     
-    // EPSG transformation (Rough approx to RD New for AgroDataCube if needed, but lets try 4326 first)
-    // Actually, AgroDataCube usually accepts geometry in 4326 if specified.
-    const bboxStr = selectionPoly.properties.bboxString;
-    
-    statusDiv.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Bezig met ophalen bij WUR...';
+    // 1. Convert BBOX to WKT (Well Known Text) Polygon
+    // format: POLYGON((minx miny, maxx miny, maxx maxy, minx maxy, minx miny))
+    const coords = selectionPoly.geometry.coordinates[0];
+    const wkt = `POLYGON((${coords.map(p => p.join(' ')).join(',')}))`;
+
+    statusDiv.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Ophalen bij WUR...';
     
     try {
-        const queryPath = `${endpoint}?year=${year}&page_size=1000&geometry=${bboxStr}&epsg=4326`; 
-        
+        // 2. Construct Query Parameters
+        const params = new URLSearchParams({
+            year: year,
+            page_size: 1000,     // Limit results
+            geometry: wkt,       // WKT Geometry
+            epsg: 4326,          // Input Geometry is WGS84
+            output_epsg: 4326    // OUTPUT MUST BE WGS84 (for DeckGL)
+        });
+
+        // 3. Construct Proxy URL
+        // We use the 'endpoint' from the dropdown (e.g., "rest/fields")
+        const queryPath = `${endpoint}?${params.toString()}`;
         console.log("Requesting:", queryPath);
         
         const res = await fetch(`/api/agro-proxy?path=${encodeURIComponent(queryPath)}`, {
@@ -306,14 +319,17 @@ async function fetchAgroData(token) {
         
         if(!res.ok) {
             const errTxt = await res.text();
-            throw new Error(`API Error (${res.status}): ${errTxt}`);
+            // Handle specific 404 (Path not found) vs 401 (Unauthorized)
+            if (res.status === 404) throw new Error("Endpoint bestaat niet (404).");
+            if (res.status === 401) throw new Error("Token geweigerd (401).");
+            throw new Error(`API Fout (${res.status}): ${errTxt.substring(0,100)}`);
         }
         
         const data = await res.json();
         
-        if(data.features) {
+        if(data.features && data.features.length > 0) {
             agroData = data.features;
-            statusDiv.innerHTML = `✅ <b>Succes!</b> ${agroData.length} objecten geladen.`;
+            statusDiv.innerHTML = `✅ <b>Succes!</b> ${agroData.length} percelen geladen.`;
         } else {
              statusDiv.innerHTML = `⚠️ Geen data gevonden in dit gebied.`;
              agroData = [];
@@ -323,7 +339,7 @@ async function fetchAgroData(token) {
 
     } catch (e) {
         console.error(e);
-        statusDiv.innerHTML = `<span style="color:#d9534f;">❌ Fout: ${e.message.substring(0, 100)}</span>`;
+        statusDiv.innerHTML = `<span style="color:#d9534f;">❌ ${e.message}</span>`;
     }
 }
 
