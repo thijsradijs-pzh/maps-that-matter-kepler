@@ -19,16 +19,25 @@
     }
   ],
   "rewrites": [
+    { 
+      "source": "/agro-viewer", 
+      "destination": "/agro-viewer/index.html" 
+    },
+    { 
+      "source": "/api/agro-proxy", 
+      "destination": "/api/agro-proxy.js" 
+    },
+    { 
+      "source": "/api/proxy", 
+      "destination": "/api/proxy.js" 
+    },
+    { 
+      "source": "/api/search-ngr", 
+      "destination": "/api/search-ngr.js" 
+    },
     {
       "source": "/",
       "destination": "/population-3d/index.html"
-    },
-    { 
-    "source": "/",
-    "destination": "/agro-viewer/index.html" 
-    },
-    { 
-    "source": "/", 
-    "destination": "/api/agro-proxy.js" }
+    }
   ]
 }

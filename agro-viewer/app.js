@@ -14,17 +14,16 @@ const PRESETS = {
     'pzh': {
         id: 'pzh-nnn',
         title: 'Natuurnetwerk Nederland',
-        // PZH Geo Services WMS
-        url: 'https://geoservices.zuid-holland.nl/arcgis/services/PGR/PGR_Natuur/MapServer/WMSServer',
-        layer: 'Natuurnetwerk Nederland (NNN)', // Exact Layer Name
+        // Use PDOK (National standard, faster, no weird characters in layer name)
+        url: 'https://service.pdok.nl/provincies/natuurnetwerk-nederland/wms/v1_0',
+        layer: 'NatuurnetwerkNederland', 
         version: '1.3.0'
     },
     'ahn': {
         id: 'ahn-4',
-        title: 'AHN4 Maaiveld',
-        // PDOK WMS
+        title: 'AHN4 Maaiveld (Hoogte)',
         url: 'https://service.pdok.nl/rws/ahn/wms/v1_0',
-        layer: 'dtm_05m', // 0.5m Digital Terrain Model
+        layer: 'dtm_05m',
         version: '1.3.0'
     }
 };
