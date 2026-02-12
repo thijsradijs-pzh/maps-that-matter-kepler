@@ -1,38 +1,22 @@
 // api/search-ngr.js
 export default async function handler(req, res) {
   const { q } = req.query;
+  if (!q) return res.status(400).send('Query "q" required');
 
-  if (!q) {
-    return res.status(400).send('Query parameter "q" is required');
-  }
-
-  // NGR CSW Endpoint
   const cswUrl = 'https://nationaalgeoregister.nl/geonetwork/srv/dut/csw';
 
-  // Construct the XML Query
+  // We build the XML on the server to keep the frontend simple
   const body = `<?xml version="1.0" encoding="UTF-8"?>
-<csw:GetRecords xmlns:csw="http://www.opengis.net/cat/csw/2.0.2" 
-                xmlns:ogc="http://www.opengis.net/ogc" 
-                service="CSW" 
-                version="2.0.2" 
-                resultType="results" 
-                startPosition="1" 
-                maxRecords="15" 
-                outputFormat="application/xml" 
-                outputSchema="http://www.opengis.net/cat/csw/2.0.2">
+<csw:GetRecords xmlns:csw="http://www.opengis.net/cat/csw/2.0.2" xmlns:ogc="http://www.opengis.net/ogc" service="CSW" version="2.0.2" resultType="results" maxRecords="20">
   <csw:Query typeNames="csw:Record">
     <csw:ElementSetName>full</csw:ElementSetName>
     <csw:Constraint version="1.1.0">
       <ogc:Filter>
         <ogc:And>
           <ogc:PropertyIsLike wildCard="%" singleChar="_" escapeChar="\\">
-            <ogc:PropertyName>AnyText</ogc:PropertyName>
-            <ogc:Literal>%${q}%</ogc:Literal>
+            <ogc:PropertyName>AnyText</ogc:PropertyName><ogc:Literal>%${q}%</ogc:Literal>
           </ogc:PropertyIsLike>
-          <ogc:PropertyIsEqualTo>
-            <ogc:PropertyName>type</ogc:PropertyName>
-            <ogc:Literal>service</ogc:Literal>
-          </ogc:PropertyIsEqualTo>
+          <ogc:PropertyIsEqualTo><ogc:PropertyName>type</ogc:PropertyName><ogc:Literal>service</ogc:Literal></ogc:PropertyIsEqualTo>
         </ogc:And>
       </ogc:Filter>
     </csw:Constraint>
@@ -42,18 +26,16 @@ export default async function handler(req, res) {
   try {
     const response = await fetch(cswUrl, {
       method: 'POST',
-      headers: {
+      headers: { 
         'Content-Type': 'application/xml',
-        'User-Agent': 'MapsThatMatter/1.0' // NGR blocks requests without User-Agent
+        'User-Agent': 'MapsThatMatter/1.0' 
       },
       body: body
     });
-
     const xml = await response.text();
     res.setHeader('Content-Type', 'text/xml');
     res.status(200).send(xml);
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    res.status(500).send(err.message);
   }
 }

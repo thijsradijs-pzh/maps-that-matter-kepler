@@ -74,30 +74,29 @@ function initSearch() {
     function displayResults(records) {
         resultsContainer.innerHTML = '';
         if(records.length === 0) {
-            resultsContainer.innerHTML = '<div style="padding:10px;">Geen resultaten.</div>';
+            resultsContainer.innerHTML = '<div style="padding:10px;">Geen resultaten gevonden voor deze term.</div>';
             return;
         }
 
         records.forEach(rec => {
-            const title = rec.getElementsByTagNameNS("*", "title")[0]?.textContent || "Naamloos";
-            const abstract = rec.getElementsByTagNameNS("*", "abstract")[0]?.textContent || "";
-            // Find WMS URL
+            // NGR usually uses 'dc:title' or 'title'
+            const title = rec.querySelector('title')?.textContent || "Naamloos";
+            const abstract = rec.querySelector('abstract')?.textContent || "";
+            
+            // Look for WMS Link
             let url = "";
-            const uriNodes = rec.getElementsByTagNameNS("*", "URI");
-            for(let i=0; i<uriNodes.length; i++) {
-                if(uriNodes[i].getAttribute('protocol')?.includes('OGC:WMS')) {
-                    url = uriNodes[i].textContent;
+            const references = Array.from(rec.getElementsByTagNameNS("*", "references"));
+            for(let ref of references) {
+                if(ref.textContent.toLowerCase().includes('wms')) {
+                    url = ref.textContent.split('?')[0];
                     break;
                 }
             }
 
             if(url) {
                 const div = document.createElement('div');
-                div.className = 'result-item'; // Uses style.css
-                div.innerHTML = `
-                    <div style="font-weight:bold; color:#007ac2; margin-bottom:2px;">${title}</div>
-                    <div style="font-size:10px; color:#666;">${abstract.substring(0,60)}...</div>
-                `;
+                div.className = 'result-item';
+                div.innerHTML = `<b>${title}</b><br><small>${abstract.substring(0,60)}...</small>`;
                 div.onclick = () => addWmsLayer(title, url);
                 resultsContainer.appendChild(div);
             }
@@ -276,31 +275,25 @@ function renderLayers() {
         }
     }
 
-// 2. NSO SATELLITE (Inside renderLayers)
+    // 2. NSO SATELLITE (Inside renderLayers)
     if (nsoActive && nsoCreds) {
         const layerName = document.getElementById('nso-layer-select').value;
         const authString = btoa(nsoCreds);
         
-        // Use the generic WMTS endpoint which is often more robust
-        // Endpoint: https://wmts.satellietdataportaal.nl/wmts/{layer}/service
         const baseUrl = `https://wmts.satellietdataportaal.nl/wmts/${layerName}/service`;
         
-        const wmtsParams = new URLSearchParams({
-            SERVICE: 'WMTS',
-            REQUEST: 'GetTile',
-            VERSION: '1.0.0',
-            LAYER: layerName,
-            STYLE: 'default',
-            TILEMATRIXSET: 'EPSG:3857', // Ensure this matches NSO capabilities
-            TILEMATRIX: '{z}',
-            TILEROW: '{y}',
-            TILECOL: '{x}',
-            FORMAT: 'image/png'
-        });
+        // We manually build the query string to ensure {z}{x}{y} remain unencoded
+        const wmtsParams = [
+            `SERVICE=WMTS`, `REQUEST=GetTile`, `VERSION=1.0.0`,
+            `LAYER=${layerName}`, `STYLE=default`,
+            `TILEMATRIXSET=EPSG:3857`,
+            `TILEMATRIX={z}`, `TILEROW={y}`, `TILECOL={x}`,
+            `FORMAT=image/png`
+        ].join('&');
 
-        // We decodeURIComponent the params to keep them clean in the proxy URL
-        const targetUrl = `${baseUrl}?${wmtsParams.toString()}`;
-        const proxyUrl = `https://maps.mapsthatmatter.io/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+        const targetUrl = `${baseUrl}?${wmtsParams}`;
+        const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl).replace(/%7Bz%7D/g, '{z}').replace(/%7Bx%7D/g, '{x}').replace(/%7By%7D/g, '{y}')}`;
+
         layers.push(new deck.TileLayer({
             id: 'nso-sat-layer',
             data: proxyUrl,
