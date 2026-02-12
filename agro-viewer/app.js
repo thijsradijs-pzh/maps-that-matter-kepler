@@ -16,8 +16,10 @@ let nsoActive = false;
 window.switchTab = function(t) {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     document.querySelectorAll('.sidebar-content').forEach(x => x.classList.remove('active'));
+    
     const tabMap = { 'data': 0, 'nso': 1, 'layers': 2 };
     const contentMap = { 'data': 'data-content', 'nso': 'nso-content', 'layers': 'layer-content' };
+    
     if(document.querySelectorAll('.tab')[tabMap[t]]) document.querySelectorAll('.tab')[tabMap[t]].classList.add('active');
     if(document.getElementById(contentMap[t])) document.getElementById(contentMap[t]).classList.add('active');
 };
@@ -32,15 +34,16 @@ window.toggleBasemap = function() {
 window.zoomIn = function() { deckInstance.setProps({ initialViewState: { ...currentViewState, zoom: currentViewState.zoom + 1 } }); };
 window.zoomOut = function() { deckInstance.setProps({ initialViewState: { ...currentViewState, zoom: currentViewState.zoom - 1 } }); };
 window.resetView = function() { deckInstance.setProps({ initialViewState: VIZ_CONFIG.initialView }); };
+
 window.closeModal = function() { document.getElementById('key-modal').style.display = 'none'; };
 window.openModal = function() { document.getElementById('key-modal').style.display = 'flex'; };
 
-// --- RESTORED NGR SEARCH LOGIC ---
+// --- NGR SEARCH LOGIC (RESTORED TO POST VERSION) ---
 
-// --- RESTORED NGR SEARCH LOGIC ---
 function initSearch() {
     const input = document.getElementById('layer-search');
     const resultsContainer = document.getElementById('search-results');
+    
     if(!input) return;
 
     let debounceTimer;
@@ -53,7 +56,7 @@ function initSearch() {
         if (term.length < 3) { resultsContainer.innerHTML = ''; return; }
         resultsContainer.innerHTML = '<div style="padding:10px; color:#888;">Zoeken in NGR...</div>';
         
-        // Exact XML format used in MCA
+        // MCA Style XML request
         const xmlRequest = `<?xml version="1.0" encoding="UTF-8"?>
 <csw:GetRecords xmlns:csw="http://www.opengis.net/cat/csw/2.0.2" xmlns:ogc="http://www.opengis.net/ogc" service="CSW" version="2.0.2" resultType="results" startPosition="1" maxRecords="20">
     <csw:Query typeNames="csw:Record">
@@ -61,8 +64,8 @@ function initSearch() {
         <csw:Constraint version="1.1.0">
             <ogc:Filter>
                 <ogc:Or>
-                    <ogc:PropertyIsLike wildCard="%" singleChar="_" escapeChar="\\"><ogc:PropertyName>title</ogc:PropertyName><ogc:Literal>%${term}%</ogc:Literal></ogc:PropertyIsLike>
-                    <ogc:PropertyIsLike wildCard="%" singleChar="_" escapeChar="\\"><ogc:PropertyName>abstract</ogc:PropertyName><ogc:Literal>%${term}%</ogc:Literal></ogc:PropertyIsLike>
+                    <ogc:PropertyIsLike wildCard="%" singleChar="_" escapeChar="\\\\"><ogc:PropertyName>title</ogc:PropertyName><ogc:Literal>%${term}%</ogc:Literal></ogc:PropertyIsLike>
+                    <ogc:PropertyIsLike wildCard="%" singleChar="_" escapeChar="\\\\"><ogc:PropertyName>abstract</ogc:PropertyName><ogc:Literal>%${term}%</ogc:Literal></ogc:PropertyIsLike>
                 </ogc:Or>
             </ogc:Filter>
         </csw:Constraint>
@@ -70,12 +73,12 @@ function initSearch() {
 </csw:GetRecords>`;
 
         try {
-            const res = await fetch('/api/search-ngr', {
+            const response = await fetch('/api/search-ngr', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/xml' },
                 body: xmlRequest
             });
-            const text = await res.text();
+            const text = await response.text();
             
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(text, "text/xml");
@@ -89,11 +92,15 @@ function initSearch() {
 
     function displayResults(records) {
         resultsContainer.innerHTML = '';
+        if(records.length === 0) {
+            resultsContainer.innerHTML = '<div style="padding:10px;">Geen resultaten.</div>';
+            return;
+        }
+
         records.forEach(rec => {
             const title = rec.getElementsByTagNameNS("*", "title")[0]?.textContent || "Naamloos";
             const abstract = rec.getElementsByTagNameNS("*", "abstract")[0]?.textContent || "";
             
-            // Find the WMS link
             let url = "";
             const uriNodes = rec.getElementsByTagNameNS("*", "URI");
             for(let i=0; i<uriNodes.length; i++) {
@@ -106,7 +113,10 @@ function initSearch() {
             if(url) {
                 const div = document.createElement('div');
                 div.className = 'result-item';
-                div.innerHTML = `<b>${title}</b><br><small>${abstract.substring(0,60)}...</small>`;
+                div.innerHTML = `
+                    <div style="font-weight:bold; color:#007ac2; margin-bottom:2px;">${title}</div>
+                    <div style="font-size:10px; color:#666;">${abstract.substring(0,60)}...</div>
+                `;
                 div.onclick = () => addWmsLayer(title, url);
                 resultsContainer.appendChild(div);
             }
@@ -115,7 +125,13 @@ function initSearch() {
 }
 
 async function addWmsLayer(title, url) {
-    activeWmsLayers.push({ id: Date.now(), title: title, url: url, layer: '0', version: '1.3.0' });
+    activeWmsLayers.push({
+        id: Date.now(),
+        title: title,
+        url: url,
+        layer: '0', 
+        version: '1.3.0'
+    });
     updateActiveLayersUI();
     renderLayers();
 }
@@ -124,16 +140,22 @@ function updateActiveLayersUI() {
     const list = document.getElementById('wms-list-content');
     const container = document.getElementById('active-wms-layers');
     if(!list) return;
+    
     list.innerHTML = '';
     if (activeWmsLayers.length > 0) {
         container.style.display = 'block';
         activeWmsLayers.forEach(l => {
             const div = document.createElement('div');
-            div.style.padding = '5px'; div.style.borderBottom = '1px solid #eee'; div.style.display = 'flex'; div.style.justifyContent = 'space-between';
+            div.style.padding = '5px';
+            div.style.borderBottom = '1px solid #eee';
+            div.style.display = 'flex';
+            div.style.justifyContent = 'space-between';
             div.innerHTML = `<span>${l.title}</span> <i class="fa fa-trash" style="cursor:pointer; color:red;" onclick="window.removeLayer('${l.id}')"></i>`;
             list.appendChild(div);
         });
-    } else { container.style.display = 'none'; }
+    } else {
+        container.style.display = 'none';
+    }
 }
 
 window.removeLayer = function(id) {
@@ -145,8 +167,11 @@ window.removeLayer = function(id) {
 // --- AGRO & DRAWING LOGIC ---
 
 window.fetchAgroDataTrigger = function() {
-    if(!selectionPoly) window.startDrawMode();
-    else askForAgroToken();
+    if(!selectionPoly) {
+        window.startDrawMode();
+    } else {
+        askForAgroToken();
+    }
 };
 
 window.startDrawMode = function() {
@@ -154,17 +179,23 @@ window.startDrawMode = function() {
     drawState.start = null; selectionPoly = null;
     deckInstance.setProps({ controller: { dragPan: false } });
     document.getElementById('container').style.cursor = 'crosshair';
-    document.getElementById('agro-status').innerHTML = '<b>Teken Modus:</b> Klik start, beweeg, klik stop.';
+    document.getElementById('agro-status').innerHTML = '<b><i class="fa fa-pen"></i> Teken Modus:</b> Klik start, beweeg, klik stop.';
     renderLayers();
 };
 
 function onMapClick(info) {
     if (!info.coordinate || !drawState.active) return;
     const [lon, lat] = info.coordinate;
+
     if (!drawState.start) {
-        drawState.start = [lon, lat]; drawState.end = [lon, lat]; renderLayers(); return;
+        drawState.start = [lon, lat];
+        drawState.end = [lon, lat];
+        renderLayers();
+        return;
     }
-    drawState.end = [lon, lat]; drawState.active = false;
+
+    drawState.end = [lon, lat];
+    drawState.active = false;
     deckInstance.setProps({ controller: true });
     document.getElementById('container').style.cursor = 'default';
     createSelectionPoly(drawState.start, drawState.end);
@@ -173,18 +204,33 @@ function onMapClick(info) {
     renderLayers();
 }
 
-function onMapHover(info) { if (drawState.active && drawState.start && info.coordinate) { drawState.end = info.coordinate; renderLayers(); } }
+function onMapHover(info) {
+    if (drawState.active && drawState.start && info.coordinate) {
+        drawState.end = info.coordinate;
+        renderLayers();
+    }
+}
 
 function createSelectionPoly(p1, p2) {
     const minLon = Math.min(p1[0], p2[0]), maxLon = Math.max(p1[0], p2[0]);
     const minLat = Math.min(p1[1], p2[1]), maxLat = Math.max(p1[1], p2[1]);
-    selectionPoly = { type: 'Feature', geometry: { type: 'Polygon', coordinates: [[[minLon, minLat],[maxLon, minLat],[maxLon, maxLat],[minLon, maxLat],[minLon, minLat]]] } };
+    selectionPoly = {
+        type: 'Feature', geometry: { type: 'Polygon', coordinates: [[[minLon, minLat],[maxLon, minLat],[maxLon, maxLat],[minLon, maxLat],[minLon, minLat]]] }
+    };
 }
 
 // --- MODALS ---
 
-function askForAgroToken() { setupModal('AgroDataCube Token', 'WUR API Token vereist.', 'Token...', 'password', (val) => fetchAgroData(val)); }
-function askForNSOCreds() { setupModal('NSO Login', '<code>gebruiker:wachtwoord</code>', 'user:pass', 'text', (val) => { nsoCreds = val; window.closeModal(); renderLayers(); }); }
+function askForAgroToken() {
+    setupModal('AgroDataCube Token', 'Voer je <b>WUR API Token</b> in.', 'Token...', 'password', (val) => { fetchAgroData(val); });
+}
+
+function askForNSOCreds() {
+    setupModal('NSO Login', '<code>gebruiker:wachtwoord</code>', 'user:pass', 'text', (val) => {
+        nsoCreds = val; window.closeModal(); renderLayers();
+    });
+}
+
 function setupModal(title, desc, place, type, cb) {
     document.getElementById('modal-title').innerText = title;
     document.getElementById('modal-desc').innerHTML = desc;
@@ -194,7 +240,7 @@ function setupModal(title, desc, place, type, cb) {
     window.openModal();
 }
 
-// --- DATA FETCHING ---
+// --- DATA FETCHING (FIXED 'res' ERROR) ---
 
 async function fetchAgroData(token) {
     const endpoint = document.getElementById('agro-endpoint').value;
@@ -202,30 +248,57 @@ async function fetchAgroData(token) {
     const statusDiv = document.getElementById('agro-status');
     const coords = selectionPoly.geometry.coordinates[0];
     const wkt = `POLYGON((${coords.map(p => p.join(' ')).join(',')}))`;
-    const data = await res.json();
-    statusDiv.innerHTML = 'Ophalen...'; window.closeModal();
-    if(data.features && data.features.length > 0) {
-        agroData = data.features;
+    
+    statusDiv.innerHTML = 'Ophalen...';
+    window.closeModal();
+    
+    try {
+        const params = new URLSearchParams({ 
+            year: year, 
+            page_size: 1000, 
+            geometry: wkt, 
+            epsg: 4326, 
+            output_epsg: 4326 
+        });
+
+        const queryPath = `${endpoint}?${params.toString()}`;
+        const response = await fetch(`/api/agro-proxy?path=${encodeURIComponent(queryPath)}`, { 
+            headers: { 'x-agro-token': token } 
+        });
+
+        if(!response.ok) {
+            const errTxt = await response.text();
+            throw new Error(`API Fout (${response.status}): ${errTxt.substring(0,100)}`);
+        }
+
+        const data = await response.json();
+        agroData = data.features || [];
         
-        // Restore: Show detailed crop summary in status
-        const crops = [...new Set(agroData.map(f => f.properties.crop_name || 'Onbekend'))];
-        statusDiv.innerHTML = `✅ <b>${agroData.length} percelen</b> geladen.<br>
-                               <small>Gewassen: ${crops.join(', ')}</small>`;
-    } else {
-        statusDiv.innerHTML = `⚠️ Geen data gevonden in dit gebied.`;
-        agroData = [];
+        // Verrijkte status informatie
+        const uniqueCrops = [...new Set(agroData.map(f => f.properties.crop_name || 'Onbekend'))];
+        statusDiv.innerHTML = `✅ ${agroData.length} objecten geladen.<br><small>Gewassen: ${uniqueCrops.slice(0,3).join(', ')}${uniqueCrops.length > 3 ? '...' : ''}</small>`;
+        
+        renderLayers();
+    } catch (e) {
+        console.error(e);
+        statusDiv.innerHTML = `❌ Fout: ${e.message}`;
     }
-    renderLayers();
 }
 
 // --- NSO LOGIC ---
 
 window.toggleNSO = function() {
     nsoActive = document.getElementById('toggle-nso').checked;
-    if (nsoActive && !nsoCreds) askForNSOCreds();
-    else renderLayers();
+    if (nsoActive && !nsoCreds) {
+        askForNSOCreds();
+    } else {
+        renderLayers();
+    }
 };
-window.updateNSOLayer = function() { if (nsoActive) renderLayers(); };
+
+window.updateNSOLayer = function() {
+    if (nsoActive) renderLayers();
+};
 
 // --- RENDER ---
 
@@ -236,29 +309,40 @@ function renderLayers() {
     if (!nsoActive) {
         if (isSatellite) {
             layers.push(new deck.TileLayer({
-                id: 'basemap-sat', data: 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_ortho25/EPSG:3857/{z}/{x}/{y}.jpeg',
+                id: 'basemap-sat',
+                data: 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_ortho25/EPSG:3857/{z}/{x}/{y}.jpeg',
                 minZoom: 0, maxZoom: 19, tileSize: 256,
                 renderSubLayers: props => {
                     const {bbox: {west, south, east, north}} = props.tile;
                     return new deck.BitmapLayer(props, { data: null, image: props.data, bounds: [west, south, east, north] });
                 }
             }));
-        } else { layers.push(DeckGLUtils.createBasemap(VIZ_CONFIG.basemap)); }
+        } else {
+            layers.push(DeckGLUtils.createBasemap(VIZ_CONFIG.basemap));
+        }
     }
 
-    // 2. NSO Satellite (Fixed URL with unencoded {z}{x}{y})
+    // 2. NSO Satellite
     if (nsoActive && nsoCreds) {
         const layerName = document.getElementById('nso-layer-select').value;
         const authString = btoa(nsoCreds);
         const baseUrl = `https://wmts.satellietdataportaal.nl/wmts/${layerName}/service`;
-        const wmtsParams = [`SERVICE=WMTS`, `REQUEST=GetTile`, `VERSION=1.0.0`, `LAYER=${layerName}`, `STYLE=default`, `TILEMATRIXSET=EPSG:3857`, `TILEMATRIX={z}`, `TILEROW={y}`, `TILECOL={x}`, `FORMAT=image/png`].join('&');
         
-        // CRITICAL: We encode the URL but then restore {z}, {x}, and {y} so DeckGL can replace them.
+        const wmtsParams = [
+            `SERVICE=WMTS`, `REQUEST=GetTile`, `VERSION=1.0.0`,
+            `LAYER=${layerName}`, `STYLE=default`,
+            `TILEMATRIXSET=EPSG:3857`,
+            `TILEMATRIX={z}`, `TILEROW={y}`, `TILECOL={x}`,
+            `FORMAT=image/png`
+        ].join('&');
+
         const targetUrl = `${baseUrl}?${wmtsParams}`;
         const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl).replace(/%7Bz%7D/g, '{z}').replace(/%7Bx%7D/g, '{x}').replace(/%7By%7D/g, '{y}')}`;
 
         layers.push(new deck.TileLayer({
-            id: 'nso-sat-layer', data: proxyUrl, minZoom: 0, maxZoom: 19, tileSize: 256,
+            id: 'nso-sat-layer',
+            data: proxyUrl,
+            minZoom: 0, maxZoom: 19, tileSize: 256,
             getTileData: async ({url}) => {
                 const response = await fetch(url, { headers: { 'x-proxy-auth': `Basic ${authString}` } });
                 if (!response.ok) return null;
@@ -271,39 +355,63 @@ function renderLayers() {
         }));
     }
 
-    // 3. Drawing, Agro, WMS
+    // 3. Drawing & Selection
     if (drawState.active && drawState.start && drawState.end) {
         const poly = { type: 'Feature', geometry: { type: 'Polygon', coordinates: [[[drawState.start[0], drawState.start[1]], [drawState.end[0], drawState.start[1]], [drawState.end[0], drawState.end[1]], [drawState.start[0], drawState.end[1]], [drawState.start[0], drawState.start[1]]]] } };
-        layers.push(new deck.GeoJsonLayer({ id: 'drawing', data: [poly], filled: true, stroked: true, getFillColor: [0, 122, 194, 50], getLineColor: [0, 122, 194, 255], getLineWidth: 2, getLineDashArray: [4,2], extensions: [new deck.PathStyleExtension({dash:true})] }));
+        layers.push(new deck.GeoJsonLayer({ 
+            id: 'drawing', data: [poly], filled: true, stroked: true, 
+            getFillColor: [0, 122, 194, 50], getLineColor: [0, 122, 194, 255], 
+            getLineWidth: 2, getLineDashArray: [4,2], 
+            extensions: [new deck.PathStyleExtension({dash:true})] 
+        }));
     }
-    if (selectionPoly && !drawState.active) layers.push(new deck.GeoJsonLayer({ id: 'selection', data: [selectionPoly], filled: false, stroked: true, getLineColor: [0, 122, 194, 255], getLineWidth: 2 }));
-    if (agroData.length > 0) layers.push(new deck.GeoJsonLayer({ id: 'agro-data', data: agroData, filled: true, stroked: true, getFillColor: [0, 255, 100, 100], getLineColor: [255, 255, 255, 200], getLineWidth: 1, pickable: true, autoHighlight: true }));
-    activeWmsLayers.forEach(l => { if (typeof createWMSLayer === 'function') layers.push(createWMSLayer(l)); });
+    
+    if (selectionPoly && !drawState.active) {
+        layers.push(new deck.GeoJsonLayer({ id: 'selection', data: [selectionPoly], filled: false, stroked: true, getLineColor: [0, 122, 194, 255], getLineWidth: 2 }));
+    }
+
+    // 4. Agro Data (With Tooltip Info)
+    if (agroData.length > 0) {
+        layers.push(new deck.GeoJsonLayer({ 
+            id: 'agro-data', data: agroData, filled: true, stroked: true, 
+            getFillColor: [0, 255, 100, 100], getLineColor: [255, 255, 255, 200], 
+            getLineWidth: 1, pickable: true, autoHighlight: true 
+        }));
+    }
+
+    // 5. Active WMS Layers
+    activeWmsLayers.forEach(l => {
+        if (typeof createWMSLayer === 'function') layers.push(createWMSLayer(l));
+    });
 
     deckInstance.setProps({ layers: layers });
 }
 
 function init() {
     deckInstance = new deck.DeckGL({
-        container: 'container', initialViewState: VIZ_CONFIG.initialView, controller: true, onClick: onMapClick, onHover: onMapHover,
+        container: 'container',
+        initialViewState: VIZ_CONFIG.initialView,
+        controller: true,
+        onClick: onMapClick,
+        onHover: onMapHover,
         onViewStateChange: ({viewState}) => { currentViewState = viewState; return viewState; },
         getTooltip: ({object}) => {
-            if (!object || !object.properties) return null;
-            
-            // Check if it is an AgroDataCube feature
-            if (object.properties.fieldid || object.properties.crop_name) {
-                return {
-                    html: `<div style="background:white; padding:10px; border-radius:4px; box-shadow:0 2px 8px rgba(0,0,0,0.15); font-size:12px;">
-                            <b style="color:#007ac2;">Gewasperceel</b><br>
-                            <b>ID:</b> ${object.properties.fieldid}<br>
-                            <b>Gewas:</b> ${object.properties.crop_name}<br>
-                            <b>Oppervlakte:</b> ${(object.properties.area / 10000).toFixed(2)} ha
-                        </div>`
-                };
-            }
-            return null;
+             if (!object || !object.properties) return null;
+             // Check of het een Agro-veld is
+             if (object.properties.fieldid || object.properties.crop_name) {
+                 return {
+                    html: `<div style="background:white; padding:8px; border-radius:4px; font-size:12px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                           <b style="color:#007ac2;">Gewasperceel</b><br>
+                           <b>ID:</b> ${object.properties.fieldid}<br>
+                           <b>Gewas:</b> ${object.properties.crop_name || 'Onbekend'}
+                           </div>`
+                 };
+             }
+             return null;
         }
     });
-    initSearch(); renderLayers();
+    initSearch();
+    renderLayers();
 }
+
 init();
