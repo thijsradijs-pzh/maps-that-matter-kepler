@@ -9,7 +9,25 @@ let drawState = { active: false, start: null, end: null };
 let currentViewState = VIZ_CONFIG.initialView;
 let isSatellite = false;
 let userToken = '';
-
+// --- PRESET LAYERS CONFIG ---
+const PRESETS = {
+    'pzh': {
+        id: 'pzh-nnn',
+        title: 'Natuurnetwerk Nederland',
+        // PZH Geo Services WMS
+        url: 'https://geoservices.zuid-holland.nl/arcgis/services/PGR/PGR_Natuur/MapServer/WMSServer',
+        layer: 'Natuurnetwerk Nederland (NNN)', // Exact Layer Name
+        version: '1.3.0'
+    },
+    'ahn': {
+        id: 'ahn-4',
+        title: 'AHN4 Maaiveld',
+        // PDOK WMS
+        url: 'https://service.pdok.nl/rws/ahn/wms/v1_0',
+        layer: 'dtm_05m', // 0.5m Digital Terrain Model
+        version: '1.3.0'
+    }
+};
 // --- HELPER: DEBOUNCE ---
 function debounce(func, wait) {
     let timeout;
@@ -75,6 +93,32 @@ window.startDrawMode = function() {
     deckInstance.setProps({ controller: { dragPan: false } });
     document.getElementById('container').style.cursor = 'crosshair';
     document.getElementById('agro-status').innerHTML = '<b><i class="fa fa-pen"></i> Teken Modus:</b> Klik 1x om te starten, beweeg muis, klik nogmaals om te stoppen.';
+    renderLayers();
+};
+
+window.togglePreset = function(key) {
+    const checkbox = document.getElementById(`toggle-${key}`);
+    const config = PRESETS[key];
+    
+    if (checkbox.checked) {
+        // Add to activeWmsLayers if not present
+        if (!activeWmsLayers.find(l => l.id === config.id)) {
+            activeWmsLayers.push({
+                id: config.id,
+                title: config.title,
+                url: config.url,
+                layer: config.layer,
+                version: config.version
+            });
+        }
+    } else {
+        // Remove
+        activeWmsLayers = activeWmsLayers.filter(l => l.id !== config.id);
+    }
+    
+    // Update the "Active Layers" list in the other tab just in case
+    if(typeof updateActiveLayersUI === 'function') updateActiveLayersUI();
+    
     renderLayers();
 };
 
