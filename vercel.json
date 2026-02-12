@@ -22,6 +22,8 @@
     {
       "source": "/",
       "destination": "/population-3d/index.html"
-    }
+    },
+    { "source": "/agro-viewer", "destination": "/agro-viewer/index.html" },
+    { "source": "/api/agro-proxy", "destination": "/api/agro-proxy.js" }
   ]
 }
