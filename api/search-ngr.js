@@ -2,15 +2,14 @@
 export default async function handler(req, res) {
   const { q } = req.query;
 
-  // 1. Validate Input
   if (!q) {
-    return res.status(400).json({ error: 'Query parameter "q" is required' });
+    return res.status(400).send('Query parameter "q" is required');
   }
 
-  // 2. Define NGR Endpoint
+  // NGR CSW Endpoint
   const cswUrl = 'https://nationaalgeoregister.nl/geonetwork/srv/dut/csw';
 
-  // 3. Construct CSW XML Query (Standard 2.0.2)
+  // Construct the XML Query
   const body = `<?xml version="1.0" encoding="UTF-8"?>
 <csw:GetRecords xmlns:csw="http://www.opengis.net/cat/csw/2.0.2" 
                 xmlns:ogc="http://www.opengis.net/ogc" 
@@ -18,7 +17,7 @@ export default async function handler(req, res) {
                 version="2.0.2" 
                 resultType="results" 
                 startPosition="1" 
-                maxRecords="20" 
+                maxRecords="15" 
                 outputFormat="application/xml" 
                 outputSchema="http://www.opengis.net/cat/csw/2.0.2">
   <csw:Query typeNames="csw:Record">
@@ -41,32 +40,20 @@ export default async function handler(req, res) {
 </csw:GetRecords>`;
 
   try {
-    console.log(`Searching NGR for: ${q}`); // Debug Log
-
     const response = await fetch(cswUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/xml',
-        'User-Agent': 'AgroViewer/1.0 (MapsThatMatter)', // REQUIRED by NGR
-        'Accept': 'application/xml'
+        'User-Agent': 'MapsThatMatter/1.0' // NGR blocks requests without User-Agent
       },
       body: body
     });
 
-    // 4. Handle Upstream Errors
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('NGR Upstream Error:', response.status, errorText);
-      return res.status(response.status).send(errorText);
-    }
-
-    // 5. Return XML
-    const xmlText = await response.text();
+    const xml = await response.text();
     res.setHeader('Content-Type', 'text/xml');
-    res.status(200).send(xmlText);
+    res.status(200).send(xml);
 
   } catch (error) {
-    console.error('NGR Search Script Error:', error);
-    res.status(500).json({ error: 'Internal Server Error: ' + error.message });
+    res.status(500).json({ error: error.message });
   }
 }
