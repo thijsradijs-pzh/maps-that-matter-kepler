@@ -4,108 +4,192 @@
 let deckInstance;
 let activeWmsLayers = [];
 let agroData = []; 
-let selectionPoly = null; // Store the selected BBOX geometry
+let selectionPoly = null; // The finished polygon
+let drawState = {
+    active: false,
+    start: null,    // [lon, lat]
+    end: null       // [lon, lat]
+};
 let currentViewState = VIZ_CONFIG.initialView;
 let isSatellite = false;
-let userToken = '';      // Store token temporarily
+let userToken = '';
 
-// --- UI INTERACTIONS ---
-function closeModal() {
+// --- GLOBAL UTILS (Fixes ReferenceErrors) ---
+window.switchTab = function(t) {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.sidebar-content').forEach(x => x.classList.remove('active'));
+    
+    const tabMap = { 'data': 0, 'layers': 1 };
+    const contentMap = { 'data': 'data-content', 'layers': 'layer-content' };
+    
+    // Fix: Handle cases where tab/content might not exist
+    if(document.querySelectorAll('.tab')[tabMap[t]]) {
+        document.querySelectorAll('.tab')[tabMap[t]].classList.add('active');
+    }
+    if(document.getElementById(contentMap[t])) {
+        document.getElementById(contentMap[t]).classList.add('active');
+    }
+};
+
+window.toggleBasemap = function() {
+    isSatellite = !isSatellite;
+    const btn = document.getElementById('btn-basemap');
+    if(btn) btn.innerText = isSatellite ? "Kaart" : "Satelliet";
+    renderLayers();
+};
+
+window.startDrawMode = function() {
+    drawState.active = true;
+    drawState.start = null;
+    drawState.end = null;
+    selectionPoly = null;
+    
+    // Disable map panning/rotating while drawing
+    deckInstance.setProps({ controller: { dragPan: false } });
+    document.getElementById('container').style.cursor = 'crosshair';
+    
+    // UI Feedback
+    const statusDiv = document.getElementById('agro-status');
+    if(statusDiv) statusDiv.innerHTML = '<b>Teken Modus:</b> Klik op de kaart om te beginnen.';
+    
+    renderLayers();
+};
+
+window.zoomIn = function() { deckInstance.setProps({ initialViewState: { ...currentViewState, zoom: currentViewState.zoom + 1 } }); };
+window.zoomOut = function() { deckInstance.setProps({ initialViewState: { ...currentViewState, zoom: currentViewState.zoom - 1 } }); };
+window.resetView = function() { deckInstance.setProps({ initialViewState: VIZ_CONFIG.initialView }); };
+
+window.closeModal = function() {
     document.getElementById('key-modal').style.display = 'none';
-}
+};
 
-function openModal() {
-    // Pre-fill if we already have it
+window.openModal = function() {
     if(userToken) document.getElementById('user-api-key').value = userToken;
     document.getElementById('key-modal').style.display = 'flex';
-}
+};
 
-async function confirmFetch() {
+window.confirmFetch = async function() {
     const inputKey = document.getElementById('user-api-key').value;
     if (!inputKey) { alert("Vul een API token in."); return; }
-    
     userToken = inputKey;
     closeModal();
-    await fetchAgroData(userToken); // Trigger fetch
+    await fetchAgroData(userToken);
+};
+
+window.fetchAgroDataTrigger = function() {
+    // This function is called by the "Data Ophalen" button
+    if(!selectionPoly) {
+        // Automatically start drawing if no selection
+        window.startDrawMode();
+        return;
+    }
+    window.openModal();
+};
+
+// --- MAP EVENTS ---
+
+function onMapClick(info) {
+    if (!info.coordinate || !drawState.active) return;
+
+    const [lon, lat] = info.coordinate;
+
+    // Step 1: Start Drawing
+    if (!drawState.start) {
+        drawState.start = [lon, lat];
+        drawState.end = [lon, lat]; // Initialize end same as start
+        document.getElementById('agro-status').innerHTML = '<b>Teken Modus:</b> Klik nogmaals om af te ronden.';
+        renderLayers();
+        return;
+    }
+
+    // Step 2: Finish Drawing
+    drawState.end = [lon, lat];
+    drawState.active = false;
+    
+    // Re-enable map controller
+    deckInstance.setProps({ controller: true });
+    document.getElementById('container').style.cursor = 'default';
+
+    // Create the final Polygon Feature
+    createSelectionPoly(drawState.start, drawState.end);
+    
+    document.getElementById('agro-status').innerHTML = '✅ Gebied geselecteerd.';
+    
+    // Automatically open modal
+    setTimeout(window.openModal, 200);
+    renderLayers();
 }
 
-// --- MAP INTERACTION ---
-function onMapClick(info) {
-    if (!info.coordinate) return;
+function onMapHover(info) {
+    // Live update of the rectangle while moving mouse
+    if (drawState.active && drawState.start && info.coordinate) {
+        drawState.end = info.coordinate;
+        renderLayers();
+    }
+}
 
-    // 1. Create a Bounding Box around the click (approx 1km x 1km)
-    // 0.01 degrees lat/lon is roughly 1km
-    const [lon, lat] = info.coordinate;
-    const offset = 0.005; // ~500m radius
-    
-    const bbox = [
-        lon - offset, lat - offset, // minLon, minLat
-        lon + offset, lat + offset  // maxLon, maxLat
-    ];
+function createSelectionPoly(p1, p2) {
+    const minLon = Math.min(p1[0], p2[0]);
+    const maxLon = Math.max(p1[0], p2[0]);
+    const minLat = Math.min(p1[1], p2[1]);
+    const maxLat = Math.max(p1[1], p2[1]);
 
-    // 2. Create Polygon for visualization
     selectionPoly = {
         type: 'Feature',
         geometry: {
             type: 'Polygon',
             coordinates: [[
-                [bbox[0], bbox[1]],
-                [bbox[2], bbox[1]],
-                [bbox[2], bbox[3]],
-                [bbox[0], bbox[3]],
-                [bbox[0], bbox[1]]
+                [minLon, minLat],
+                [maxLon, minLat],
+                [maxLon, maxLat],
+                [minLon, maxLat],
+                [minLon, minLat]
             ]]
         },
-        properties: { bboxString: bbox.join(',') }
+        properties: { 
+            bboxString: `${minLon},${minLat},${maxLon},${maxLat}` 
+        }
     };
-
-    // 3. Update map to show the blue box
-    renderLayers();
-
-    // 4. Open modal to ask for key
-    openModal();
 }
 
-// --- AGRO DATA LOGIC ---
+// --- DATA FETCHING ---
+
 async function fetchAgroData(token) {
-    if (!selectionPoly) { alert("Klik eerst op de kaart om een gebied te selecteren."); return; }
+    if (!selectionPoly) return;
 
     const endpoint = document.getElementById('agro-endpoint').value;
     const year = document.getElementById('agro-year').value;
     const statusDiv = document.getElementById('agro-status');
-    const bboxStr = selectionPoly.properties.bboxString; // minx,miny,maxx,maxy
+    const bboxStr = selectionPoly.properties.bboxString;
     
     statusDiv.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Ophalen...';
     
     try {
-        // Construct path: endpoint + geometry (bbox) + output epsg
-        // Note: AgroDataCube expects 'geometry' param as WKT or bbox. 
-        // For 'fields', it often supports a bbox param or geometry=bbox:...
-        // Let's try standard bbox param if supported, or generic OGC filter.
-        // NOTE: The exact param depends on the specific Agro endpoint. 
-        // Assuming REST API v1 style:
+        // Determine geometry param based on endpoint
+        let geomParam = `geometry=${bboxStr}`;
+        // Some endpoints like 'fields' might prefer just 'bbox' or WKT. 
+        // We stick to the standard bbox string for now.
         
-        const queryPath = `${endpoint}?year=${year}&page_size=1000&geometry=${bboxStr}&epsg=4326`; 
+        const queryPath = `${endpoint}?year=${year}&page_size=1000&${geomParam}&epsg=4326`; 
         
+        console.log("Fetching proxy:", `/api/agro-proxy?path=${encodeURIComponent(queryPath)}`);
+
         const res = await fetch(`/api/agro-proxy?path=${encodeURIComponent(queryPath)}`, {
-            headers: {
-                'x-agro-token': token // Send token in header
-            }
+            headers: { 'x-agro-token': token }
         });
         
         if(!res.ok) {
-            if(res.status === 401) throw new Error("Token ongeldig (401)");
-            if(res.status === 404) throw new Error("Endpoint niet gevonden (404)");
-            throw new Error(`Fout: ${res.status}`);
+            const errTxt = await res.text();
+            throw new Error(`API Error (${res.status}): ${errTxt}`);
         }
         
         const data = await res.json();
         
         if(data.features) {
             agroData = data.features;
-            statusDiv.innerHTML = `✅ ${agroData.length} objecten.`;
+            statusDiv.innerHTML = `✅ ${agroData.length} objecten gevonden.`;
         } else {
-             statusDiv.innerHTML = `⚠️ Geen data (0)`;
+             statusDiv.innerHTML = `⚠️ Geen features gevonden.`;
              agroData = [];
         }
         
@@ -113,12 +197,13 @@ async function fetchAgroData(token) {
 
     } catch (e) {
         console.error(e);
-        statusDiv.innerText = e.message;
+        statusDiv.innerHTML = `<span style="color:red; font-size:10px;">${e.message.substring(0, 50)}...</span>`;
         alert("Fout bij ophalen: " + e.message);
     }
 }
 
 // --- RENDERING ---
+
 function renderLayers() {
     const layers = [];
 
@@ -137,248 +222,101 @@ function renderLayers() {
         layers.push(DeckGLUtils.createBasemap(VIZ_CONFIG.basemap));
     }
 
-    // 2. Selection Box (The area user clicked)
-    if (selectionPoly) {
+    // 2. Active Drawing (The "Rubber Band")
+    if (drawState.active && drawState.start && drawState.end) {
+        const tempPoly = {
+            type: 'Feature',
+            geometry: {
+                type: 'Polygon',
+                coordinates: [[
+                    [drawState.start[0], drawState.start[1]],
+                    [drawState.end[0], drawState.start[1]],
+                    [drawState.end[0], drawState.end[1]],
+                    [drawState.start[0], drawState.end[1]],
+                    [drawState.start[0], drawState.start[1]]
+                ]]
+            }
+        };
+        
+        layers.push(new deck.GeoJsonLayer({
+            id: 'drawing-box',
+            data: [tempPoly],
+            filled: true,
+            stroked: true,
+            getFillColor: [0, 122, 194, 50],
+            getLineColor: [0, 122, 194, 255],
+            getLineWidth: 2,
+            lineWidthMinPixels: 2,
+            getLineDashArray: [4, 2],
+            extensions: [new deck.PathStyleExtension({dash: true})]
+        }));
+    }
+
+    // 3. Finished Selection
+    if (selectionPoly && !drawState.active) {
         layers.push(new deck.GeoJsonLayer({
             id: 'selection-box',
             data: [selectionPoly],
             filled: false,
             stroked: true,
-            getLineColor: [0, 122, 194, 255], // Bright Blue
-            getLineWidth: 2,
-            lineWidthMinPixels: 2,
-            getLineDashArray: [4, 2],
-            lineDashJustified: true,
-            extensions: [new deck.PathStyleExtension({dash: true})]
+            getLineColor: [0, 122, 194, 255], // Solid Blue
+            getLineWidth: 3
         }));
     }
 
-    // 3. Agro Data Layer (Results)
+    // 4. Agro Data
     if (agroData.length > 0) {
         layers.push(new deck.GeoJsonLayer({
             id: 'agro-data',
             data: agroData,
             filled: true,
             stroked: true,
-            getFillColor: [0, 255, 100, 100], // Green
-            getLineColor: [255, 255, 255, 150],
+            getFillColor: [0, 200, 100, 160], 
+            getLineColor: [255, 255, 255, 200],
             getLineWidth: 1,
-            lineWidthMinPixels: 1,
             pickable: true,
             autoHighlight: true
         }));
     }
 
-    // 4. WMS Layers
+    // 5. WMS Layers
     activeWmsLayers.forEach(l => layers.push(createWMSLayer(l)));
 
     deckInstance.setProps({ layers: layers });
 }
-// --- HELPER: DEBOUNCE ---
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => { clearTimeout(timeout); func(...args); };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
 
-// --- SEARCH LOGIC (Fixes initSearch error) ---
-function initSearch() {
-    const input = document.getElementById('layer-search');
-    const resultsContainer = document.getElementById('search-results');
-    
-    // Prevent errors if elements don't exist (e.g. simplified UI)
-    if (!input || !resultsContainer) return;
-
-    const performSearch = debounce(async (term) => {
-        if (term.length < 2) { resultsContainer.style.display = 'none'; return; }
-
-        resultsContainer.innerHTML = '<div style="padding:10px;color:#888;font-size:12px;"><i class="fa fa-spinner fa-spin"></i> Zoeken...</div>';
-        resultsContainer.style.display = 'block';
-
-        // Run Search via existing scripts
-        const results = await searchGeoNetwork(term);
-        displayResults(results);
-    }, 500);
-
-    function displayResults(results) {
-        resultsContainer.innerHTML = '';
-        if (results.length === 0) { 
-            resultsContainer.innerHTML = '<div style="padding:10px;color:#888;font-size:12px;">Geen resultaten gevonden</div>'; 
-            return; 
-        }
-        
-        // Header
-        const header = document.createElement('div');
-        header.style.cssText = `padding:5px 15px;background:#f0f8ff;font-size:11px;font-weight:bold;color:#007ac2;`;
-        header.textContent = `Resultaten (${results.length})`;
-        resultsContainer.appendChild(header);
-
-        results.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'result-item';
-            div.innerHTML = `
-                <div style="flex:1;">
-                   <div style="display:flex; justify-content:space-between;">
-                        <span><i class="fa fa-globe" style="color:#E3001B; margin-right:8px;"></i> <b>${item.name}</b></span>
-                   </div>
-                   <span style="color:#888; font-size:11px;">${item.description}</span>
-                </div>
-                <i class="fa fa-plus-circle" style="color:#ccc; margin-left:8px;"></i>
-            `;
-            div.onclick = () => addWmsLayer(item);
-            resultsContainer.appendChild(div);
-        });
-    }
-
-    input.addEventListener('input', (e) => performSearch(e.target.value));
-    
-    // Close on click outside
-    document.addEventListener('click', (e) => {
-        if (!input.contains(e.target) && !resultsContainer.contains(e.target)) {
-            resultsContainer.style.display = 'none';
-        }
-    });
-}
-
-// --- WMS LAYER MANAGEMENT ---
-async function addWmsLayer(item) {
-    // Check if already added
-    if (activeWmsLayers.find(l => l.title === item.name)) return;
-    
-    // UI Feedback
-    const resultItem = Array.from(document.querySelectorAll('.result-item')).find(el => el.innerText.includes(item.name));
-    if(resultItem) resultItem.style.opacity = '0.5';
-
-    try {
-        console.log(`Adding layer: ${item.name}`);
-        
-        // 1. Fetch Capabilities to find BBOX and Layer Name
-        const capUrl = new URL(item.url);
-        capUrl.searchParams.set('service', 'WMS');
-        capUrl.searchParams.set('request', 'GetCapabilities');
-        
-        const proxyUrl = `/api/proxy?url=${encodeURIComponent(capUrl.toString())}`;
-        const resp = await fetch(proxyUrl);
-        const xmlText = await resp.text();
-        
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-        
-        // Simple logic: pick the last named layer if exact match fails
-        const allLayers = Array.from(xmlDoc.querySelectorAll('Layer'));
-        const targetLayerNode = allLayers.filter(l => l.querySelector('Name')).pop();
-        
-        if (!targetLayerNode) throw new Error("Geen lagen gevonden");
-        
-        const finalLayerName = targetLayerNode.querySelector('Name').textContent;
-
-        // 2. Extract BBOX (for zooming)
-        let bbox = null;
-        const geoBbox = targetLayerNode.querySelector('EX_GeographicBoundingBox');
-        if (geoBbox) {
-            bbox = [
-                parseFloat(geoBbox.querySelector('westBoundLongitude').textContent),
-                parseFloat(geoBbox.querySelector('southBoundLatitude').textContent),
-                parseFloat(geoBbox.querySelector('eastBoundLongitude').textContent),
-                parseFloat(geoBbox.querySelector('northBoundLatitude').textContent)
-            ];
-        }
-
-        // 3. Add to state
-        activeWmsLayers.push({ 
-            id: Date.now(), 
-            url: item.url, 
-            layer: finalLayerName, 
-            title: item.name,
-            bbox: bbox 
-        });
-        
-        // 4. Update UI
-        document.getElementById('search-results').style.display = 'none';
-        document.getElementById('layer-search').value = '';
-        updateActiveLayersUI();
-        renderLayers();
-        
-        if(bbox) zoomToBbox(bbox);
-
-    } catch (err) {
-        console.error(err);
-        alert("Kon laag niet laden.");
-        if(resultItem) resultItem.style.opacity = '1';
-    }
-}
-
-function removeWmsLayer(id) {
-    activeWmsLayers = activeWmsLayers.filter(l => l.id !== id);
-    updateActiveLayersUI();
-    renderLayers();
-}
-
-function updateActiveLayersUI() {
-    const container = document.getElementById('active-wms-layers');
-    const list = document.getElementById('wms-list-content');
-    list.innerHTML = '';
-    
-    if (activeWmsLayers.length > 0) {
-        container.style.display = 'block';
-        activeWmsLayers.forEach(l => {
-            const div = document.createElement('div');
-            div.className = 'active-wms-item';
-            div.innerHTML = `
-                <div style="display:flex; align-items:center;">
-                    <i class="fa fa-check-square" style="color:#007ac2; margin-right:5px;"></i> 
-                    <span>${l.title}</span>
-                </div>
-                <i class="fa fa-trash" style="cursor:pointer; color:#999;" onclick="removeWmsLayer(${l.id})"></i>
-            `;
-            list.appendChild(div);
-        });
-    } else { 
-        container.style.display = 'none'; 
-    }
-}
-
-function zoomToBbox(bbox) {
-    if (!bbox) return;
-    const [minLon, minLat, maxLon, maxLat] = bbox;
-    const centerLon = (minLon + maxLon) / 2;
-    const centerLat = (minLat + maxLat) / 2;
-    
-    deckInstance.setProps({
-        initialViewState: {
-            ...currentViewState,
-            longitude: centerLon,
-            latitude: centerLat,
-            zoom: 10,
-            transitionDuration: 1000,
-            transitionInterpolator: new deck.FlyToInterpolator()
-        }
-    });
-}
 // --- INIT ---
+
 function init() {
     deckInstance = new deck.DeckGL({
         container: 'container',
         initialViewState: VIZ_CONFIG.initialView,
-        controller: true,
-        onClick: onMapClick, // ACTIVATE CLICK LISTENER
-        getTooltip: ({object}) => object && object.properties && {
-             html: `<div style="background:white; padding:5px; font-size:12px;">
-                    <b>ID:</b> ${object.properties.fieldid || '-'}<br>
-                    <b>Crop:</b> ${object.properties.crop_name || '-'}
-                    </div>`
+        controller: true, // Default controller state
+        onClick: onMapClick,
+        onHover: onMapHover,
+        getTooltip: ({object}) => {
+             if (!object || !object.properties) return null;
+             // Don't show tooltip for the selection box itself
+             if (object.geometry.type === 'Polygon' && !object.properties.fieldid) return null;
+             
+             return {
+                 html: `<div style="background:white; padding:6px; font-size:12px; border:1px solid #ccc; border-radius:4px;">
+                        <b>ID:</b> ${object.properties.fieldid || object.id || '-'}<br>
+                        <b>Gewas:</b> ${object.properties.crop_name || object.properties.cropname || '-'}
+                        </div>`
+             };
         },
-        onViewStateChange: ({viewState}) => { currentViewState = viewState; return viewState; }
+        onViewStateChange: ({viewState}) => { 
+            currentViewState = viewState; 
+            return viewState; 
+        }
     });
     
-    initSearch(); 
+    // Initialize Search if function exists (re-add initSearch block if needed)
+    if(typeof initSearch === 'function') initSearch();
+    
     renderLayers();
 }
 
-// ... keep switchTab, zoomIn, zoomOut, toggleBasemap ...
-// (These can remain the same as previous step)
-
+// Start the app
 init();
