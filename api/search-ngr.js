@@ -1,41 +1,45 @@
 // api/search-ngr.js
+export const config = {
+  api: {
+    bodyParser: false, // Required to handle the XML body stream manually
+  },
+};
+
 export default async function handler(req, res) {
-  const { q } = req.query;
-  if (!q) return res.status(400).send('Query "q" required');
+  const NGR_URL = 'https://www.nationaalgeoregister.nl/geonetwork/srv/dut/csw';
 
-  const cswUrl = 'https://nationaalgeoregister.nl/geonetwork/srv/dut/csw';
-
-  // We build the XML on the server to keep the frontend simple
-  const body = `<?xml version="1.0" encoding="UTF-8"?>
-<csw:GetRecords xmlns:csw="http://www.opengis.net/cat/csw/2.0.2" xmlns:ogc="http://www.opengis.net/ogc" service="CSW" version="2.0.2" resultType="results" maxRecords="20">
-  <csw:Query typeNames="csw:Record">
-    <csw:ElementSetName>full</csw:ElementSetName>
-    <csw:Constraint version="1.1.0">
-      <ogc:Filter>
-        <ogc:And>
-          <ogc:PropertyIsLike wildCard="%" singleChar="_" escapeChar="\\">
-            <ogc:PropertyName>AnyText</ogc:PropertyName><ogc:Literal>%${q}%</ogc:Literal>
-          </ogc:PropertyIsLike>
-          <ogc:PropertyIsEqualTo><ogc:PropertyName>type</ogc:PropertyName><ogc:Literal>service</ogc:Literal></ogc:PropertyIsEqualTo>
-        </ogc:And>
-      </ogc:Filter>
-    </csw:Constraint>
-  </csw:Query>
-</csw:GetRecords>`;
+  if (req.method !== 'POST') {
+    return res.status(405).send('Method Not Allowed');
+  }
 
   try {
-    const response = await fetch(cswUrl, {
+    // Read the raw XML stream from the frontend
+    const buffers = [];
+    for await (const chunk of req) {
+      buffers.push(chunk);
+    }
+    const rawBody = Buffer.concat(buffers).toString();
+
+    const response = await fetch(NGR_URL, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/xml',
-        'User-Agent': 'MapsThatMatter/1.0' 
+        'Accept': 'application/xml',
+        'User-Agent': 'MapsThatMatter-Proxy/1.0' 
       },
-      body: body
+      body: rawBody
     });
-    const xml = await response.text();
-    res.setHeader('Content-Type', 'text/xml');
-    res.status(200).send(xml);
-  } catch (err) {
-    res.status(500).send(err.message);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return res.status(response.status).send(errorText);
+    }
+
+    const data = await response.text();
+    res.setHeader('Content-Type', 'application/xml');
+    res.status(200).send(data);
+
+  } catch (error) {
+    res.status(500).json({ error: 'NGR Proxy Error', details: error.message });
   }
 }
