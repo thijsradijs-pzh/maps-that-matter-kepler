@@ -1,28 +1,26 @@
 export default async function handler(req, res) {
   const { path } = req.query;
-  // Read the token from the custom header sent by the frontend
   const token = req.headers['x-agro-token'];
 
   if (!path) {
     return res.status(400).json({ error: 'Missing path parameter' });
   }
 
-  // Define the WUR Base URL
-  const BASE_URL = 'https://agrodatacube.wur.nl/api/v1';
+  // FIXED: Changed v1 to v2
+  const BASE_URL = 'https://agrodatacube.wur.nl/api/v2';
   const targetUrl = `${BASE_URL}/${path}`;
 
   try {
     const response = await fetch(targetUrl, {
       method: 'GET',
       headers: {
-        'token': token, // Pass the client-provided token
+        'token': token, // The API expects the header simply named 'token'
         'Accept': 'application/json'
       }
     });
 
     if (!response.ok) {
       const txt = await response.text();
-      // Forward the status code from AgroDataCube (e.g., 401 if token is invalid)
       return res.status(response.status).send(txt);
     }
 
