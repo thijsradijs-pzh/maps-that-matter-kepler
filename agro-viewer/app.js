@@ -37,6 +37,7 @@ window.openModal = function() { document.getElementById('key-modal').style.displ
 
 // --- RESTORED NGR SEARCH LOGIC ---
 
+// --- RESTORED NGR SEARCH LOGIC ---
 function initSearch() {
     const input = document.getElementById('layer-search');
     const resultsContainer = document.getElementById('search-results');
@@ -52,7 +53,7 @@ function initSearch() {
         if (term.length < 3) { resultsContainer.innerHTML = ''; return; }
         resultsContainer.innerHTML = '<div style="padding:10px; color:#888;">Zoeken in NGR...</div>';
         
-        // Build the XML request (Original MCA style)
+        // Exact XML format used in MCA
         const xmlRequest = `<?xml version="1.0" encoding="UTF-8"?>
 <csw:GetRecords xmlns:csw="http://www.opengis.net/cat/csw/2.0.2" xmlns:ogc="http://www.opengis.net/ogc" service="CSW" version="2.0.2" resultType="results" startPosition="1" maxRecords="20">
     <csw:Query typeNames="csw:Record">
@@ -71,7 +72,7 @@ function initSearch() {
         try {
             const res = await fetch('/api/search-ngr', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/xml', 'Accept': 'application/xml' },
+                headers: { 'Content-Type': 'application/xml' },
                 body: xmlRequest
             });
             const text = await res.text();
@@ -88,15 +89,11 @@ function initSearch() {
 
     function displayResults(records) {
         resultsContainer.innerHTML = '';
-        if(records.length === 0) {
-            resultsContainer.innerHTML = '<div style="padding:10px;">Geen resultaten gevonden.</div>';
-            return;
-        }
-
         records.forEach(rec => {
             const title = rec.getElementsByTagNameNS("*", "title")[0]?.textContent || "Naamloos";
             const abstract = rec.getElementsByTagNameNS("*", "abstract")[0]?.textContent || "";
             
+            // Find the WMS link
             let url = "";
             const uriNodes = rec.getElementsByTagNameNS("*", "URI");
             for(let i=0; i<uriNodes.length; i++) {
@@ -109,10 +106,7 @@ function initSearch() {
             if(url) {
                 const div = document.createElement('div');
                 div.className = 'result-item';
-                div.innerHTML = `
-                    <div style="font-weight:bold; color:#007ac2;">${title}</div>
-                    <div style="font-size:10px; color:#666;">${abstract.substring(0,60)}...</div>
-                `;
+                div.innerHTML = `<b>${title}</b><br><small>${abstract.substring(0,60)}...</small>`;
                 div.onclick = () => addWmsLayer(title, url);
                 resultsContainer.appendChild(div);
             }
@@ -208,16 +202,20 @@ async function fetchAgroData(token) {
     const statusDiv = document.getElementById('agro-status');
     const coords = selectionPoly.geometry.coordinates[0];
     const wkt = `POLYGON((${coords.map(p => p.join(' ')).join(',')}))`;
+    const data = await res.json();
     statusDiv.innerHTML = 'Ophalen...'; window.closeModal();
-    try {
-        const params = new URLSearchParams({ year: year, page_size: 1000, geometry: wkt, epsg: 4326, output_epsg: 4326 });
-        const res = await fetch(`/api/agro-proxy?path=${encodeURIComponent(`${endpoint}?${params}`)}`, { headers: { 'x-agro-token': token } });
-        if(!res.ok) throw new Error(res.status);
-        const data = await res.json();
-        agroData = data.features || [];
-        statusDiv.innerHTML = `✅ ${agroData.length} objecten.`;
-        renderLayers();
-    } catch (e) { statusDiv.innerHTML = `❌ Fout: ${e.message}`; }
+    if(data.features && data.features.length > 0) {
+        agroData = data.features;
+        
+        // Restore: Show detailed crop summary in status
+        const crops = [...new Set(agroData.map(f => f.properties.crop_name || 'Onbekend'))];
+        statusDiv.innerHTML = `✅ <b>${agroData.length} percelen</b> geladen.<br>
+                               <small>Gewassen: ${crops.join(', ')}</small>`;
+    } else {
+        statusDiv.innerHTML = `⚠️ Geen data gevonden in dit gebied.`;
+        agroData = [];
+    }
+    renderLayers();
 }
 
 // --- NSO LOGIC ---
@@ -290,8 +288,20 @@ function init() {
         container: 'container', initialViewState: VIZ_CONFIG.initialView, controller: true, onClick: onMapClick, onHover: onMapHover,
         onViewStateChange: ({viewState}) => { currentViewState = viewState; return viewState; },
         getTooltip: ({object}) => {
-             if (!object || !object.properties || (object.geometry.type === 'Polygon' && !object.properties.fieldid)) return null;
-             return { html: `<div style="background:white; padding:5px;">ID: ${object.properties.fieldid}</div>` };
+            if (!object || !object.properties) return null;
+            
+            // Check if it is an AgroDataCube feature
+            if (object.properties.fieldid || object.properties.crop_name) {
+                return {
+                    html: `<div style="background:white; padding:10px; border-radius:4px; box-shadow:0 2px 8px rgba(0,0,0,0.15); font-size:12px;">
+                            <b style="color:#007ac2;">Gewasperceel</b><br>
+                            <b>ID:</b> ${object.properties.fieldid}<br>
+                            <b>Gewas:</b> ${object.properties.crop_name}<br>
+                            <b>Oppervlakte:</b> ${(object.properties.area / 10000).toFixed(2)} ha
+                        </div>`
+                };
+            }
+            return null;
         }
     });
     initSearch(); renderLayers();
