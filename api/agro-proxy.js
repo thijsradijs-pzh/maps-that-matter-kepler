@@ -1,8 +1,8 @@
-// api/agro-proxy.js
 export default async function handler(req, res) {
-  // Get the path from the query (e.g., /rest/v1/fields)
   const { path } = req.query;
-  
+  // Read the token from the custom header sent by the frontend
+  const token = req.headers['x-agro-token'];
+
   if (!path) {
     return res.status(400).json({ error: 'Missing path parameter' });
   }
@@ -15,13 +15,14 @@ export default async function handler(req, res) {
     const response = await fetch(targetUrl, {
       method: 'GET',
       headers: {
-        'token': process.env.AGRO_TOKEN, // Securely loaded from Vercel Env Vars
+        'token': token, // Pass the client-provided token
         'Accept': 'application/json'
       }
     });
 
     if (!response.ok) {
       const txt = await response.text();
+      // Forward the status code from AgroDataCube (e.g., 401 if token is invalid)
       return res.status(response.status).send(txt);
     }
 
