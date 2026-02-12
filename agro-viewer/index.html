@@ -4,14 +4,42 @@
   <meta charset='utf-8' />
   <title>Agro Data Viewer</title>
   
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <script src="/shared/deckgl-utils.js"></script>
-  
   <script src="/agro-viewer/config.js"></script>
-  <link rel="stylesheet" href="/multi-criteria-analysis/css/style.css"> </head>
+  
+  <link rel="stylesheet" href="/multi-criteria-analysis/css/style.css">
+  
+  <style>
+      /* Extra styling for the specific Agro features */
+      #agro-status { margin-top:15px; padding:10px; background:#f8f9fa; border-radius:4px; font-size:12px; color:#555; border:1px solid #eee; }
+      .agro-control-group { margin-bottom: 15px; }
+      .agro-control-group label { display:block; font-size:11px; font-weight:700; color:#444; margin-bottom:5px; text-transform:uppercase; letter-spacing:0.5px; }
+      .agro-select, .agro-input { width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; font-family:inherit; box-sizing: border-box; }
+      .agro-select:focus, .agro-input:focus { border-color:#007ac2; outline:none; }
+  </style>
+</head>
 <body>
+
+  <div id="key-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(2px);">
+      <div style="background:white; padding:30px; border-radius:8px; width:400px; box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+        <h3 style="margin-top:0; color:#007ac2; display:flex; align-items:center; gap:10px;"><i class="fa fa-key"></i> AgroDataCube Toegang</h3>
+        <p style="font-size:13px; color:#666; line-height:1.5;">
+          Je hebt een gebied geselecteerd. Om data op te halen van de WUR servers is een persoonlijk API Token nodig.
+        </p>
+        
+        <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:6px;">Jouw API Token:</label>
+        <input type="password" id="user-api-key" placeholder="Plak hier je token..." style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; margin-bottom:20px; font-family:monospace;">
+        
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button onclick="window.closeModal()" style="padding:10px 20px; border:none; background:#f0f0f0; color:#555; cursor:pointer; border-radius:4px; font-weight:600;">Annuleren</button>
+          <button onclick="window.confirmFetch()" style="padding:10px 20px; border:none; background:#007ac2; color:white; font-weight:bold; cursor:pointer; border-radius:4px; box-shadow:0 2px 5px rgba(0,122,194,0.3);">Data Ophalen</button>
+        </div>
+      </div>
+    </div>
 
   <div id="sidebar">
     <div class="sidebar-header">
@@ -20,27 +48,37 @@
     </div>
     
     <div class="tabs">
-      <div class="tab active" onclick="switchTab('data')">Data</div>
-      <div class="tab" onclick="switchTab('layers')">Kaartlagen</div>
+      <div class="tab active" onclick="window.switchTab('data')">Agro Data</div>
+      <div class="tab" onclick="window.switchTab('layers')">Kaartlagen</div>
     </div>
 
     <div id="data-content" class="sidebar-content active">
-      <h3>AgroDataCube</h3>
-      <p>Haal data op via de WUR AgroDataCube API.</p>
-      
-      <div style="padding: 0 15px;">
-        <label style="font-size:12px; font-weight:bold;">Endpoint selectie:</label>
-        <select id="agro-endpoint" style="width:100%; padding:8px; margin-bottom:10px;">
-            <option value="rest/v1/fields">Gewaspercelen (Fields)</option>
-            <option value="rest/v1/soiltypes">Bodemtypes</option>
-            <option value="rest/v1/ahn">Hoogte (AHN)</option>
-        </select>
+      <div style="padding:20px;">
+        <p style="font-size:13px; color:#666; margin-top:0;">
+          Selecteer data van de <b>AgroDataCube</b> (WUR). <br>Teken een gebied op de kaart om te beginnen.
+        </p>
         
-        <label style="font-size:12px; font-weight:bold;">Jaar:</label>
-        <input type="number" id="agro-year" value="2022" style="width:100%; padding:8px; margin-bottom:15px;">
+        <div class="agro-control-group">
+            <label>Dataset</label>
+            <select id="agro-endpoint" class="agro-select">
+                <option value="rest/fields">Gewaspercelen (Fields)</option>
+                <option value="rest/soiltypes">Bodemtypes</option>
+                <option value="rest/ahn">Hoogte (AHN)</option>
+            </select>
+        </div>
+        
+        <div class="agro-control-group">
+            <label>Jaar</label>
+            <input type="number" id="agro-year" value="2022" class="agro-input">
+        </div>
 
-        <div class="start-btn" onclick="fetchAgroDataTrigger()">Selecteer Gebied & Haal Data</div>
-        <div id="agro-status" style="margin-top:10px; font-size:11px; color:#666;"></div>
+        <div class="start-btn" onclick="window.fetchAgroDataTrigger()">
+            <i class="fa fa-pen-nib"></i> Gebied Selecteren & Start
+        </div>
+        
+        <div id="agro-status">
+            <i class="fa fa-info-circle"></i> Nog geen data opgehaald.
+        </div>
       </div>
     </div>
 
@@ -49,10 +87,11 @@
         <i class="fa fa-search filter-icon"></i>
         <input type="text" id="layer-search" class="filter-input" placeholder="Zoek PDOK / NGR kaartlagen...">
       </div>
+      
       <div id="search-results"></div>
       
-      <div id="active-wms-layers">
-          <div style="font-size:11px; font-weight:bold; color:#888; margin-bottom:5px;">ACTIEVE LAGEN:</div>
+      <div id="active-wms-layers" style="display:none;">
+          <div style="font-size:11px; font-weight:bold; color:#888; margin: 15px 15px 5px;">ACTIEVE LAGEN:</div>
           <div id="wms-list-content"></div>
       </div>
     </div>
@@ -60,31 +99,19 @@
 
   <div id="map-container">
     <div class="zoom-controls">
-      <div class="zoom-btn" onclick="zoomIn()"><i class="fa fa-plus"></i></div>
-      <div class="zoom-btn" onclick="zoomOut()"><i class="fa fa-minus"></i></div>
-      <div class="zoom-btn" onclick="resetView()"><i class="fa fa-home"></i></div>
-      <div class="zoom-btn" id="btn-basemap" onclick="toggleBasemap()">Satelliet</div>
+      <div class="zoom-btn" onclick="window.zoomIn()"><i class="fa fa-plus"></i></div>
+      <div class="zoom-btn" onclick="window.zoomOut()"><i class="fa fa-minus"></i></div>
+      <div class="zoom-btn" onclick="window.resetView()"><i class="fa fa-home"></i></div>
+      <div class="zoom-btn" id="btn-basemap" onclick="window.toggleBasemap()" style="font-size:10px; font-weight:bold;">Kaart</div>
     </div>
+    
+    <div id="loading" style="display:none;">Laden...</div>
     <div id="container" style="width:100%; height:100%;"></div>
   </div>
-  <div id="key-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
-  <div style="background:white; padding:25px; border-radius:8px; width:400px; box-shadow:0 4px 15px rgba(0,0,0,0.3);">
-    <h3 style="margin-top:0; color:#007ac2;">AgroDataCube Data</h3>
-    <p style="font-size:13px; color:#666;">
-      Je hebt een gebied geselecteerd. Voer je API Token in om data op te halen.
-    </p>
-    
-    <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:5px;">Jouw API Token:</label>
-    <input type="password" id="user-api-key" placeholder="Plak hier je token..." style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; margin-bottom:15px;">
-    
-    <div style="display:flex; justify-content:flex-end; gap:10px;">
-      <button onclick="closeModal()" style="padding:8px 15px; border:none; background:#eee; cursor:pointer; border-radius:4px;">Annuleren</button>
-      <button onclick="confirmFetch()" style="padding:8px 15px; border:none; background:#007ac2; color:white; font-weight:bold; cursor:pointer; border-radius:4px;">Ophalen</button>
-    </div>
-  </div>
-</div>
 
-<div id="map-container">
-  <script src="/multi-criteria-analysis/js/csw-search.js"></script> <script src="/multi-criteria-analysis/js/wms-layer.js"></script> <script src="/agro-viewer/app.js"></script>
+  <script src="/multi-criteria-analysis/js/csw-search.js"></script>
+  <script src="/multi-criteria-analysis/js/wms-layer.js"></script>
+  
+  <script src="/agro-viewer/app.js"></script>
 </body>
 </html>

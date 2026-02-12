@@ -4,17 +4,23 @@
 let deckInstance;
 let activeWmsLayers = [];
 let agroData = []; 
-let selectionPoly = null; // The finished polygon
-let drawState = {
-    active: false,
-    start: null,    // [lon, lat]
-    end: null       // [lon, lat]
-};
+let selectionPoly = null; 
+let drawState = { active: false, start: null, end: null };
 let currentViewState = VIZ_CONFIG.initialView;
 let isSatellite = false;
 let userToken = '';
 
-// --- GLOBAL UTILS (Fixes ReferenceErrors) ---
+// --- HELPER: DEBOUNCE ---
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => { clearTimeout(timeout); func(...args); };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// --- GLOBAL UI FUNCTIONS ---
 window.switchTab = function(t) {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     document.querySelectorAll('.sidebar-content').forEach(x => x.classList.remove('active'));
@@ -22,36 +28,14 @@ window.switchTab = function(t) {
     const tabMap = { 'data': 0, 'layers': 1 };
     const contentMap = { 'data': 'data-content', 'layers': 'layer-content' };
     
-    // Fix: Handle cases where tab/content might not exist
-    if(document.querySelectorAll('.tab')[tabMap[t]]) {
-        document.querySelectorAll('.tab')[tabMap[t]].classList.add('active');
-    }
-    if(document.getElementById(contentMap[t])) {
-        document.getElementById(contentMap[t]).classList.add('active');
-    }
+    if(document.querySelectorAll('.tab')[tabMap[t]]) document.querySelectorAll('.tab')[tabMap[t]].classList.add('active');
+    if(document.getElementById(contentMap[t])) document.getElementById(contentMap[t]).classList.add('active');
 };
 
 window.toggleBasemap = function() {
     isSatellite = !isSatellite;
     const btn = document.getElementById('btn-basemap');
-    if(btn) btn.innerText = isSatellite ? "Kaart" : "Satelliet";
-    renderLayers();
-};
-
-window.startDrawMode = function() {
-    drawState.active = true;
-    drawState.start = null;
-    drawState.end = null;
-    selectionPoly = null;
-    
-    // Disable map panning/rotating while drawing
-    deckInstance.setProps({ controller: { dragPan: false } });
-    document.getElementById('container').style.cursor = 'crosshair';
-    
-    // UI Feedback
-    const statusDiv = document.getElementById('agro-status');
-    if(statusDiv) statusDiv.innerHTML = '<b>Teken Modus:</b> Klik op de kaart om te beginnen.';
-    
+    if(btn) btn.innerText = isSatellite ? "Kaart" : "Foto";
     renderLayers();
 };
 
@@ -59,9 +43,7 @@ window.zoomIn = function() { deckInstance.setProps({ initialViewState: { ...curr
 window.zoomOut = function() { deckInstance.setProps({ initialViewState: { ...currentViewState, zoom: currentViewState.zoom - 1 } }); };
 window.resetView = function() { deckInstance.setProps({ initialViewState: VIZ_CONFIG.initialView }); };
 
-window.closeModal = function() {
-    document.getElementById('key-modal').style.display = 'none';
-};
+window.closeModal = function() { document.getElementById('key-modal').style.display = 'none'; };
 
 window.openModal = function() {
     if(userToken) document.getElementById('user-api-key').value = userToken;
@@ -72,56 +54,206 @@ window.confirmFetch = async function() {
     const inputKey = document.getElementById('user-api-key').value;
     if (!inputKey) { alert("Vul een API token in."); return; }
     userToken = inputKey;
-    closeModal();
+    window.closeModal();
     await fetchAgroData(userToken);
 };
 
 window.fetchAgroDataTrigger = function() {
-    // This function is called by the "Data Ophalen" button
     if(!selectionPoly) {
-        // Automatically start drawing if no selection
         window.startDrawMode();
-        return;
+    } else {
+        window.openModal();
     }
-    window.openModal();
 };
 
-// --- MAP EVENTS ---
+window.startDrawMode = function() {
+    drawState.active = true;
+    drawState.start = null;
+    drawState.end = null;
+    selectionPoly = null;
+    
+    deckInstance.setProps({ controller: { dragPan: false } });
+    document.getElementById('container').style.cursor = 'crosshair';
+    document.getElementById('agro-status').innerHTML = '<b><i class="fa fa-pen"></i> Teken Modus:</b> Klik 1x om te starten, beweeg muis, klik nogmaals om te stoppen.';
+    renderLayers();
+};
 
+// --- SEARCH LOGIC (Restored) ---
+function initSearch() {
+    const input = document.getElementById('layer-search');
+    const resultsContainer = document.getElementById('search-results');
+    
+    if (!input || !resultsContainer) return;
+
+    const performSearch = debounce(async (term) => {
+        if (term.length < 2) { resultsContainer.style.display = 'none'; return; }
+
+        resultsContainer.innerHTML = '<div style="padding:10px;color:#888;font-size:12px;"><i class="fa fa-spinner fa-spin"></i> Zoeken...</div>';
+        resultsContainer.style.display = 'block';
+
+        // Uses csw-search.js functions
+        const results = await searchGeoNetwork(term);
+        displayResults(results);
+    }, 500);
+
+    function displayResults(results) {
+        resultsContainer.innerHTML = '';
+        if (results.length === 0) { 
+            resultsContainer.innerHTML = '<div style="padding:10px;color:#888;font-size:12px;">Geen resultaten gevonden</div>'; 
+            return; 
+        }
+        
+        const header = document.createElement('div');
+        header.style.cssText = `padding:5px 15px;background:#f0f8ff;font-size:11px;font-weight:bold;color:#007ac2;`;
+        header.textContent = `Resultaten (${results.length})`;
+        resultsContainer.appendChild(header);
+
+        results.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'result-item'; // Style comes from style.css
+            div.innerHTML = `
+                <div style="flex:1;">
+                   <div style="display:flex; justify-content:space-between;">
+                        <span><i class="fa fa-layer-group" style="color:#007ac2; margin-right:8px;"></i> <b>${item.name}</b></span>
+                   </div>
+                   <span style="color:#888; font-size:11px;">${item.description.substring(0,60)}...</span>
+                </div>
+                <i class="fa fa-plus-circle" style="color:#ccc; margin-left:8px;"></i>
+            `;
+            div.onclick = () => addWmsLayer(item);
+            resultsContainer.appendChild(div);
+        });
+    }
+
+    input.addEventListener('input', (e) => performSearch(e.target.value));
+    document.addEventListener('click', (e) => {
+        if (!input.contains(e.target) && !resultsContainer.contains(e.target)) resultsContainer.style.display = 'none';
+    });
+}
+
+// --- WMS LOGIC ---
+async function addWmsLayer(item) {
+    if (activeWmsLayers.find(l => l.title === item.name)) return;
+    
+    // UI Feedback
+    document.getElementById('loading').style.display = 'block';
+
+    try {
+        const capUrl = new URL(item.url);
+        capUrl.searchParams.set('service', 'WMS');
+        capUrl.searchParams.set('request', 'GetCapabilities');
+        
+        const proxyUrl = `/api/proxy?url=${encodeURIComponent(capUrl.toString())}`;
+        const resp = await fetch(proxyUrl);
+        const xmlText = await resp.text();
+        
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+        
+        // Find layer
+        const allLayers = Array.from(xmlDoc.querySelectorAll('Layer'));
+        const targetLayerNode = allLayers.filter(l => l.querySelector('Name')).pop();
+        
+        if (!targetLayerNode) throw new Error("Geen lagen gevonden");
+        const finalLayerName = targetLayerNode.querySelector('Name').textContent;
+
+        // BBOX
+        let bbox = null;
+        const geoBbox = targetLayerNode.querySelector('EX_GeographicBoundingBox');
+        if (geoBbox) {
+            bbox = [
+                parseFloat(geoBbox.querySelector('westBoundLongitude').textContent),
+                parseFloat(geoBbox.querySelector('southBoundLatitude').textContent),
+                parseFloat(geoBbox.querySelector('eastBoundLongitude').textContent),
+                parseFloat(geoBbox.querySelector('northBoundLatitude').textContent)
+            ];
+        }
+
+        activeWmsLayers.push({ id: Date.now(), url: item.url, layer: finalLayerName, title: item.name, bbox: bbox });
+        
+        document.getElementById('search-results').style.display = 'none';
+        document.getElementById('layer-search').value = '';
+        updateActiveLayersUI();
+        renderLayers();
+        if(bbox) zoomToBbox(bbox);
+
+    } catch (err) {
+        console.error(err);
+        alert("Kon laag niet laden (CORS of Proxy fout).");
+    } finally {
+        document.getElementById('loading').style.display = 'none';
+    }
+}
+
+function removeWmsLayer(id) {
+    activeWmsLayers = activeWmsLayers.filter(l => l.id !== id);
+    updateActiveLayersUI();
+    renderLayers();
+}
+
+function updateActiveLayersUI() {
+    const container = document.getElementById('active-wms-layers');
+    const list = document.getElementById('wms-list-content');
+    list.innerHTML = '';
+    
+    if (activeWmsLayers.length > 0) {
+        container.style.display = 'block';
+        activeWmsLayers.forEach(l => {
+            const div = document.createElement('div');
+            div.className = 'active-wms-item';
+            div.innerHTML = `
+                <div style="display:flex; align-items:center;">
+                    <i class="fa fa-check-square" style="color:#007ac2; margin-right:5px;"></i> 
+                    <span>${l.title}</span>
+                </div>
+                <i class="fa fa-trash" style="cursor:pointer; color:#999;" onclick="removeWmsLayer(${l.id})"></i>
+            `;
+            list.appendChild(div);
+        });
+    } else { 
+        container.style.display = 'none'; 
+    }
+}
+
+function zoomToBbox(bbox) {
+    if (!bbox) return;
+    const [minLon, minLat, maxLon, maxLat] = bbox;
+    deckInstance.setProps({
+        initialViewState: {
+            ...currentViewState,
+            longitude: (minLon + maxLon) / 2,
+            latitude: (minLat + maxLat) / 2,
+            zoom: 10,
+            transitionDuration: 1000
+        }
+    });
+}
+
+// --- MAP & DATA LOGIC ---
 function onMapClick(info) {
     if (!info.coordinate || !drawState.active) return;
-
     const [lon, lat] = info.coordinate;
 
-    // Step 1: Start Drawing
     if (!drawState.start) {
         drawState.start = [lon, lat];
-        drawState.end = [lon, lat]; // Initialize end same as start
-        document.getElementById('agro-status').innerHTML = '<b>Teken Modus:</b> Klik nogmaals om af te ronden.';
+        drawState.end = [lon, lat];
+        document.getElementById('agro-status').innerHTML = '<b><i class="fa fa-pen"></i> Bezig...</b> Klik nogmaals om het vak te sluiten.';
         renderLayers();
         return;
     }
 
-    // Step 2: Finish Drawing
     drawState.end = [lon, lat];
     drawState.active = false;
-    
-    // Re-enable map controller
     deckInstance.setProps({ controller: true });
     document.getElementById('container').style.cursor = 'default';
 
-    // Create the final Polygon Feature
     createSelectionPoly(drawState.start, drawState.end);
-    
-    document.getElementById('agro-status').innerHTML = '✅ Gebied geselecteerd.';
-    
-    // Automatically open modal
+    document.getElementById('agro-status').innerHTML = '✅ Gebied geselecteerd. Klik op "Data Ophalen" in de popup.';
     setTimeout(window.openModal, 200);
     renderLayers();
 }
 
 function onMapHover(info) {
-    // Live update of the rectangle while moving mouse
     if (drawState.active && drawState.start && info.coordinate) {
         drawState.end = info.coordinate;
         renderLayers();
@@ -146,13 +278,9 @@ function createSelectionPoly(p1, p2) {
                 [minLon, minLat]
             ]]
         },
-        properties: { 
-            bboxString: `${minLon},${minLat},${maxLon},${maxLat}` 
-        }
+        properties: { bboxString: `${minLon},${minLat},${maxLon},${maxLat}` }
     };
 }
-
-// --- DATA FETCHING ---
 
 async function fetchAgroData(token) {
     if (!selectionPoly) return;
@@ -160,20 +288,18 @@ async function fetchAgroData(token) {
     const endpoint = document.getElementById('agro-endpoint').value;
     const year = document.getElementById('agro-year').value;
     const statusDiv = document.getElementById('agro-status');
+    
+    // EPSG transformation (Rough approx to RD New for AgroDataCube if needed, but lets try 4326 first)
+    // Actually, AgroDataCube usually accepts geometry in 4326 if specified.
     const bboxStr = selectionPoly.properties.bboxString;
     
-    statusDiv.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Ophalen...';
+    statusDiv.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Bezig met ophalen bij WUR...';
     
     try {
-        // Determine geometry param based on endpoint
-        let geomParam = `geometry=${bboxStr}`;
-        // Some endpoints like 'fields' might prefer just 'bbox' or WKT. 
-        // We stick to the standard bbox string for now.
+        const queryPath = `${endpoint}?year=${year}&page_size=1000&geometry=${bboxStr}&epsg=4326`; 
         
-        const queryPath = `${endpoint}?year=${year}&page_size=1000&${geomParam}&epsg=4326`; 
+        console.log("Requesting:", queryPath);
         
-        console.log("Fetching proxy:", `/api/agro-proxy?path=${encodeURIComponent(queryPath)}`);
-
         const res = await fetch(`/api/agro-proxy?path=${encodeURIComponent(queryPath)}`, {
             headers: { 'x-agro-token': token }
         });
@@ -187,9 +313,9 @@ async function fetchAgroData(token) {
         
         if(data.features) {
             agroData = data.features;
-            statusDiv.innerHTML = `✅ ${agroData.length} objecten gevonden.`;
+            statusDiv.innerHTML = `✅ <b>Succes!</b> ${agroData.length} objecten geladen.`;
         } else {
-             statusDiv.innerHTML = `⚠️ Geen features gevonden.`;
+             statusDiv.innerHTML = `⚠️ Geen data gevonden in dit gebied.`;
              agroData = [];
         }
         
@@ -197,12 +323,9 @@ async function fetchAgroData(token) {
 
     } catch (e) {
         console.error(e);
-        statusDiv.innerHTML = `<span style="color:red; font-size:10px;">${e.message.substring(0, 50)}...</span>`;
-        alert("Fout bij ophalen: " + e.message);
+        statusDiv.innerHTML = `<span style="color:#d9534f;">❌ Fout: ${e.message.substring(0, 100)}</span>`;
     }
 }
-
-// --- RENDERING ---
 
 function renderLayers() {
     const layers = [];
@@ -222,101 +345,92 @@ function renderLayers() {
         layers.push(DeckGLUtils.createBasemap(VIZ_CONFIG.basemap));
     }
 
-    // 2. Active Drawing (The "Rubber Band")
+    // 2. Drawing State
     if (drawState.active && drawState.start && drawState.end) {
-        const tempPoly = {
-            type: 'Feature',
-            geometry: {
-                type: 'Polygon',
-                coordinates: [[
-                    [drawState.start[0], drawState.start[1]],
-                    [drawState.end[0], drawState.start[1]],
-                    [drawState.end[0], drawState.end[1]],
-                    [drawState.start[0], drawState.end[1]],
-                    [drawState.start[0], drawState.start[1]]
-                ]]
-            }
-        };
-        
         layers.push(new deck.GeoJsonLayer({
-            id: 'drawing-box',
-            data: [tempPoly],
+            id: 'drawing',
+            data: [{
+                type: 'Feature',
+                geometry: {
+                    type: 'Polygon',
+                    coordinates: [[
+                        [drawState.start[0], drawState.start[1]],
+                        [drawState.end[0], drawState.start[1]],
+                        [drawState.end[0], drawState.end[1]],
+                        [drawState.start[0], drawState.end[1]],
+                        [drawState.start[0], drawState.start[1]]
+                    ]]
+                }
+            }],
             filled: true,
             stroked: true,
             getFillColor: [0, 122, 194, 50],
             getLineColor: [0, 122, 194, 255],
             getLineWidth: 2,
-            lineWidthMinPixels: 2,
-            getLineDashArray: [4, 2],
+            getLineDashArray: [4,2],
             extensions: [new deck.PathStyleExtension({dash: true})]
         }));
     }
 
-    // 3. Finished Selection
+    // 3. Selection
     if (selectionPoly && !drawState.active) {
         layers.push(new deck.GeoJsonLayer({
-            id: 'selection-box',
+            id: 'selection',
             data: [selectionPoly],
             filled: false,
             stroked: true,
-            getLineColor: [0, 122, 194, 255], // Solid Blue
-            getLineWidth: 3
+            getLineColor: [0, 122, 194, 255],
+            getLineWidth: 2
         }));
     }
 
-    // 4. Agro Data
+    // 4. Results
     if (agroData.length > 0) {
         layers.push(new deck.GeoJsonLayer({
             id: 'agro-data',
             data: agroData,
             filled: true,
             stroked: true,
-            getFillColor: [0, 200, 100, 160], 
-            getLineColor: [255, 255, 255, 200],
+            getFillColor: [50, 200, 100, 140],
+            getLineColor: [255, 255, 255, 100],
             getLineWidth: 1,
             pickable: true,
             autoHighlight: true
         }));
     }
 
-    // 5. WMS Layers
+    // 5. WMS
     activeWmsLayers.forEach(l => layers.push(createWMSLayer(l)));
 
     deckInstance.setProps({ layers: layers });
 }
 
-// --- INIT ---
-
 function init() {
     deckInstance = new deck.DeckGL({
         container: 'container',
         initialViewState: VIZ_CONFIG.initialView,
-        controller: true, // Default controller state
+        controller: true,
         onClick: onMapClick,
         onHover: onMapHover,
         getTooltip: ({object}) => {
              if (!object || !object.properties) return null;
-             // Don't show tooltip for the selection box itself
-             if (object.geometry.type === 'Polygon' && !object.properties.fieldid) return null;
+             // Basic Tooltip
+             const props = object.properties;
+             let content = '';
+             // Fields
+             if(props.fieldid) content += `<b>ID:</b> ${props.fieldid}<br><b>Gewas:</b> ${props.crop_name || '-'}`;
+             // Soil
+             else if(props.soilcode) content += `<b>Bodem:</b> ${props.soilcode}<br><b>Type:</b> ${props.soilname}`;
+             // General
+             else content = JSON.stringify(props).substring(0,100);
              
-             return {
-                 html: `<div style="background:white; padding:6px; font-size:12px; border:1px solid #ccc; border-radius:4px;">
-                        <b>ID:</b> ${object.properties.fieldid || object.id || '-'}<br>
-                        <b>Gewas:</b> ${object.properties.crop_name || object.properties.cropname || '-'}
-                        </div>`
-             };
+             return { html: `<div style="background:white; padding:8px; border-radius:4px; box-shadow:0 2px 5px rgba(0,0,0,0.2); font-size:12px;">${content}</div>` };
         },
-        onViewStateChange: ({viewState}) => { 
-            currentViewState = viewState; 
-            return viewState; 
-        }
+        onViewStateChange: ({viewState}) => { currentViewState = viewState; return viewState; }
     });
     
-    // Initialize Search if function exists (re-add initSearch block if needed)
-    if(typeof initSearch === 'function') initSearch();
-    
+    initSearch();
     renderLayers();
 }
 
-// Start the app
 init();
