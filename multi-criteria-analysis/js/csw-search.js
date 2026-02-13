@@ -64,40 +64,58 @@ function parseCSWResponse(xmlText) {
         }
 
         let wmsUrl = null;
-        
-        // Find WMS URL (Greedy)
+        let wmsLayerName = null;
+
+        // Find WMS URL from dc:URI elements
         const allLinks = [
             ...Array.from(node.getElementsByTagNameNS('*', 'references')),
             ...Array.from(node.getElementsByTagNameNS('*', 'URI')),
             ...Array.from(node.getElementsByTagNameNS('*', 'URL'))
         ];
 
+        // Collect all WMS candidates, prefer PDOK/service URLs
+        let candidates = [];
         for (const link of allLinks) {
-            const text = link.textContent;
+            const text = (link.textContent || '').trim();
             const scheme = link.getAttribute('scheme') || '';
             const protocol = link.getAttribute('protocol') || '';
-            
-            if ((scheme && scheme.toLowerCase().includes('wms')) ||
-                (protocol && protocol.toLowerCase().includes('wms')) ||
-                (text && text.toLowerCase().includes('wms')) || 
-                (text && text.toLowerCase().includes('mapserver'))) {
-                
-                let url = text.trim();
+            const name = link.getAttribute('name') || '';
+
+            const isWms = (scheme && scheme.toLowerCase().includes('wms')) ||
+                (protocol && protocol.toUpperCase().includes('WMS')) ||
+                (text && text.toLowerCase().includes('/wms/')) ||
+                (text && text.toLowerCase().includes('service=wms')) ||
+                (text && text.toLowerCase().includes('mapserver'));
+
+            if (isWms && text.startsWith('http')) {
+                let url = text;
                 if (url.startsWith('http:')) url = url.replace('http:', 'https:');
                 url = url.split('?')[0];
-                wmsUrl = url;
-                break;
+                const isPdok = url.includes('service.pdok.nl') || url.includes('api.pdok.nl') || url.includes('geodata.nationaalgeoregister.nl');
+                candidates.push({ url, name, isPdok });
             }
         }
-        
+
+        // Prefer PDOK URLs, then take first available
+        if (candidates.length > 0) {
+            const best = candidates.find(c => c.isPdok) || candidates[0];
+            wmsUrl = best.url;
+            // Only use name if it looks like a real layer name (not a UUID)
+            const n = best.name;
+            const isUUID = n && /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(n);
+            if (n && !isUUID) {
+                wmsLayerName = n;
+            }
+        }
+
         if (wmsUrl) {
             records.push({
                 name: title,
                 description: abstract.substring(0, 100) + '...',
                 url: wmsUrl,
-                layer: '0', 
+                layer: wmsLayerName || '0',
                 hasWms: true,
-                publisher: publisher, // Add publisher to record
+                publisher: publisher,
                 source: 'geonetwork'
             });
         }

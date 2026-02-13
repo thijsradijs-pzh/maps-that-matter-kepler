@@ -53,11 +53,11 @@ function initSearch() {
     });
 
     async function performSearch(term) {
-        if (term.length < 3) { resultsContainer.innerHTML = ''; return; }
-        resultsContainer.innerHTML = '<div style="padding:10px; color:#888;">Zoeken in NGR...</div>';
-        
+        if (term.length < 3) { resultsContainer.innerHTML = ''; resultsContainer.style.display = 'none'; return; }
+        resultsContainer.style.display = 'block';
+        resultsContainer.innerHTML = '<div style="padding:10px;color:#888;font-size:12px;"><i class="fa fa-spinner fa-spin"></i> Zoeken in NGR...</div>';
+
         try {
-            // Gebruik de MCA-zoeklogica uit csw-search.js (via POST)
             const results = await searchGeoNetwork(term);
             displayResults(results);
         } catch (e) {
@@ -68,83 +68,196 @@ function initSearch() {
 
     function displayResults(results) {
         resultsContainer.innerHTML = '';
+        resultsContainer.style.display = 'block';
         if(results.length === 0) {
-            resultsContainer.innerHTML = '<div style="padding:10px;">Geen resultaten gevonden.</div>';
+            resultsContainer.innerHTML = '<div style="padding:10px;color:#888;font-size:12px;">Geen resultaten gevonden.</div>';
             return;
         }
+
+        const header = document.createElement('div');
+        header.style.cssText = 'padding:5px 15px;background:#f0f8ff;font-size:11px;font-weight:bold;color:#007ac2;';
+        header.textContent = `Nationaal Geo Register (${results.length})`;
+        resultsContainer.appendChild(header);
 
         results.forEach(item => {
             const div = document.createElement('div');
             div.className = 'result-item';
+            const pubText = item.publisher || 'NGR';
             div.innerHTML = `
                 <div style="flex:1;">
-                   <div style="font-weight:bold; color:#007ac2; margin-bottom:2px;">${item.name || item.title}</div>
-                   <div style="font-size:10px; color:#666;">${(item.description || "").substring(0,60)}...</div>
+                   <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                       <span><i class="fa fa-globe" style="color:#E3001B; margin-right:8px;"></i> <b>${item.name || item.title}</b></span>
+                       <span style="background:#E3001B; color:white; font-size:9px; padding:1px 4px; border-radius:3px; white-space:nowrap; margin-left:5px;">${pubText}</span>
+                   </div>
+                   <span style="color:#888; font-size:11px;">${(item.description || "").substring(0,80)}</span>
                 </div>
+                <i class="fa fa-plus-circle" style="color:#ccc; margin-left:8px;"></i>
             `;
-            // MCA-stijl: addWmsLayer haalt nu ook capabilities op
             div.onclick = () => addWmsLayer(item);
             resultsContainer.appendChild(div);
         });
     }
 }
 
-// Uitgebreide addWmsLayer logica zoals in MCA
 async function addWmsLayer(item) {
     if (activeWmsLayers.find(l => l.title === item.name)) return;
+
+    const resultItem = Array.from(document.querySelectorAll('.result-item')).find(el => el.innerText.includes(item.name));
+    if (resultItem) resultItem.style.opacity = '0.5';
 
     try {
         const capUrl = new URL(item.url);
         capUrl.searchParams.set('service', 'WMS');
         capUrl.searchParams.set('request', 'GetCapabilities');
-        
+
         const proxyUrl = `/api/proxy?url=${encodeURIComponent(capUrl.toString())}`;
         const resp = await fetch(proxyUrl);
         const xmlText = await resp.text();
         const xmlDoc = new DOMParser().parseFromString(xmlText, "text/xml");
-        
+
         const allLayers = Array.from(xmlDoc.querySelectorAll('Layer'));
-        let finalLayerName = item.layer || '0';
+        let targetLayerNode = null;
+        let finalLayerName = item.layer;
 
         if (finalLayerName === '0' || !finalLayerName) {
             const namedLayers = allLayers.filter(l => l.querySelector('Name'));
             if (namedLayers.length > 0) {
-                finalLayerName = namedLayers[namedLayers.length - 1].querySelector('Name').textContent;
+                targetLayerNode = namedLayers[namedLayers.length - 1];
+                finalLayerName = targetLayerNode.querySelector('Name').textContent;
+            } else {
+                throw new Error("Geen lagen gevonden in WMS.");
+            }
+        } else {
+            targetLayerNode = allLayers.find(l => {
+                const n = l.querySelector('Name');
+                return n && n.textContent === finalLayerName;
+            });
+            if (!targetLayerNode && allLayers.length > 0) targetLayerNode = allLayers[allLayers.length - 1];
+        }
+
+        // Extract BBOX for zoom
+        let bbox = null;
+        if (targetLayerNode) {
+            const geoBbox = targetLayerNode.querySelector('EX_GeographicBoundingBox');
+            const llBbox = targetLayerNode.querySelector('LatLonBoundingBox');
+            if (geoBbox) {
+                bbox = [
+                    parseFloat(geoBbox.querySelector('westBoundLongitude').textContent),
+                    parseFloat(geoBbox.querySelector('southBoundLatitude').textContent),
+                    parseFloat(geoBbox.querySelector('eastBoundLongitude').textContent),
+                    parseFloat(geoBbox.querySelector('northBoundLatitude').textContent)
+                ];
+            } else if (llBbox) {
+                bbox = [
+                    parseFloat(llBbox.getAttribute('minx')),
+                    parseFloat(llBbox.getAttribute('miny')),
+                    parseFloat(llBbox.getAttribute('maxx')),
+                    parseFloat(llBbox.getAttribute('maxy'))
+                ];
             }
         }
+
+        // Legend URL
+        const baseUrl = item.url.split('?')[0];
+        const rawLegendUrl = `${baseUrl}?SERVICE=WMS&REQUEST=GetLegendGraphic&VERSION=1.3.0&FORMAT=image/png&LAYER=${encodeURIComponent(finalLayerName)}`;
+        const legendUrl = `/api/proxy?url=${encodeURIComponent(rawLegendUrl)}`;
 
         activeWmsLayers.push({
             id: Date.now(),
             title: item.name,
             url: item.url,
-            layer: finalLayerName, 
+            layer: finalLayerName,
             publisher: item.publisher || 'NGR',
-            version: '1.3.0'
+            bbox: bbox,
+            legendUrl: legendUrl,
+            showLegend: false
         });
-        
+
+        document.getElementById('search-results').innerHTML = '';
+        document.getElementById('search-results').style.display = 'none';
         updateActiveLayersUI();
         renderLayers();
+        if (bbox) zoomToBbox(bbox);
     } catch (err) {
         console.error(err);
         alert(`Kon laag niet toevoegen: ${err.message}`);
+        if (resultItem) resultItem.style.opacity = '1';
     }
+}
+
+function zoomToBbox(bbox) {
+    if (!bbox) return;
+    const [minLon, minLat, maxLon, maxLat] = bbox;
+    const centerLon = (minLon + maxLon) / 2;
+    const centerLat = (minLat + maxLat) / 2;
+    const maxDiff = Math.max(maxLon - minLon, maxLat - minLat);
+
+    let zoom = 8;
+    if (maxDiff < 0.05) zoom = 14;
+    else if (maxDiff < 0.1) zoom = 12;
+    else if (maxDiff < 0.5) zoom = 10;
+    else if (maxDiff < 2.0) zoom = 8;
+    else zoom = 7;
+
+    deckInstance.setProps({
+        initialViewState: {
+            ...currentViewState,
+            longitude: centerLon,
+            latitude: centerLat,
+            zoom: zoom,
+            transitionDuration: 1000,
+            transitionInterpolator: new deck.FlyToInterpolator()
+        }
+    });
 }
 
 function updateActiveLayersUI() {
     const list = document.getElementById('wms-list-content');
     const container = document.getElementById('active-wms-layers');
     if(!list) return;
-    
+
     list.innerHTML = '';
     if (activeWmsLayers.length > 0) {
         container.style.display = 'block';
         activeWmsLayers.forEach(l => {
             const div = document.createElement('div');
-            div.style.padding = '5px';
-            div.style.borderBottom = '1px solid #eee';
-            div.style.display = 'flex';
-            div.style.justifyContent = 'space-between';
-            div.innerHTML = `<span>${l.title}</span> <i class="fa fa-trash" style="cursor:pointer; color:red;" onclick="window.removeLayer('${l.id}')"></i>`;
+            div.style.cssText = 'padding:8px 10px; border-bottom:1px solid #eee; display:flex; flex-direction:column; gap:4px;';
+
+            const pubBadge = `<span style="font-size:9px; color:#999; border:1px solid #ddd; border-radius:3px; padding:0 3px; margin-left:6px;">${l.publisher}</span>`;
+
+            // Header row
+            const header = document.createElement('div');
+            header.style.cssText = 'display:flex; justify-content:space-between; align-items:center;';
+            header.innerHTML = `
+                <div style="display:flex; align-items:center;">
+                    <i class="fa fa-check-square" style="color:#007ac2; margin-right:5px;"></i>
+                    <span style="font-size:12px;">${l.title}</span>
+                    ${pubBadge}
+                </div>
+                <i class="fa fa-trash" style="cursor:pointer; color:#999; font-size:11px;" onclick="window.removeLayer('${l.id}')"></i>
+            `;
+            div.appendChild(header);
+
+            // Controls row
+            const controls = document.createElement('div');
+            controls.style.cssText = 'display:flex; gap:8px; margin-top:2px;';
+            let html = '';
+            if (l.bbox) {
+                html += `<button onclick="window.zoomToLayer(${l.id})" style="font-size:10px; border:1px solid #ddd; background:#f8f8f8; padding:2px 6px; border-radius:3px; cursor:pointer;"><i class="fa fa-crosshairs"></i> Zoom</button>`;
+            }
+            html += `<button onclick="window.toggleLegend(${l.id})" style="font-size:10px; border:1px solid #ddd; background:#f8f8f8; padding:2px 6px; border-radius:3px; cursor:pointer;"><i class="fa ${l.showLegend ? 'fa-chevron-up' : 'fa-list'}"></i> Legenda</button>`;
+            controls.innerHTML = html;
+            div.appendChild(controls);
+
+            // Legend image
+            if (l.showLegend && l.legendUrl) {
+                const img = document.createElement('img');
+                img.src = l.legendUrl;
+                img.style.cssText = 'max-width:100%; margin-top:4px; border:1px solid #eee; border-radius:3px;';
+                img.onerror = function() { this.outerHTML = '<div style="color:#999; font-size:10px;">(Legenda niet beschikbaar)</div>'; };
+                div.appendChild(img);
+            }
+
             list.appendChild(div);
         });
     } else {
@@ -156,7 +269,20 @@ window.removeLayer = function(id) {
     activeWmsLayers = activeWmsLayers.filter(l => l.id != id);
     updateActiveLayersUI();
     renderLayers();
-}
+};
+
+window.zoomToLayer = function(id) {
+    const layer = activeWmsLayers.find(l => l.id === id);
+    if (layer && layer.bbox) zoomToBbox(layer.bbox);
+};
+
+window.toggleLegend = function(id) {
+    const layer = activeWmsLayers.find(l => l.id === id);
+    if (layer) {
+        layer.showLegend = !layer.showLegend;
+        updateActiveLayersUI();
+    }
+};
 
 // --- AGRO & DRAWING LOGIC ---
 

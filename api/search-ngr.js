@@ -9,7 +9,7 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  const NGR_URL = 'https://nationaalgeoregister.nl/geonetwork/srv/dut/csw';
+  const NGR_URL = 'https://www.nationaalgeoregister.nl/geonetwork/srv/dut/csw';
 
   // Alleen POST toestaan, omdat beide frontends XML-zoekopdrachten versturen
   if (req.method !== 'POST') {
