@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Ruimtelijke Patronen – SOM Viewer – Maps That Matter</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+
+  <!-- Privacy-friendly analytics -->
+  <script async src="https://plausible.io/js/pa-unGG15m6r6ufvAQNAPz3f.js"></script>
+  <script>
+    window.plausible = window.plausible || function() { (plausible.q = plausible.q || []).push(arguments) };
+    plausible.init = plausible.init || function(i) { plausible.o = i || {} };
+    plausible.init();
+  </script>
+
+  <!-- Dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser.js"></script>
+  <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
+  <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
+
+  <!-- Shared utilities -->
+  <script src="/shared/deckgl-utils.js"></script>
+  <script src="/shared/duckdb-loader.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+      background: #0a0a0a;
+    }
+
+    #container { width: 100vw; height: 100vh; position: relative; }
+
+    /* ── Controls panel ── */
+    #controls {
+      position: absolute;
+      top: 20px; left: 20px;
+      background: rgba(18, 18, 24, 0.95);
+      color: #e0e0e0;
+      padding: 18px;
+      border-radius: 10px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.6);
+      z-index: 10;
+      width: 280px;
+      display: none;
+    }
+
+    #controls h3 {
+      margin: 0 0 14px 0;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.3px;
+    }
+
+    /* ── Mode tabs ── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 6px 4px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid #333;
+      border-radius: 5px;
+      background: #1c1c28;
+      color: #888;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+
+    .tab:hover { background: #252535; color: #bbb; }
+    .tab.active { background: #2a6496; border-color: #3a84c6; color: #fff; }
+
+    /* ── Mode panels ── */
+    .mode-panel { display: none; }
+    .mode-panel.active { display: block; }
+
+    /* ── Sliders ── */
+    .control-group { margin: 12px 0; }
+
+    .control-label {
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 4px;
+    }
+
+    .value-display {
+      font-size: 26px;
+      font-weight: 700;
+      color: #4da6ff;
+      text-align: center;
+      margin: 6px 0;
+      transition: color 0.2s;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: #4da6ff;
+      margin: 6px 0;
+    }
+
+    .range-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #555;
+    }
+
+    /* ── Scenario / trend buttons ── */
+    .option-btn {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 8px 10px;
+      margin: 4px 0;
+      background: #1c1c28;
+      border: 1px solid #333;
+      border-radius: 5px;
+      color: #ccc;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .option-btn:hover { background: #252535; border-color: #555; }
+    .option-btn.active { background: #1a3a52; border-color: #2a6496; color: #fff; }
+
+    /* ── Changed toggle ── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      font-size: 11px;
+      color: #888;
+    }
+
+    .toggle-row input[type="checkbox"] { accent-color: #ff8c42; }
+
+    /* ── Stats ── */
+    .stats {
+      margin-top: 14px;
+      padding: 10px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 6px;
+      font-size: 11px;
+      color: #aaa;
+      line-height: 1.8;
+    }
+    .stats b { color: #ccc; }
+    .stats span { color: #4da6ff; font-weight: 600; }
+    .stats .changed-count { color: #ff8c42; }
+
+    /* ── Legend ── */
+    .legend {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid #2a2a3a;
+    }
+
+    .legend-title {
+      font-size: 10px;
+      color: #666;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .legend-grid {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 2px;
+      width: 100%;
+    }
+
+    .legend-cell {
+      width: 100%;
+      padding-bottom: 100%;
+      border-radius: 2px;
+    }
+
+    .legend-axis {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: #444;
+      margin-top: 3px;
+    }
+
+    /* ── Buttons row ── */
+    .btn-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 5px 8px;
+      font-size: 11px;
+      border: 1px solid #333;
+      border-radius: 4px;
+      background: #1c1c28;
+      color: #aaa;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn:hover { background: #252535; color: #ddd; }
+
+    /* ── Loading / overlay ── */
+    #loading {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.85);
+      color: #ccc;
+      padding: 20px 36px;
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 20;
+    }
+
+    #map-overlay {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(3px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 30;
+      cursor: pointer;
+      transition: opacity 0.3s;
+    }
+
+    #map-overlay.hidden { opacity: 0; pointer-events: none; }
+
+    #map-overlay-content {
+      background: #1a1a2e;
+      border: 1px solid #2a2a4a;
+      padding: 28px 36px;
+      border-radius: 12px;
+      text-align: center;
+      max-width: 380px;
+      color: #ddd;
+    }
+
+    #map-overlay-content h2 { margin: 0 0 8px; font-size: 22px; color: #fff; }
+    #map-overlay-content p  { margin: 0 0 18px; font-size: 13px; color: #999; }
+
+    #activate-btn {
+      background: #2a6496;
+      color: #fff;
+      border: none;
+      padding: 11px 28px;
+      border-radius: 6px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    #activate-btn:hover { background: #3a84c6; transform: translateY(-1px); }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  <div id="loading">Data laden...</div>
+
+  <div id="controls">
+    <h3>Ruimtelijke Patronen – SOM</h3>
+
+    <!-- Mode tabs -->
+    <div class="tabs">
+      <div class="tab active" data-mode="jaar">Jaar</div>
+      <div class="tab" data-mode="scenario">Scenario</div>
+      <div class="tab" data-mode="trend">Trend</div>
+    </div>
+
+    <!-- Jaar mode -->
+    <div class="mode-panel active" id="panel-jaar">
+      <div class="control-group">
+        <div class="value-display" id="year-display">2023</div>
+        <input type="range" id="year-slider" min="2018" max="2023" step="1" value="2023" />
+        <div class="range-labels"><span>2018</span><span>2023</span></div>
+      </div>
+      <div style="margin-top: 6px;">
+        <button class="btn" id="play-btn">&#9654; Afspelen</button>
+      </div>
+    </div>
+
+    <!-- Scenario mode -->
+    <div class="mode-panel" id="panel-scenario">
+      <div class="control-label">Kies een scenario (t.o.v. 2023):</div>
+      <button class="option-btn active" data-col="scenario_pop_plus20">Bevolking +20%</button>
+      <button class="option-btn" data-col="scenario_pop_min20">Bevolking -20%</button>
+      <button class="option-btn" data-col="scenario_heat_plus30">Hitte +30%</button>
+      <button class="option-btn" data-col="scenario_heat_plus50">Hitte +50%</button>
+      <button class="option-btn" data-col="scenario_woz_plus20">WOZ-waarde +20%</button>
+      <div class="toggle-row">
+        <input type="checkbox" id="changed-only" />
+        <label for="changed-only">Toon alleen veranderde hexagonen</label>
+      </div>
+    </div>
+
+    <!-- Trend mode -->
+    <div class="mode-panel" id="panel-trend">
+      <div class="control-label">Projectie op basis van trend 2018–2023:</div>
+      <button class="option-btn active" data-col="trend_2030">2030</button>
+      <button class="option-btn" data-col="trend_2035">2035</button>
+      <div class="toggle-row">
+        <input type="checkbox" id="trend-changed-only" />
+        <label for="trend-changed-only">Toon alleen veranderde hexagonen</label>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats" id="stats"></div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-title">SOM clusters (10×10 grid)</div>
+      <div class="legend-grid" id="legend-grid"></div>
+      <div class="legend-axis">
+        <span>&#8592; stedelijk</span>
+        <span>landelijk &#8594;</span>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="btn-row">
+      <button class="btn" id="fullscreen-btn">&#x26F6; Volledig scherm</button>
+    </div>
+  </div>
+
+  <!-- Activate overlay -->
+  <div id="map-overlay">
+    <div id="map-overlay-content">
+      <h2>Ruimtelijke Patronen</h2>
+      <p>SOM-clustering van 37.000 hexagonen in Nederland.<br>Verken patronen, scenario's en trends.</p>
+      <button id="activate-btn">Kaart activeren</button>
+    </div>
+  </div>
+
+  <script>
+    const { DeckGL } = deck;
+
+    // ── Config ──────────────────────────────────────────────────────────────
+    const DATA_URL = '/data/som_export.parquet';
+    const INITIAL_VIEW = { longitude: 5.1, latitude: 52.1, zoom: 7, pitch: 0, bearing: 0 };
+    const CHANGED_COLOR = [255, 140, 66, 220];   // orange for shifted hexagons
+
+    const SCENARIOS = [
+      { col: 'scenario_pop_plus20', label: 'Bevolking +20%' },
+      { col: 'scenario_pop_min20',  label: 'Bevolking -20%' },
+      { col: 'scenario_heat_plus30', label: 'Hitte +30%' },
+      { col: 'scenario_heat_plus50', label: 'Hitte +50%' },
+      { col: 'scenario_woz_plus20', label: 'WOZ-waarde +20%' },
+    ];
+
+    const TRENDS = [
+      { col: 'trend_2030', label: '2030' },
+      { col: 'trend_2035', label: '2035' },
+    ];
+
+    // ── Color mapping ────────────────────────────────────────────────────────
+    function hslToRgb(h, s, l) {
+      h /= 360;
+      const hue2rgb = (p, q, t) => {
+        if (t < 0) t += 1; if (t > 1) t -= 1;
+        if (t < 1/6) return p + (q - p) * 6 * t;
+        if (t < 1/2) return q;
+        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        return p;
+      };
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+      return [
+        Math.round(hue2rgb(p, q, h + 1/3) * 255),
+        Math.round(hue2rgb(p, q, h)       * 255),
+        Math.round(hue2rgb(p, q, h - 1/3) * 255),
+      ];
+    }
+
+    // Pre-compute 100 cluster colors (10x10 SOM grid)
+    const CLUSTER_COLORS = Array.from({ length: 100 }, (_, id) => {
+      const cx = Math.floor(id / 10);   // 0–9 (SOM x)
+      const cy = id % 10;               // 0–9 (SOM y)
+      const hue = cx * 36;              // 0–324 degrees
+      const lightness = 0.35 + cy * 0.028;  // 0.35–0.60
+      return [...hslToRgb(hue, 0.65, lightness), 200];
+    });
+
+    function clusterColor(clusterId) {
+      if (clusterId == null || clusterId < 0 || clusterId > 99) return [80, 80, 80, 80];
+      return CLUSTER_COLORS[clusterId];
+    }
+
+    // ── State ────────────────────────────────────────────────────────────────
+    let allData = [];
+    let deckInstance = null;
+    let viewState = { ...INITIAL_VIEW };
+    let mapActive = false;
+    let playInterval = null;
+
+    let mode = 'jaar';          // 'jaar' | 'scenario' | 'trend'
+    let activeYear = 2023;
+    let activeScenarioCol = 'scenario_pop_plus20';
+    let activeTrendCol = 'trend_2030';
+    let changedOnly = false;
+    let trendChangedOnly = false;
+
+    // ── Color function per mode ──────────────────────────────────────────────
+    function getColor(d) {
+      if (mode === 'jaar') {
+        return clusterColor(d[`cluster_${activeYear}`]);
+      }
+
+      const compareCol = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
+      const showChangedOnly = mode === 'scenario' ? changedOnly : trendChangedOnly;
+      const base = d.cluster_2023;
+      const current = d[compareCol];
+
+      if (showChangedOnly && current === base) return [0, 0, 0, 0];
+      if (current !== base) return CHANGED_COLOR;
+      return clusterColor(base);
+    }
+
+    // ── Layer ────────────────────────────────────────────────────────────────
+    function getActiveData() {
+      if (mode !== 'scenario' && mode !== 'trend') return allData;
+      const compareCol = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
+      const showChangedOnly = mode === 'scenario' ? changedOnly : trendChangedOnly;
+      if (!showChangedOnly) return allData;
+      return allData.filter(d => d[compareCol] !== d.cluster_2023);
+    }
+
+    function buildLayer() {
+      return DeckGLUtils.createH3Layer({
+        id: 'som-layer',
+        data: getActiveData(),
+        getHexagon: d => d.h3,
+        getFillColor: getColor,
+        extruded: false,
+        pickable: true,
+        updateTriggers: { getFillColor: [mode, activeYear, activeScenarioCol, activeTrendCol, changedOnly, trendChangedOnly] },
+      });
+    }
+
+    function render() {
+      if (!deckInstance) return;
+      deckInstance.setProps({
+        layers: [DeckGLUtils.createBasemap('dark-matter'), buildLayer()],
+        getTooltip: ({ object }) => object ? buildTooltip(object) : null,
+      });
+      updateStats();
+    }
+
+    // ── Tooltip ──────────────────────────────────────────────────────────────
+    function buildTooltip(d) {
+      const compareCol = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
+      const clusterId = mode === 'jaar'
+        ? d[`cluster_${activeYear}`]
+        : d[compareCol];
+      const cx = clusterId != null ? Math.floor(clusterId / 10) : '–';
+      const cy = clusterId != null ? clusterId % 10 : '–';
+
+      let changed = '';
+      if (mode !== 'jaar' && d[compareCol] !== d.cluster_2023) {
+        changed = `<br><b style="color:#ff8c42">&#9650; cluster verschoven</b> (was ${d.cluster_2023}, nu ${d[compareCol]})`;
+      }
+
+      return {
+        html: `
+          <div style="font-size:12px;line-height:1.7">
+            <b>${d.gemeente || '–'}</b>${d.wijk ? ` / ${d.wijk}` : ''}<br>
+            Cluster: <b>${clusterId ?? '–'}</b> (${cx}, ${cy})${changed}<br>
+            Inwoners: <b>${d.inwoners != null ? Math.round(d.inwoners) : '–'}</b><br>
+            WOZ: <b>${d.woz != null ? '€' + Math.round(d.woz).toLocaleString('nl') : '–'}</b><br>
+            Hitte: <b>${d.hitte != null ? d.hitte.toFixed(1) : '–'}</b><br>
+            Bebouwing: <b>${d.bebouwing != null ? (d.bebouwing * 100).toFixed(1) + '%' : '–'}</b>
+          </div>`,
+        style: {
+          background: 'rgba(18,18,28,0.95)',
+          color: '#ddd',
+          border: '1px solid #333',
+          borderRadius: '6px',
+          padding: '10px 14px',
+        },
+      };
+    }
+
+    // ── Stats ────────────────────────────────────────────────────────────────
+    function updateStats() {
+      const el = document.getElementById('stats');
+      if (!el) return;
+
+      if (mode === 'jaar') {
+        const populated = allData.filter(d => d[`cluster_${activeYear}`] != null).length;
+        el.innerHTML = `<b>Jaar:</b> <span>${activeYear}</span><br><b>Hexagonen:</b> <span>${populated.toLocaleString('nl')}</span>`;
+        return;
+      }
+
+      const compareCol = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
+      const label = mode === 'scenario'
+        ? SCENARIOS.find(s => s.col === compareCol)?.label
+        : TRENDS.find(t => t.col === compareCol)?.label;
+
+      const changed = allData.filter(d => d[compareCol] != null && d[compareCol] !== d.cluster_2023).length;
+      const pct = allData.length > 0 ? ((changed / allData.length) * 100).toFixed(1) : 0;
+
+      el.innerHTML = `
+        <b>Scenario:</b> <span>${label}</span><br>
+        <b>Veranderd:</b> <span class="changed-count">${changed.toLocaleString('nl')} (${pct}%)</span><br>
+        <b>Ongewijzigd:</b> <span>${(allData.length - changed).toLocaleString('nl')}</span>`;
+    }
+
+    // ── Legend ───────────────────────────────────────────────────────────────
+    function buildLegend() {
+      const grid = document.getElementById('legend-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+      for (let id = 0; id < 100; id++) {
+        const [r, g, b] = CLUSTER_COLORS[id];
+        const cell = document.createElement('div');
+        cell.className = 'legend-cell';
+        cell.style.background = `rgb(${r},${g},${b})`;
+        grid.appendChild(cell);
+      }
+    }
+
+    // ── Controls ─────────────────────────────────────────────────────────────
+    function setupControls() {
+      // Mode tabs
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          mode = tab.dataset.mode;
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
+          tab.classList.add('active');
+          document.getElementById(`panel-${mode}`).classList.add('active');
+          render();
+        });
+      });
+
+      // Year slider
+      const yearSlider = document.getElementById('year-slider');
+      const yearDisplay = document.getElementById('year-display');
+      yearSlider.addEventListener('input', () => {
+        activeYear = parseInt(yearSlider.value);
+        yearDisplay.textContent = activeYear;
+        render();
+      });
+
+      // Play button
+      const playBtn = document.getElementById('play-btn');
+      playBtn.addEventListener('click', () => {
+        if (playInterval) {
+          clearInterval(playInterval);
+          playInterval = null;
+          playBtn.innerHTML = '&#9654; Afspelen';
+          return;
+        }
+        playBtn.innerHTML = '&#9646;&#9646; Pauzeren';
+        playInterval = setInterval(() => {
+          activeYear = activeYear >= 2023 ? 2018 : activeYear + 1;
+          yearSlider.value = activeYear;
+          yearDisplay.textContent = activeYear;
+          render();
+        }, 700);
+      });
+
+      // Scenario buttons
+      document.querySelectorAll('#panel-scenario .option-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#panel-scenario .option-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          activeScenarioCol = btn.dataset.col;
+          render();
+        });
+      });
+
+      // Trend buttons
+      document.querySelectorAll('#panel-trend .option-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#panel-trend .option-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          activeTrendCol = btn.dataset.col;
+          render();
+        });
+      });
+
+      // Changed-only toggles
+      document.getElementById('changed-only').addEventListener('change', e => {
+        changedOnly = e.target.checked;
+        render();
+      });
+      document.getElementById('trend-changed-only').addEventListener('change', e => {
+        trendChangedOnly = e.target.checked;
+        render();
+      });
+
+      // Fullscreen
+      document.getElementById('fullscreen-btn').addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          document.getElementById('container').requestFullscreen?.();
+        } else {
+          document.exitFullscreen?.();
+        }
+      });
+
+      // Overlay
+      document.getElementById('activate-btn').addEventListener('click', activateMap);
+      document.getElementById('map-overlay').addEventListener('click', e => {
+        if (e.target === e.currentTarget) activateMap();
+      });
+    }
+
+    function activateMap() {
+      mapActive = true;
+      document.getElementById('map-overlay').classList.add('hidden');
+      if (deckInstance) deckInstance.setProps({ controller: true });
+    }
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    async function init() {
+      try {
+        const loader = new DuckDBLoader();
+        await loader.loadParquetFile(DATA_URL, 'som');
+        // Arrow Row objects support direct field access: d.h3, d['cluster_2023'], etc.
+        allData = await loader.query('SELECT * FROM som');
+
+        console.log(`Geladen: ${allData.length.toLocaleString('nl')} hexagonen`);
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('controls').style.display = 'block';
+
+        setupControls();
+        buildLegend();
+
+        deckInstance = new DeckGL({
+          container: 'container',
+          initialViewState: INITIAL_VIEW,
+          viewState,
+          controller: false,
+          layers: [DeckGLUtils.createBasemap('dark-matter'), buildLayer()],
+          onViewStateChange: ({ viewState: vs }) => {
+            viewState = vs;
+            deckInstance.setProps({ viewState });
+          },
+          getTooltip: ({ object }) => object ? buildTooltip(object) : null,
+        });
+
+        updateStats();
+      } catch (err) {
+        console.error(err);
+        document.getElementById('loading').textContent = 'Fout bij laden: ' + err.message;
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>
