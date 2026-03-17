@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Geluid & Groen – Ruimtelijke Analyse – Maps That Matter</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+
+  <script async src="https://plausible.io/js/pa-unGG15m6r6ufvAQNAPz3f.js"></script>
+  <script>
+    window.plausible = window.plausible || function() { (plausible.q = plausible.q || []).push(arguments) };
+    plausible.init = plausible.init || function(i) { plausible.o = i || {} };
+    plausible.init();
+  </script>
+
+  <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
+  <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
+  <script src="/shared/deckgl-utils.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: hidden; background: #0a0a0a; }
+    #container { width: 100vw; height: 100vh; }
+
+    /* ── Panel ── */
+    #panel {
+      position: absolute; top: 20px; left: 20px;
+      width: 300px;
+      background: rgba(14,14,22,0.96);
+      color: #ddd;
+      border-radius: 10px;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.7);
+      z-index: 10;
+      display: none;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid #1e1e2e;
+    }
+
+    .panel-header h3 {
+      margin: 0 0 4px;
+      font-size: 14px; font-weight: 700; color: #fff;
+    }
+
+    .panel-header .subtitle {
+      font-size: 11px; color: #666; line-height: 1.4;
+    }
+
+    /* ── View toggle ── */
+    .view-tabs {
+      display: flex; gap: 4px;
+      padding: 10px 18px;
+      border-bottom: 1px solid #1e1e2e;
+    }
+
+    .view-tab {
+      flex: 1; padding: 6px 4px;
+      font-size: 11px; font-weight: 600;
+      border: 1px solid #2a2a3a; border-radius: 5px;
+      background: #14141e; color: #666;
+      cursor: pointer; text-align: center; transition: all 0.15s;
+    }
+    .view-tab:hover { background: #1c1c2c; color: #aaa; }
+    .view-tab.active { background: #1a3a52; border-color: #2a6496; color: #fff; }
+
+    /* ── Stats ── */
+    .stats-row {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 8px; padding: 12px 18px;
+      border-bottom: 1px solid #1e1e2e;
+    }
+
+    .stat-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid #222230;
+      border-radius: 6px; padding: 8px 10px;
+    }
+
+    .stat-label { font-size: 10px; color: #555; margin-bottom: 2px; }
+    .stat-value { font-size: 18px; font-weight: 700; color: #4da6ff; }
+    .stat-unit  { font-size: 10px; color: #444; }
+    .stat-value.warn { color: #ff6b4a; }
+    .stat-value.ok   { color: #4caf7a; }
+
+    /* ── Legend ── */
+    .legend-section {
+      padding: 10px 18px 12px;
+      border-bottom: 1px solid #1e1e2e;
+    }
+
+    .legend-title { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+
+    .legend-bar {
+      height: 10px; border-radius: 3px;
+      background: linear-gradient(to right, #1a6bbd, #4da6ff, #ffe066, #ff8c42, #d93030);
+    }
+
+    .legend-labels {
+      display: flex; justify-content: space-between;
+      font-size: 9px; color: #555; margin-top: 3px;
+    }
+
+    .who-line {
+      display: flex; align-items: center; gap: 6px;
+      margin-top: 8px; font-size: 10px; color: #888;
+    }
+
+    .who-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #fff; flex-shrink: 0;
+    }
+
+    /* ── Query block ── */
+    .query-toggle {
+      display: flex; align-items: center; gap: 6px;
+      padding: 10px 18px;
+      border-bottom: 1px solid #1e1e2e;
+      cursor: pointer; font-size: 11px; color: #555;
+      user-select: none; transition: color 0.15s;
+    }
+    .query-toggle:hover { color: #888; }
+    .query-toggle .arrow { font-size: 9px; transition: transform 0.2s; }
+    .query-toggle.open .arrow { transform: rotate(90deg); }
+
+    .query-body {
+      display: none; padding: 0 18px 14px;
+      border-bottom: 1px solid #1e1e2e;
+    }
+    .query-body.open { display: block; }
+
+    .query-label { font-size: 10px; color: #555; margin-bottom: 6px; }
+
+    pre {
+      margin: 0;
+      background: #0d0d18;
+      border: 1px solid #1e1e2e;
+      border-radius: 5px;
+      padding: 10px;
+      font-size: 10px; color: #a8c7f0;
+      line-height: 1.6; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word;
+    }
+
+    pre .kw  { color: #c792ea; }
+    pre .fn  { color: #82aaff; }
+    pre .str { color: #c3e88d; }
+    pre .num { color: #f78c6c; }
+    pre .cmt { color: #546e7a; font-style: italic; }
+
+    /* ── Info ── */
+    .info-section { padding: 10px 18px 14px; font-size: 11px; color: #666; line-height: 1.7; }
+    .info-section b { color: #aaa; }
+    .info-section a { color: #4da6ff; text-decoration: none; }
+
+    /* ── 3D toggle ── */
+    .toggle-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 18px; border-bottom: 1px solid #1e1e2e;
+      font-size: 11px; color: #666;
+    }
+    .toggle-row input { accent-color: #4da6ff; }
+
+    /* ── Loading ── */
+    #loading {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.85); color: #ccc;
+      padding: 20px 36px; border-radius: 8px; font-size: 14px; z-index: 20;
+    }
+
+    /* ── Mobile ── */
+    .mobile-handle {
+      display: none; width: 36px; height: 4px;
+      background: #333; border-radius: 2px; margin: 0 auto 10px;
+    }
+
+    #panel-collapse {
+      display: none; background: none; border: none;
+      color: #444; font-size: 16px; cursor: pointer; padding: 0 2px;
+      transition: transform 0.2s;
+    }
+
+    .panel-header-row {
+      display: flex; align-items: flex-start; justify-content: space-between;
+    }
+
+    @media (max-width: 640px) {
+      #panel {
+        top: auto; bottom: 0; left: 0; right: 0; width: 100%;
+        border-radius: 12px 12px 0 0;
+      }
+      .mobile-handle { display: block; }
+      #panel-collapse { display: block; }
+      #panel.collapsed .panel-body { display: none; }
+      #panel.collapsed #panel-collapse { transform: rotate(180deg); }
+      .stats-row { grid-template-columns: repeat(4, 1fr); }
+      .stat-value { font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  <div id="loading">Data laden...</div>
+
+  <div id="panel">
+    <div class="panel-header">
+      <div class="mobile-handle"></div>
+      <div class="panel-header-row">
+        <div>
+          <h3>Geluid & Groen in Nederland</h3>
+          <div class="subtitle">Welke bewoonde gebieden overschrijden de WHO-norm<br>voor geluidbelasting (53 dB Lden)?</div>
+        </div>
+        <button id="panel-collapse" title="Inklappen">&#8963;</button>
+      </div>
+    </div>
+
+    <div class="panel-body">
+
+      <!-- View toggle -->
+      <div class="view-tabs">
+        <div class="view-tab active" data-view="geluid">Geluid</div>
+        <div class="view-tab" data-view="groen">Groen</div>
+        <div class="view-tab" data-view="hitte">Hitte</div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Hexagonen</div>
+          <div class="stat-value" id="stat-total">–</div>
+          <div class="stat-unit">bewoond</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Boven WHO-norm</div>
+          <div class="stat-value warn" id="stat-above">–</div>
+          <div class="stat-unit">% &gt; 53 dB</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Gemiddeld</div>
+          <div class="stat-value" id="stat-avg">–</div>
+          <div class="stat-unit">dB Lden</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Maximum</div>
+          <div class="stat-value warn" id="stat-max">–</div>
+          <div class="stat-unit">dB Lden</div>
+        </div>
+      </div>
+
+      <!-- Legend -->
+      <div class="legend-section">
+        <div class="legend-title" id="legend-title">Geluidbelasting (dB Lden)</div>
+        <div class="legend-bar" id="legend-bar"></div>
+        <div class="legend-labels" id="legend-labels">
+          <span>34 dB (stil)</span><span>54 dB</span><span>74 dB (luid)</span>
+        </div>
+        <div class="who-line">
+          <div class="who-dot"></div>
+          <span>WHO-norm: 53 dB Lden voor woonomgevingen</span>
+        </div>
+      </div>
+
+      <!-- 3D toggle -->
+      <div class="toggle-row">
+        <input type="checkbox" id="extrude-toggle" checked />
+        <label for="extrude-toggle">3D hoogte = geluidsniveau</label>
+      </div>
+
+      <!-- Query -->
+      <div class="query-toggle" id="query-toggle">
+        <span class="arrow">&#9658;</span>
+        <span>Gebruikte SQL-query</span>
+      </div>
+      <div class="query-body" id="query-body">
+        <div class="query-label">Op de H3-datacube (DuckDB):</div>
+        <pre><span class="kw">SELECT</span>
+    h3_id,
+    gemeentenaam,
+    <span class="fn">ROUND</span>(geluid_lden, <span class="num">1</span>)  <span class="kw">AS</span> db,
+    hitte,
+    loofbos_fraction
+        + naaldbos_fraction       <span class="kw">AS</span> boomkroon,
+    bebouwing_in_primair_bebouwd_gebied_fraction
+                                  <span class="kw">AS</span> bebouwing,
+    aantal_inwoners_sum           <span class="kw">AS</span> inwoners
+<span class="kw">FROM</span> volledige_tijdreeks
+<span class="kw">WHERE</span> year_int = <span class="num">2023</span>
+  <span class="kw">AND</span> aantal_inwoners_sum > <span class="num">5</span>   <span class="cmt">-- bewoonde gebieden</span>
+  <span class="kw">AND</span> geluid_lden <span class="kw">IS NOT NULL</span>
+<span class="kw">ORDER BY</span> geluid_lden <span class="kw">DESC</span></pre>
+      </div>
+
+      <!-- Info -->
+      <div class="info-section">
+        <b>Over deze analyse</b><br>
+        Geluid_lden (Level Day Evening Night) is de Europese standaardmaat voor omgevingslawaai in dB, gewogen over dag, avond en nacht. De <b>WHO-norm van 53 dB</b> geldt als bovengrens voor gezonde woonomgevingen. Boomkroon (loofbos + naaldbos index) werkt als proxy voor groen dat geluid absorbeert. Groen-index en bebouwingsgraad zijn genormaliseerde CBS/LGN-waarden (0–255).
+      </div>
+
+    </div><!-- /.panel-body -->
+  </div>
+
+  <script>
+    const { DeckGL, H3HexagonLayer } = deck;
+
+    const DATA_URL = '/data/geluid_groen.json';
+    const INITIAL_VIEW = { longitude: 4.9, latitude: 52.2, zoom: 7, pitch: 45, bearing: 0 };
+    const WHO_THRESHOLD = 53;
+
+    // ── Views config ──────────────────────────────────────────────────────────
+    const VIEWS = {
+      geluid: {
+        getValue: d => d.db,
+        getElevation: d => d.db,
+        elevScale: 80,
+        colorMin: 34, colorMax: 74,
+        colors: [[26,107,189],[77,166,255],[255,224,102],[255,140,66],[217,48,48]],
+        legendTitle: 'Geluidbelasting (dB Lden)',
+        legendLabels: ['34 dB (stil)', '54 dB', '74 dB (luid)'],
+        legendGradient: 'linear-gradient(to right, #1a6bbd, #4da6ff, #ffe066, #ff8c42, #d93030)',
+        whoLine: true,
+      },
+      groen: {
+        getValue: d => d.boom,
+        getElevation: d => d.boom,
+        elevScale: 120,
+        colorMin: 0, colorMax: 255,
+        colors: [[30,30,40],[60,120,60],[100,200,100],[150,230,150],[200,255,200]],
+        legendTitle: 'Boomkroon (index 0–255)',
+        legendLabels: ['0 (kaal)', '128', '255 (veel bos)'],
+        legendGradient: 'linear-gradient(to right, #1e1e28, #3c783c, #64c864, #96e696, #c8ffc8)',
+        whoLine: false,
+      },
+      hitte: {
+        getValue: d => d.hitte,
+        getElevation: d => d.hitte,
+        elevScale: 100,
+        colorMin: 0, colorMax: 255,
+        colors: [[0,80,180],[80,160,230],[255,220,60],[255,120,20],[200,30,20]],
+        legendTitle: 'Hitte-index (UHI, 0–255)',
+        legendLabels: ['0 (koel)', '128', '255 (heet)'],
+        legendGradient: 'linear-gradient(to right, #0050b4, #50a0e6, #ffdc3c, #ff7814, #c81e14)',
+        whoLine: false,
+      },
+    };
+
+    // ── Color interpolation ───────────────────────────────────────────────────
+    function interpolateColor(value, min, max, colors) {
+      if (value == null) return [40, 40, 50, 0];
+      const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
+      const n = colors.length - 1;
+      const i = Math.floor(t * n);
+      const f = t * n - i;
+      const c0 = colors[Math.min(i, n)];
+      const c1 = colors[Math.min(i + 1, n)];
+      return [
+        Math.round(c0[0] + f * (c1[0] - c0[0])),
+        Math.round(c0[1] + f * (c1[1] - c0[1])),
+        Math.round(c0[2] + f * (c1[2] - c0[2])),
+        200,
+      ];
+    }
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    let allData = [];
+    let deckInstance = null;
+    let viewState = { ...INITIAL_VIEW };
+    let activeView = 'geluid';
+    let extrude = true;
+
+    // ── Render ────────────────────────────────────────────────────────────────
+    function getColor(d) {
+      const v = VIEWS[activeView];
+      return interpolateColor(v.getValue(d), v.colorMin, v.colorMax, v.colors);
+    }
+
+    function getElevation(d) {
+      if (!extrude) return 0;
+      const v = VIEWS[activeView];
+      const val = v.getValue(d) ?? 0;
+      return Math.max(0, val) * v.elevScale;
+    }
+
+    function buildLayer() {
+      return new H3HexagonLayer({
+        id: 'hex-layer',
+        data: allData,
+        getHexagon: d => d.h3,
+        getFillColor: getColor,
+        getElevation: getElevation,
+        extruded: extrude,
+        elevationScale: 1,
+        pickable: true,
+        updateTriggers: { getFillColor: [activeView], getElevation: [activeView, extrude] },
+      });
+    }
+
+    function render() {
+      if (!deckInstance) return;
+      deckInstance.setProps({
+        layers: [DeckGLUtils.createBasemap('dark-matter'), buildLayer()],
+        getTooltip: ({ object }) => object ? buildTooltip(object) : null,
+      });
+    }
+
+    // ── Tooltip ───────────────────────────────────────────────────────────────
+    function buildTooltip(d) {
+      const whoWarn = d.db > WHO_THRESHOLD
+        ? `<br><b style="color:#ff6b4a">&#9888; Boven WHO-norm (${WHO_THRESHOLD} dB)</b>`
+        : `<br><span style="color:#4caf7a">&#10003; Onder WHO-norm</span>`;
+      return {
+        html: `
+          <div style="font-size:12px;line-height:1.8">
+            <b>${d.gemeente || '–'}</b><br>
+            Geluid: <b>${d.db != null ? d.db + ' dB' : '–'}</b>${whoWarn}<br>
+            Hitte-index: <b>${d.hitte != null ? Math.round(d.hitte) : '–'}</b>/255<br>
+            Boomkroon: <b>${d.boom != null ? Math.round(d.boom) : '–'}</b>/255<br>
+            Bebouwing: <b>${d.bebouwing != null ? Math.round(d.bebouwing) : '–'}</b>/255<br>
+            Inwoners (index): <b>${d.inwoners != null ? d.inwoners : '–'}</b><br>
+            WOZ: <b>${d.woz != null ? d.woz : '–'}</b>/255
+          </div>`,
+        style: {
+          background: 'rgba(10,10,20,0.95)', color: '#ddd',
+          border: '1px solid #333', borderRadius: '6px', padding: '10px 14px',
+        },
+      };
+    }
+
+    // ── Stats ─────────────────────────────────────────────────────────────────
+    function updateStats() {
+      const dbs = allData.map(d => d.db).filter(v => v != null);
+      const above = dbs.filter(v => v > WHO_THRESHOLD).length;
+      const avg = dbs.reduce((a, b) => a + b, 0) / dbs.length;
+      const max = Math.max(...dbs);
+
+      document.getElementById('stat-total').textContent = allData.length.toLocaleString('nl');
+      document.getElementById('stat-above').textContent = ((above / dbs.length) * 100).toFixed(0) + '%';
+      document.getElementById('stat-avg').textContent = avg.toFixed(1);
+      document.getElementById('stat-max').textContent = max.toFixed(1);
+    }
+
+    // ── Legend update ─────────────────────────────────────────────────────────
+    function updateLegend() {
+      const v = VIEWS[activeView];
+      document.getElementById('legend-title').textContent = v.legendTitle;
+      document.getElementById('legend-bar').style.background = v.legendGradient;
+      const labels = document.getElementById('legend-labels');
+      labels.innerHTML = v.legendLabels.map(l => `<span>${l}</span>`).join('');
+      document.querySelector('.who-line').style.display = v.whoLine ? 'flex' : 'none';
+    }
+
+    // ── Controls ──────────────────────────────────────────────────────────────
+    function setupControls() {
+      document.querySelectorAll('.view-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          activeView = tab.dataset.view;
+          updateLegend();
+          render();
+        });
+      });
+
+      document.getElementById('extrude-toggle').addEventListener('change', e => {
+        extrude = e.target.checked;
+        deckInstance.setProps({ controller: { ...deckInstance.props.controller } });
+        render();
+      });
+
+      document.getElementById('query-toggle').addEventListener('click', () => {
+        document.getElementById('query-toggle').classList.toggle('open');
+        document.getElementById('query-body').classList.toggle('open');
+      });
+
+      document.getElementById('panel-collapse').addEventListener('click', () => {
+        document.getElementById('panel').classList.toggle('collapsed');
+      });
+
+      if (window.innerWidth <= 640) {
+        document.getElementById('panel').classList.add('collapsed');
+        document.querySelectorAll('.view-tab').forEach(tab => {
+          tab.addEventListener('click', () => {
+            document.getElementById('panel').classList.remove('collapsed');
+          }, { capture: true });
+        });
+      }
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    async function init() {
+      try {
+        const response = await fetch(DATA_URL);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        allData = await response.json();
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('panel').style.display = 'block';
+
+        setupControls();
+        updateStats();
+        updateLegend();
+
+        deckInstance = new DeckGL({
+          container: 'container',
+          initialViewState: INITIAL_VIEW,
+          viewState,
+          controller: true,
+          layers: [DeckGLUtils.createBasemap('dark-matter'), buildLayer()],
+          onViewStateChange: ({ viewState: vs }) => {
+            viewState = vs;
+            deckInstance.setProps({ viewState });
+          },
+          getTooltip: ({ object }) => object ? buildTooltip(object) : null,
+        });
+      } catch (err) {
+        console.error(err);
+        document.getElementById('loading').textContent = 'Fout bij laden: ' + err.message;
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>

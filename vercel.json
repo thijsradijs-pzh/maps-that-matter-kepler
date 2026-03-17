@@ -14,6 +14,7 @@
   ],
   "rewrites": [
     { "source": "/agro-viewer", "destination": "/agro-viewer/index.html" },
+    { "source": "/geluid-groen-viewer", "destination": "/geluid-groen-viewer/index.html" },
     { "source": "/som-viewer", "destination": "/som-viewer/index.html" },
     { "source": "/api/agro-proxy", "destination": "/api/agro-proxy.js" },
     { "source": "/api/proxy", "destination": "/api/proxy.js" },
