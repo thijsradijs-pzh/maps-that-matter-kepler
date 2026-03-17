@@ -14,13 +14,11 @@
   </script>
 
   <!-- Dependencies -->
-  <script src="https://unpkg.com/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser.js"></script>
   <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
   <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
 
   <!-- Shared utilities -->
   <script src="/shared/deckgl-utils.js"></script>
-  <script src="/shared/duckdb-loader.js"></script>
 
   <style>
     * { box-sizing: border-box; }
@@ -352,7 +350,7 @@
     const { DeckGL } = deck;
 
     // ── Config ──────────────────────────────────────────────────────────────
-    const DATA_URL = '/data/som_export.parquet';
+    const DATA_URL = '/data/som_export.json';
     const INITIAL_VIEW = { longitude: 5.1, latitude: 52.1, zoom: 7, pitch: 0, bearing: 0 };
     const CHANGED_COLOR = [255, 140, 66, 220];   // orange for shifted hexagons
 
@@ -631,10 +629,9 @@
     // ── Init ─────────────────────────────────────────────────────────────────
     async function init() {
       try {
-        const loader = new DuckDBLoader();
-        await loader.loadParquetFile(DATA_URL, 'som');
-        // Arrow Row objects support direct field access: d.h3, d['cluster_2023'], etc.
-        allData = await loader.query('SELECT * FROM som');
+        const response = await fetch(DATA_URL);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        allData = await response.json();
 
         console.log(`Geladen: ${allData.length.toLocaleString('nl')} hexagonen`);
 
