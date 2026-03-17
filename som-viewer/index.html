@@ -252,43 +252,53 @@
         left: 0;
         right: 0;
         width: 100%;
-        border-radius: 14px 14px 0 0;
-        padding: 10px 16px 20px;
-        max-height: 65vh;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
+        border-radius: 12px 12px 0 0;
+        padding: 6px 14px 18px;
       }
 
-      .mobile-handle { display: block; }
-
+      .mobile-handle { display: block; margin-bottom: 8px; }
       #controls-collapse { display: block; }
 
-      #controls.collapsed .controls-body { display: none; }
+      /* Hide secondary elements on mobile — keep controls minimal */
+      .stats, .legend, .info-toggle, .info-body, .btn-row { display: none !important; }
 
+      /* Collapsed: hide mode panels */
+      #controls.collapsed .controls-body { display: none; }
       #controls.collapsed #controls-collapse { transform: rotate(180deg); }
 
-      .tab { padding: 10px 4px; font-size: 13px; }
+      /* Compact controls */
+      .controls-header { margin-bottom: 8px; }
+      .controls-header h3 { font-size: 12px; }
 
-      .option-btn { padding: 12px 10px; font-size: 13px; }
+      .tabs { margin-bottom: 10px; gap: 6px; }
+      .tab { padding: 8px 4px; font-size: 12px; }
 
-      .toggle-row { font-size: 13px; }
-      .toggle-row input[type="checkbox"] { width: 18px; height: 18px; }
+      .control-group { margin: 6px 0; }
+      .value-display { font-size: 20px; margin: 2px 0; }
+      input[type="range"] { margin: 4px 0; }
 
-      .btn { padding: 10px 8px; font-size: 13px; }
+      .option-btn { padding: 9px 10px; font-size: 12px; margin: 3px 0; }
+
+      .toggle-row { font-size: 11px; margin-top: 8px; }
+
+      .btn { padding: 8px; font-size: 12px; }
 
       #map-overlay-content {
-        padding: 20px 16px;
-        max-width: calc(100vw - 24px);
+        padding: 18px 14px;
+        max-width: calc(100vw - 20px);
         max-height: 88vh;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
       }
 
-      #map-overlay-content h2 { font-size: 18px; }
+      #map-overlay-content h2 { font-size: 17px; }
+      #map-overlay-content p { font-size: 12px; }
+      .overlay-card p { font-size: 11px; }
 
-      .overlay-grid { grid-template-columns: 1fr; gap: 8px; }
+      .overlay-grid { grid-template-columns: 1fr; gap: 7px; margin: 12px 0 16px; }
+      .overlay-vars { margin: 8px 0 14px; }
 
-      #activate-btn { width: 100%; padding: 14px; }
+      #activate-btn { width: 100%; padding: 13px; font-size: 14px; }
     }
 
     /* ── Loading / overlay ── */
@@ -513,33 +523,44 @@
     <div class="info-body" id="info-body">
       <div class="info-section">
         <b>Methode</b><br>
-        Een Self-Organizing Map (SOM) is een neuraal netwerk dat hoog-dimensionele data naar een 2D-raster comprimeert. Gebieden die op elkaar lijken in de data landen dicht bij elkaar in het raster — aangrenzende kleuren zijn vergelijkbare gebiedstypen. Het model is getraind op 2023-waarden (10×10 grid, 1000 iteraties) en daarna toegepast op alle andere jaren en scenario's.
+        Een Self-Organizing Map (SOM) comprimeert ~100 variabelen naar een 10×10 raster. Hexagonen met vergelijkbare kenmerken landen dicht bij elkaar. Het model is getraind op 2023-data (1000 iteraties, random seed 42) en daarna toegepast op alle andere jaren en scenario's — de kaart laat zo zien hoe gebieden <i>in dezelfde indeling</i> door de tijd bewegen.
       </div>
+
       <div class="info-section">
-        <b>Variabelen en bronnen</b><br>
-        De clustering gebruikt ~100 variabelen uit zes thema's:<br><br>
-        <span class="info-tag">Demografie</span> inwoners, leeftijdsverdeling (0–15, 15–25, 25–45, 45–65, 65+), huishoudenstype (eenpersoons, eenouder, meerpersoons) — <i>CBS</i><br><br>
-        <span class="info-tag">Wonen</span> WOZ-waarde, woningtype (meergezins/eengezins), bouwjaar (voor 1945 t/m 2015+), aandeel huur/koop, corporatiebezit — <i>CBS + BAG</i><br><br>
-        <span class="info-tag">Sociaal-economisch</span> aandeel uitkeringen, herkomst (Nederland, Europa, buiten Europa) — <i>CBS</i><br><br>
-        <span class="info-tag">Gebouwfuncties</span> aantal panden met woon-, kantoor-, industrie-, winkel-, onderwijs-, zorg- en sportfunctie — <i>BAG</i><br><br>
-        <span class="info-tag">Landgebruik</span> bebouwingsgraad, loofbos, naaldbos, heide, duinen, agrarisch gras, akkers (granen, maïs, aardappelen), glastuinbouw, moeras, zoet/zout water — <i>LGN</i><br><br>
-        <span class="info-tag">Klimaat &amp; milieu</span> hitte-eilandeffect (UHI), geluidbelasting (Lden dB), maaiveld (m NAP), overstromingsdiepte (5 scenario's), lichtemissie — <i>RIVM / AHN / Waterschappen</i>
+        <b>Wat drijft de clustering?</b><br><br>
+
+        <span class="info-tag">Demografie</span> <i>bron: CBS</i><br>
+        Totaal inwoners en leeftijdsverdeling (5 klassen) bepalen het bevolkingsprofiel. Een hexagoon met veel 65-plussers scoort structureel anders dan een met veel gezinnen met kinderen. Huishoudenstype (eenpersoons, eenouder, meergezins) bepaalt mede de woningvraag en daarmee het gebiedstype.<br><br>
+
+        <span class="info-tag">Wonen &amp; betaalbaarheid</span> <i>bron: CBS + BAG</i><br>
+        WOZ-waarde is één van de sterkste differentiators: hoge WOZ clustert met koopwoningen, lage WOZ met corporatiehuur. Bouwjaar (8 klassen, voor 1945 t/m 2015+) onderscheidt vooroorlogse wijken (dicht, kleine woningen) van naoorlogse uitbreidingen en nieuwbouw. Percentage huur vs. koop en aantal corporatiewoningen bepalen de sociale mix.<br><br>
+
+        <span class="info-tag">Sociaal-economisch</span> <i>bron: CBS</i><br>
+        Aandeel uitkeringsgerechtigden (onder AOW-leeftijd) en herkomstpercentages zijn genormaliseerde indices (0–255, relatief per jaar). Ze sturen de SOM op sociale cohesie en kwetsbaarheid van een gebied.<br><br>
+
+        <span class="info-tag">Gebouwfuncties</span> <i>bron: BAG</i><br>
+        Aantal panden per functie (kantoor, industrie, winkel, onderwijs, zorg, sport, logies). Een hexagoon met veel kantoorpanden maar weinig woonfunctie clustert als bedrijventerrein; hoge winkeldichtheid duidt op centrumgebied. Functiemenging is zichtbaar in de overgang tussen clusters.<br><br>
+
+        <span class="info-tag">Landgebruik</span> <i>bron: LGN</i><br>
+        Fracties van het hexagonoppervlak per landgebruikstype. Bebouwing in primair bebouwd gebied onderscheidt stedelijk van landelijk. Loofbos, naaldbos, heide, duinen, moeras en agrarisch gras bepalen het natuurtype. Akkergewassen (granen, maïs, aardappelen, glastuinbouw) identificeren landbouwgebieden. Dit zijn de sterkste drijvers van de stedelijk–landelijk as.<br><br>
+
+        <span class="info-tag">Klimaat &amp; milieu</span> <i>bron: RIVM / AHN / Waterschappen</i><br>
+        Hitte (UHI-index) is hoog in dichte, verharde gebieden — lage groenfractie versterkt dit. Geluid (Lden in dB) is hoog nabij snelwegen en industrie. Maaiveldshoogte (m NAP) is laag in veenpolders en bepaalt overstromingsrisico samen met 5 overstromingsdiepte-scenario's. Lichtemissie correleert sterk met bebouwingsdichtheid.
       </div>
+
       <div class="info-section">
-        <b>Wat een cluster betekent</b><br>
-        Er is geen enkelvoudig label per cluster — elk type is een combinatie van alle thema's. De x-as loopt ruwweg van <i>stedelijk</i> (links: hoge dichtheid, functiemenging, geluid, warmte) naar <i>landelijk</i> (rechts: agrarisch, natuur, lage dichtheid). De y-as differentieert op kenmerken als bebouwingstype, groensamenstelling en sociaal-economisch profiel. Hover over een hexagoon voor de waarden van dat specifieke gebied.
+        <b>Hoe de assen werken</b><br>
+        De x-as (links→rechts) loopt ruwweg van <i>stedelijk</i> naar <i>landelijk</i> — primair gedreven door bebouwingsfractie, inwoners, geluid en hitte. De y-as differentieert binnen die categorieën op WOZ-niveau, bouwjaar, groentype en sociaal profiel. Er is geen enkelvoudig label per cluster: elk type is een combinatie van alle thema's.
       </div>
+
       <div class="info-section">
-        <b>Scenario's</b><br>
-        Per scenario wordt één variabele aangepast (bijv. bevolking ×1,2) en worden alle hexagonen opnieuw ingedeeld via de al getrainde SOM. Alle andere variabelen blijven op 2023-waarden. <span style="color:#ff8c42">Oranje</span> = van cluster gewisseld — dat zijn de gebieden die het meest gevoelig zijn voor die specifieke verandering.
+        <b>Scenario's — wat er verandert</b><br>
+        Eén variabele wordt aangepast (bijv. <code>aantal_inwoners_sum × 1.2</code>), alle overige blijven op 2023-waarden. De SOM wordt opnieuw bevraagd maar <i>niet opnieuw getraind</i>. <span style="color:#ff8c42">Oranje</span> = van cluster gewisseld. Gebieden die oranje kleuren zijn het meest gevoelig voor die verandering — vaak transitionele gebieden die al dicht bij een clustergrens zitten.
       </div>
+
       <div class="info-section">
-        <b>Trend (extrapolatie)</b><br>
-        Per variabele per hexagoon wordt een lineaire regressie berekend over 2018–2023 en doorgetrokken naar 2030 of 2035. Dit is <i>geen voorspelling</i> — het is een "als deze koers doorgaat"-berekening. Gebieden met sterke en brede trends (verandering in meerdere variabelen tegelijk) wisselen eerder van gebiedstype.
-      </div>
-      <div class="info-section">
-        <b>Beperkingen</b><br>
-        Energiedata stopt bij 2022, bereikbaarheidsdata bij 2021. Genormaliseerde CBS-waarden zijn relatief binnen een jaar — vergelijk nooit waarden tussen jaren direct. Het inkomen-variabele is corrupt in de dataset en niet meegenomen.
+        <b>Trend — extrapolatie, geen voorspelling</b><br>
+        Per variabele per hexagoon wordt een lineaire regressie berekend (OLS, 2018–2023) en doorgetrokken. Gebieden wisselen van type als meerdere variabelen tegelijk in dezelfde richting bewegen. Energiedata stopt bij 2022, bereikbaarheidsdata bij 2021 — die kolommen houden hun laatste waarde aan.
       </div>
     </div>
 
@@ -675,11 +696,14 @@
 
     // ── Layer ────────────────────────────────────────────────────────────────
     function getActiveData() {
-      if (mode !== 'scenario' && mode !== 'trend') return allData;
+      if (mode === 'jaar') {
+        return allData.filter(d => d[`cluster_${activeYear}`] != null);
+      }
       const compareCol = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
       const showChangedOnly = mode === 'scenario' ? changedOnly : trendChangedOnly;
-      if (!showChangedOnly) return allData;
-      return allData.filter(d => d[compareCol] !== d.cluster_2023);
+      const valid = allData.filter(d => d[compareCol] != null);
+      if (!showChangedOnly) return valid;
+      return valid.filter(d => d[compareCol] !== d.cluster_2023);
     }
 
     function buildLayer() {
@@ -851,6 +875,16 @@
       document.getElementById('controls-collapse').addEventListener('click', () => {
         document.getElementById('controls').classList.toggle('collapsed');
       });
+
+      // On mobile: start collapsed, auto-expand when a tab is clicked
+      if (window.innerWidth <= 640) {
+        document.getElementById('controls').classList.add('collapsed');
+        document.querySelectorAll('.tab').forEach(tab => {
+          tab.addEventListener('click', () => {
+            document.getElementById('controls').classList.remove('collapsed');
+          }, { capture: true });
+        });
+      }
 
       // Info toggle
       const infoToggle = document.getElementById('info-toggle');
