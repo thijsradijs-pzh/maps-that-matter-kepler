@@ -245,12 +245,60 @@
       padding: 28px 36px;
       border-radius: 12px;
       text-align: center;
-      max-width: 380px;
+      max-width: 480px;
       color: #ddd;
     }
 
     #map-overlay-content h2 { margin: 0 0 8px; font-size: 22px; color: #fff; }
-    #map-overlay-content p  { margin: 0 0 18px; font-size: 13px; color: #999; }
+    #map-overlay-content p  { margin: 0 0 12px; font-size: 13px; color: #999; line-height: 1.6; }
+
+    .overlay-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 16px 0 20px;
+      text-align: left;
+    }
+
+    .overlay-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid #2a2a4a;
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+
+    .overlay-card .card-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #4da6ff;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .overlay-card p {
+      margin: 0;
+      font-size: 11px;
+      color: #aaa;
+      line-height: 1.5;
+    }
+
+    .overlay-vars {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin: 10px 0 18px;
+      justify-content: center;
+    }
+
+    .var-tag {
+      background: rgba(74, 166, 255, 0.12);
+      border: 1px solid rgba(74, 166, 255, 0.25);
+      border-radius: 12px;
+      padding: 3px 10px;
+      font-size: 11px;
+      color: #7bbfff;
+    }
 
     #activate-btn {
       background: #2a6496;
@@ -265,6 +313,38 @@
     }
 
     #activate-btn:hover { background: #3a84c6; transform: translateY(-1px); }
+
+    /* ── Info panel ── */
+    .info-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid #2a2a3a;
+      cursor: pointer;
+      font-size: 11px;
+      color: #666;
+      user-select: none;
+    }
+
+    .info-toggle:hover { color: #999; }
+    .info-toggle .arrow { transition: transform 0.2s; font-size: 9px; }
+    .info-toggle.open .arrow { transform: rotate(90deg); }
+
+    .info-body {
+      display: none;
+      margin-top: 10px;
+      font-size: 11px;
+      color: #888;
+      line-height: 1.7;
+    }
+
+    .info-body.open { display: block; }
+
+    .info-body b { color: #bbb; }
+    .info-body .info-section { margin-bottom: 10px; }
+    .info-body .info-section:last-child { margin-bottom: 0; }
   </style>
 </head>
 <body>
@@ -331,6 +411,30 @@
       </div>
     </div>
 
+    <!-- Info toggle -->
+    <div class="info-toggle" id="info-toggle">
+      <span class="arrow">▶</span>
+      <span>Over deze analyse</span>
+    </div>
+    <div class="info-body" id="info-body">
+      <div class="info-section">
+        <b>Methode</b><br>
+        Een Self-Organizing Map (SOM) is een neuraal netwerk dat hoog-dimensionele data projecteert op een 2D-raster. Gebieden met vergelijkbare kenmerken landen dicht bij elkaar. Het resulterende 10×10 raster geeft 100 gebiedstypen, waarbij de x-as ruwweg van <i>stedelijk</i> (links) naar <i>landelijk</i> (rechts) loopt.
+      </div>
+      <div class="info-section">
+        <b>Variabelen</b><br>
+        Bevolkingsdichtheid, WOZ-waarde, hittestress (UHI), geluidbelasting en bebouwingsgraad — allemaal genormaliseerd zodat geen enkele variabele de uitkomst domineert.
+      </div>
+      <div class="info-section">
+        <b>Scenario's</b><br>
+        Per scenario wordt één variabele aangepast en de SOM opnieuw bevraagd. Oranje hexagonen zijn van cluster gewisseld — dat zijn de gebieden die het meest gevoelig zijn voor die specifieke verandering.
+      </div>
+      <div class="info-section">
+        <b>Trend</b><br>
+        Op basis van de lineaire trend per variabele per hexagoon (2018–2023) worden waarden voor 2030 en 2035 geëxtrapoleerd. Dit is geen voorspelling, maar een doorrekening van de huidige koers.
+      </div>
+    </div>
+
     <!-- Buttons -->
     <div class="btn-row">
       <button class="btn" id="fullscreen-btn">&#x26F6; Volledig scherm</button>
@@ -341,8 +445,36 @@
   <div id="map-overlay">
     <div id="map-overlay-content">
       <h2>Ruimtelijke Patronen</h2>
-      <p>SOM-clustering van 37.000 hexagonen in Nederland.<br>Verken patronen, scenario's en trends.</p>
-      <button id="activate-btn">Kaart activeren</button>
+      <p>Nederland ingedeeld in <b style="color:#e0e0e0">100 gebiedstypen</b> op basis van een Self-Organizing Map (SOM) — een machine learning-algoritme dat gebieden groepeert op basis van gedeelde kenmerken. Elke kleur is een clustertype; aangrenzende kleuren zijn meer op elkaar.</p>
+
+      <div class="overlay-vars">
+        <span class="var-tag">Bevolkingsdichtheid</span>
+        <span class="var-tag">WOZ-waarde</span>
+        <span class="var-tag">Hittestress</span>
+        <span class="var-tag">Geluidbelasting</span>
+        <span class="var-tag">Bebouwingsgraad</span>
+      </div>
+
+      <div class="overlay-grid">
+        <div class="overlay-card">
+          <div class="card-title">Jaar 2018–2023</div>
+          <p>Bekijk hoe gebiedstypen per jaar veranderden. Beweeg de tijdslider of speel de animatie af.</p>
+        </div>
+        <div class="overlay-card">
+          <div class="card-title">Scenario's</div>
+          <p>Wat als bevolking, hitte of woningwaarden significant veranderen? Welke gebieden verschuiven van type?</p>
+        </div>
+        <div class="overlay-card">
+          <div class="card-title">Trends</div>
+          <p>Extrapolatie van de trend 2018–2023 naar 2030 en 2035. Oranje = verwacht van type veranderd.</p>
+        </div>
+        <div class="overlay-card">
+          <div class="card-title">Data</div>
+          <p>37.000 H3-hexagonen (~500m), CBS + LGN. SOM getraind op genormaliseerde waarden per variabele.</p>
+        </div>
+      </div>
+
+      <button id="activate-btn">Kaart verkennen →</button>
     </div>
   </div>
 
@@ -602,6 +734,14 @@
       document.getElementById('trend-changed-only').addEventListener('change', e => {
         trendChangedOnly = e.target.checked;
         render();
+      });
+
+      // Info toggle
+      const infoToggle = document.getElementById('info-toggle');
+      const infoBody = document.getElementById('info-body');
+      infoToggle.addEventListener('click', () => {
+        infoToggle.classList.toggle('open');
+        infoBody.classList.toggle('open');
       });
 
       // Fullscreen
