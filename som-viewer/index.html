@@ -345,6 +345,18 @@
     .info-body b { color: #bbb; }
     .info-body .info-section { margin-bottom: 10px; }
     .info-body .info-section:last-child { margin-bottom: 0; }
+
+    .info-tag {
+      display: inline-block;
+      background: rgba(74,166,255,0.1);
+      border: 1px solid rgba(74,166,255,0.2);
+      border-radius: 3px;
+      padding: 0px 5px;
+      font-size: 10px;
+      color: #6aaee8;
+      margin-right: 3px;
+      vertical-align: middle;
+    }
   </style>
 </head>
 <body>
@@ -419,19 +431,33 @@
     <div class="info-body" id="info-body">
       <div class="info-section">
         <b>Methode</b><br>
-        Een Self-Organizing Map (SOM) is een neuraal netwerk dat hoog-dimensionele data projecteert op een 2D-raster. Gebieden met vergelijkbare kenmerken landen dicht bij elkaar. Het resulterende 10×10 raster geeft 100 gebiedstypen, waarbij de x-as ruwweg van <i>stedelijk</i> (links) naar <i>landelijk</i> (rechts) loopt.
+        Een Self-Organizing Map (SOM) is een neuraal netwerk dat hoog-dimensionele data naar een 2D-raster comprimeert. Gebieden die op elkaar lijken in de data landen dicht bij elkaar in het raster — aangrenzende kleuren zijn vergelijkbare gebiedstypen. Het model is getraind op 2023-waarden (10×10 grid, 1000 iteraties) en daarna toegepast op alle andere jaren en scenario's.
       </div>
       <div class="info-section">
-        <b>Variabelen</b><br>
-        Bevolkingsdichtheid, WOZ-waarde, hittestress (UHI), geluidbelasting en bebouwingsgraad — allemaal genormaliseerd zodat geen enkele variabele de uitkomst domineert.
+        <b>Variabelen en bronnen</b><br>
+        De clustering gebruikt ~100 variabelen uit zes thema's:<br><br>
+        <span class="info-tag">Demografie</span> inwoners, leeftijdsverdeling (0–15, 15–25, 25–45, 45–65, 65+), huishoudenstype (eenpersoons, eenouder, meerpersoons) — <i>CBS</i><br><br>
+        <span class="info-tag">Wonen</span> WOZ-waarde, woningtype (meergezins/eengezins), bouwjaar (voor 1945 t/m 2015+), aandeel huur/koop, corporatiebezit — <i>CBS + BAG</i><br><br>
+        <span class="info-tag">Sociaal-economisch</span> aandeel uitkeringen, herkomst (Nederland, Europa, buiten Europa) — <i>CBS</i><br><br>
+        <span class="info-tag">Gebouwfuncties</span> aantal panden met woon-, kantoor-, industrie-, winkel-, onderwijs-, zorg- en sportfunctie — <i>BAG</i><br><br>
+        <span class="info-tag">Landgebruik</span> bebouwingsgraad, loofbos, naaldbos, heide, duinen, agrarisch gras, akkers (granen, maïs, aardappelen), glastuinbouw, moeras, zoet/zout water — <i>LGN</i><br><br>
+        <span class="info-tag">Klimaat &amp; milieu</span> hitte-eilandeffect (UHI), geluidbelasting (Lden dB), maaiveld (m NAP), overstromingsdiepte (5 scenario's), lichtemissie — <i>RIVM / AHN / Waterschappen</i>
+      </div>
+      <div class="info-section">
+        <b>Wat een cluster betekent</b><br>
+        Er is geen enkelvoudig label per cluster — elk type is een combinatie van alle thema's. De x-as loopt ruwweg van <i>stedelijk</i> (links: hoge dichtheid, functiemenging, geluid, warmte) naar <i>landelijk</i> (rechts: agrarisch, natuur, lage dichtheid). De y-as differentieert op kenmerken als bebouwingstype, groensamenstelling en sociaal-economisch profiel. Hover over een hexagoon voor de waarden van dat specifieke gebied.
       </div>
       <div class="info-section">
         <b>Scenario's</b><br>
-        Per scenario wordt één variabele aangepast en de SOM opnieuw bevraagd. Oranje hexagonen zijn van cluster gewisseld — dat zijn de gebieden die het meest gevoelig zijn voor die specifieke verandering.
+        Per scenario wordt één variabele aangepast (bijv. bevolking ×1,2) en worden alle hexagonen opnieuw ingedeeld via de al getrainde SOM. Alle andere variabelen blijven op 2023-waarden. <span style="color:#ff8c42">Oranje</span> = van cluster gewisseld — dat zijn de gebieden die het meest gevoelig zijn voor die specifieke verandering.
       </div>
       <div class="info-section">
-        <b>Trend</b><br>
-        Op basis van de lineaire trend per variabele per hexagoon (2018–2023) worden waarden voor 2030 en 2035 geëxtrapoleerd. Dit is geen voorspelling, maar een doorrekening van de huidige koers.
+        <b>Trend (extrapolatie)</b><br>
+        Per variabele per hexagoon wordt een lineaire regressie berekend over 2018–2023 en doorgetrokken naar 2030 of 2035. Dit is <i>geen voorspelling</i> — het is een "als deze koers doorgaat"-berekening. Gebieden met sterke en brede trends (verandering in meerdere variabelen tegelijk) wisselen eerder van gebiedstype.
+      </div>
+      <div class="info-section">
+        <b>Beperkingen</b><br>
+        Energiedata stopt bij 2022, bereikbaarheidsdata bij 2021. Genormaliseerde CBS-waarden zijn relatief binnen een jaar — vergelijk nooit waarden tussen jaren direct. Het inkomen-variabele is corrupt in de dataset en niet meegenomen.
       </div>
     </div>
 
@@ -445,32 +471,33 @@
   <div id="map-overlay">
     <div id="map-overlay-content">
       <h2>Ruimtelijke Patronen</h2>
-      <p>Nederland ingedeeld in <b style="color:#e0e0e0">100 gebiedstypen</b> op basis van een Self-Organizing Map (SOM) — een machine learning-algoritme dat gebieden groepeert op basis van gedeelde kenmerken. Elke kleur is een clustertype; aangrenzende kleuren zijn meer op elkaar.</p>
+      <p>Nederland ingedeeld in <b style="color:#e0e0e0">100 gebiedstypen</b> op basis van ~100 variabelen uit demografie, wonen, landgebruik en klimaat (CBS, LGN, BAG, RIVM). Een Self-Organizing Map (SOM) groepeert hexagonen zo dat vergelijkbare gebieden naast elkaar liggen — aangrenzende kleuren zijn meer op elkaar.</p>
 
       <div class="overlay-vars">
-        <span class="var-tag">Bevolkingsdichtheid</span>
-        <span class="var-tag">WOZ-waarde</span>
-        <span class="var-tag">Hittestress</span>
-        <span class="var-tag">Geluidbelasting</span>
-        <span class="var-tag">Bebouwingsgraad</span>
+        <span class="var-tag">Demografie</span>
+        <span class="var-tag">Wonen &amp; WOZ</span>
+        <span class="var-tag">Landgebruik (LGN)</span>
+        <span class="var-tag">Hitte &amp; geluid</span>
+        <span class="var-tag">Gebouwfuncties (BAG)</span>
+        <span class="var-tag">Overstromingsrisico</span>
       </div>
 
       <div class="overlay-grid">
         <div class="overlay-card">
           <div class="card-title">Jaar 2018–2023</div>
-          <p>Bekijk hoe gebiedstypen per jaar veranderden. Beweeg de tijdslider of speel de animatie af.</p>
+          <p>Zie hoe gebiedstypen per jaar veranderden. De SOM is getraind op 2023 en toegepast op alle jaren.</p>
         </div>
         <div class="overlay-card">
           <div class="card-title">Scenario's</div>
-          <p>Wat als bevolking, hitte of woningwaarden significant veranderen? Welke gebieden verschuiven van type?</p>
+          <p>Pas één variabele aan (bijv. bevolking +20%) en zie welke hexagonen van gebiedstype wisselen.</p>
         </div>
         <div class="overlay-card">
           <div class="card-title">Trends</div>
-          <p>Extrapolatie van de trend 2018–2023 naar 2030 en 2035. Oranje = verwacht van type veranderd.</p>
+          <p>Lineaire extrapolatie van de trend 2018–2023 naar 2030/2035. Geen voorspelling, maar een koersberekening.</p>
         </div>
         <div class="overlay-card">
           <div class="card-title">Data</div>
-          <p>37.000 H3-hexagonen (~500m), CBS + LGN. SOM getraind op genormaliseerde waarden per variabele.</p>
+          <p>37.614 H3-hexagonen, resolutie 7 (~500m). Tijdreeks 2018–2023. Bronnen: CBS, LGN, BAG, RIVM, AHN, Waterschappen.</p>
         </div>
       </div>
 
