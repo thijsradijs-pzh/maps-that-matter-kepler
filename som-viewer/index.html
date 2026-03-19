@@ -421,36 +421,34 @@
           </div>
         </div>
 
-        <!-- Card 2: CBS + BAG -->
+        <!-- Card 2: CBS -->
         <div class="story-card">
           <div class="story-card-icon">🏘️</div>
           <div class="story-card-eyebrow">Databron 1 van 3 — Wonen & bevolking</div>
           <div class="story-card-title">Wie woont er, en hoe?</div>
           <div class="story-card-body">
             Van het <b>CBS</b> weten we per vakje: hoeveel mensen er wonen, hoe oud ze zijn, wat woningen kosten (WOZ), en hoe de verhouding huur/koop is.<br><br>
-            De <b>BAG</b> (gebouwenregistratie) vertelt welke functies er staan — woningen, kantoren, winkels, scholen, zorggebouwen.<br><br>
+            Ook de bevolkingsopbouw per leeftijdsgroep en het aantal huishoudens per type zijn meegenomen.<br><br>
             Dit bepaalt het <em>sociale en economische profiel</em> van een gebied: is het een groeiwijk, een vergrijzende kern, een studentenbuurt?
           </div>
           <div class="story-sources">
             <span class="story-src cbs">CBS</span>
-            <span class="story-src bag">BAG</span>
           </div>
         </div>
 
-        <!-- Card 3: LGN + RIVM + AHN -->
+        <!-- Card 3: LGN + RIVM -->
         <div class="story-card">
           <div class="story-card-icon">🌿</div>
           <div class="story-card-eyebrow">Databron 2 van 3 — Landgebruik & klimaat</div>
           <div class="story-card-title">Wat ligt er op de grond — en hoe kwetsbaar is het?</div>
           <div class="story-card-body">
             De <b>Landgebruikskaart Nederland (LGN)</b> geeft per vakje het type grondgebruik: akkerbouw, glastuinbouw, grasland, bos, bebouwing, water.<br><br>
-            <b>RIVM</b> voegt hittestress toe — hoe heet wordt het in de zomer? <b>AHN</b> geeft de hoogte in meters NAP en de waterschappen leveren vijf overstromingsscenario's.<br><br>
+            <b>RIVM</b> voegt hittestress toe — hoe heet wordt het in de zomer? De waterschappen leveren vijf overstromingsscenario's.<br><br>
             Dit maakt <em>klimaatrisico en landgebruiksdruk</em> zichtbaar op gebiedsniveau.
           </div>
           <div class="story-sources">
             <span class="story-src lgn">LGN</span>
             <span class="story-src rivm">RIVM</span>
-            <span class="story-src rivm">AHN</span>
           </div>
         </div>
 
@@ -570,8 +568,7 @@
         <div class="source-strip-label">Databronnen</div>
         <span class="source-chip cbs">CBS</span>
         <span class="source-chip lgn" title="Landgebruikskaart Nederland">LGN</span>
-        <span class="source-chip bag">BAG</span>
-        <span class="source-chip rivm">RIVM · AHN</span>
+        <span class="source-chip rivm">RIVM</span>
         <span class="source-chip s2">Sentinel-2</span>
       </div>
 
@@ -582,12 +579,12 @@
       <div class="info-body" id="info-body">
         <div class="info-section">
           <b>Gebiedstypen</b><br>
-          Een AI-model (Self-Organizing Map) groepeert vakjes van 500m op basis van 105 kenmerken uit CBS, BAG, LGN, RIVM, AHN en Sentinel-2. Vergelijkbare vakjes krijgen dezelfde kleur — ongeacht waar ze liggen.
+          Een AI-model (Self-Organizing Map) groepeert vakjes van 500m op basis van ruim 100 kenmerken uit CBS, LGN, RIVM en Sentinel-2. Vergelijkbare vakjes krijgen dezelfde kleur — ongeacht waar ze liggen.
         </div>
         <div class="info-section">
           <b>Data per thema</b><br><br>
-          <span class="info-tag" style="color:#4da6ff">🏘️ Wonen</span> CBS: inwoners, leeftijd, WOZ, huur/koop, bouwjaar. BAG: gebouwfuncties.<br><br>
-          <span class="info-tag" style="color:#4dd9c0">🌊 Water &amp; klimaat</span> RIVM: hittestress. AHN: hoogte NAP. Waterschappen: overstromingsdiepte. Sentinel-2: NDWI vochtigheid.<br><br>
+          <span class="info-tag" style="color:#4da6ff">🏘️ Wonen</span> CBS: inwoners, leeftijd, WOZ, huur/koop, bouwjaar.<br><br>
+          <span class="info-tag" style="color:#4dd9c0">🌊 Water &amp; klimaat</span> RIVM: hittestress. Waterschappen: overstromingsdiepte. Sentinel-2: NDWI vochtigheid.<br><br>
           <span class="info-tag" style="color:#7dd66b">🌾 Landbouw</span> LGN: landgebruikstype (glastuinbouw, akkerbouw, grasland, natuur). Sentinel-2: NDVI en EVI vegetatiegezondheid per jaar.
         </div>
         <div class="info-section">
@@ -654,7 +651,7 @@
     }
     const CLUSTER_COLORS = Array.from({ length: 100 }, (_, id) => {
       const cx = Math.floor(id / 10), cy = id % 10;
-      return [...hslToRgb(cx * 36, 0.65, 0.35 + cy * 0.028), 200];
+      return [...hslToRgb(cx * 36, 0.90, 0.22 + cy * 0.052), 220];
     });
     function clusterColor(id) {
       if (id == null || id < 0 || id > 99) return [60, 60, 60, 60];
