@@ -409,45 +409,48 @@
           <div class="story-card-eyebrow">Wat zie je</div>
           <div class="story-card-title">Elk gebied heeft een karakter</div>
           <div class="story-card-body">
-            Zuid-Holland is opgedeeld in vakjes van <b>~500 meter</b>. Elk vakje krijgt een kleur op basis van hoe het eruitziet, wie er woont en hoe kwetsbaar het is.<br><br>
-            <em>Gelijke kleuren = vergelijkbare gebieden</em> — of ze nu in Rotterdam, Leiden of de Hoeksche Waard liggen. Zo ontstaan 100 herkenbare gebiedstypen.
+            Zuid-Holland is opgedeeld in hexagons van <b>~500 meter</b>. Elk hexagon krijgt een kleur op basis van drie onafhankelijke databronnen die samen een compleet beeld geven van een plek.<br><br>
+            <em>Gelijke kleur = vergelijkbare gebieden</em> — of ze nu in Rotterdam, Leiden of de Hoeksche Waard liggen. Zo ontstaan <b>100 herkenbare gebiedstypen</b> die jaarlijks kunnen verschuiven.
           </div>
-          <div class="contrib-bar">
-            <div class="contrib-seg" style="flex:3;background:#4da6ff40"></div>
-            <div class="contrib-seg" style="flex:2;background:#f0b84040"></div>
-            <div class="contrib-seg" style="flex:2;background:#6ccc8a40"></div>
-            <div class="contrib-seg" style="flex:2;background:#c87aff40"></div>
-            <div class="contrib-seg" style="flex:1;background:#ff808040"></div>
+          <div class="contrib-bar" style="margin-top:14px">
+            <div class="contrib-seg" style="flex:4;background:#4da6ff55" title="CBS"></div>
+            <div class="contrib-seg" style="flex:3;background:#6ccc8a55" title="LGN + RIVM"></div>
+            <div class="contrib-seg" style="flex:3;background:#ff808055" title="Sentinel-2"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:#444;margin-top:3px;padding:0 2px">
+            <span style="color:#5a9ed8">CBS</span><span style="color:#5ab877">LGN · RIVM</span><span style="color:#cc5555">Sentinel-2</span>
           </div>
         </div>
 
-        <!-- Card 2: CBS -->
+        <!-- Card 2: CBS vierkantstatistieken -->
         <div class="story-card">
-          <div class="story-card-icon">🏘️</div>
-          <div class="story-card-eyebrow">Databron 1 van 3 — Wonen & bevolking</div>
-          <div class="story-card-title">Wie woont er, en hoe?</div>
+          <div class="story-card-icon">📊</div>
+          <div class="story-card-eyebrow">Databron 1 van 3 — Bevolking & wonen</div>
+          <div class="story-card-title">CBS 100m vierkantstatistieken</div>
           <div class="story-card-body">
-            Van het <b>CBS</b> weten we per vakje: hoeveel mensen er wonen, hoe oud ze zijn, wat woningen kosten (WOZ), en hoe de verhouding huur/koop is.<br><br>
-            Ook de bevolkingsopbouw per leeftijdsgroep en het aantal huishoudens per type zijn meegenomen.<br><br>
-            Dit bepaalt het <em>sociale en economische profiel</em> van een gebied: is het een groeiwijk, een vergrijzende kern, een studentenbuurt?
+            Het CBS publiceert jaarlijks statistieken per vakje van <b>100×100 meter</b> voor heel Nederland. Per hexagon weten we daardoor precies:<br><br>
+            👥 <b>Bevolking</b> — inwoners per leeftijdsgroep, huishoudenssamenstelling<br>
+            🏠 <b>Wonen</b> — WOZ-waarde, verhouding huur/koop, aandeel sociale huur<br>
+            📅 <b>Bouwjaar</b> — wanneer de woningen in dit gebied zijn gebouwd<br><br>
+            Deze data loopt van <em>2018 tot 2023</em> — zo zien we hoe buurten veranderen.
           </div>
           <div class="story-sources">
-            <span class="story-src cbs">CBS</span>
+            <span class="story-src cbs">CBS Vierkantstatistieken</span>
           </div>
         </div>
 
         <!-- Card 3: LGN + RIVM -->
         <div class="story-card">
-          <div class="story-card-icon">🌿</div>
+          <div class="story-card-icon">🌾</div>
           <div class="story-card-eyebrow">Databron 2 van 3 — Landgebruik & klimaat</div>
-          <div class="story-card-title">Wat ligt er op de grond — en hoe kwetsbaar is het?</div>
+          <div class="story-card-title">LGN: 28 landgebruikstypen per hexagon</div>
           <div class="story-card-body">
-            De <b>Landgebruikskaart Nederland (LGN)</b> geeft per vakje het type grondgebruik: akkerbouw, glastuinbouw, grasland, bos, bebouwing, water.<br><br>
-            <b>RIVM</b> voegt hittestress toe — hoe heet wordt het in de zomer? De waterschappen leveren vijf overstromingsscenario's.<br><br>
-            Dit maakt <em>klimaatrisico en landgebruiksdruk</em> zichtbaar op gebiedsniveau.
+            De <b>Landgebruikskaart Nederland (LGN)</b> classificeert elke vierkante meter bodem in één van 28 categorieën: akkerbouw, glastuinbouw, grasland, loofbos, heide, duinen, rietmoeras, bebouwing, water.<br><br>
+            Per hexagon berekenen we welk <em>aandeel</em> van het oppervlak elk type beslaat — zo is te zien of een plek voor 80% glastuinbouw is of juist gemengd.<br><br>
+            <b>RIVM</b> voegt toe: hittestress in de zomer en geluidsbelasting (dB). Waterschappen leveren vijf overstromingsscenario's.
           </div>
           <div class="story-sources">
-            <span class="story-src lgn">LGN</span>
+            <span class="story-src lgn">LGN · lgn.nl</span>
             <span class="story-src rivm">RIVM</span>
           </div>
         </div>
@@ -455,18 +458,18 @@
         <!-- Card 4: Sentinel-2 -->
         <div class="story-card">
           <div class="story-card-icon">🛰️</div>
-          <div class="story-card-eyebrow">Databron 3 van 3 — Satellietbeelden</div>
-          <div class="story-card-title">Wat zien we echt vanuit de ruimte?</div>
+          <div class="story-card-eyebrow">Databron 3 van 3 — Satellietmetingen</div>
+          <div class="story-card-title">Sentinel-2: wat de bodem echt doet</div>
           <div class="story-card-body">
-            <b>Sentinel-2</b> (Europese ruimtevaart) scant Nederland jaarlijks op wolkenvrije dagen. Per vakje berekenen we het gemiddelde over het hele jaar:<br><br>
-            <b>NDVI</b> — hoe groen/begroeid is het echt?<br>
-            <b>NDBI</b> — hoe bebouwd en verhard?<br>
-            <b>NDWI</b> — aanwezigheid van water en vocht<br>
-            <b>EVI</b> — vegetatiegezondheid in dichte vegetatie<br><br>
-            Dit zijn de enige <em>fysiek gemeten</em> signalen — los van wat er op papier staat.
+            De Europese <b>Sentinel-2</b> satelliet (Copernicus-programma, ESA) vliegt elke <b>5 dagen</b> over Nederland op 10m resolutie. Via Google Earth Engine berekenen we per hexagon het wolkenvrije jaargemiddelde van vier indices:<br><br>
+            🌱 <b>NDVI</b> — vegetatiedichtheid: hoe groen is het echt?<br>
+            🏗️ <b>NDBI</b> — bebouwings­intensiteit: verharding en bebouwing<br>
+            💧 <b>NDWI</b> — water en bodemvocht<br>
+            🌿 <b>EVI</b> — vegetatiegezondheid in dichte kronen<br><br>
+            Dit is de <em>enige bron die fysiek meet</em> wat er is — los van registers en administratie.
           </div>
           <div class="story-sources">
-            <span class="story-src s2">Sentinel-2 · Copernicus</span>
+            <span class="story-src s2">Sentinel-2 · ESA Copernicus</span>
           </div>
         </div>
 
@@ -476,15 +479,15 @@
           <div class="story-card-eyebrow">Wat kun je doen</div>
           <div class="story-card-title">Verkennen, doorrekenen, vergelijken</div>
           <div class="story-card-body">
-            Nu alle data is samengevoegd, kun je drie dingen doen:
+            Al deze data is samengevoegd in één kaart. Je kunt nu drie dingen doen:
           </div>
           <div class="capability-chips">
-            <div class="cap-chip"><b>📅 2018–2023</b>Zie welke gebieden van karakter veranderden</div>
-            <div class="cap-chip"><b>🎚️ Scenario's</b>Wat als het warmer wordt, of de bevolking groeit?</div>
-            <div class="cap-chip"><b>📈 Trend 2030–35</b>Waar gaat Zuid-Holland op deze koers naartoe?</div>
+            <div class="cap-chip"><b>📅 2018–2023</b>Speel de tijdreeks af en zie welke gebieden van karakter veranderden</div>
+            <div class="cap-chip"><b>🎚️ Scenario's</b>Wat als de bevolking groeit of het warmer wordt? Welke gebieden kantelen?</div>
+            <div class="cap-chip"><b>📈 Trend 2030–35</b>Doorgetrokken trend: waar gaat Zuid-Holland op deze koers naartoe?</div>
           </div>
-          <div class="story-card-body" style="margin-top:8px;margin-bottom:0;font-size:12px">
-            <em>Oranje vakjes</em> = van gebiedstype veranderd. Dat zijn de plekken die het meest gevoelig zijn voor verandering.
+          <div class="story-card-body" style="margin-top:10px;margin-bottom:0;font-size:12px">
+            <em>Oranje vakjes</em> = van gebiedstype gewisseld. Dat zijn de plekken het meest gevoelig voor die verandering.
           </div>
         </div>
 
@@ -578,18 +581,24 @@
       </div>
       <div class="info-body" id="info-body">
         <div class="info-section">
-          <b>Gebiedstypen</b><br>
-          Een AI-model (Self-Organizing Map) groepeert vakjes van 500m op basis van ruim 100 kenmerken uit CBS, LGN, RIVM en Sentinel-2. Vergelijkbare vakjes krijgen dezelfde kleur — ongeacht waar ze liggen.
+          <b>Hoe werkt de kleur?</b><br>
+          Een Self-Organizing Map (SOM) groepeert hexagons op basis van ruim 100 kenmerken. Vergelijkbare hexagons — qua bevolking, landgebruik én satellietmeting — krijgen dezelfde kleur, ongeacht waar ze liggen.
         </div>
         <div class="info-section">
-          <b>Data per thema</b><br><br>
-          <span class="info-tag" style="color:#4da6ff">🏘️ Wonen</span> CBS: inwoners, leeftijd, WOZ, huur/koop, bouwjaar.<br><br>
-          <span class="info-tag" style="color:#4dd9c0">🌊 Water &amp; klimaat</span> RIVM: hittestress. Waterschappen: overstromingsdiepte. Sentinel-2: NDWI vochtigheid.<br><br>
-          <span class="info-tag" style="color:#7dd66b">🌾 Landbouw</span> LGN: landgebruikstype (glastuinbouw, akkerbouw, grasland, natuur). Sentinel-2: NDVI en EVI vegetatiegezondheid per jaar.
+          <b>CBS Vierkantstatistieken</b><br>
+          100×100m grid, jaarlijks gepubliceerd. Bevat: inwoners per leeftijdsgroep, WOZ-waarde, huur/koop-verhouding, sociale huur, bouwjaar, huishoudenstype.
+        </div>
+        <div class="info-section">
+          <b>LGN — Landgebruikskaart</b><br>
+          28 landgebruikstypen per pixel: glastuinbouw, akkerbouw, grasland, loofbos, naaldbos, heide, duinen, rietmoeras, bebouwing, water, e.a. Per hexagon als aandeel (0–100%) opgenomen. <span style="color:#5ab877">lgn.nl</span>
+        </div>
+        <div class="info-section">
+          <b>Sentinel-2 · ESA Copernicus</b><br>
+          Elke 5 dagen over NL, 10m resolutie. Jaargemiddelde per hexagon via Google Earth Engine. Vier indices: NDVI (groen), NDBI (bebouwing), NDWI (water/vocht), EVI (vegetatiegezondheid).
         </div>
         <div class="info-section">
           <b>Oranje = kantelpunt</b><br>
-          In scenario- en trendmodus zijn oranje vakjes van gebiedstype gewisseld. Dat zijn plekken die dicht bij een grens zitten — het meest gevoelig voor die verandering.
+          In scenario- en trendmodus zijn oranje hexagons van gebiedstype gewisseld. Ze zitten dicht bij een grens — het meest gevoelig voor die verandering.
         </div>
       </div>
 
