@@ -1398,11 +1398,16 @@
           dl.appendChild(opt);
         });
 
-        // Fly to gemeente on selection
+        // Fly to gemeente on selection (case-insensitive lookup)
+        const gemeenteLower = {};
+        Object.entries(gemeenteCentroids).forEach(([name, c]) => {
+          gemeenteLower[name.toLowerCase()] = c;
+        });
+
         const searchInput = document.getElementById('gemeente-search');
         searchInput.addEventListener('change', () => {
           const name = searchInput.value.trim();
-          const c = gemeenteCentroids[name];
+          const c = gemeenteCentroids[name] || gemeenteLower[name.toLowerCase()];
           if (!c) return;
           viewState = {
             ...viewState, longitude: c.lon, latitude: c.lat, zoom: 12,
