@@ -740,11 +740,7 @@
           && lon >= ZH_BOUNDS.minLon && lon <= ZH_BOUNDS.maxLon;
     }
     function hasContent(d) {
-      // Include inhabited areas, built-up land, and areas with heat measurement
-      // (proxy for land surface) — excludes open sea, large water bodies, beaches
-      return (d.inwoners != null && d.inwoners > 0)
-          || (d.bebouwing != null && d.bebouwing > 0.005)
-          || (d.hitte != null && d.hitte > 1);
+      return d.cluster_2023 != null;
     }
 
     const SCENARIOS = [
