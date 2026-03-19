@@ -37,7 +37,7 @@
       top: 20px; left: 20px;
       background: rgba(18, 18, 24, 0.95);
       color: #e0e0e0;
-      padding: 18px;
+      padding: 16px;
       border-radius: 10px;
       box-shadow: 0 2px 16px rgba(0,0,0,0.6);
       z-index: 10;
@@ -46,8 +46,8 @@
     }
 
     #controls h3 {
-      margin: 0 0 14px 0;
-      font-size: 14px;
+      margin: 0;
+      font-size: 13px;
       font-weight: 700;
       color: #fff;
       letter-spacing: 0.3px;
@@ -57,12 +57,12 @@
     .tabs {
       display: flex;
       gap: 4px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
 
     .tab {
       flex: 1;
-      padding: 6px 4px;
+      padding: 8px 4px;
       font-size: 12px;
       font-weight: 600;
       border: 1px solid #333;
@@ -72,6 +72,7 @@
       cursor: pointer;
       text-align: center;
       transition: all 0.15s;
+      min-height: 36px;
     }
 
     .tab:hover { background: #252535; color: #bbb; }
@@ -82,7 +83,7 @@
     .mode-panel.active { display: block; }
 
     /* ── Sliders ── */
-    .control-group { margin: 12px 0; }
+    .control-group { margin: 10px 0; }
 
     .control-label {
       font-size: 11px;
@@ -95,14 +96,15 @@
       font-weight: 700;
       color: #4da6ff;
       text-align: center;
-      margin: 6px 0;
-      transition: color 0.2s;
+      margin: 4px 0;
     }
 
     input[type="range"] {
       width: 100%;
       accent-color: #4da6ff;
       margin: 6px 0;
+      height: 20px;
+      cursor: pointer;
     }
 
     .range-labels {
@@ -117,15 +119,16 @@
       display: block;
       width: 100%;
       text-align: left;
-      padding: 8px 10px;
+      padding: 10px 12px;
       margin: 4px 0;
       background: #1c1c28;
       border: 1px solid #333;
       border-radius: 5px;
       color: #ccc;
-      font-size: 12px;
+      font-size: 13px;
       cursor: pointer;
       transition: all 0.15s;
+      min-height: 44px;
     }
 
     .option-btn:hover { background: #252535; border-color: #555; }
@@ -136,17 +139,23 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-top: 12px;
-      font-size: 11px;
+      margin-top: 10px;
+      font-size: 12px;
       color: #888;
     }
 
-    .toggle-row input[type="checkbox"] { accent-color: #ff8c42; }
+    .toggle-row input[type="checkbox"] {
+      accent-color: #ff8c42;
+      width: 16px; height: 16px;
+      cursor: pointer;
+    }
+
+    .toggle-row label { cursor: pointer; }
 
     /* ── Stats ── */
     .stats {
-      margin-top: 14px;
-      padding: 10px;
+      margin-top: 12px;
+      padding: 8px 10px;
       background: rgba(255,255,255,0.04);
       border-radius: 6px;
       font-size: 11px;
@@ -159,15 +168,15 @@
 
     /* ── Legend ── */
     .legend {
-      margin-top: 14px;
-      padding-top: 12px;
+      margin-top: 12px;
+      padding-top: 10px;
       border-top: 1px solid #2a2a3a;
     }
 
     .legend-title {
       font-size: 10px;
       color: #666;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -193,23 +202,58 @@
       margin-top: 3px;
     }
 
+    /* ── Source strip ── */
+    .source-strip {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid #2a2a3a;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .source-strip-label {
+      font-size: 9px;
+      color: #444;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      width: 100%;
+      margin-bottom: 2px;
+    }
+
+    .source-chip {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+
+    .source-chip.cbs  { background: rgba(74,166,255,0.15); border: 1px solid rgba(74,166,255,0.3); color: #6aaee8; }
+    .source-chip.lgn  { background: rgba(80,200,120,0.15); border: 1px solid rgba(80,200,120,0.3); color: #6ccc8a; }
+    .source-chip.bag  { background: rgba(255,180,50,0.15); border: 1px solid rgba(255,180,50,0.3); color: #f0b840; }
+    .source-chip.rivm { background: rgba(200,100,255,0.15); border: 1px solid rgba(200,100,255,0.3); color: #c87aff; }
+    .source-chip.s2   { background: rgba(255,100,100,0.15); border: 1px solid rgba(255,100,100,0.3); color: #ff8080; }
+
     /* ── Buttons row ── */
     .btn-row {
       display: flex;
       gap: 6px;
-      margin-top: 12px;
+      margin-top: 10px;
     }
 
     .btn {
       flex: 1;
-      padding: 5px 8px;
-      font-size: 11px;
+      padding: 8px;
+      font-size: 12px;
       border: 1px solid #333;
       border-radius: 4px;
       background: #1c1c28;
       color: #aaa;
       cursor: pointer;
       transition: all 0.15s;
+      min-height: 36px;
     }
 
     .btn:hover { background: #252535; color: #ddd; }
@@ -217,91 +261,142 @@
     /* ── Mobile handle ── */
     .mobile-handle {
       display: none;
-      width: 36px; height: 4px;
+      width: 40px; height: 4px;
       background: #444;
       border-radius: 2px;
-      margin: 0 auto 14px;
+      margin: 0 auto 12px;
     }
 
     .controls-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
-
-    .controls-header h3 { margin: 0; }
 
     #controls-collapse {
       display: none;
       background: none;
       border: none;
       color: #555;
-      font-size: 18px;
+      font-size: 20px;
       cursor: pointer;
-      padding: 0 4px;
+      padding: 4px 6px;
       line-height: 1;
       transition: transform 0.2s;
+      min-width: 36px;
+      min-height: 36px;
+    }
+
+    /* ── Info panel ── */
+    .info-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #2a2a3a;
+      cursor: pointer;
+      font-size: 11px;
+      color: #666;
+      user-select: none;
+      min-height: 36px;
+    }
+
+    .info-toggle:hover { color: #999; }
+    .info-toggle .arrow { transition: transform 0.2s; font-size: 9px; }
+    .info-toggle.open .arrow { transform: rotate(90deg); }
+
+    .info-body {
+      display: none;
+      margin-top: 10px;
+      font-size: 11px;
+      color: #888;
+      line-height: 1.7;
+    }
+
+    .info-body.open { display: block; }
+    .info-body b { color: #bbb; }
+    .info-body .info-section { margin-bottom: 10px; }
+    .info-body .info-section:last-child { margin-bottom: 0; }
+
+    .info-tag {
+      display: inline-block;
+      background: rgba(74,166,255,0.1);
+      border: 1px solid rgba(74,166,255,0.2);
+      border-radius: 3px;
+      padding: 0px 5px;
+      font-size: 10px;
+      color: #6aaee8;
+      margin-right: 3px;
+      vertical-align: middle;
     }
 
     /* ── Mobile layout ── */
     @media (max-width: 640px) {
       #controls {
+        position: fixed;
         top: auto;
         bottom: 0;
         left: 0;
         right: 0;
         width: 100%;
-        border-radius: 12px 12px 0 0;
-        padding: 6px 14px 18px;
-      }
-
-      .mobile-handle { display: block; margin-bottom: 8px; }
-      #controls-collapse { display: block; }
-
-      /* Hide secondary elements on mobile — keep controls minimal */
-      .stats, .legend, .info-toggle, .info-body, .btn-row { display: none !important; }
-
-      /* Collapsed: hide mode panels */
-      #controls.collapsed .controls-body { display: none; }
-      #controls.collapsed #controls-collapse { transform: rotate(180deg); }
-
-      /* Compact controls */
-      .controls-header { margin-bottom: 8px; }
-      .controls-header h3 { font-size: 12px; }
-
-      .tabs { margin-bottom: 10px; gap: 6px; }
-      .tab { padding: 8px 4px; font-size: 12px; }
-
-      .control-group { margin: 6px 0; }
-      .value-display { font-size: 20px; margin: 2px 0; }
-      input[type="range"] { margin: 4px 0; }
-
-      .option-btn { padding: 9px 10px; font-size: 12px; margin: 3px 0; }
-
-      .toggle-row { font-size: 11px; margin-top: 8px; }
-
-      .btn { padding: 8px; font-size: 12px; }
-
-      #map-overlay-content {
-        padding: 18px 14px;
-        max-width: calc(100vw - 20px);
-        max-height: 88vh;
+        border-radius: 16px 16px 0 0;
+        padding: 8px 16px calc(16px + env(safe-area-inset-bottom));
+        max-height: 75vh;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
       }
 
-      #map-overlay-content h2 { font-size: 17px; }
-      #map-overlay-content p { font-size: 12px; }
+      .mobile-handle { display: block; }
+      #controls-collapse { display: flex; align-items: center; justify-content: center; }
+
+      /* Collapsed: show only header + tabs */
+      #controls.collapsed .controls-body-inner { display: none; }
+      #controls.collapsed #controls-collapse { transform: rotate(180deg); }
+
+      .controls-header { margin-bottom: 8px; }
+      .controls-header h3 { font-size: 13px; }
+
+      .tabs { margin-bottom: 10px; gap: 6px; }
+      .tab { padding: 10px 4px; font-size: 13px; min-height: 44px; }
+
+      .control-group { margin: 6px 0; }
+      .value-display { font-size: 22px; margin: 2px 0; }
+
+      .option-btn { padding: 12px; font-size: 13px; min-height: 48px; }
+
+      /* Keep legend on mobile — compact */
+      .legend { margin-top: 10px; padding-top: 8px; }
+      .legend-title { display: none; }
+
+      /* Hide info panel and fullscreen on mobile */
+      .info-toggle, .info-body, .btn-row { display: none !important; }
+
+      /* Source strip stays visible on mobile */
+      .source-strip { margin-top: 8px; }
+
+      #map-overlay-content {
+        padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+        max-width: calc(100vw - 24px);
+        max-height: 90vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 16px;
+      }
+
+      #map-overlay-content h2 { font-size: 18px; }
+      #map-overlay-content > p  { font-size: 13px; }
+
+      .overlay-grid { grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 16px; }
       .overlay-card p { font-size: 11px; }
 
-      .overlay-grid { grid-template-columns: 1fr; gap: 7px; margin: 12px 0 16px; }
-      .overlay-vars { margin: 8px 0 14px; }
+      .overlay-sources { margin: 10px 0 16px; }
 
-      #activate-btn { width: 100%; padding: 13px; font-size: 14px; }
+      #activate-btn { width: 100%; padding: 15px; font-size: 15px; }
     }
 
-    /* ── Loading / overlay ── */
+    /* ── Loading ── */
     #loading {
       position: absolute;
       top: 50%; left: 50%;
@@ -314,14 +409,16 @@
       z-index: 20;
     }
 
+    /* ── Intro overlay ── */
     #map-overlay {
       position: absolute; inset: 0;
-      background: rgba(0,0,0,0.55);
-      backdrop-filter: blur(3px);
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
       display: flex; align-items: center; justify-content: center;
       z-index: 30;
       cursor: pointer;
       transition: opacity 0.3s;
+      padding: 16px;
     }
 
     #map-overlay.hidden { opacity: 0; pointer-events: none; }
@@ -329,21 +426,23 @@
     #map-overlay-content {
       background: #1a1a2e;
       border: 1px solid #2a2a4a;
-      padding: 28px 36px;
-      border-radius: 12px;
+      padding: 28px 32px;
+      border-radius: 14px;
       text-align: center;
-      max-width: 480px;
+      max-width: 500px;
+      width: 100%;
       color: #ddd;
     }
 
-    #map-overlay-content h2 { margin: 0 0 8px; font-size: 22px; color: #fff; }
-    #map-overlay-content p  { margin: 0 0 12px; font-size: 13px; color: #999; line-height: 1.6; }
+    #map-overlay-content h2 { margin: 0 0 6px; font-size: 22px; color: #fff; }
+    #map-overlay-content > p { margin: 0 0 16px; font-size: 13px; color: #999; line-height: 1.6; }
 
+    /* ── Overlay feature cards ── */
     .overlay-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin: 16px 0 20px;
+      gap: 8px;
+      margin: 0 0 16px;
       text-align: left;
     }
 
@@ -370,29 +469,58 @@
       line-height: 1.5;
     }
 
-    .overlay-vars {
+    /* ── Overlay data sources ── */
+    .overlay-sources {
+      margin: 0 0 20px;
+    }
+
+    .overlay-sources-label {
+      font-size: 10px;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 8px;
+    }
+
+    .overlay-source-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 5px;
-      margin: 10px 0 18px;
+      gap: 6px;
       justify-content: center;
     }
 
-    .var-tag {
-      background: rgba(74, 166, 255, 0.12);
-      border: 1px solid rgba(74, 166, 255, 0.25);
-      border-radius: 12px;
-      padding: 3px 10px;
+    .overlay-source-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid #2a2a3a;
+      border-radius: 8px;
+      padding: 6px 10px;
       font-size: 11px;
-      color: #7bbfff;
     }
+
+    .overlay-source-item .src-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    .overlay-source-item .src-label { color: #888; }
+
+    .src-cbs  { background: rgba(74,166,255,0.2);  color: #7bbfff; }
+    .src-lgn  { background: rgba(80,200,120,0.2);  color: #6ccc8a; }
+    .src-bag  { background: rgba(255,180,50,0.2);  color: #f0b840; }
+    .src-rivm { background: rgba(200,100,255,0.2); color: #c87aff; }
+    .src-s2   { background: rgba(255,100,100,0.2); color: #ff8080; }
 
     #activate-btn {
       background: #2a6496;
       color: #fff;
       border: none;
-      padding: 11px 28px;
-      border-radius: 6px;
+      padding: 12px 28px;
+      border-radius: 8px;
       font-size: 15px;
       font-weight: 600;
       cursor: pointer;
@@ -400,50 +528,6 @@
     }
 
     #activate-btn:hover { background: #3a84c6; transform: translateY(-1px); }
-
-    /* ── Info panel ── */
-    .info-toggle {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-top: 14px;
-      padding-top: 12px;
-      border-top: 1px solid #2a2a3a;
-      cursor: pointer;
-      font-size: 11px;
-      color: #666;
-      user-select: none;
-    }
-
-    .info-toggle:hover { color: #999; }
-    .info-toggle .arrow { transition: transform 0.2s; font-size: 9px; }
-    .info-toggle.open .arrow { transform: rotate(90deg); }
-
-    .info-body {
-      display: none;
-      margin-top: 10px;
-      font-size: 11px;
-      color: #888;
-      line-height: 1.7;
-    }
-
-    .info-body.open { display: block; }
-
-    .info-body b { color: #bbb; }
-    .info-body .info-section { margin-bottom: 10px; }
-    .info-body .info-section:last-child { margin-bottom: 0; }
-
-    .info-tag {
-      display: inline-block;
-      background: rgba(74,166,255,0.1);
-      border: 1px solid rgba(74,166,255,0.2);
-      border-radius: 3px;
-      padding: 0px 5px;
-      font-size: 10px;
-      color: #6aaee8;
-      margin-right: 3px;
-      vertical-align: middle;
-    }
   </style>
 </head>
 <body>
@@ -453,17 +537,18 @@
   <div id="controls">
     <div class="mobile-handle"></div>
     <div class="controls-header">
-      <h3>Ruimtelijke Patronen – SOM</h3>
+      <h3>Ruimtelijke Patronen</h3>
       <button id="controls-collapse" title="Inklappen">&#8963;</button>
     </div>
-    <div class="controls-body">
 
-    <!-- Mode tabs -->
+    <!-- Mode tabs always visible -->
     <div class="tabs">
       <div class="tab active" data-mode="jaar">Jaar</div>
       <div class="tab" data-mode="scenario">Scenario</div>
       <div class="tab" data-mode="trend">Trend</div>
     </div>
+
+    <div class="controls-body-inner">
 
     <!-- Jaar mode -->
     <div class="mode-panel active" id="panel-jaar">
@@ -515,6 +600,16 @@
       </div>
     </div>
 
+    <!-- Source strip -->
+    <div class="source-strip">
+      <div class="source-strip-label">Databronnen</div>
+      <span class="source-chip cbs">CBS</span>
+      <span class="source-chip lgn">LGN</span>
+      <span class="source-chip bag">BAG</span>
+      <span class="source-chip rivm">RIVM · AHN</span>
+      <span class="source-chip s2">Sentinel-2</span>
+    </div>
+
     <!-- Info toggle -->
     <div class="info-toggle" id="info-toggle">
       <span class="arrow">▶</span>
@@ -533,37 +628,37 @@
         Totaal inwoners en leeftijdsverdeling (5 klassen) bepalen het bevolkingsprofiel. Een hexagoon met veel 65-plussers scoort structureel anders dan een met veel gezinnen met kinderen. Huishoudenstype (eenpersoons, eenouder, meergezins) bepaalt mede de woningvraag en daarmee het gebiedstype.<br><br>
 
         <span class="info-tag">Wonen &amp; betaalbaarheid</span> <i>bron: CBS + BAG</i><br>
-        WOZ-waarde is één van de sterkste differentiators: hoge WOZ clustert met koopwoningen, lage WOZ met corporatiehuur. Bouwjaar (8 klassen, voor 1945 t/m 2015+) onderscheidt vooroorlogse wijken (dicht, kleine woningen) van naoorlogse uitbreidingen en nieuwbouw. Percentage huur vs. koop en aantal corporatiewoningen bepalen de sociale mix.<br><br>
+        WOZ-waarde is één van de sterkste differentiators: hoge WOZ clustert met koopwoningen, lage WOZ met corporatiehuur. Bouwjaar (8 klassen, voor 1945 t/m 2015+) onderscheidt vooroorlogse wijken van naoorlogse uitbreidingen. Percentage huur vs. koop en aantal corporatiewoningen bepalen de sociale mix.<br><br>
 
         <span class="info-tag">Sociaal-economisch</span> <i>bron: CBS</i><br>
-        Aandeel uitkeringsgerechtigden (onder AOW-leeftijd) en herkomstpercentages zijn genormaliseerde indices (0–255, relatief per jaar). Ze sturen de SOM op sociale cohesie en kwetsbaarheid van een gebied.<br><br>
+        Aandeel uitkeringsgerechtigden en herkomstpercentages zijn genormaliseerde indices (0–255, relatief per jaar). Ze sturen de SOM op sociale cohesie en kwetsbaarheid van een gebied.<br><br>
 
         <span class="info-tag">Gebouwfuncties</span> <i>bron: BAG</i><br>
-        Aantal panden per functie (kantoor, industrie, winkel, onderwijs, zorg, sport, logies). Een hexagoon met veel kantoorpanden maar weinig woonfunctie clustert als bedrijventerrein; hoge winkeldichtheid duidt op centrumgebied. Functiemenging is zichtbaar in de overgang tussen clusters.<br><br>
+        Aantal panden per functie (kantoor, industrie, winkel, onderwijs, zorg, sport, logies). Functiemenging is zichtbaar in de overgang tussen clusters.<br><br>
 
         <span class="info-tag">Landgebruik</span> <i>bron: LGN</i><br>
-        Fracties van het hexagonoppervlak per landgebruikstype. Bebouwing in primair bebouwd gebied onderscheidt stedelijk van landelijk. Loofbos, naaldbos, heide, duinen, moeras en agrarisch gras bepalen het natuurtype. Akkergewassen (granen, maïs, aardappelen, glastuinbouw) identificeren landbouwgebieden. Dit zijn de sterkste drijvers van de stedelijk–landelijk as.<br><br>
+        Fracties per landgebruikstype: bebouwing, bos, heide, duinen, moeras, agrarisch gras, akkerbouw. Dit zijn de sterkste drijvers van de stedelijk–landelijk as.<br><br>
 
         <span class="info-tag">Klimaat &amp; milieu</span> <i>bron: RIVM / AHN / Waterschappen</i><br>
-        Hitte (UHI-index) is hoog in dichte, verharde gebieden — lage groenfractie versterkt dit. Geluid (Lden in dB) is hoog nabij snelwegen en industrie. Maaiveldshoogte (m NAP) is laag in veenpolders en bepaalt overstromingsrisico samen met 5 overstromingsdiepte-scenario's. Lichtemissie correleert sterk met bebouwingsdichtheid.<br><br>
+        Hitte (UHI-index), geluid (Lden), maaiveldshoogte (m NAP) en 5 overstromingsdiepte-scenario's. Lichtemissie correleert sterk met bebouwingsdichtheid.<br><br>
 
         <span class="info-tag">Sentinel-2 satelliet</span> <i>bron: Copernicus / Google Earth Engine</i><br>
-        Jaarlijkse mediane spectrale indices berekend over het volledige hexagonoppervlak (gemiddelde van alle 30m-pixels, wolkenvrij gefilterd). <b>NDVI</b> meet vegetatiedichtheid — hoog in bos en landbouw, laag op verharding. <b>NDBI</b> meet bebouwingsintensiteit — hoog bij daken en asfalt. <b>NDWI</b> meet wateraanwezigheid en bodemvocht. <b>EVI</b> is een verbeterde vegetatie-index die niet verzadigt in dichte boomkronen. Dit zijn de enige <i>fysiek geobserveerde</i> signalen in de dataset — alle andere variabelen komen uit administratieve registraties.
+        Jaarlijkse mediane spectrale indices over het volledige hexagonoppervlak (gemiddelde van alle 30m-pixels, wolkenvrij gefilterd). <b>NDVI</b> = vegetatiedichtheid, <b>NDBI</b> = bebouwingsintensiteit, <b>NDWI</b> = wateraanwezigheid, <b>EVI</b> = verbeterde vegetatie-index. Dit zijn de enige <i>fysiek geobserveerde</i> signalen — alle andere variabelen komen uit administratieve registraties.
       </div>
 
       <div class="info-section">
         <b>Hoe de assen werken</b><br>
-        De x-as (links→rechts) loopt ruwweg van <i>stedelijk</i> naar <i>landelijk</i> — primair gedreven door bebouwingsfractie, inwoners, geluid en hitte. De y-as differentieert binnen die categorieën op WOZ-niveau, bouwjaar, groentype en sociaal profiel. Er is geen enkelvoudig label per cluster: elk type is een combinatie van alle thema's.
+        De x-as loopt ruwweg van <i>stedelijk</i> naar <i>landelijk</i> — gedreven door bebouwingsfractie, inwoners, geluid en hitte. De y-as differentieert op WOZ-niveau, bouwjaar, groentype en sociaal profiel.
       </div>
 
       <div class="info-section">
-        <b>Scenario's — wat er verandert</b><br>
-        Eén variabele wordt aangepast (bijv. <code>aantal_inwoners_sum × 1.2</code>), alle overige blijven op 2023-waarden. De SOM wordt opnieuw bevraagd maar <i>niet opnieuw getraind</i>. <span style="color:#ff8c42">Oranje</span> = van cluster gewisseld. Gebieden die oranje kleuren zijn het meest gevoelig voor die verandering — vaak transitionele gebieden die al dicht bij een clustergrens zitten.
+        <b>Scenario's</b><br>
+        Eén variabele wordt aangepast, alle overige blijven op 2023-waarden. De SOM wordt opnieuw bevraagd maar <i>niet opnieuw getraind</i>. <span style="color:#ff8c42">Oranje</span> = van cluster gewisseld.
       </div>
 
       <div class="info-section">
         <b>Trend — extrapolatie, geen voorspelling</b><br>
-        Per variabele per hexagoon wordt een lineaire regressie berekend (OLS, 2018–2023) en doorgetrokken. Gebieden wisselen van type als meerdere variabelen tegelijk in dezelfde richting bewegen. Energiedata stopt bij 2022, bereikbaarheidsdata bij 2021 — die kolommen houden hun laatste waarde aan.
+        Per variabele per hexagoon wordt een lineaire regressie (OLS, 2018–2023) doorgetrokken naar 2030/2035.
       </div>
     </div>
 
@@ -572,24 +667,14 @@
       <button class="btn" id="fullscreen-btn">&#x26F6; Volledig scherm</button>
     </div>
 
-    </div><!-- /.controls-body -->
+    </div><!-- /.controls-body-inner -->
   </div>
 
-  <!-- Activate overlay -->
+  <!-- Intro overlay -->
   <div id="map-overlay">
     <div id="map-overlay-content">
       <h2>Ruimtelijke Patronen</h2>
-      <p>Nederland ingedeeld in <b style="color:#e0e0e0">100 gebiedstypen</b> op basis van ~105 variabelen uit demografie, wonen, landgebruik, klimaat en satellietbeelden (CBS, LGN, BAG, RIVM, Sentinel-2). Een Self-Organizing Map (SOM) groepeert hexagonen zo dat vergelijkbare gebieden naast elkaar liggen — aangrenzende kleuren zijn meer op elkaar.</p>
-
-      <div class="overlay-vars">
-        <span class="var-tag">Demografie</span>
-        <span class="var-tag">Wonen &amp; WOZ</span>
-        <span class="var-tag">Landgebruik (LGN)</span>
-        <span class="var-tag">Hitte &amp; geluid</span>
-        <span class="var-tag">Gebouwfuncties (BAG)</span>
-        <span class="var-tag">Overstromingsrisico</span>
-        <span class="var-tag">Sentinel-2 satelliet</span>
-      </div>
+      <p>Nederland ingedeeld in <b style="color:#e0e0e0">100 gebiedstypen</b> op basis van ~105 variabelen. Een Self-Organizing Map (SOM) groepeert hexagonen zodat vergelijkbare gebieden naast elkaar liggen — aangrenzende kleuren zijn meer op elkaar.</p>
 
       <div class="overlay-grid">
         <div class="overlay-card">
@@ -602,11 +687,37 @@
         </div>
         <div class="overlay-card">
           <div class="card-title">Trends</div>
-          <p>Lineaire extrapolatie van de trend 2018–2023 naar 2030/2035. Geen voorspelling, maar een koersberekening.</p>
+          <p>Lineaire extrapolatie van de trend 2018–2023 naar 2030/2035. Geen voorspelling — een koersberekening.</p>
         </div>
         <div class="overlay-card">
-          <div class="card-title">Data</div>
-          <p>37.614 H3-hexagonen, resolutie 7 (~500m). Tijdreeks 2018–2023. Bronnen: CBS, LGN, BAG, RIVM, AHN, Waterschappen, Sentinel-2 (Google Earth Engine).</p>
+          <div class="card-title">Schaal</div>
+          <p>37.614 H3-hexagonen, resolutie 7 (~500m). Tijdreeks 2018–2023.</p>
+        </div>
+      </div>
+
+      <div class="overlay-sources">
+        <div class="overlay-sources-label">Gebaseerd op</div>
+        <div class="overlay-source-row">
+          <div class="overlay-source-item">
+            <span class="src-badge src-cbs">CBS</span>
+            <span class="src-label">Demografie &amp; wonen</span>
+          </div>
+          <div class="overlay-source-item">
+            <span class="src-badge src-lgn">LGN</span>
+            <span class="src-label">Landgebruik</span>
+          </div>
+          <div class="overlay-source-item">
+            <span class="src-badge src-bag">BAG</span>
+            <span class="src-label">Gebouwfuncties</span>
+          </div>
+          <div class="overlay-source-item">
+            <span class="src-badge src-rivm">RIVM · AHN</span>
+            <span class="src-label">Klimaat &amp; milieu</span>
+          </div>
+          <div class="overlay-source-item">
+            <span class="src-badge src-s2">Sentinel-2</span>
+            <span class="src-label">Satellietbeelden</span>
+          </div>
         </div>
       </div>
 
@@ -620,7 +731,7 @@
     // ── Config ──────────────────────────────────────────────────────────────
     const DATA_URL = '/data/som_export.json';
     const INITIAL_VIEW = { longitude: 5.1, latitude: 52.1, zoom: 7, pitch: 0, bearing: 0 };
-    const CHANGED_COLOR = [255, 140, 66, 220];   // orange for shifted hexagons
+    const CHANGED_COLOR = [255, 140, 66, 220];
 
     const SCENARIOS = [
       { col: 'scenario_pop_plus20', label: 'Bevolking +20%' },
@@ -654,12 +765,11 @@
       ];
     }
 
-    // Pre-compute 100 cluster colors (10x10 SOM grid)
     const CLUSTER_COLORS = Array.from({ length: 100 }, (_, id) => {
-      const cx = Math.floor(id / 10);   // 0–9 (SOM x)
-      const cy = id % 10;               // 0–9 (SOM y)
-      const hue = cx * 36;              // 0–324 degrees
-      const lightness = 0.35 + cy * 0.028;  // 0.35–0.60
+      const cx = Math.floor(id / 10);
+      const cy = id % 10;
+      const hue = cx * 36;
+      const lightness = 0.35 + cy * 0.028;
       return [...hslToRgb(hue, 0.65, lightness), 200];
     });
 
@@ -675,18 +785,16 @@
     let mapActive = false;
     let playInterval = null;
 
-    let mode = 'jaar';          // 'jaar' | 'scenario' | 'trend'
+    let mode = 'jaar';
     let activeYear = 2023;
     let activeScenarioCol = 'scenario_pop_plus20';
     let activeTrendCol = 'trend_2030';
     let changedOnly = false;
     let trendChangedOnly = false;
 
-    // ── Color function per mode ──────────────────────────────────────────────
+    // ── Color function ───────────────────────────────────────────────────────
     function getColor(d) {
-      if (mode === 'jaar') {
-        return clusterColor(d[`cluster_${activeYear}`]);
-      }
+      if (mode === 'jaar') return clusterColor(d[`cluster_${activeYear}`]);
 
       const compareCol = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
       const showChangedOnly = mode === 'scenario' ? changedOnly : trendChangedOnly;
@@ -700,9 +808,7 @@
 
     // ── Layer ────────────────────────────────────────────────────────────────
     function getActiveData() {
-      if (mode === 'jaar') {
-        return allData.filter(d => d[`cluster_${activeYear}`] != null);
-      }
+      if (mode === 'jaar') return allData.filter(d => d[`cluster_${activeYear}`] != null);
       const compareCol = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
       const showChangedOnly = mode === 'scenario' ? changedOnly : trendChangedOnly;
       const valid = allData.filter(d => d[compareCol] != null);
@@ -734,9 +840,7 @@
     // ── Tooltip ──────────────────────────────────────────────────────────────
     function buildTooltip(d) {
       const compareCol = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
-      const clusterId = mode === 'jaar'
-        ? d[`cluster_${activeYear}`]
-        : d[compareCol];
+      const clusterId = mode === 'jaar' ? d[`cluster_${activeYear}`] : d[compareCol];
       const cx = clusterId != null ? Math.floor(clusterId / 10) : '–';
       const cy = clusterId != null ? clusterId % 10 : '–';
 
@@ -814,6 +918,8 @@
           document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
           tab.classList.add('active');
           document.getElementById(`panel-${mode}`).classList.add('active');
+          // Expand on mobile when tab clicked
+          document.getElementById('controls').classList.remove('collapsed');
           render();
         });
       });
@@ -879,16 +985,6 @@
       document.getElementById('controls-collapse').addEventListener('click', () => {
         document.getElementById('controls').classList.toggle('collapsed');
       });
-
-      // On mobile: start collapsed, auto-expand when a tab is clicked
-      if (window.innerWidth <= 640) {
-        document.getElementById('controls').classList.add('collapsed');
-        document.querySelectorAll('.tab').forEach(tab => {
-          tab.addEventListener('click', () => {
-            document.getElementById('controls').classList.remove('collapsed');
-          }, { capture: true });
-        });
-      }
 
       // Info toggle
       const infoToggle = document.getElementById('info-toggle');
