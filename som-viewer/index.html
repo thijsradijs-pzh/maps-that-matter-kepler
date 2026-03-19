@@ -523,7 +523,7 @@
     <div class="info-body" id="info-body">
       <div class="info-section">
         <b>Methode</b><br>
-        Een Self-Organizing Map (SOM) comprimeert ~100 variabelen naar een 10×10 raster. Hexagonen met vergelijkbare kenmerken landen dicht bij elkaar. Het model is getraind op 2023-data (1000 iteraties, random seed 42) en daarna toegepast op alle andere jaren en scenario's — de kaart laat zo zien hoe gebieden <i>in dezelfde indeling</i> door de tijd bewegen.
+        Een Self-Organizing Map (SOM) comprimeert ~105 variabelen naar een 10×10 raster. Hexagonen met vergelijkbare kenmerken landen dicht bij elkaar. Het model is getraind op 2023-data (1000 iteraties, random seed 42) en daarna toegepast op alle andere jaren en scenario's — de kaart laat zo zien hoe gebieden <i>in dezelfde indeling</i> door de tijd bewegen.
       </div>
 
       <div class="info-section">
@@ -545,7 +545,10 @@
         Fracties van het hexagonoppervlak per landgebruikstype. Bebouwing in primair bebouwd gebied onderscheidt stedelijk van landelijk. Loofbos, naaldbos, heide, duinen, moeras en agrarisch gras bepalen het natuurtype. Akkergewassen (granen, maïs, aardappelen, glastuinbouw) identificeren landbouwgebieden. Dit zijn de sterkste drijvers van de stedelijk–landelijk as.<br><br>
 
         <span class="info-tag">Klimaat &amp; milieu</span> <i>bron: RIVM / AHN / Waterschappen</i><br>
-        Hitte (UHI-index) is hoog in dichte, verharde gebieden — lage groenfractie versterkt dit. Geluid (Lden in dB) is hoog nabij snelwegen en industrie. Maaiveldshoogte (m NAP) is laag in veenpolders en bepaalt overstromingsrisico samen met 5 overstromingsdiepte-scenario's. Lichtemissie correleert sterk met bebouwingsdichtheid.
+        Hitte (UHI-index) is hoog in dichte, verharde gebieden — lage groenfractie versterkt dit. Geluid (Lden in dB) is hoog nabij snelwegen en industrie. Maaiveldshoogte (m NAP) is laag in veenpolders en bepaalt overstromingsrisico samen met 5 overstromingsdiepte-scenario's. Lichtemissie correleert sterk met bebouwingsdichtheid.<br><br>
+
+        <span class="info-tag">Sentinel-2 satelliet</span> <i>bron: Copernicus / Google Earth Engine</i><br>
+        Jaarlijkse mediane spectrale indices berekend over het volledige hexagonoppervlak (gemiddelde van alle 30m-pixels, wolkenvrij gefilterd). <b>NDVI</b> meet vegetatiedichtheid — hoog in bos en landbouw, laag op verharding. <b>NDBI</b> meet bebouwingsintensiteit — hoog bij daken en asfalt. <b>NDWI</b> meet wateraanwezigheid en bodemvocht. <b>EVI</b> is een verbeterde vegetatie-index die niet verzadigt in dichte boomkronen. Dit zijn de enige <i>fysiek geobserveerde</i> signalen in de dataset — alle andere variabelen komen uit administratieve registraties.
       </div>
 
       <div class="info-section">
@@ -576,7 +579,7 @@
   <div id="map-overlay">
     <div id="map-overlay-content">
       <h2>Ruimtelijke Patronen</h2>
-      <p>Nederland ingedeeld in <b style="color:#e0e0e0">100 gebiedstypen</b> op basis van ~100 variabelen uit demografie, wonen, landgebruik en klimaat (CBS, LGN, BAG, RIVM). Een Self-Organizing Map (SOM) groepeert hexagonen zo dat vergelijkbare gebieden naast elkaar liggen — aangrenzende kleuren zijn meer op elkaar.</p>
+      <p>Nederland ingedeeld in <b style="color:#e0e0e0">100 gebiedstypen</b> op basis van ~105 variabelen uit demografie, wonen, landgebruik, klimaat en satellietbeelden (CBS, LGN, BAG, RIVM, Sentinel-2). Een Self-Organizing Map (SOM) groepeert hexagonen zo dat vergelijkbare gebieden naast elkaar liggen — aangrenzende kleuren zijn meer op elkaar.</p>
 
       <div class="overlay-vars">
         <span class="var-tag">Demografie</span>
@@ -585,6 +588,7 @@
         <span class="var-tag">Hitte &amp; geluid</span>
         <span class="var-tag">Gebouwfuncties (BAG)</span>
         <span class="var-tag">Overstromingsrisico</span>
+        <span class="var-tag">Sentinel-2 satelliet</span>
       </div>
 
       <div class="overlay-grid">
@@ -602,7 +606,7 @@
         </div>
         <div class="overlay-card">
           <div class="card-title">Data</div>
-          <p>37.614 H3-hexagonen, resolutie 7 (~500m). Tijdreeks 2018–2023. Bronnen: CBS, LGN, BAG, RIVM, AHN, Waterschappen.</p>
+          <p>37.614 H3-hexagonen, resolutie 7 (~500m). Tijdreeks 2018–2023. Bronnen: CBS, LGN, BAG, RIVM, AHN, Waterschappen, Sentinel-2 (Google Earth Engine).</p>
         </div>
       </div>
 
