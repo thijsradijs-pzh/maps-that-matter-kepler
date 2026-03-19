@@ -271,6 +271,16 @@
     .stats span { color: #4da6ff; font-weight: 600; }
     .stats .changed-count { color: #ff8c42; }
 
+    /* ── Gemeente search ── */
+    .gemeente-search-wrap { margin-bottom: 10px; }
+    .gemeente-search-input {
+      width: 100%; padding: 7px 10px;
+      background: #161624; border: 1px solid #2a2a3a;
+      border-radius: 5px; color: #ccc; font-size: 12px; outline: none;
+    }
+    .gemeente-search-input:focus { border-color: #2a6496; }
+    .gemeente-search-input::placeholder { color: #444; }
+
     .legend { margin-top: 10px; padding-top: 8px; border-top: 1px solid #1e1e30; }
     .legend-title {
       font-size: 10px; color: #444; margin-bottom: 5px;
@@ -279,11 +289,29 @@
     .legend-grid {
       display: grid; grid-template-columns: repeat(15, 1fr); gap: 1px;
     }
-    .legend-cell { width: 100%; padding-bottom: 100%; border-radius: 2px; }
+    .legend-cell {
+      width: 100%; padding-bottom: 100%; border-radius: 2px;
+      cursor: pointer; position: relative; transition: transform 0.1s;
+    }
+    .legend-cell:hover { transform: scale(1.5); z-index: 2; }
+    .legend-cell.selected { outline: 2px solid #fff; outline-offset: 1px; z-index: 3; }
     .legend-axis {
       display: flex; justify-content: space-between;
       font-size: 9px; color: #333; margin-top: 3px;
     }
+
+    /* ── Cluster profile ── */
+    #cluster-panel {
+      margin-top: 8px; padding: 10px 12px;
+      background: rgba(16,16,30,0.98); border: 1px solid #2a3a5a;
+      border-radius: 6px; font-size: 11px; color: #bbb;
+      display: none;
+    }
+    #cluster-panel.visible { display: block; }
+    .cp-title { font-weight: 700; font-size: 12px; color: #fff; margin-bottom: 6px; }
+    .cp-row { display: flex; justify-content: space-between; margin-bottom: 3px; color: #666; }
+    .cp-row b { color: #bbb; }
+    .cp-gemeenten { margin-top: 5px; font-size: 10px; color: #666; line-height: 1.7; }
 
     .source-strip {
       margin-top: 8px; padding-top: 8px;
@@ -625,6 +653,12 @@
       </div>
     </div>
 
+    <div class="gemeente-search-wrap">
+      <input type="text" id="gemeente-search" class="gemeente-search-input"
+        placeholder="🔍 Zoek gemeente..." list="gemeente-list" autocomplete="off" />
+      <datalist id="gemeente-list"></datalist>
+    </div>
+
     <div class="tabs">
       <div class="tab active" data-mode="jaar">📅 Jaar</div>
       <div class="tab" data-mode="scenario">🎚️ Scenario</div>
@@ -687,6 +721,11 @@
         <div class="legend-title">Gebiedstypen (15×15 grid, 225 typen)</div>
         <div class="legend-grid" id="legend-grid"></div>
         <div class="legend-axis"><span>← stedelijk</span><span>landelijk →</span></div>
+      </div>
+
+      <div id="cluster-panel">
+        <div class="cp-title" id="cp-title">Cluster –</div>
+        <div id="cp-body"></div>
       </div>
 
       <div class="source-strip">
@@ -1075,6 +1114,8 @@
     }
 
     // ── Legend ───────────────────────────────────────────────────────────────
+    let selectedCluster = null;
+
     function buildLegend() {
       const grid = document.getElementById('legend-grid');
       if (!grid) return;
@@ -1084,8 +1125,73 @@
         const cell = document.createElement('div');
         cell.className = 'legend-cell';
         cell.style.background = `rgb(${r},${g},${b})`;
+        cell.title = `Cluster ${id}`;
+        cell.dataset.clusterId = id;
+        cell.addEventListener('click', () => showClusterProfile(id));
         grid.appendChild(cell);
       }
+    }
+
+    function showClusterProfile(id) {
+      // Toggle off if same cluster clicked again
+      if (selectedCluster === id) {
+        selectedCluster = null;
+        document.querySelectorAll('.legend-cell.selected').forEach(c => c.classList.remove('selected'));
+        document.getElementById('cluster-panel').classList.remove('visible');
+        return;
+      }
+      selectedCluster = id;
+      document.querySelectorAll('.legend-cell.selected').forEach(c => c.classList.remove('selected'));
+      const cell = document.querySelector(`.legend-cell[data-cluster-id="${id}"]`);
+      if (cell) cell.classList.add('selected');
+
+      // Compute stats from 2023 data
+      const hexes = allData.filter(d => d.cluster_2023 === id && isMeaningful(d));
+      const n = hexes.length;
+
+      if (n === 0) {
+        document.getElementById('cp-title').textContent = `Cluster ${id} — geen hexagonen`;
+        document.getElementById('cp-body').innerHTML = '';
+        document.getElementById('cluster-panel').classList.add('visible');
+        return;
+      }
+
+      // Top gemeenten
+      const gemeenteCounts = {};
+      hexes.forEach(d => { if (d.gemeente) gemeenteCounts[d.gemeente] = (gemeenteCounts[d.gemeente] || 0) + 1; });
+      const topG = Object.entries(gemeenteCounts).sort((a, b) => b[1] - a[1]).slice(0, 4);
+
+      // Average stats
+      const avg = (key) => {
+        const vals = hexes.map(d => d[key]).filter(v => v != null && !isNaN(v));
+        return vals.length > 0 ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+      };
+      const avgInw  = avg('inwoners');
+      const avgWoz  = avg('woz');
+      const avgBeb  = avg('bebouwing');
+      const avgHit  = avg('hitte');
+      const avgNdvi = avg('ndvi');
+
+      // Area type distribution
+      const types = {};
+      hexes.forEach(d => { const t = getAreaType(d); types[t] = (types[t] || 0) + 1; });
+      const topType = Object.entries(types).sort((a, b) => b[1] - a[1])[0];
+
+      const [r, g, b] = CLUSTER_COLORS[id];
+      document.getElementById('cp-title').innerHTML =
+        `<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgb(${r},${g},${b});margin-right:5px;vertical-align:middle"></span>Cluster ${id}`;
+
+      document.getElementById('cp-body').innerHTML = `
+        <div class="cp-row"><span>Hexagonen</span><b>${n.toLocaleString('nl')}</b></div>
+        ${topType ? `<div class="cp-row"><span>Hoofdtype</span><b style="font-size:10px">${topType[0]}</b></div>` : ''}
+        ${avgBeb != null  ? `<div class="cp-row"><span>Bebouwing</span><b>${idxLbl(avgBeb)}</b></div>` : ''}
+        ${avgInw != null  ? `<div class="cp-row"><span>Bevolking</span><b>${idxLbl(avgInw)}</b></div>` : ''}
+        ${avgWoz != null  ? `<div class="cp-row"><span>WOZ-waarde</span><b>${idxLbl(avgWoz)}</b></div>` : ''}
+        ${avgHit != null  ? `<div class="cp-row"><span>Hitte-index</span><b>${avgHit.toFixed(1)}</b></div>` : ''}
+        ${avgNdvi != null ? `<div class="cp-row"><span>NDVI</span><b>${(avgNdvi - 1).toFixed(2)}</b></div>` : ''}
+        <div class="cp-gemeenten">${topG.map(([g, c]) => `${g} <span style="color:#555">(${c})</span>`).join('<br>')}</div>
+      `;
+      document.getElementById('cluster-panel').classList.add('visible');
     }
 
     // ════════════════════════════════════════
@@ -1172,19 +1278,30 @@
         render();
       });
 
-      // Play
+      // Play — start from 2018, stop at 2023
       const playBtn = document.getElementById('play-btn');
       playBtn.addEventListener('click', () => {
         if (playInterval) {
           clearInterval(playInterval); playInterval = null;
           playBtn.textContent = '▶ Afspelen';
         } else {
-          playBtn.textContent = '⏸ Pauzeren';
-          playInterval = setInterval(() => {
-            activeYear = activeYear >= 2023 ? 2018 : activeYear + 1;
+          // Reset to start if already at end
+          if (activeYear >= 2023) {
+            activeYear = 2018;
             slider.value = activeYear; display.textContent = activeYear;
             render();
-          }, 700);
+          }
+          playBtn.textContent = '⏸ Pauzeren';
+          playInterval = setInterval(() => {
+            if (activeYear >= 2023) {
+              clearInterval(playInterval); playInterval = null;
+              playBtn.textContent = '▶ Afspelen';
+              return;
+            }
+            activeYear++;
+            slider.value = activeYear; display.textContent = activeYear;
+            render();
+          }, 900);
         }
       });
 
@@ -1257,6 +1374,44 @@
 
         document.getElementById('loading').style.display = 'none';
         document.getElementById('controls').style.display = 'block';
+
+        // Build gemeente centroid map (average h3ToGeo per gemeente)
+        const gemeenteSums = {};
+        allData.forEach(d => {
+          if (!d.gemeente) return;
+          if (!gemeenteSums[d.gemeente]) gemeenteSums[d.gemeente] = { lat: 0, lon: 0, n: 0 };
+          const [lat, lon] = h3.h3ToGeo(d.h3);
+          gemeenteSums[d.gemeente].lat += lat;
+          gemeenteSums[d.gemeente].lon += lon;
+          gemeenteSums[d.gemeente].n++;
+        });
+        const gemeenteCentroids = {};
+        Object.entries(gemeenteSums).forEach(([name, s]) => {
+          gemeenteCentroids[name] = { lat: s.lat / s.n, lon: s.lon / s.n };
+        });
+
+        // Populate datalist
+        const dl = document.getElementById('gemeente-list');
+        Object.keys(gemeenteCentroids).sort().forEach(name => {
+          const opt = document.createElement('option');
+          opt.value = name;
+          dl.appendChild(opt);
+        });
+
+        // Fly to gemeente on selection
+        const searchInput = document.getElementById('gemeente-search');
+        searchInput.addEventListener('change', () => {
+          const name = searchInput.value.trim();
+          const c = gemeenteCentroids[name];
+          if (!c) return;
+          viewState = {
+            ...viewState, longitude: c.lon, latitude: c.lat, zoom: 12,
+            transitionDuration: 1000,
+            transitionInterpolator: new deck.LinearInterpolator(['longitude', 'latitude', 'zoom']),
+          };
+          deckInstance.setProps({ viewState });
+          searchInput.value = '';
+        });
 
         setupStory();
         setupControls();
