@@ -489,23 +489,27 @@
           </div>
         </div>
 
-        <!-- Card 5: Selling pitch -->
+        <!-- Card 5: Societal problems pitch -->
         <div class="story-card">
           <div class="story-card-icon">🎯</div>
-          <div class="story-card-eyebrow">Wat kun je ermee — voor Zuid-Holland</div>
-          <div class="story-card-title">Drie opgaven, één kaart</div>
-          <div class="story-card-body" style="text-align:left">
-            <div style="margin-bottom:12px;padding:10px;background:rgba(74,166,255,0.07);border-radius:8px;border-left:3px solid #2a6496">
-              <b style="color:#7bbfff">📅 Jaar — Glastuinbouw-transitie</b><br>
-              <span style="font-size:12px">In Westland en Lansingerland daalt de NDVI terwijl de registratie nog glastuinbouw aangeeft. Dat zijn kassen die leegstaan of al verduurzaamd zijn — zichtbaar vóór de statistieken het bijhouden.</span>
+          <div class="story-card-eyebrow">Wat je kunt doorrekenen</div>
+          <div class="story-card-title">De grote maatschappelijke vragen, zichtbaar op de kaart</div>
+          <div class="story-card-body" style="text-align:left;font-size:12px">
+            <div style="margin-bottom:9px;padding:8px 10px;background:rgba(74,166,255,0.07);border-radius:6px;border-left:3px solid #2a6496">
+              <b style="color:#7bbfff;font-size:13px">🏘️ Woningnood</b><br>
+              Nederland heeft 400.000 woningen tekort. Scenario <em>bevolking +20%</em>: welke gebieden kantelen? Dat zijn de plekken onder de meeste druk — en de kanslocaties voor verdichting.
             </div>
-            <div style="margin-bottom:12px;padding:10px;background:rgba(80,200,120,0.07);border-radius:8px;border-left:3px solid #2a7a4a">
-              <b style="color:#6ccc8a">📈 Trend — Veenweide onder druk</b><br>
-              <span style="font-size:12px">De Krimpenerwaard en Alblasserwaard veranderen langzaam van type. Doorgetrokken naar 2030 zie je welke gemeenten nu moeten ingrijpen — voor de bodemdaling onkeerbaar wordt.</span>
+            <div style="margin-bottom:9px;padding:8px 10px;background:rgba(200,120,255,0.07);border-radius:6px;border-left:3px solid #6a3a96">
+              <b style="color:#c87aff;font-size:13px">📉 Vergrijzing &amp; krimp</b><br>
+              Platteland en middelgrote steden verliezen jongeren. Scenario <em>bevolking -20%</em>: welke kernen verschralen als de krimp doorzet — en waar dreigt een neerwaartse spiraal?
             </div>
-            <div style="padding:10px;background:rgba(255,140,66,0.07);border-radius:8px;border-left:3px solid #7a4a1a">
-              <b style="color:#ffaa66">🎚️ Scenario — Woningbouwdruk</b><br>
-              <span style="font-size:12px">Bevolking +20% in de Drechtsteden: welke hexagons kantelen? Dat zijn de verdichtingslocaties en de gebieden waar huidig beleid tekortschiet. Oranje = kantelpunt.</span>
+            <div style="margin-bottom:9px;padding:8px 10px;background:rgba(255,100,80,0.07);border-radius:6px;border-left:3px solid #963a2a">
+              <b style="color:#ff8070;font-size:13px">🌡️ Klimaatverandering</b><br>
+              Hittegolven worden heviger en vaker. Scenario <em>hitte +30% of +50%</em>: stenen wijken, weinig groen, kwetsbare bewoners — welke gebieden worden onleefbaar zonder actie?
+            </div>
+            <div style="padding:8px 10px;background:rgba(255,180,50,0.07);border-radius:6px;border-left:3px solid #966a1a">
+              <b style="color:#f0b840;font-size:13px">💶 Betaalbaarheidscrisis</b><br>
+              Woningen onbetaalbaar voor middeninkomens. Scenario <em>WOZ +20%</em>: waar verdwijnt gemengde bebouwing en sociale huur als prijzen verder stijgen?
             </div>
           </div>
         </div>
@@ -552,18 +556,18 @@
           <button class="btn" id="play-btn">▶ Afspelen</button>
         </div>
         <div class="mode-hint">
-          Kleurwijziging = gebiedstype veranderd. Volg de <b>glastuinbouw-transitie in Westland</b>, de opkomst van nieuwbouwwijken, of de droogtedruk op veenweiden in het Groene Hart.
+          Kleurwijziging = gebiedstype veranderd. Volg hoe wijken transformeren door <b>woningnood, gentrificatie</b> en <b>klimaat</b> — 2018 was al anders dan 2023.
         </div>
       </div>
 
       <!-- Scenario -->
       <div class="mode-panel" id="panel-scenario">
-        <div class="control-label">Kies een beleidsvraag — wat als…</div>
-        <button class="option-btn active" data-col="scenario_pop_plus20">🏘️ Woningdruk: bevolking +20%<span class="opt-hint">Welke gebieden in de Drechtsteden, Leiden en Den Haag-rand kantelen?</span></button>
-        <button class="option-btn" data-col="scenario_pop_min20">📉 Krimp: bevolking -20%<span class="opt-hint">Welke kernen in de Hoeksche Waard en Goeree-Overflakkee verliezen karakter?</span></button>
-        <button class="option-btn" data-col="scenario_heat_plus30">🌡️ Klimaat: hitte +30%<span class="opt-hint">Hittestress in Rotterdam-Noord, Den Haag-Oost en de veenweiden — welke typen kantelen?</span></button>
-        <button class="option-btn" data-col="scenario_heat_plus50">🔥 Extremere hitte +50%<span class="opt-hint">Worst-case hittescenario: waar wordt wonen en werken onhoudbaar zonder aanpassing?</span></button>
-        <button class="option-btn" data-col="scenario_woz_plus20">💶 Woningmarkt: WOZ +20%<span class="opt-hint">Verdere prijsstijging: welke gebieden in Amsterdam-rand en kustgemeenten kantelen naar duurder type?</span></button>
+        <div class="control-label">Kies een maatschappelijk vraagstuk</div>
+        <button class="option-btn active" data-col="scenario_pop_plus20">🏘️ Woningnood — bevolking +20%<span class="opt-hint">400.000 woningen tekort in NL. Welke gebieden kantelen door groeidruk? Dat zijn de verdichtings­locaties én de kwetsbare randen.</span></button>
+        <button class="option-btn" data-col="scenario_pop_min20">📉 Vergrijzing &amp; krimp — bevolking -20%<span class="opt-hint">Platteland en kleinere steden verliezen jongeren. Welke wijken verschralen en dreigen in een neerwaartse spiraal terecht te komen?</span></button>
+        <button class="option-btn" data-col="scenario_heat_plus30">🌡️ Klimaatverandering — hitte +30%<span class="opt-hint">Zomers worden heter. Waar slaat hittestress het hardst toe? Stenen wijken, weinig groen, ouderen en lage inkomens — dat zijn de risicogebieden.</span></button>
+        <button class="option-btn" data-col="scenario_heat_plus50">🔥 Klimaat extremer — hitte +50%<span class="opt-hint">Worst-case scenario: waar wordt wonen en buitenwerken zonder aanpassing onhoudbaar? Dit zijn de gebieden die het meest urgent beleid vragen.</span></button>
+        <button class="option-btn" data-col="scenario_woz_plus20">💶 Betaalbaarheidscrisis — WOZ +20%<span class="opt-hint">Woningen onbetaalbaar voor middeninkomens. Waar verdwijnt gemengde bebouwing en sociale huur als de prijsstijging aanhoudt?</span></button>
         <div class="toggle-row">
           <input type="checkbox" id="changed-only" />
           <label for="changed-only">Toon alleen kantelpunten (oranje)</label>
@@ -572,15 +576,15 @@
 
       <!-- Trend -->
       <div class="mode-panel" id="panel-trend">
-        <div class="control-label">De trend van 2018–2023 doorgetrokken</div>
-        <button class="option-btn active" data-col="trend_2030">📈 Prognose 2030<span class="opt-hint">Veenweidegebieden Krimpenerwaard en Alblasserwaard: welke gaan verder achteruit?</span></button>
-        <button class="option-btn" data-col="trend_2035">📈 Prognose 2035<span class="opt-hint">Industrieterreinen langs de Nieuwe Waterweg: welke transformeren autonoom zonder beleid?</span></button>
+        <div class="control-label">Wat als we niets doen? Trend doorgetrokken</div>
+        <button class="option-btn active" data-col="trend_2030">📈 2030 — over één bestuursperiode<span class="opt-hint">Welke gebieden zijn dan het meest verschoven? Dat zijn de plekken waar huidig beleid tekortschiet.</span></button>
+        <button class="option-btn" data-col="trend_2035">📈 2035 — structurele kanteling<span class="opt-hint">Langere termijn: welke gebieden zijn dan structureel van karakter veranderd als de trend van 2018–2023 doorzet?</span></button>
         <div class="toggle-row">
           <input type="checkbox" id="trend-changed-only" />
           <label for="trend-changed-only">Toon alleen veranderde gebieden</label>
         </div>
         <div class="mode-hint">
-          <b>Geen voorspelling</b> — een doorgetrokken lijn. De oranje gebieden zijn de plekken die het meest verschoven zijn als dit beleid uitblijft.
+          <b>Geen voorspelling</b> — een doorgetrokken lijn op basis van gemeten data 2018–2023. Oranje = van gebiedstype gewisseld zonder beleidsingreep.
         </div>
       </div>
 
