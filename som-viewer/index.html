@@ -657,8 +657,8 @@
   <!-- Intro overlay -->
   <div id="map-overlay">
     <div id="map-overlay-content">
-      <h2>Hoe ziet Nederland eruit?</h2>
-      <p>Elk stukje Nederland van ~500 meter krijgt een kleur op basis van wie er woont, welke gebouwen er staan, hoe groen het is en wat satellieten zien. <b style="color:#e0e0e0">Gelijke kleuren = vergelijkbare gebieden.</b> Zo ontstaan 100 herkenbare gebiedstypen — van stadscentrum tot veenweide.</p>
+      <h2>Hoe ziet Zuid-Holland eruit?</h2>
+      <p>Elk stukje Zuid-Holland van ~500 meter krijgt een kleur op basis van wie er woont, welke gebouwen er staan, hoe groen het is en wat satellieten zien. <b style="color:#e0e0e0">Gelijke kleuren = vergelijkbare gebieden.</b> Zo ontstaan 100 herkenbare gebiedstypen — van stadscentrum tot veenweide.</p>
 
       <div class="overlay-grid">
         <div class="overlay-card">
@@ -675,7 +675,7 @@
         </div>
         <div class="overlay-card">
           <div class="card-title">&#128269; Schaal</div>
-          <p>37.614 vakjes van elk ~500 meter. Heel Nederland. Data van 2018 t/m 2023.</p>
+          <p>Vakjes van elk ~500 meter. Provincie Zuid-Holland. Data van 2018 t/m 2023.</p>
         </div>
       </div>
 
@@ -714,8 +714,24 @@
 
     // ── Config ──────────────────────────────────────────────────────────────
     const DATA_URL = '/data/som_export.json';
-    const INITIAL_VIEW = { longitude: 5.1, latitude: 52.1, zoom: 7, pitch: 0, bearing: 0 };
+    const INITIAL_VIEW = { longitude: 4.35, latitude: 52.02, zoom: 9, pitch: 0, bearing: 0 };
     const CHANGED_COLOR = [255, 140, 66, 220];
+
+    // Zuid-Holland bounding box
+    const ZH_BOUNDS = { minLat: 51.66, maxLat: 52.40, minLon: 3.84, maxLon: 5.06 };
+
+    function inZuidHolland(h3Id) {
+      const [lat, lon] = h3.h3ToGeo(h3Id);
+      return lat >= ZH_BOUNDS.minLat && lat <= ZH_BOUNDS.maxLat
+          && lon >= ZH_BOUNDS.minLon && lon <= ZH_BOUNDS.maxLon;
+    }
+
+    // Filter out uninformative hexagons: no residents, no buildings, no WOZ value
+    function hasContent(d) {
+      return (d.inwoners != null && d.inwoners > 0)
+          || (d.bebouwing != null && d.bebouwing > 0.02)
+          || (d.woz != null && d.woz > 0);
+    }
 
     const SCENARIOS = [
       { col: 'scenario_pop_plus20', label: 'Bevolking +20%' },
@@ -1005,9 +1021,11 @@
       try {
         const response = await fetch(DATA_URL);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        allData = await response.json();
+        const raw = await response.json();
 
-        console.log(`Geladen: ${allData.length.toLocaleString('nl')} hexagonen`);
+        allData = raw.filter(d => inZuidHolland(d.h3) && hasContent(d));
+
+        console.log(`Geladen: ${raw.length.toLocaleString('nl')} totaal → ${allData.length.toLocaleString('nl')} in Zuid-Holland`);
 
         document.getElementById('loading').style.display = 'none';
         document.getElementById('controls').style.display = 'block';
