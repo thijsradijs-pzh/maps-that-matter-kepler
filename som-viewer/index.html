@@ -364,7 +364,7 @@
 
     /* ── Trajectory panel ── */
     #traj-panel {
-      position: fixed; bottom: -160px; left: 0; right: 0;
+      position: fixed; bottom: -280px; left: 0; right: 0;
       background: rgba(10,10,22,0.98);
       border-top: 1px solid #2a2a4a;
       padding: 12px 16px 16px;
@@ -374,18 +374,31 @@
     #traj-panel.visible { bottom: 0; }
     #traj-header {
       display: flex; justify-content: space-between;
-      align-items: flex-start; margin-bottom: 10px;
+      align-items: flex-start; margin-bottom: 6px;
     }
     #traj-location { font-size: 13px; font-weight: 700; color: #fff; }
-    #traj-summary  { font-size: 11px; color: #666; margin-top: 2px; }
+    #traj-type     { font-size: 11px; color: #888; margin-top: 2px; }
     #traj-close {
       background: none; border: none; color: #444;
       font-size: 22px; cursor: pointer; line-height: 1;
       padding: 0 4px; transition: color 0.15s;
     }
     #traj-close:hover { color: #aaa; }
+
+    /* Stats pills */
+    #traj-stats {
+      display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px;
+    }
+    .traj-pill {
+      background: #12121f; border: 1px solid #2a2a4a;
+      border-radius: 12px; padding: 2px 8px;
+      font-size: 10px; color: #aaa; white-space: nowrap;
+    }
+    .traj-pill b { color: #ddd; }
+
+    /* Year dots */
     #traj-years {
-      display: flex; gap: 4px; justify-content: space-between;
+      display: flex; gap: 4px; justify-content: space-between; margin-bottom: 8px;
     }
     .traj-cell { flex: 1; text-align: center; position: relative; }
     .traj-cell + .traj-cell::before {
@@ -403,7 +416,16 @@
       outline: 2px solid #ff8c42; outline-offset: 1px;
     }
     .traj-year { font-size: 9px; color: #444; }
-    .traj-id   { font-size: 10px; color: #666; font-weight: 600; }
+    .traj-id   { font-size: 9px; color: #555; }
+
+    /* Scenario sensitivity bars */
+    #traj-sensitivity { }
+    .sens-title { font-size: 9px; color: #444; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .sens-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+    .sens-item { text-align: center; }
+    .sens-bar-wrap { height: 4px; background: #1a1a2e; border-radius: 2px; margin-bottom: 2px; }
+    .sens-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+    .sens-label { font-size: 8px; color: #444; }
 
     /* Mobile drag handle */
     .mobile-handle {
@@ -457,7 +479,7 @@
       .value-display { font-size: 24px; }
 
       /* Trajectory panel above controls on mobile */
-      #traj-panel { bottom: -180px; }
+      #traj-panel { bottom: -300px; }
       #traj-panel.visible { bottom: calc(55vh + 2px); }
 
       /* Hide non-essential on mobile */
@@ -719,11 +741,13 @@
     <div id="traj-header">
       <div>
         <div id="traj-location">–</div>
-        <div id="traj-summary">–</div>
+        <div id="traj-type">–</div>
       </div>
       <button id="traj-close">×</button>
     </div>
+    <div id="traj-stats"></div>
     <div id="traj-years"></div>
+    <div id="traj-sensitivity"></div>
   </div>
 
   <script>
@@ -828,11 +852,21 @@
       return clusterColor(base);
     }
 
+    function isMeaningful(d) {
+      // Filter out water, open water, and hexagons with no human or economic presence
+      return (
+        (d.inwoners || 0) > 0 ||
+        (d.woz      || 0) > 0 ||
+        (d.hitte    || 0) > 0.5 ||
+        (d.bebouwing || 0) >= 0.05
+      );
+    }
+
     function getActiveData() {
-      if (mode === 'jaar') return allData.filter(d => d[`cluster_${activeYear}`] != null);
+      if (mode === 'jaar') return allData.filter(d => d[`cluster_${activeYear}`] != null && isMeaningful(d));
       const col = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
       const showOnly = mode === 'scenario' ? changedOnly : trendChangedOnly;
-      const valid = allData.filter(d => d[col] != null);
+      const valid = allData.filter(d => d[col] != null && isMeaningful(d));
       return showOnly ? valid.filter(d => d[col] !== d.cluster_2023) : valid;
     }
 
@@ -907,18 +941,47 @@
     // ── Trajectory ───────────────────────────────────────────────────────────
     const YEARS = [2018, 2019, 2020, 2021, 2022, 2023];
 
+    function getAreaType(d) {
+      const beb  = d.bebouwing || 0;
+      const inw  = d.inwoners  || 0;
+      const ndvi = d.ndvi      || 1;  // shifted: >1 = vegetation, <1 = bare/built
+      const ndwi = d.ndwi      || 1;  // shifted: >1 = water
+      const hitte = d.hitte    || 0;
+      if (ndwi > 1.4)               return 'Watergebied / natte natuur';
+      if (beb > 0.45 && inw < 10)   return 'Bedrijventerrein / industrie';
+      if (beb > 0.35)               return 'Dicht stedelijk gebied';
+      if (beb > 0.15 && inw > 20)   return 'Woonwijk';
+      if (beb > 0.08)               return 'Suburbaan / gemengd';
+      if (ndvi > 1.6 && hitte > 1)  return 'Tuinbouw / glastuinbouw';
+      if (ndvi > 1.5)               return 'Agrarisch / natuur';
+      return 'Buitengebied';
+    }
+
     function showTrajectory(d) {
       document.getElementById('traj-location').textContent =
         [d.gemeente, d.wijk].filter(Boolean).join(' / ') || '–';
 
+      // Count trajectory changes
       let changes = 0;
       for (let i = 1; i < YEARS.length; i++) {
         if (d[`cluster_${YEARS[i]}`] !== d[`cluster_${YEARS[i-1]}`]) changes++;
       }
-      const ndviTxt = d.ndvi != null ? `  ·  NDVI ${d.ndvi.toFixed(2)}` : '';
-      document.getElementById('traj-summary').textContent =
-        (changes === 0 ? 'Stabiel gebiedstype 2018–2023' : `${changes}× van type gewisseld`) + ndviTxt;
+      const stability = changes === 0 ? 'Stabiel 2018–2023' : `${changes}× van type gewisseld`;
+      document.getElementById('traj-type').textContent = `${getAreaType(d)}  ·  ${stability}`;
 
+      // Stats pills
+      const statsEl = document.getElementById('traj-stats');
+      const pills = [];
+      if (d.inwoners != null) pills.push(`Inwoners <b>${Math.round(d.inwoners)}/hex</b>`);
+      if (d.woz      != null && d.woz > 0) pills.push(`WOZ <b>€${Math.round(d.woz / 1000)}k</b>`);
+      if (d.hitte    != null && d.hitte > 0) pills.push(`Hitte <b>${d.hitte.toFixed(1)}</b>`);
+      if (d.bebouwing != null) pills.push(`Bebouwing <b>${(d.bebouwing * 100).toFixed(0)}%</b>`);
+      if (d.geluid   != null && d.geluid > 0) pills.push(`Geluid <b>${d.geluid.toFixed(0)} dB</b>`);
+      if (d.ndvi     != null) pills.push(`NDVI <b>${(d.ndvi - 1).toFixed(2)}</b>`);
+      if (d.ndwi     != null) pills.push(`NDWI <b>${(d.ndwi - 1).toFixed(2)}</b>`);
+      statsEl.innerHTML = pills.map(p => `<span class="traj-pill">${p}</span>`).join('');
+
+      // Year dots
       const yearsEl = document.getElementById('traj-years');
       yearsEl.innerHTML = '';
       YEARS.forEach((year, i) => {
@@ -926,7 +989,6 @@
         const [r, g, b] = clusterColor(id);
         const prevId = i > 0 ? d[`cluster_${YEARS[i-1]}`] : id;
         const changed = i > 0 && id !== prevId;
-
         const cell = document.createElement('div');
         cell.className = 'traj-cell' + (changed ? ' changed' : '');
         cell.innerHTML = `
@@ -935,6 +997,26 @@
           <div class="traj-id">${id ?? '–'}</div>`;
         yearsEl.appendChild(cell);
       });
+
+      // Scenario sensitivity bars
+      const scenDefs = [
+        { col: 'scenario_pop_plus20', label: 'Woningnood' },
+        { col: 'scenario_pop_min20',  label: 'Krimp' },
+        { col: 'scenario_heat_plus30', label: 'Hitte +30%' },
+        { col: 'scenario_heat_plus50', label: 'Hitte +50%' },
+        { col: 'scenario_woz_plus20', label: 'Betaalbaar' },
+      ];
+      const items = scenDefs.map(s => {
+        const dist = d[s.col + '_dist'] || 0;
+        const barW = Math.round(Math.sqrt(dist / 255) * 100);
+        const col  = dist > 180 ? '#ff4444' : dist > 80 ? '#ff8c42' : dist > 20 ? '#ffcc44' : '#2a2a4a';
+        return `<div class="sens-item">
+          <div class="sens-bar-wrap"><div class="sens-bar-fill" style="width:${barW}%;background:${col}"></div></div>
+          <div class="sens-label">${s.label}</div>
+        </div>`;
+      }).join('');
+      document.getElementById('traj-sensitivity').innerHTML =
+        `<div class="sens-title">Gevoeligheid voor scenario's</div><div class="sens-grid">${items}</div>`;
 
       document.getElementById('traj-panel').classList.add('visible');
     }
