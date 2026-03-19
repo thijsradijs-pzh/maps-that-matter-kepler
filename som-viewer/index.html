@@ -347,6 +347,64 @@
       background: rgba(74,166,255,0.1); border: 1px solid rgba(74,166,255,0.2); color: #5a9ed8;
     }
 
+    /* ── Prominent scenario counter ── */
+    #counter-banner {
+      display: none;
+      background: rgba(255,140,66,0.1);
+      border: 1px solid rgba(255,140,66,0.3);
+      border-radius: 8px; padding: 10px 12px;
+      text-align: center; margin-bottom: 10px;
+    }
+    #counter-banner.visible { display: block; }
+    #counter-pct-num {
+      font-size: 32px; font-weight: 900;
+      color: #ff8c42; display: block; line-height: 1;
+    }
+    #counter-pct-label { font-size: 11px; color: #886040; }
+
+    /* ── Trajectory panel ── */
+    #traj-panel {
+      position: fixed; bottom: -160px; left: 0; right: 0;
+      background: rgba(10,10,22,0.98);
+      border-top: 1px solid #2a2a4a;
+      padding: 12px 16px 16px;
+      z-index: 12;
+      transition: bottom 0.3s cubic-bezier(0.4,0,0.2,1);
+    }
+    #traj-panel.visible { bottom: 0; }
+    #traj-header {
+      display: flex; justify-content: space-between;
+      align-items: flex-start; margin-bottom: 10px;
+    }
+    #traj-location { font-size: 13px; font-weight: 700; color: #fff; }
+    #traj-summary  { font-size: 11px; color: #666; margin-top: 2px; }
+    #traj-close {
+      background: none; border: none; color: #444;
+      font-size: 22px; cursor: pointer; line-height: 1;
+      padding: 0 4px; transition: color 0.15s;
+    }
+    #traj-close:hover { color: #aaa; }
+    #traj-years {
+      display: flex; gap: 4px; justify-content: space-between;
+    }
+    .traj-cell { flex: 1; text-align: center; position: relative; }
+    .traj-cell + .traj-cell::before {
+      content: '→'; position: absolute;
+      left: -5px; top: 8px;
+      font-size: 9px; color: #2a2a4a;
+    }
+    .traj-cell.changed + .traj-cell::before,
+    .traj-cell + .traj-cell.changed::before { color: #ff8c42; }
+    .traj-dot {
+      width: 100%; padding-bottom: 70%;
+      border-radius: 4px; margin-bottom: 3px;
+    }
+    .traj-cell.changed .traj-dot {
+      outline: 2px solid #ff8c42; outline-offset: 1px;
+    }
+    .traj-year { font-size: 9px; color: #444; }
+    .traj-id   { font-size: 10px; color: #666; font-weight: 600; }
+
     /* Mobile drag handle */
     .mobile-handle {
       display: none; width: 36px; height: 4px;
@@ -397,6 +455,10 @@
       .tab { padding: 10px 4px; font-size: 13px; min-height: 44px; }
       .option-btn { padding: 12px; font-size: 13px; min-height: 48px; }
       .value-display { font-size: 24px; }
+
+      /* Trajectory panel above controls on mobile */
+      #traj-panel { bottom: -180px; }
+      #traj-panel.visible { bottom: calc(55vh + 2px); }
 
       /* Hide non-essential on mobile */
       .legend, .source-strip, .stats,
@@ -549,6 +611,12 @@
 
     <div class="controls-body">
 
+      <!-- Scenario/trend kantelpunt-teller -->
+      <div id="counter-banner">
+        <span id="counter-pct-num">–</span>
+        <span id="counter-pct-label">van Zuid-Holland kantelt bij dit scenario</span>
+      </div>
+
       <!-- Jaar -->
       <div class="mode-panel active" id="panel-jaar">
         <div class="control-label">Schuif door de tijd — 2018 tot 2023</div>
@@ -642,6 +710,20 @@
       </div>
 
     </div><!-- /.controls-body -->
+  </div>
+
+  <!-- ════════════════════════════════════════
+       TRAJECTORY PANEL (slides up on hex click)
+  ════════════════════════════════════════ -->
+  <div id="traj-panel">
+    <div id="traj-header">
+      <div>
+        <div id="traj-location">–</div>
+        <div id="traj-summary">–</div>
+      </div>
+      <button id="traj-close">×</button>
+    </div>
+    <div id="traj-years"></div>
   </div>
 
   <script>
@@ -747,6 +829,7 @@
       deckInstance.setProps({
         layers: [DeckGLUtils.createBasemap('dark-matter'), buildLayer()],
         getTooltip: ({ object }) => object ? buildTooltip(object) : null,
+        onClick: ({ object }) => { if (object) showTrajectory(object); },
       });
       updateStats();
     }
@@ -773,20 +856,70 @@
       };
     }
 
-    // ── Stats ────────────────────────────────────────────────────────────────
+    // ── Stats + prominent counter ────────────────────────────────────────────
     function updateStats() {
       const el = document.getElementById('stats');
-      if (!el) return;
+      const banner = document.getElementById('counter-banner');
+      const pctNum = document.getElementById('counter-pct-num');
+      const pctLabel = document.getElementById('counter-pct-label');
+
       if (mode === 'jaar') {
+        banner.classList.remove('visible');
+        if (!el) return;
         const n = allData.filter(d => d[`cluster_${activeYear}`] != null).length;
         el.innerHTML = `<b>Jaar:</b> <span>${activeYear}</span> &nbsp; <b>Gebieden:</b> <span>${n.toLocaleString('nl')}</span>`;
         return;
       }
       const col = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
-      const label = (mode === 'scenario' ? SCENARIOS : TRENDS).find(x => x.col === col)?.label;
       const changed = allData.filter(d => d[col] != null && d[col] !== d.cluster_2023).length;
-      const pct = allData.length > 0 ? ((changed / allData.length)*100).toFixed(1) : 0;
-      el.innerHTML = `<b>${label}</b><br><b>Verschoven:</b> <span class="changed-count">${changed.toLocaleString('nl')} (${pct}%)</span>`;
+      const pct = allData.length > 0 ? ((changed / allData.length) * 100).toFixed(0) : 0;
+
+      // Prominent banner
+      pctNum.textContent = pct + '%';
+      const modeWord = mode === 'trend' ? 'verandert autonoom naar' : 'kantelt bij dit scenario';
+      pctLabel.textContent = `van Zuid-Holland ${modeWord}`;
+      banner.classList.add('visible');
+
+      if (el) el.innerHTML = `<b>Gebieden verschoven:</b> <span class="changed-count">${changed.toLocaleString('nl')}</span>`;
+    }
+
+    // ── Trajectory ───────────────────────────────────────────────────────────
+    const YEARS = [2018, 2019, 2020, 2021, 2022, 2023];
+
+    function showTrajectory(d) {
+      document.getElementById('traj-location').textContent =
+        [d.gemeente, d.wijk].filter(Boolean).join(' / ') || '–';
+
+      let changes = 0;
+      for (let i = 1; i < YEARS.length; i++) {
+        if (d[`cluster_${YEARS[i]}`] !== d[`cluster_${YEARS[i-1]}`]) changes++;
+      }
+      const ndviTxt = d.ndvi != null ? `  ·  NDVI ${d.ndvi.toFixed(2)}` : '';
+      document.getElementById('traj-summary').textContent =
+        (changes === 0 ? 'Stabiel gebiedstype 2018–2023' : `${changes}× van type gewisseld`) + ndviTxt;
+
+      const yearsEl = document.getElementById('traj-years');
+      yearsEl.innerHTML = '';
+      YEARS.forEach((year, i) => {
+        const id = d[`cluster_${year}`];
+        const [r, g, b] = clusterColor(id);
+        const prevId = i > 0 ? d[`cluster_${YEARS[i-1]}`] : id;
+        const changed = i > 0 && id !== prevId;
+
+        const cell = document.createElement('div');
+        cell.className = 'traj-cell' + (changed ? ' changed' : '');
+        cell.innerHTML = `
+          <div class="traj-dot" style="background:rgb(${r},${g},${b})"></div>
+          <div class="traj-year">${year}</div>
+          <div class="traj-id">${id ?? '–'}</div>`;
+        yearsEl.appendChild(cell);
+      });
+
+      document.getElementById('traj-panel').classList.add('visible');
+    }
+
+    function hideTrajectory() {
+      document.getElementById('traj-panel').classList.remove('visible');
     }
 
     // ── Legend ───────────────────────────────────────────────────────────────
@@ -957,6 +1090,8 @@
         if (!document.fullscreenElement) document.getElementById('container').requestFullscreen?.();
         else document.exitFullscreen?.();
       });
+
+      document.getElementById('traj-close').addEventListener('click', hideTrajectory);
     }
 
     // ── Init ─────────────────────────────────────────────────────────────────
@@ -982,6 +1117,7 @@
           layers: [DeckGLUtils.createBasemap('dark-matter'), buildLayer()],
           onViewStateChange: ({ viewState: vs }) => { viewState = vs; deckInstance.setProps({ viewState }); },
           getTooltip: ({ object }) => object ? buildTooltip(object) : null,
+          onClick: ({ object }) => { if (object) showTrajectory(object); },
         });
 
         updateStats();
