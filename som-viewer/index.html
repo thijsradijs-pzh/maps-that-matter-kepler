@@ -613,52 +613,36 @@
     <!-- Info toggle -->
     <div class="info-toggle" id="info-toggle">
       <span class="arrow">▶</span>
-      <span>Over deze analyse</span>
+      <span>Hoe werkt dit?</span>
     </div>
     <div class="info-body" id="info-body">
       <div class="info-section">
-        <b>Methode</b><br>
-        Een Self-Organizing Map (SOM) comprimeert ~105 variabelen naar een 10×10 raster. Hexagonen met vergelijkbare kenmerken landen dicht bij elkaar. Het model is getraind op 2023-data (1000 iteraties, random seed 42) en daarna toegepast op alle andere jaren en scenario's — de kaart laat zo zien hoe gebieden <i>in dezelfde indeling</i> door de tijd bewegen.
+        <b>Wat zie je op de kaart?</b><br>
+        Nederland is opgedeeld in vakjes van ~500 meter. Elk vakje krijgt een kleur op basis van hoe het eruitziet en wie er woont. Vakjes met dezelfde kleur lijken op elkaar — of ze nu in Amsterdam, Rotterdam of Groningen liggen. Zo ontstaan 100 herkenbare gebiedstypen.
       </div>
 
       <div class="info-section">
-        <b>Wat drijft de clustering?</b><br><br>
-
-        <span class="info-tag">Demografie</span> <i>bron: CBS</i><br>
-        Totaal inwoners en leeftijdsverdeling (5 klassen) bepalen het bevolkingsprofiel. Een hexagoon met veel 65-plussers scoort structureel anders dan een met veel gezinnen met kinderen. Huishoudenstype (eenpersoons, eenouder, meergezins) bepaalt mede de woningvraag en daarmee het gebiedstype.<br><br>
-
-        <span class="info-tag">Wonen &amp; betaalbaarheid</span> <i>bron: CBS + BAG</i><br>
-        WOZ-waarde is één van de sterkste differentiators: hoge WOZ clustert met koopwoningen, lage WOZ met corporatiehuur. Bouwjaar (8 klassen, voor 1945 t/m 2015+) onderscheidt vooroorlogse wijken van naoorlogse uitbreidingen. Percentage huur vs. koop en aantal corporatiewoningen bepalen de sociale mix.<br><br>
-
-        <span class="info-tag">Sociaal-economisch</span> <i>bron: CBS</i><br>
-        Aandeel uitkeringsgerechtigden en herkomstpercentages zijn genormaliseerde indices (0–255, relatief per jaar). Ze sturen de SOM op sociale cohesie en kwetsbaarheid van een gebied.<br><br>
-
-        <span class="info-tag">Gebouwfuncties</span> <i>bron: BAG</i><br>
-        Aantal panden per functie (kantoor, industrie, winkel, onderwijs, zorg, sport, logies). Functiemenging is zichtbaar in de overgang tussen clusters.<br><br>
-
-        <span class="info-tag">Landgebruik</span> <i>bron: LGN</i><br>
-        Fracties per landgebruikstype: bebouwing, bos, heide, duinen, moeras, agrarisch gras, akkerbouw. Dit zijn de sterkste drijvers van de stedelijk–landelijk as.<br><br>
-
-        <span class="info-tag">Klimaat &amp; milieu</span> <i>bron: RIVM / AHN / Waterschappen</i><br>
-        Hitte (UHI-index), geluid (Lden), maaiveldshoogte (m NAP) en 5 overstromingsdiepte-scenario's. Lichtemissie correleert sterk met bebouwingsdichtheid.<br><br>
-
-        <span class="info-tag">Sentinel-2 satelliet</span> <i>bron: Copernicus / Google Earth Engine</i><br>
-        Jaarlijkse mediane spectrale indices over het volledige hexagonoppervlak (gemiddelde van alle 30m-pixels, wolkenvrij gefilterd). <b>NDVI</b> = vegetatiedichtheid, <b>NDBI</b> = bebouwingsintensiteit, <b>NDWI</b> = wateraanwezigheid, <b>EVI</b> = verbeterde vegetatie-index. Dit zijn de enige <i>fysiek geobserveerde</i> signalen — alle andere variabelen komen uit administratieve registraties.
+        <b>Waar komt de data vandaan?</b><br><br>
+        <span class="info-tag">CBS</span> Hoeveel mensen er wonen, hoe oud ze zijn, wat woningen kosten, huur of koop.<br><br>
+        <span class="info-tag">BAG</span> Welke gebouwen er staan — winkels, kantoren, scholen, ziekenhuizen.<br><br>
+        <span class="info-tag">LGN</span> Wat er op de grond ligt — bos, akkers, weilanden, bebouwing, water.<br><br>
+        <span class="info-tag">RIVM · AHN</span> Hoe warm een gebied wordt, hoeveel geluid er is, hoe hoog het ligt en of het kan overstromen.<br><br>
+        <span class="info-tag">Sentinel-2</span> Satellietbeelden van de Europese ruimtevaartorganisatie. De enige bron die <i>echt kijkt</i> naar hoe groen, bebouwd of nat een gebied is — los van wat er op papier staat.
       </div>
 
       <div class="info-section">
-        <b>Hoe de assen werken</b><br>
-        De x-as loopt ruwweg van <i>stedelijk</i> naar <i>landelijk</i> — gedreven door bebouwingsfractie, inwoners, geluid en hitte. De y-as differentieert op WOZ-niveau, bouwjaar, groentype en sociaal profiel.
+        <b>Wat betekenen de kleuren?</b><br>
+        Aangrenzende kleuren in het raster zijn meer op elkaar. Donkerblauw en lichtblauw lijken meer op elkaar dan donkerblauw en rood. De kaart loopt ruwweg van <i>stedelijk</i> (links) naar <i>landelijk</i> (rechts).
       </div>
 
       <div class="info-section">
-        <b>Scenario's</b><br>
-        Eén variabele wordt aangepast, alle overige blijven op 2023-waarden. De SOM wordt opnieuw bevraagd maar <i>niet opnieuw getraind</i>. <span style="color:#ff8c42">Oranje</span> = van cluster gewisseld.
+        <b>Scenario's — wat als?</b><br>
+        Je past één ding aan (bijv. bevolking +20%) en ziet welke vakjes van kleur wisselen. <span style="color:#ff8c42">Oranje</span> = van type veranderd. Die gebieden staan het dichtst op een kantelpunt.
       </div>
 
       <div class="info-section">
-        <b>Trend — extrapolatie, geen voorspelling</b><br>
-        Per variabele per hexagoon wordt een lineaire regressie (OLS, 2018–2023) doorgetrokken naar 2030/2035.
+        <b>Trend — geen voorspelling</b><br>
+        We trekken de lijn van 2018–2023 gewoon door. Geen garantie, wel een eerlijke blik op de richting die gebieden nu opgaan.
       </div>
     </div>
 
@@ -673,34 +657,34 @@
   <!-- Intro overlay -->
   <div id="map-overlay">
     <div id="map-overlay-content">
-      <h2>Ruimtelijke Patronen</h2>
-      <p>Nederland ingedeeld in <b style="color:#e0e0e0">100 gebiedstypen</b> op basis van ~105 variabelen. Een Self-Organizing Map (SOM) groepeert hexagonen zodat vergelijkbare gebieden naast elkaar liggen — aangrenzende kleuren zijn meer op elkaar.</p>
+      <h2>Hoe ziet Nederland eruit?</h2>
+      <p>Elk stukje Nederland van ~500 meter krijgt een kleur op basis van wie er woont, welke gebouwen er staan, hoe groen het is en wat satellieten zien. <b style="color:#e0e0e0">Gelijke kleuren = vergelijkbare gebieden.</b> Zo ontstaan 100 herkenbare gebiedstypen — van stadscentrum tot veenweide.</p>
 
       <div class="overlay-grid">
         <div class="overlay-card">
-          <div class="card-title">Jaar 2018–2023</div>
-          <p>Zie hoe gebiedstypen per jaar veranderden. De SOM is getraind op 2023 en toegepast op alle jaren.</p>
+          <div class="card-title">&#128197; Door de tijd</div>
+          <p>Schuif door 2018–2023 en zie welke gebieden van karakter veranderd zijn.</p>
         </div>
         <div class="overlay-card">
-          <div class="card-title">Scenario's</div>
-          <p>Pas één variabele aan (bijv. bevolking +20%) en zie welke hexagonen van gebiedstype wisselen.</p>
+          <div class="card-title">&#127922; Scenario's</div>
+          <p>Wat als de bevolking groeit, of het warmer wordt? Zie welke gebieden dan van type wisselen.</p>
         </div>
         <div class="overlay-card">
-          <div class="card-title">Trends</div>
-          <p>Lineaire extrapolatie van de trend 2018–2023 naar 2030/2035. Geen voorspelling — een koersberekening.</p>
+          <div class="card-title">&#128204; Trend naar 2030–2035</div>
+          <p>Als de huidige ontwikkeling doorzet — waar gaat Nederland dan naartoe?</p>
         </div>
         <div class="overlay-card">
-          <div class="card-title">Schaal</div>
-          <p>37.614 H3-hexagonen, resolutie 7 (~500m). Tijdreeks 2018–2023.</p>
+          <div class="card-title">&#128269; Schaal</div>
+          <p>37.614 vakjes van elk ~500 meter. Heel Nederland. Data van 2018 t/m 2023.</p>
         </div>
       </div>
 
       <div class="overlay-sources">
-        <div class="overlay-sources-label">Gebaseerd op</div>
+        <div class="overlay-sources-label">Gebaseerd op ~105 variabelen uit</div>
         <div class="overlay-source-row">
           <div class="overlay-source-item">
             <span class="src-badge src-cbs">CBS</span>
-            <span class="src-label">Demografie &amp; wonen</span>
+            <span class="src-label">Bevolking &amp; woningen</span>
           </div>
           <div class="overlay-source-item">
             <span class="src-badge src-lgn">LGN</span>
@@ -708,11 +692,11 @@
           </div>
           <div class="overlay-source-item">
             <span class="src-badge src-bag">BAG</span>
-            <span class="src-label">Gebouwfuncties</span>
+            <span class="src-label">Gebouwen</span>
           </div>
           <div class="overlay-source-item">
             <span class="src-badge src-rivm">RIVM · AHN</span>
-            <span class="src-label">Klimaat &amp; milieu</span>
+            <span class="src-label">Hitte, geluid &amp; water</span>
           </div>
           <div class="overlay-source-item">
             <span class="src-badge src-s2">Sentinel-2</span>
