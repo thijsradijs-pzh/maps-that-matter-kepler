@@ -936,16 +936,32 @@
         return;
       }
       const col = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
-      const changed = allData.filter(d => d[col] != null && d[col] !== d.cluster_2023).length;
-      const pct = allData.length > 0 ? ((changed / allData.length) * 100).toFixed(0) : 0;
+      const valid = allData.filter(d => d[col] != null);
 
-      // Prominent banner
+      let pct, label, subLabel;
+
+      if (mode === 'scenario') {
+        // Count hexagons with meaningful feature-space movement (dist > 30 out of 0-255)
+        const distCol = activeScenarioCol + '_dist';
+        const IMPACT_THRESHOLD = 30;
+        const impacted = valid.filter(d => (d[distCol] || 0) > IMPACT_THRESHOLD).length;
+        const switched  = valid.filter(d => d[col] !== d.cluster_2023).length;
+        pct = valid.length > 0 ? Math.round(impacted / valid.length * 100) : 0;
+        label = 'van bewoonbaar ZH beweegt door dit scenario';
+        subLabel = `${switched.toLocaleString('nl')} gebieden wisselen werkelijk van type`;
+      } else {
+        // Trend: count actual cluster switches
+        const switched = valid.filter(d => d[col] !== d.cluster_2023).length;
+        pct = valid.length > 0 ? Math.round(switched / valid.length * 100) : 0;
+        label = 'van Zuid-Holland verandert autonoom van gebiedstype';
+        subLabel = `${switched.toLocaleString('nl')} hexagonen`;
+      }
+
       pctNum.textContent = pct + '%';
-      const modeWord = mode === 'trend' ? 'verandert autonoom naar' : 'kantelt bij dit scenario';
-      pctLabel.textContent = `van Zuid-Holland ${modeWord}`;
+      pctLabel.textContent = label;
       banner.classList.add('visible');
 
-      if (el) el.innerHTML = `<b>Gebieden verschoven:</b> <span class="changed-count">${changed.toLocaleString('nl')}</span>`;
+      if (el) el.innerHTML = `<span class="changed-count">${subLabel}</span>`;
     }
 
     // ── Trajectory ───────────────────────────────────────────────────────────
