@@ -5,7 +5,6 @@
   <title>Ruimtelijke Intelligentie Zuid-Holland – Maps That Matter</title>
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
 
-  <!-- Privacy-friendly analytics -->
   <script async src="https://plausible.io/js/pa-unGG15m6r6ufvAQNAPz3f.js"></script>
   <script>
     window.plausible = window.plausible || function() { (plausible.q = plausible.q || []).push(arguments) };
@@ -13,11 +12,8 @@
     plausible.init();
   </script>
 
-  <!-- Dependencies -->
   <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
   <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
-
-  <!-- Shared utilities -->
   <script src="/shared/deckgl-utils.js"></script>
 
   <style>
@@ -28,846 +24,598 @@
       overflow: hidden;
       background: #0a0a0a;
     }
-
     #container { width: 100vw; height: 100vh; position: relative; }
-
-    /* ── Controls panel ── */
-    #controls {
-      position: absolute;
-      top: 20px; left: 20px;
-      background: rgba(18, 18, 24, 0.95);
-      color: #e0e0e0;
-      padding: 16px;
-      border-radius: 10px;
-      box-shadow: 0 2px 16px rgba(0,0,0,0.6);
-      z-index: 10;
-      width: 280px;
-      display: none;
-    }
-
-    #controls h3 {
-      margin: 0;
-      font-size: 13px;
-      font-weight: 700;
-      color: #fff;
-      letter-spacing: 0.3px;
-    }
-
-    /* ── Mode tabs ── */
-    .tabs {
-      display: flex;
-      gap: 4px;
-      margin-bottom: 14px;
-    }
-
-    .tab {
-      flex: 1;
-      padding: 8px 4px;
-      font-size: 12px;
-      font-weight: 600;
-      border: 1px solid #333;
-      border-radius: 5px;
-      background: #1c1c28;
-      color: #888;
-      cursor: pointer;
-      text-align: center;
-      transition: all 0.15s;
-      min-height: 36px;
-    }
-
-    .tab:hover { background: #252535; color: #bbb; }
-    .tab.active { background: #2a6496; border-color: #3a84c6; color: #fff; }
-
-    /* ── Mode panels ── */
-    .mode-panel { display: none; }
-    .mode-panel.active { display: block; }
-
-    /* ── Sliders ── */
-    .control-group { margin: 10px 0; }
-
-    .control-label {
-      font-size: 11px;
-      color: #888;
-      margin-bottom: 4px;
-    }
-
-    .value-display {
-      font-size: 26px;
-      font-weight: 700;
-      color: #4da6ff;
-      text-align: center;
-      margin: 4px 0;
-    }
-
-    input[type="range"] {
-      width: 100%;
-      accent-color: #4da6ff;
-      margin: 6px 0;
-      height: 20px;
-      cursor: pointer;
-    }
-
-    .range-labels {
-      display: flex;
-      justify-content: space-between;
-      font-size: 10px;
-      color: #555;
-    }
-
-    /* ── Scenario / trend buttons ── */
-    .option-btn {
-      display: block;
-      width: 100%;
-      text-align: left;
-      padding: 10px 12px;
-      margin: 4px 0;
-      background: #1c1c28;
-      border: 1px solid #333;
-      border-radius: 5px;
-      color: #ccc;
-      font-size: 13px;
-      cursor: pointer;
-      transition: all 0.15s;
-      min-height: 44px;
-    }
-
-    .option-btn:hover { background: #252535; border-color: #555; }
-    .option-btn.active { background: #1a3a52; border-color: #2a6496; color: #fff; }
-
-    /* ── Changed toggle ── */
-    .toggle-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 10px;
-      font-size: 12px;
-      color: #888;
-    }
-
-    .toggle-row input[type="checkbox"] {
-      accent-color: #ff8c42;
-      width: 16px; height: 16px;
-      cursor: pointer;
-    }
-
-    .toggle-row label { cursor: pointer; }
-
-    /* ── Stats ── */
-    .stats {
-      margin-top: 12px;
-      padding: 8px 10px;
-      background: rgba(255,255,255,0.04);
-      border-radius: 6px;
-      font-size: 11px;
-      color: #aaa;
-      line-height: 1.8;
-    }
-    .stats b { color: #ccc; }
-    .stats span { color: #4da6ff; font-weight: 600; }
-    .stats .changed-count { color: #ff8c42; }
-
-    /* ── Legend ── */
-    .legend {
-      margin-top: 12px;
-      padding-top: 10px;
-      border-top: 1px solid #2a2a3a;
-    }
-
-    .legend-title {
-      font-size: 10px;
-      color: #666;
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .legend-grid {
-      display: grid;
-      grid-template-columns: repeat(10, 1fr);
-      gap: 2px;
-      width: 100%;
-    }
-
-    .legend-cell {
-      width: 100%;
-      padding-bottom: 100%;
-      border-radius: 2px;
-    }
-
-    .legend-axis {
-      display: flex;
-      justify-content: space-between;
-      font-size: 9px;
-      color: #444;
-      margin-top: 3px;
-    }
-
-    /* ── Source strip ── */
-    .source-strip {
-      margin-top: 10px;
-      padding-top: 8px;
-      border-top: 1px solid #2a2a3a;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      align-items: center;
-    }
-
-    .source-strip-label {
-      font-size: 9px;
-      color: #444;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      width: 100%;
-      margin-bottom: 2px;
-    }
-
-    .source-chip {
-      font-size: 10px;
-      padding: 2px 7px;
-      border-radius: 10px;
-      font-weight: 600;
-      letter-spacing: 0.2px;
-    }
-
-    .source-chip.cbs  { background: rgba(74,166,255,0.15); border: 1px solid rgba(74,166,255,0.3); color: #6aaee8; }
-    .source-chip.lgn  { background: rgba(80,200,120,0.15); border: 1px solid rgba(80,200,120,0.3); color: #6ccc8a; }
-    .source-chip.bag  { background: rgba(255,180,50,0.15); border: 1px solid rgba(255,180,50,0.3); color: #f0b840; }
-    .source-chip.rivm { background: rgba(200,100,255,0.15); border: 1px solid rgba(200,100,255,0.3); color: #c87aff; }
-    .source-chip.s2   { background: rgba(255,100,100,0.15); border: 1px solid rgba(255,100,100,0.3); color: #ff8080; }
-
-    /* ── Buttons row ── */
-    .btn-row {
-      display: flex;
-      gap: 6px;
-      margin-top: 10px;
-    }
-
-    .btn {
-      flex: 1;
-      padding: 8px;
-      font-size: 12px;
-      border: 1px solid #333;
-      border-radius: 4px;
-      background: #1c1c28;
-      color: #aaa;
-      cursor: pointer;
-      transition: all 0.15s;
-      min-height: 36px;
-    }
-
-    .btn:hover { background: #252535; color: #ddd; }
-
-    /* ── Mobile handle ── */
-    .mobile-handle {
-      display: none;
-      width: 40px; height: 4px;
-      background: #444;
-      border-radius: 2px;
-      margin: 0 auto 12px;
-    }
-
-    .controls-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-    }
-
-    #controls-collapse {
-      display: none;
-      background: none;
-      border: none;
-      color: #555;
-      font-size: 20px;
-      cursor: pointer;
-      padding: 4px 6px;
-      line-height: 1;
-      transition: transform 0.2s;
-      min-width: 36px;
-      min-height: 36px;
-    }
-
-    /* ── Info panel ── */
-    .info-toggle {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-top: 12px;
-      padding-top: 10px;
-      border-top: 1px solid #2a2a3a;
-      cursor: pointer;
-      font-size: 11px;
-      color: #666;
-      user-select: none;
-      min-height: 36px;
-    }
-
-    .info-toggle:hover { color: #999; }
-    .info-toggle .arrow { transition: transform 0.2s; font-size: 9px; }
-    .info-toggle.open .arrow { transform: rotate(90deg); }
-
-    .info-body {
-      display: none;
-      margin-top: 10px;
-      font-size: 11px;
-      color: #888;
-      line-height: 1.7;
-    }
-
-    .info-body.open { display: block; }
-    .info-body b { color: #bbb; }
-    .info-body .info-section { margin-bottom: 10px; }
-    .info-body .info-section:last-child { margin-bottom: 0; }
-
-    .info-tag {
-      display: inline-block;
-      background: rgba(74,166,255,0.1);
-      border: 1px solid rgba(74,166,255,0.2);
-      border-radius: 3px;
-      padding: 0px 5px;
-      font-size: 10px;
-      color: #6aaee8;
-      margin-right: 3px;
-      vertical-align: middle;
-    }
-
-    /* ── Mobile layout ── */
-    @media (max-width: 640px) {
-      #controls {
-        position: fixed;
-        top: auto;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        width: 100%;
-        border-radius: 16px 16px 0 0;
-        padding: 8px 16px calc(16px + env(safe-area-inset-bottom));
-        max-height: 75vh;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-      }
-
-      .mobile-handle { display: block; }
-      #controls-collapse { display: flex; align-items: center; justify-content: center; }
-
-      /* Collapsed: show only header + tabs */
-      #controls.collapsed .controls-body-inner { display: none; }
-      #controls.collapsed #controls-collapse { transform: rotate(180deg); }
-
-      .controls-header { margin-bottom: 8px; }
-      .controls-header h3 { font-size: 13px; }
-
-      .tabs { margin-bottom: 10px; gap: 6px; }
-      .tab { padding: 10px 4px; font-size: 13px; min-height: 44px; }
-
-      .control-group { margin: 6px 0; }
-      .value-display { font-size: 22px; margin: 2px 0; }
-
-      .option-btn { padding: 12px; font-size: 13px; min-height: 48px; }
-
-      /* Keep legend on mobile — compact */
-      .legend { margin-top: 10px; padding-top: 8px; }
-      .legend-title { display: none; }
-
-      /* Hide info panel and fullscreen on mobile */
-      .info-toggle, .info-body, .btn-row { display: none !important; }
-
-      /* Source strip stays visible on mobile */
-      .source-strip { margin-top: 8px; }
-
-      #map-overlay-content {
-        padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
-        max-width: calc(100vw - 24px);
-        max-height: 90vh;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        border-radius: 16px;
-      }
-
-      #map-overlay-content h2 { font-size: 18px; }
-      #map-overlay-content > p  { font-size: 13px; }
-
-      .overlay-grid { grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 16px; }
-      .overlay-card p { font-size: 11px; }
-
-      .overlay-sources { margin: 10px 0 16px; }
-
-      #activate-btn { width: 100%; padding: 15px; font-size: 15px; }
-    }
 
     /* ── Loading ── */
     #loading {
-      position: absolute;
-      top: 50%; left: 50%;
+      position: absolute; top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      background: rgba(0,0,0,0.85);
-      color: #ccc;
-      padding: 20px 36px;
-      border-radius: 8px;
-      font-size: 14px;
-      z-index: 20;
+      background: rgba(0,0,0,0.85); color: #ccc;
+      padding: 20px 36px; border-radius: 8px; font-size: 14px; z-index: 20;
     }
 
-    /* ── Intro overlay ── */
-    #map-overlay {
+    /* ════════════════════════════════════════
+       STORY MAP OVERLAY
+    ════════════════════════════════════════ */
+    #story-overlay {
       position: absolute; inset: 0;
-      background: rgba(0,0,0,0.6);
-      backdrop-filter: blur(4px);
-      display: flex; align-items: center; justify-content: center;
+      background: rgba(8, 8, 20, 0.97);
       z-index: 30;
-      cursor: pointer;
-      transition: opacity 0.3s;
-      padding: 16px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px 16px;
+      transition: opacity 0.4s;
+    }
+    #story-overlay.hidden { opacity: 0; pointer-events: none; }
+
+    /* Progress dots */
+    .story-dots {
+      display: flex; gap: 6px; margin-bottom: 24px;
+    }
+    .story-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #2a2a4a; transition: background 0.2s, transform 0.2s;
+    }
+    .story-dot.active { background: #4da6ff; transform: scale(1.3); }
+    .story-dot.done   { background: #2a4a6a; }
+
+    /* Cards container */
+    .story-cards {
+      width: 100%; max-width: 540px;
+      overflow: hidden;
+      position: relative;
     }
 
-    #map-overlay.hidden { opacity: 0; pointer-events: none; }
+    .story-track {
+      display: flex;
+      transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
 
-    #map-overlay-content {
-      background: #1a1a2e;
-      border: 1px solid #2a2a4a;
-      padding: 28px 32px;
-      border-radius: 14px;
-      text-align: center;
-      max-width: 500px;
+    /* Individual card */
+    .story-card {
+      flex-shrink: 0;
       width: 100%;
+      background: #13132a;
+      border: 1px solid #2a2a4a;
+      border-radius: 16px;
+      padding: 28px 28px 24px;
+      text-align: center;
       color: #ddd;
+      user-select: none;
     }
 
-    #map-overlay-content h2 { margin: 0 0 6px; font-size: 22px; color: #fff; }
-    #map-overlay-content > p { margin: 0 0 16px; font-size: 13px; color: #999; line-height: 1.6; }
+    .story-card-icon { font-size: 36px; margin-bottom: 12px; line-height: 1; }
 
-    /* ── Overlay feature cards ── */
-    .overlay-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin: 0 0 16px;
-      text-align: left;
+    .story-card-eyebrow {
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1px;
+      color: #444; margin-bottom: 6px;
     }
 
-    .overlay-card {
+    .story-card-title {
+      font-size: 20px; font-weight: 800;
+      color: #fff; margin-bottom: 10px; line-height: 1.2;
+    }
+
+    .story-card-body {
+      font-size: 13px; color: #999; line-height: 1.65;
+      margin-bottom: 16px;
+    }
+    .story-card-body b { color: #ccc; }
+    .story-card-body em { color: #7bbfff; font-style: normal; }
+
+    /* Source badges on cards */
+    .story-sources {
+      display: flex; flex-wrap: wrap; gap: 5px;
+      justify-content: center; margin-bottom: 4px;
+    }
+    .story-src {
+      font-size: 11px; font-weight: 700;
+      padding: 3px 9px; border-radius: 5px;
+    }
+    .story-src.cbs  { background: rgba(74,166,255,0.15); color: #7bbfff; border: 1px solid rgba(74,166,255,0.25); }
+    .story-src.bag  { background: rgba(255,180,50,0.15);  color: #f0b840; border: 1px solid rgba(255,180,50,0.25); }
+    .story-src.lgn  { background: rgba(80,200,120,0.15);  color: #6ccc8a; border: 1px solid rgba(80,200,120,0.25); }
+    .story-src.rivm { background: rgba(200,100,255,0.15); color: #c87aff; border: 1px solid rgba(200,100,255,0.25); }
+    .story-src.s2   { background: rgba(255,100,100,0.15); color: #ff8080; border: 1px solid rgba(255,100,100,0.25); }
+
+    /* Data contribution bar */
+    .contrib-bar {
+      display: flex; gap: 3px; margin: 12px 0 4px;
+      border-radius: 4px; overflow: hidden; height: 5px;
+    }
+    .contrib-seg { height: 100%; border-radius: 2px; }
+
+    /* Capability chips on last card */
+    .capability-chips {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      justify-content: center; margin: 12px 0;
+    }
+    .cap-chip {
       background: rgba(255,255,255,0.05);
       border: 1px solid #2a2a4a;
-      border-radius: 8px;
-      padding: 10px 12px;
+      border-radius: 20px;
+      padding: 6px 12px;
+      font-size: 12px; color: #aaa;
+    }
+    .cap-chip b { color: #fff; display: block; font-size: 13px; margin-bottom: 1px; }
+
+    /* Navigation */
+    .story-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%; max-width: 540px; margin-top: 16px; gap: 10px;
     }
 
-    .overlay-card .card-title {
-      font-size: 11px;
-      font-weight: 700;
-      color: #4da6ff;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 4px;
+    .story-btn {
+      padding: 11px 20px; border-radius: 8px;
+      font-size: 14px; font-weight: 600;
+      border: none; cursor: pointer; transition: all 0.15s;
     }
 
-    .overlay-card p {
-      margin: 0;
-      font-size: 11px;
-      color: #aaa;
-      line-height: 1.5;
+    .story-btn.prev {
+      background: rgba(255,255,255,0.06);
+      color: #666;
+      min-width: 80px;
     }
+    .story-btn.prev:hover { background: rgba(255,255,255,0.1); color: #aaa; }
+    .story-btn.prev:disabled { opacity: 0; pointer-events: none; }
 
-    /* ── Overlay data sources ── */
-    .overlay-sources {
-      margin: 0 0 20px;
+    .story-btn.next {
+      flex: 1; background: #2a6496; color: #fff;
+      font-size: 15px; padding: 13px 24px;
     }
+    .story-btn.next:hover { background: #3a84c6; }
+    .story-btn.next.cta { background: #1d6e3a; }
+    .story-btn.next.cta:hover { background: #27924d; }
 
-    .overlay-sources-label {
-      font-size: 10px;
-      color: #555;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      margin-bottom: 8px;
+    .story-skip {
+      background: none; border: none; color: #333;
+      font-size: 12px; cursor: pointer; padding: 8px;
+      white-space: nowrap;
     }
+    .story-skip:hover { color: #666; }
 
-    .overlay-source-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      justify-content: center;
-    }
-
-    .overlay-source-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid #2a2a3a;
-      border-radius: 8px;
-      padding: 6px 10px;
-      font-size: 11px;
-    }
-
-    .overlay-source-item .src-badge {
-      font-size: 10px;
-      font-weight: 700;
-      padding: 1px 6px;
-      border-radius: 4px;
-    }
-
-    .overlay-source-item .src-label { color: #888; }
-
-    .src-cbs  { background: rgba(74,166,255,0.2);  color: #7bbfff; }
-    .src-lgn  { background: rgba(80,200,120,0.2);  color: #6ccc8a; }
-    .src-bag  { background: rgba(255,180,50,0.2);  color: #f0b840; }
-    .src-rivm { background: rgba(200,100,255,0.2); color: #c87aff; }
-    .src-s2   { background: rgba(255,100,100,0.2); color: #ff8080; }
-
-    /* ── Theme cards ── */
-    .theme-cards {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
-      margin: 0 0 18px;
-      text-align: left;
-    }
-
-    .theme-card {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid #2a2a4a;
+    /* ════════════════════════════════════════
+       CONTROLS PANEL
+    ════════════════════════════════════════ */
+    #controls {
+      position: absolute; top: 20px; left: 20px;
+      background: rgba(13, 13, 22, 0.96);
+      color: #e0e0e0;
+      padding: 14px;
       border-radius: 10px;
-      padding: 14px 12px;
-      cursor: default;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.7);
+      z-index: 10; width: 272px; display: none;
     }
 
-    .theme-card.wonen   { border-top: 3px solid #4da6ff; }
-    .theme-card.water   { border-top: 3px solid #4dd9c0; }
-    .theme-card.landbouw { border-top: 3px solid #7dd66b; }
-
-    .theme-icon { font-size: 22px; margin-bottom: 6px; }
-
-    .theme-name {
-      font-size: 12px;
-      font-weight: 700;
-      color: #fff;
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
+    .controls-header {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 10px;
+    }
+    .controls-header h3 {
+      margin: 0; font-size: 12px; font-weight: 700; color: #fff; letter-spacing: 0.3px;
     }
 
-    .theme-card.wonen   .theme-name { color: #4da6ff; }
-    .theme-card.water   .theme-name { color: #4dd9c0; }
-    .theme-card.landbouw .theme-name { color: #7dd66b; }
+    #controls-info-btn {
+      background: none; border: none;
+      color: #444; font-size: 16px; cursor: pointer;
+      padding: 2px 4px; transition: color 0.15s;
+    }
+    #controls-info-btn:hover { color: #888; }
 
-    .theme-desc {
-      font-size: 11px;
-      color: #888;
-      line-height: 1.5;
-      margin-bottom: 8px;
+    #controls-collapse {
+      display: none; background: none; border: none;
+      color: #555; font-size: 20px; cursor: pointer;
+      padding: 4px 6px; line-height: 1; transition: transform 0.2s;
+      min-width: 36px; min-height: 36px;
+      align-items: center; justify-content: center;
     }
 
-    .theme-questions {
-      list-style: none;
-      padding: 0; margin: 0;
-      font-size: 10px;
-      color: #666;
-      line-height: 1.6;
+    /* Mode tabs */
+    .tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+    .tab {
+      flex: 1; padding: 8px 4px; font-size: 12px; font-weight: 600;
+      border: 1px solid #2a2a3a; border-radius: 5px;
+      background: #161624; color: #666;
+      cursor: pointer; text-align: center; transition: all 0.15s;
+      min-height: 36px;
+    }
+    .tab:hover { background: #1e1e30; color: #bbb; }
+    .tab.active { background: #1a3a52; border-color: #2a6496; color: #fff; }
+
+    .mode-panel { display: none; }
+    .mode-panel.active { display: block; }
+
+    .control-label { font-size: 11px; color: #666; margin-bottom: 4px; }
+
+    .value-display {
+      font-size: 28px; font-weight: 800; color: #4da6ff;
+      text-align: center; margin: 2px 0;
     }
 
-    .theme-questions li::before { content: "→ "; color: #444; }
-
-    /* ── How it works ── */
-    .how-it-works {
-      display: flex;
-      gap: 8px;
-      margin: 0 0 18px;
-      text-align: left;
+    input[type="range"] {
+      width: 100%; accent-color: #4da6ff;
+      margin: 4px 0; height: 20px; cursor: pointer;
     }
 
-    .how-step {
-      flex: 1;
+    .range-labels {
+      display: flex; justify-content: space-between;
+      font-size: 10px; color: #444;
+    }
+
+    .option-btn {
+      display: block; width: 100%; text-align: left;
+      padding: 10px 12px; margin: 4px 0;
+      background: #161624; border: 1px solid #2a2a3a;
+      border-radius: 5px; color: #bbb; font-size: 13px;
+      cursor: pointer; transition: all 0.15s; min-height: 44px;
+    }
+    .option-btn:hover { background: #1e1e30; border-color: #444; }
+    .option-btn.active { background: #1a3a52; border-color: #2a6496; color: #fff; }
+
+    .toggle-row {
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 10px; font-size: 12px; color: #777;
+    }
+    .toggle-row input[type="checkbox"] {
+      accent-color: #ff8c42; width: 16px; height: 16px; cursor: pointer;
+    }
+    .toggle-row label { cursor: pointer; }
+
+    .stats {
+      margin-top: 10px; padding: 8px 10px;
       background: rgba(255,255,255,0.03);
-      border: 1px solid #222238;
-      border-radius: 8px;
-      padding: 10px;
+      border-radius: 6px; font-size: 11px; color: #888; line-height: 1.8;
+    }
+    .stats b { color: #bbb; }
+    .stats span { color: #4da6ff; font-weight: 600; }
+    .stats .changed-count { color: #ff8c42; }
+
+    .legend { margin-top: 10px; padding-top: 8px; border-top: 1px solid #1e1e30; }
+    .legend-title {
+      font-size: 10px; color: #444; margin-bottom: 5px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .legend-grid {
+      display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px;
+    }
+    .legend-cell { width: 100%; padding-bottom: 100%; border-radius: 2px; }
+    .legend-axis {
+      display: flex; justify-content: space-between;
+      font-size: 9px; color: #333; margin-top: 3px;
     }
 
-    .how-step-num {
-      font-size: 18px;
-      font-weight: 800;
-      color: #2a4a6a;
-      line-height: 1;
-      margin-bottom: 4px;
+    .source-strip {
+      margin-top: 8px; padding-top: 8px;
+      border-top: 1px solid #1e1e30;
+      display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+    }
+    .source-strip-label {
+      font-size: 9px; color: #333; text-transform: uppercase;
+      letter-spacing: 0.5px; width: 100%; margin-bottom: 1px;
+    }
+    .source-chip {
+      font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 600;
+    }
+    .source-chip.cbs  { background: rgba(74,166,255,0.12); border: 1px solid rgba(74,166,255,0.25); color: #5a9ed8; }
+    .source-chip.lgn  { background: rgba(80,200,120,0.12); border: 1px solid rgba(80,200,120,0.25); color: #5ab877; }
+    .source-chip.bag  { background: rgba(255,180,50,0.12);  border: 1px solid rgba(255,180,50,0.25);  color: #c8961e; }
+    .source-chip.rivm { background: rgba(200,100,255,0.12); border: 1px solid rgba(200,100,255,0.25); color: #a85acc; }
+    .source-chip.s2   { background: rgba(255,100,100,0.12); border: 1px solid rgba(255,100,100,0.25); color: #cc5555; }
+
+    .btn-row { display: flex; gap: 6px; margin-top: 10px; }
+    .btn {
+      flex: 1; padding: 7px; font-size: 11px;
+      border: 1px solid #2a2a3a; border-radius: 4px;
+      background: #161624; color: #888;
+      cursor: pointer; transition: all 0.15s; min-height: 34px;
+    }
+    .btn:hover { background: #1e1e30; color: #ccc; }
+
+    .info-toggle {
+      display: flex; align-items: center; gap: 6px;
+      margin-top: 10px; padding-top: 8px; border-top: 1px solid #1e1e30;
+      cursor: pointer; font-size: 11px; color: #555; user-select: none;
+      min-height: 34px;
+    }
+    .info-toggle:hover { color: #888; }
+    .info-toggle .arrow { transition: transform 0.2s; font-size: 9px; }
+    .info-toggle.open .arrow { transform: rotate(90deg); }
+
+    .info-body { display: none; margin-top: 8px; font-size: 11px; color: #777; line-height: 1.7; }
+    .info-body.open { display: block; }
+    .info-body b { color: #aaa; }
+    .info-body .info-section { margin-bottom: 8px; }
+    .info-tag {
+      display: inline-block; border-radius: 3px;
+      padding: 0 5px; font-size: 10px; margin-right: 3px; vertical-align: middle;
+      background: rgba(74,166,255,0.1); border: 1px solid rgba(74,166,255,0.2); color: #5a9ed8;
     }
 
-    .how-step-title {
-      font-size: 11px;
-      font-weight: 700;
-      color: #ccc;
-      margin-bottom: 3px;
+    /* Mobile drag handle */
+    .mobile-handle {
+      display: none; width: 36px; height: 4px;
+      background: #333; border-radius: 2px; margin: 0 auto 10px;
     }
 
-    .how-step-desc {
-      font-size: 10px;
-      color: #666;
-      line-height: 1.4;
-    }
-
-    /* ── Mobile-only / desktop-only helpers ── */
-    .mobile-only { display: none; }
+    /* ════════════════════════════════════════
+       MOBILE
+    ════════════════════════════════════════ */
     @media (max-width: 640px) {
-      .desktop-only { display: none !important; }
-      .mobile-only  { display: block; }
 
-      .theme-cards { grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px; }
-      .theme-card { padding: 10px 8px; text-align: center; }
-      .theme-icon { font-size: 20px; margin-bottom: 4px; }
-      .theme-name { font-size: 11px; margin-bottom: 0; }
-      .theme-desc, .theme-questions { display: none; }
+      /* Story overlay: full screen scroll */
+      #story-overlay {
+        justify-content: flex-start;
+        padding: 20px 12px calc(20px + env(safe-area-inset-bottom));
+        overflow-y: auto; -webkit-overflow-scrolling: touch;
+      }
+      .story-dots { margin-bottom: 16px; margin-top: 4px; }
+      .story-cards { max-width: 100%; }
+      .story-card { padding: 22px 18px 18px; border-radius: 14px; }
+      .story-card-icon { font-size: 30px; margin-bottom: 8px; }
+      .story-card-title { font-size: 18px; }
+      .story-card-body { font-size: 13px; }
+      .story-nav { max-width: 100%; margin-top: 12px; }
+      .story-btn.next { font-size: 14px; padding: 12px 18px; }
 
-      .how-it-works { gap: 5px; }
-      .how-step { padding: 8px; }
-      .how-step-num { font-size: 15px; }
-      .how-step-title { font-size: 10px; }
-      .how-step-desc { display: none; }
+      /* Controls: minimal bottom sheet */
+      #controls {
+        position: fixed;
+        top: auto; bottom: 0; left: 0; right: 0; width: 100%;
+        border-radius: 16px 16px 0 0;
+        padding: 6px 14px calc(10px + env(safe-area-inset-bottom));
+        max-height: 55vh;
+        overflow-y: auto; -webkit-overflow-scrolling: touch;
+      }
+
+      .mobile-handle { display: block; }
+      #controls-collapse { display: flex; }
+      #controls-info-btn { display: none; }
+
+      /* Collapsed: only handle + header + tabs */
+      #controls.collapsed .controls-body { display: none; }
+      #controls.collapsed #controls-collapse { transform: rotate(180deg); }
+
+      .controls-header { margin-bottom: 6px; }
+      .controls-header h3 { font-size: 12px; }
+      .tabs { margin-bottom: 8px; gap: 5px; }
+      .tab { padding: 10px 4px; font-size: 13px; min-height: 44px; }
+      .option-btn { padding: 12px; font-size: 13px; min-height: 48px; }
+      .value-display { font-size: 24px; }
+
+      /* Hide non-essential on mobile */
+      .legend, .source-strip, .stats,
+      .info-toggle, .info-body, .btn-row { display: none !important; }
     }
-
-    #activate-btn {
-      background: #2a6496;
-      color: #fff;
-      border: none;
-      padding: 12px 28px;
-      border-radius: 8px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    #activate-btn:hover { background: #3a84c6; transform: translateY(-1px); }
   </style>
 </head>
 <body>
   <div id="container"></div>
   <div id="loading">Data laden...</div>
 
+  <!-- ════════════════════════════════════════
+       STORY MAP INTRO
+  ════════════════════════════════════════ -->
+  <div id="story-overlay">
+
+    <div class="story-dots" id="story-dots"></div>
+
+    <div class="story-cards">
+      <div class="story-track" id="story-track">
+
+        <!-- Card 1: Concept -->
+        <div class="story-card">
+          <div class="story-card-icon">🗺️</div>
+          <div class="story-card-eyebrow">Wat zie je</div>
+          <div class="story-card-title">Elk gebied heeft een karakter</div>
+          <div class="story-card-body">
+            Zuid-Holland is opgedeeld in vakjes van <b>~500 meter</b>. Elk vakje krijgt een kleur op basis van hoe het eruitziet, wie er woont en hoe kwetsbaar het is.<br><br>
+            <em>Gelijke kleuren = vergelijkbare gebieden</em> — of ze nu in Rotterdam, Leiden of de Hoeksche Waard liggen. Zo ontstaan 100 herkenbare gebiedstypen.
+          </div>
+          <div class="contrib-bar">
+            <div class="contrib-seg" style="flex:3;background:#4da6ff40"></div>
+            <div class="contrib-seg" style="flex:2;background:#f0b84040"></div>
+            <div class="contrib-seg" style="flex:2;background:#6ccc8a40"></div>
+            <div class="contrib-seg" style="flex:2;background:#c87aff40"></div>
+            <div class="contrib-seg" style="flex:1;background:#ff808040"></div>
+          </div>
+        </div>
+
+        <!-- Card 2: CBS + BAG -->
+        <div class="story-card">
+          <div class="story-card-icon">🏘️</div>
+          <div class="story-card-eyebrow">Databron 1 van 3 — Wonen & bevolking</div>
+          <div class="story-card-title">Wie woont er, en hoe?</div>
+          <div class="story-card-body">
+            Van het <b>CBS</b> weten we per vakje: hoeveel mensen er wonen, hoe oud ze zijn, wat woningen kosten (WOZ), en hoe de verhouding huur/koop is.<br><br>
+            De <b>BAG</b> (gebouwenregistratie) vertelt welke functies er staan — woningen, kantoren, winkels, scholen, zorggebouwen.<br><br>
+            Dit bepaalt het <em>sociale en economische profiel</em> van een gebied: is het een groeiwijk, een vergrijzende kern, een studentenbuurt?
+          </div>
+          <div class="story-sources">
+            <span class="story-src cbs">CBS</span>
+            <span class="story-src bag">BAG</span>
+          </div>
+        </div>
+
+        <!-- Card 3: LGN + RIVM + AHN -->
+        <div class="story-card">
+          <div class="story-card-icon">🌿</div>
+          <div class="story-card-eyebrow">Databron 2 van 3 — Landgebruik & klimaat</div>
+          <div class="story-card-title">Wat ligt er op de grond — en hoe kwetsbaar is het?</div>
+          <div class="story-card-body">
+            De <b>Landgebruikskaart Nederland (LGN)</b> geeft per vakje het type grondgebruik: akkerbouw, glastuinbouw, grasland, bos, bebouwing, water.<br><br>
+            <b>RIVM</b> voegt hittestress toe — hoe heet wordt het in de zomer? <b>AHN</b> geeft de hoogte in meters NAP en de waterschappen leveren vijf overstromingsscenario's.<br><br>
+            Dit maakt <em>klimaatrisico en landgebruiksdruk</em> zichtbaar op gebiedsniveau.
+          </div>
+          <div class="story-sources">
+            <span class="story-src lgn">LGN</span>
+            <span class="story-src rivm">RIVM</span>
+            <span class="story-src rivm">AHN</span>
+          </div>
+        </div>
+
+        <!-- Card 4: Sentinel-2 -->
+        <div class="story-card">
+          <div class="story-card-icon">🛰️</div>
+          <div class="story-card-eyebrow">Databron 3 van 3 — Satellietbeelden</div>
+          <div class="story-card-title">Wat zien we echt vanuit de ruimte?</div>
+          <div class="story-card-body">
+            <b>Sentinel-2</b> (Europese ruimtevaart) scant Nederland jaarlijks op wolkenvrije dagen. Per vakje berekenen we het gemiddelde over het hele jaar:<br><br>
+            <b>NDVI</b> — hoe groen/begroeid is het echt?<br>
+            <b>NDBI</b> — hoe bebouwd en verhard?<br>
+            <b>NDWI</b> — aanwezigheid van water en vocht<br>
+            <b>EVI</b> — vegetatiegezondheid in dichte vegetatie<br><br>
+            Dit zijn de enige <em>fysiek gemeten</em> signalen — los van wat er op papier staat.
+          </div>
+          <div class="story-sources">
+            <span class="story-src s2">Sentinel-2 · Copernicus</span>
+          </div>
+        </div>
+
+        <!-- Card 5: What you can do -->
+        <div class="story-card">
+          <div class="story-card-icon">⚡</div>
+          <div class="story-card-eyebrow">Wat kun je doen</div>
+          <div class="story-card-title">Verkennen, doorrekenen, vergelijken</div>
+          <div class="story-card-body">
+            Nu alle data is samengevoegd, kun je drie dingen doen:
+          </div>
+          <div class="capability-chips">
+            <div class="cap-chip"><b>📅 2018–2023</b>Zie welke gebieden van karakter veranderden</div>
+            <div class="cap-chip"><b>🎚️ Scenario's</b>Wat als het warmer wordt, of de bevolking groeit?</div>
+            <div class="cap-chip"><b>📈 Trend 2030–35</b>Waar gaat Zuid-Holland op deze koers naartoe?</div>
+          </div>
+          <div class="story-card-body" style="margin-top:8px;margin-bottom:0;font-size:12px">
+            <em>Oranje vakjes</em> = van gebiedstype veranderd. Dat zijn de plekken die het meest gevoelig zijn voor verandering.
+          </div>
+        </div>
+
+      </div><!-- /.story-track -->
+    </div><!-- /.story-cards -->
+
+    <div class="story-nav">
+      <button class="story-btn prev" id="story-prev" disabled>← Terug</button>
+      <button class="story-btn next" id="story-next">Volgende →</button>
+      <button class="story-skip" id="story-skip">Sla over</button>
+    </div>
+
+  </div><!-- /#story-overlay -->
+
+  <!-- ════════════════════════════════════════
+       CONTROLS PANEL
+  ════════════════════════════════════════ -->
   <div id="controls">
     <div class="mobile-handle"></div>
     <div class="controls-header">
-      <h3>Ruimtelijke Patronen</h3>
-      <button id="controls-collapse" title="Inklappen">&#8963;</button>
+      <h3>Zuid-Holland · Gebiedstypen</h3>
+      <div style="display:flex;gap:4px;align-items:center">
+        <button id="controls-info-btn" title="Uitleg opnieuw bekijken">ℹ️</button>
+        <button id="controls-collapse" title="Inklappen">&#8963;</button>
+      </div>
     </div>
 
-    <!-- Mode tabs always visible -->
     <div class="tabs">
-      <div class="tab active" data-mode="jaar">Jaar</div>
-      <div class="tab" data-mode="scenario">Scenario</div>
-      <div class="tab" data-mode="trend">Trend</div>
+      <div class="tab active" data-mode="jaar">📅 Jaar</div>
+      <div class="tab" data-mode="scenario">🎚️ Scenario</div>
+      <div class="tab" data-mode="trend">📈 Trend</div>
     </div>
 
-    <div class="controls-body-inner">
+    <div class="controls-body">
 
-    <!-- Jaar mode -->
-    <div class="mode-panel active" id="panel-jaar">
-      <div class="control-group">
+      <!-- Jaar -->
+      <div class="mode-panel active" id="panel-jaar">
+        <div class="control-label">Schuif door de tijd</div>
         <div class="value-display" id="year-display">2023</div>
         <input type="range" id="year-slider" min="2018" max="2023" step="1" value="2023" />
         <div class="range-labels"><span>2018</span><span>2023</span></div>
-      </div>
-      <div style="margin-top: 6px;">
-        <button class="btn" id="play-btn">&#9654; Afspelen</button>
-      </div>
-    </div>
-
-    <!-- Scenario mode -->
-    <div class="mode-panel" id="panel-scenario">
-      <div class="control-label">Kies een scenario (t.o.v. 2023):</div>
-      <button class="option-btn active" data-col="scenario_pop_plus20">Bevolking +20%</button>
-      <button class="option-btn" data-col="scenario_pop_min20">Bevolking -20%</button>
-      <button class="option-btn" data-col="scenario_heat_plus30">Hitte +30%</button>
-      <button class="option-btn" data-col="scenario_heat_plus50">Hitte +50%</button>
-      <button class="option-btn" data-col="scenario_woz_plus20">WOZ-waarde +20%</button>
-      <div class="toggle-row">
-        <input type="checkbox" id="changed-only" />
-        <label for="changed-only">Toon alleen veranderde hexagonen</label>
-      </div>
-    </div>
-
-    <!-- Trend mode -->
-    <div class="mode-panel" id="panel-trend">
-      <div class="control-label">Projectie op basis van trend 2018–2023:</div>
-      <button class="option-btn active" data-col="trend_2030">2030</button>
-      <button class="option-btn" data-col="trend_2035">2035</button>
-      <div class="toggle-row">
-        <input type="checkbox" id="trend-changed-only" />
-        <label for="trend-changed-only">Toon alleen veranderde hexagonen</label>
-      </div>
-    </div>
-
-    <!-- Stats -->
-    <div class="stats" id="stats"></div>
-
-    <!-- Legend -->
-    <div class="legend">
-      <div class="legend-title">SOM clusters (10×10 grid)</div>
-      <div class="legend-grid" id="legend-grid"></div>
-      <div class="legend-axis">
-        <span>&#8592; stedelijk</span>
-        <span>landelijk &#8594;</span>
-      </div>
-    </div>
-
-    <!-- Source strip -->
-    <div class="source-strip">
-      <div class="source-strip-label">Databronnen</div>
-      <span class="source-chip cbs">CBS</span>
-      <span class="source-chip lgn" title="Landgebruikskaart Nederland">LGN</span>
-      <span class="source-chip bag">BAG</span>
-      <span class="source-chip rivm">RIVM · AHN</span>
-      <span class="source-chip s2">Sentinel-2</span>
-    </div>
-
-    <!-- Info toggle -->
-    <div class="info-toggle" id="info-toggle">
-      <span class="arrow">▶</span>
-      <span>Hoe werkt dit?</span>
-    </div>
-    <div class="info-body" id="info-body">
-      <div class="info-section">
-        <b>Wat zie je?</b><br>
-        Zuid-Holland opgedeeld in vakjes van ~500 meter. Elk vakje krijgt een kleur op basis van 105 kenmerken. Gelijke kleur = vergelijkbaar gebied. Zo zijn 100 gebiedstypen ontstaan — van Rotterdams havengebied tot Groene Hart veenweide.
-      </div>
-
-      <div class="info-section">
-        <b>Data per thema</b><br><br>
-        <span class="info-tag" style="background:rgba(74,166,255,0.15);color:#4da6ff">🏘️ Wonen</span><br>
-        CBS: inwoners, leeftijd, huishoudenstype, WOZ-waarde, huur/koop, bouwjaar. BAG: type gebouwen per vakje. Sterkste drijvers: WOZ-waarde en bebouwingsdichtheid.<br><br>
-        <span class="info-tag" style="background:rgba(77,217,192,0.15);color:#4dd9c0">🌊 Water &amp; Klimaat</span><br>
-        RIVM: hittestress (UHI-index) en geluid. AHN: hoogte in meters NAP. Waterschappen: 5 overstromingsdiepte-scenario's. Sentinel-2: NDWI (wateraanwezigheid en bodemvocht per vakje per jaar).<br><br>
-        <span class="info-tag" style="background:rgba(125,214,107,0.15);color:#7dd66b">🌾 Landbouw</span><br>
-        LGN: landgebruik per type — glastuinbouw, akkerbouw, grasland, natuur. Sentinel-2: NDVI en EVI (vegetatiegezondheid per jaar, objectief gemeten vanuit de ruimte).
-      </div>
-
-      <div class="info-section">
-        <b>Scenario's — wat als?</b><br>
-        Eén variabele aanpassen (bv. hitte +30%), rest blijft 2023. <span style="color:#ff8c42">Oranje</span> = van gebiedstype gewisseld. Die plekken zitten het dichtst op een kantelpunt.
-      </div>
-
-      <div class="info-section">
-        <b>Trend — geen voorspelling</b><br>
-        De lijn van 2018–2023 doorgetrokken naar 2030/2035. Eerlijk en transparant — gebaseerd op wat er feitelijk is veranderd.
-      </div>
-    </div>
-
-    <!-- Buttons -->
-    <div class="btn-row">
-      <button class="btn" id="fullscreen-btn">&#x26F6; Volledig scherm</button>
-    </div>
-
-    </div><!-- /.controls-body-inner -->
-  </div>
-
-  <!-- Intro overlay -->
-  <div id="map-overlay">
-    <div id="map-overlay-content">
-      <h2>Ruimtelijke intelligentie voor Zuid-Holland</h2>
-      <p class="desktop-only">Elk buurt, elk perceel — ingedeeld op basis van wat er echt speelt. Combineer CBS-cijfers, satellietbeelden en klimaatdata om gebiedsverandering te zien, door te rekenen en te onderbouwen. Voor beleidsmakers die verder kijken dan één thema.</p>
-      <p class="mobile-only" style="margin:0 0 12px;font-size:13px;color:#999;line-height:1.5">Elk stukje Zuid-Holland krijgt een kleur op basis van wie er woont, hoe het eruitziet en hoe kwetsbaar het is. <b style="color:#e0e0e0">Gelijke kleur = vergelijkbaar gebied.</b></p>
-
-      <!-- Theme cards -->
-      <div class="theme-cards">
-        <div class="theme-card wonen">
-          <div class="theme-icon">🏘️</div>
-          <div class="theme-name">Wonen</div>
-          <div class="theme-desc">Wie woont waar, in welk type woning, tegen welke prijs — en hoe verschuift dat?</div>
-          <ul class="theme-questions">
-            <li>Waar staat de woningdruk het hoogst?</li>
-            <li>Welke wijken veranderen van sociaal profiel?</li>
-            <li>Wat doet bevolkingsgroei met gebiedstype?</li>
-          </ul>
-        </div>
-        <div class="theme-card water">
-          <div class="theme-icon">🌊</div>
-          <div class="theme-name">Water &amp; Klimaat</div>
-          <div class="theme-desc">Hittestress, overstromingsrisico en bodemdaling zichtbaar per gebied — gecombineerd met satellietdata over groen en vocht.</div>
-          <ul class="theme-questions">
-            <li>Welke gebieden zijn het kwetsbaarst bij hitte?</li>
-            <li>Waar neemt overstromingsrisico toe?</li>
-            <li>Hoe verhoudt groenstructuur zich tot hittestress?</li>
-          </ul>
-        </div>
-        <div class="theme-card landbouw">
-          <div class="theme-icon">🌾</div>
-          <div class="theme-name">Landbouw</div>
-          <div class="theme-desc">Landgebruik per type (LGN — Landgebruikskaart Nederland) en vegetatiegezondheid via satelliet — van glastuinbouw tot veenweide, jaar op jaar.</div>
-          <ul class="theme-questions">
-            <li>Waar staat agrarisch land onder druk?</li>
-            <li>Welke percelen laten vegetatieafname zien?</li>
-            <li>Waar verandert landgebruik het snelst?</li>
-          </ul>
+        <div style="margin-top:6px">
+          <button class="btn" id="play-btn">▶ Afspelen</button>
         </div>
       </div>
 
-      <!-- How it works -->
-      <div class="how-it-works">
-        <div class="how-step">
-          <div class="how-step-num">1</div>
-          <div class="how-step-title">Data samenvoegen</div>
-          <div class="how-step-desc">Per vakje van 500m worden ~105 kenmerken gecombineerd: bevolking (CBS), gebouwen (BAG), landgebruik (LGN), klimaat (RIVM &amp; AHN) en satellietbeelden (Sentinel-2) — voor elk jaar van 2018 t/m 2023.</div>
-        </div>
-        <div class="how-step">
-          <div class="how-step-num">2</div>
-          <div class="how-step-title">Gebiedstypen herkennen</div>
-          <div class="how-step-desc">Een AI-model zoekt automatisch welke vakjes op elkaar lijken. Vergelijkbare vakjes krijgen dezelfde kleur. Zo ontstaan 100 herkenbare gebiedstypen — van stadscentrum tot veenpolder.</div>
-        </div>
-        <div class="how-step">
-          <div class="how-step-num">3</div>
-          <div class="how-step-title">Doorrekenen &amp; vergelijken</div>
-          <div class="how-step-desc">Stel een scenario in (bijv. hitte +30%) of kijk naar de trend richting 2030. Oranje vakjes zijn van type veranderd — dat zijn de plekken die het meest gevoelig zijn voor die verandering.</div>
+      <!-- Scenario -->
+      <div class="mode-panel" id="panel-scenario">
+        <div class="control-label">Pas één variabele aan en zie wat verschuift</div>
+        <button class="option-btn active" data-col="scenario_pop_plus20">🏘️ Bevolking +20%</button>
+        <button class="option-btn" data-col="scenario_pop_min20">🏘️ Bevolking -20%</button>
+        <button class="option-btn" data-col="scenario_heat_plus30">🌡️ Hitte +30%</button>
+        <button class="option-btn" data-col="scenario_heat_plus50">🌡️ Hitte +50%</button>
+        <button class="option-btn" data-col="scenario_woz_plus20">💶 WOZ-waarde +20%</button>
+        <div class="toggle-row">
+          <input type="checkbox" id="changed-only" />
+          <label for="changed-only">Toon alleen veranderde gebieden</label>
         </div>
       </div>
 
-      <!-- Sources -->
-      <div class="overlay-sources">
-        <div class="overlay-sources-label">Databronnen</div>
-        <div class="overlay-source-row">
-          <div class="overlay-source-item">
-            <span class="src-badge src-cbs">CBS</span>
-            <span class="src-label">Bevolking, wonen &amp; inkomen</span>
-          </div>
-          <div class="overlay-source-item">
-            <span class="src-badge src-lgn">LGN</span>
-            <span class="src-label">Landgebruikskaart Nederland</span>
-          </div>
-          <div class="overlay-source-item">
-            <span class="src-badge src-bag">BAG</span>
-            <span class="src-label">Gebouwen &amp; functies</span>
-          </div>
-          <div class="overlay-source-item">
-            <span class="src-badge src-rivm">RIVM · AHN</span>
-            <span class="src-label">Hitte, geluid, hoogte &amp; overstroming</span>
-          </div>
-          <div class="overlay-source-item">
-            <span class="src-badge src-s2">Sentinel-2</span>
-            <span class="src-label">Satelliet: groen, bebouwing, water</span>
-          </div>
+      <!-- Trend -->
+      <div class="mode-panel" id="panel-trend">
+        <div class="control-label">Trend 2018–2023 doorgetrokken naar</div>
+        <button class="option-btn active" data-col="trend_2030">📈 2030</button>
+        <button class="option-btn" data-col="trend_2035">📈 2035</button>
+        <div class="toggle-row">
+          <input type="checkbox" id="trend-changed-only" />
+          <label for="trend-changed-only">Toon alleen veranderde gebieden</label>
         </div>
       </div>
 
-      <button id="activate-btn">Verken Zuid-Holland →</button>
-    </div>
+      <div class="stats" id="stats"></div>
+
+      <div class="legend">
+        <div class="legend-title">Gebiedstypen (10×10 grid)</div>
+        <div class="legend-grid" id="legend-grid"></div>
+        <div class="legend-axis"><span>← stedelijk</span><span>landelijk →</span></div>
+      </div>
+
+      <div class="source-strip">
+        <div class="source-strip-label">Databronnen</div>
+        <span class="source-chip cbs">CBS</span>
+        <span class="source-chip lgn" title="Landgebruikskaart Nederland">LGN</span>
+        <span class="source-chip bag">BAG</span>
+        <span class="source-chip rivm">RIVM · AHN</span>
+        <span class="source-chip s2">Sentinel-2</span>
+      </div>
+
+      <div class="info-toggle" id="info-toggle">
+        <span class="arrow">▶</span>
+        <span>Hoe werkt dit?</span>
+      </div>
+      <div class="info-body" id="info-body">
+        <div class="info-section">
+          <b>Gebiedstypen</b><br>
+          Een AI-model (Self-Organizing Map) groepeert vakjes van 500m op basis van 105 kenmerken uit CBS, BAG, LGN, RIVM, AHN en Sentinel-2. Vergelijkbare vakjes krijgen dezelfde kleur — ongeacht waar ze liggen.
+        </div>
+        <div class="info-section">
+          <b>Data per thema</b><br><br>
+          <span class="info-tag" style="color:#4da6ff">🏘️ Wonen</span> CBS: inwoners, leeftijd, WOZ, huur/koop, bouwjaar. BAG: gebouwfuncties.<br><br>
+          <span class="info-tag" style="color:#4dd9c0">🌊 Water &amp; klimaat</span> RIVM: hittestress. AHN: hoogte NAP. Waterschappen: overstromingsdiepte. Sentinel-2: NDWI vochtigheid.<br><br>
+          <span class="info-tag" style="color:#7dd66b">🌾 Landbouw</span> LGN: landgebruikstype (glastuinbouw, akkerbouw, grasland, natuur). Sentinel-2: NDVI en EVI vegetatiegezondheid per jaar.
+        </div>
+        <div class="info-section">
+          <b>Oranje = kantelpunt</b><br>
+          In scenario- en trendmodus zijn oranje vakjes van gebiedstype gewisseld. Dat zijn plekken die dicht bij een grens zitten — het meest gevoelig voor die verandering.
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" id="fullscreen-btn">⛶ Volledig scherm</button>
+      </div>
+
+    </div><!-- /.controls-body -->
   </div>
 
   <script>
     const { DeckGL } = deck;
 
-    // ── Config ──────────────────────────────────────────────────────────────
     const DATA_URL = '/data/som_export.json';
     const INITIAL_VIEW = { longitude: 4.35, latitude: 52.02, zoom: 9, pitch: 0, bearing: 0 };
     const CHANGED_COLOR = [255, 140, 66, 220];
 
-    // Zuid-Holland bounding box
     const ZH_BOUNDS = { minLat: 51.66, maxLat: 52.40, minLon: 3.84, maxLon: 5.06 };
-
     function inZuidHolland(h3Id) {
       const [lat, lon] = h3.h3ToGeo(h3Id);
       return lat >= ZH_BOUNDS.minLat && lat <= ZH_BOUNDS.maxLat
           && lon >= ZH_BOUNDS.minLon && lon <= ZH_BOUNDS.maxLon;
     }
-
-    // Filter out uninformative hexagons: no residents, no buildings, no WOZ value
     function hasContent(d) {
       return (d.inwoners != null && d.inwoners > 0)
           || (d.bebouwing != null && d.bebouwing > 0.02)
@@ -879,15 +627,14 @@
       { col: 'scenario_pop_min20',  label: 'Bevolking -20%' },
       { col: 'scenario_heat_plus30', label: 'Hitte +30%' },
       { col: 'scenario_heat_plus50', label: 'Hitte +50%' },
-      { col: 'scenario_woz_plus20', label: 'WOZ-waarde +20%' },
+      { col: 'scenario_woz_plus20', label: 'WOZ +20%' },
     ];
-
     const TRENDS = [
       { col: 'trend_2030', label: '2030' },
       { col: 'trend_2035', label: '2035' },
     ];
 
-    // ── Color mapping ────────────────────────────────────────────────────────
+    // ── Colors ───────────────────────────────────────────────────────────────
     function hslToRgb(h, s, l) {
       h /= 360;
       const hue2rgb = (p, q, t) => {
@@ -905,66 +652,47 @@
         Math.round(hue2rgb(p, q, h - 1/3) * 255),
       ];
     }
-
     const CLUSTER_COLORS = Array.from({ length: 100 }, (_, id) => {
-      const cx = Math.floor(id / 10);
-      const cy = id % 10;
-      const hue = cx * 36;
-      const lightness = 0.35 + cy * 0.028;
-      return [...hslToRgb(hue, 0.65, lightness), 200];
+      const cx = Math.floor(id / 10), cy = id % 10;
+      return [...hslToRgb(cx * 36, 0.65, 0.35 + cy * 0.028), 200];
     });
-
-    function clusterColor(clusterId) {
-      if (clusterId == null || clusterId < 0 || clusterId > 99) return [80, 80, 80, 80];
-      return CLUSTER_COLORS[clusterId];
+    function clusterColor(id) {
+      if (id == null || id < 0 || id > 99) return [60, 60, 60, 60];
+      return CLUSTER_COLORS[id];
     }
 
     // ── State ────────────────────────────────────────────────────────────────
-    let allData = [];
-    let deckInstance = null;
+    let allData = [], deckInstance = null;
     let viewState = { ...INITIAL_VIEW };
-    let mapActive = false;
     let playInterval = null;
+    let mode = 'jaar', activeYear = 2023;
+    let activeScenarioCol = 'scenario_pop_plus20', activeTrendCol = 'trend_2030';
+    let changedOnly = false, trendChangedOnly = false;
 
-    let mode = 'jaar';
-    let activeYear = 2023;
-    let activeScenarioCol = 'scenario_pop_plus20';
-    let activeTrendCol = 'trend_2030';
-    let changedOnly = false;
-    let trendChangedOnly = false;
-
-    // ── Color function ───────────────────────────────────────────────────────
+    // ── Rendering ────────────────────────────────────────────────────────────
     function getColor(d) {
       if (mode === 'jaar') return clusterColor(d[`cluster_${activeYear}`]);
-
-      const compareCol = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
-      const showChangedOnly = mode === 'scenario' ? changedOnly : trendChangedOnly;
-      const base = d.cluster_2023;
-      const current = d[compareCol];
-
-      if (showChangedOnly && current === base) return [0, 0, 0, 0];
-      if (current !== base) return CHANGED_COLOR;
+      const col = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
+      const showOnly = mode === 'scenario' ? changedOnly : trendChangedOnly;
+      const base = d.cluster_2023, cur = d[col];
+      if (showOnly && cur === base) return [0, 0, 0, 0];
+      if (cur !== base) return CHANGED_COLOR;
       return clusterColor(base);
     }
 
-    // ── Layer ────────────────────────────────────────────────────────────────
     function getActiveData() {
       if (mode === 'jaar') return allData.filter(d => d[`cluster_${activeYear}`] != null);
-      const compareCol = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
-      const showChangedOnly = mode === 'scenario' ? changedOnly : trendChangedOnly;
-      const valid = allData.filter(d => d[compareCol] != null);
-      if (!showChangedOnly) return valid;
-      return valid.filter(d => d[compareCol] !== d.cluster_2023);
+      const col = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
+      const showOnly = mode === 'scenario' ? changedOnly : trendChangedOnly;
+      const valid = allData.filter(d => d[col] != null);
+      return showOnly ? valid.filter(d => d[col] !== d.cluster_2023) : valid;
     }
 
     function buildLayer() {
       return DeckGLUtils.createH3Layer({
-        id: 'som-layer',
-        data: getActiveData(),
-        getHexagon: d => d.h3,
-        getFillColor: getColor,
-        extruded: false,
-        pickable: true,
+        id: 'som-layer', data: getActiveData(),
+        getHexagon: d => d.h3, getFillColor: getColor,
+        extruded: false, pickable: true,
         updateTriggers: { getFillColor: [mode, activeYear, activeScenarioCol, activeTrendCol, changedOnly, trendChangedOnly] },
       });
     }
@@ -980,33 +708,23 @@
 
     // ── Tooltip ──────────────────────────────────────────────────────────────
     function buildTooltip(d) {
-      const compareCol = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
-      const clusterId = mode === 'jaar' ? d[`cluster_${activeYear}`] : d[compareCol];
-      const cx = clusterId != null ? Math.floor(clusterId / 10) : '–';
-      const cy = clusterId != null ? clusterId % 10 : '–';
-
+      const col = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
+      const id = mode === 'jaar' ? d[`cluster_${activeYear}`] : d[col];
+      const cx = id != null ? Math.floor(id / 10) : '–';
+      const cy = id != null ? id % 10 : '–';
       let changed = '';
-      if (mode !== 'jaar' && d[compareCol] !== d.cluster_2023) {
-        changed = `<br><b style="color:#ff8c42">&#9650; cluster verschoven</b> (was ${d.cluster_2023}, nu ${d[compareCol]})`;
-      }
-
+      if (mode !== 'jaar' && d[col] !== d.cluster_2023)
+        changed = `<br><b style="color:#ff8c42">↑ gebiedstype verschoven</b> (was ${d.cluster_2023} → nu ${d[col]})`;
       return {
-        html: `
-          <div style="font-size:12px;line-height:1.7">
-            <b>${d.gemeente || '–'}</b>${d.wijk ? ` / ${d.wijk}` : ''}<br>
-            Cluster: <b>${clusterId ?? '–'}</b> (${cx}, ${cy})${changed}<br>
-            Inwoners: <b>${d.inwoners != null ? Math.round(d.inwoners) : '–'}</b><br>
-            WOZ: <b>${d.woz != null ? '€' + Math.round(d.woz).toLocaleString('nl') : '–'}</b><br>
-            Hitte: <b>${d.hitte != null ? d.hitte.toFixed(1) : '–'}</b><br>
-            Bebouwing: <b>${d.bebouwing != null ? (d.bebouwing * 100).toFixed(1) + '%' : '–'}</b>
-          </div>`,
-        style: {
-          background: 'rgba(18,18,28,0.95)',
-          color: '#ddd',
-          border: '1px solid #333',
-          borderRadius: '6px',
-          padding: '10px 14px',
-        },
+        html: `<div style="font-size:12px;line-height:1.7">
+          <b>${d.gemeente || '–'}</b>${d.wijk ? ` / ${d.wijk}` : ''}<br>
+          Gebiedstype: <b>${id ?? '–'}</b> (${cx},${cy})${changed}<br>
+          Inwoners: <b>${d.inwoners != null ? Math.round(d.inwoners) : '–'}</b><br>
+          WOZ: <b>${d.woz != null ? '€' + Math.round(d.woz).toLocaleString('nl') : '–'}</b><br>
+          Hitte: <b>${d.hitte != null ? d.hitte.toFixed(1) : '–'}</b><br>
+          Bebouwing: <b>${d.bebouwing != null ? (d.bebouwing*100).toFixed(1)+'%' : '–'}</b>
+        </div>`,
+        style: { background:'rgba(13,13,22,0.97)', color:'#ddd', border:'1px solid #2a2a4a', borderRadius:'8px', padding:'10px 14px' },
       };
     }
 
@@ -1014,25 +732,16 @@
     function updateStats() {
       const el = document.getElementById('stats');
       if (!el) return;
-
       if (mode === 'jaar') {
-        const populated = allData.filter(d => d[`cluster_${activeYear}`] != null).length;
-        el.innerHTML = `<b>Jaar:</b> <span>${activeYear}</span><br><b>Hexagonen:</b> <span>${populated.toLocaleString('nl')}</span>`;
+        const n = allData.filter(d => d[`cluster_${activeYear}`] != null).length;
+        el.innerHTML = `<b>Jaar:</b> <span>${activeYear}</span> &nbsp; <b>Gebieden:</b> <span>${n.toLocaleString('nl')}</span>`;
         return;
       }
-
-      const compareCol = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
-      const label = mode === 'scenario'
-        ? SCENARIOS.find(s => s.col === compareCol)?.label
-        : TRENDS.find(t => t.col === compareCol)?.label;
-
-      const changed = allData.filter(d => d[compareCol] != null && d[compareCol] !== d.cluster_2023).length;
-      const pct = allData.length > 0 ? ((changed / allData.length) * 100).toFixed(1) : 0;
-
-      el.innerHTML = `
-        <b>Scenario:</b> <span>${label}</span><br>
-        <b>Veranderd:</b> <span class="changed-count">${changed.toLocaleString('nl')} (${pct}%)</span><br>
-        <b>Ongewijzigd:</b> <span>${(allData.length - changed).toLocaleString('nl')}</span>`;
+      const col = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
+      const label = (mode === 'scenario' ? SCENARIOS : TRENDS).find(x => x.col === col)?.label;
+      const changed = allData.filter(d => d[col] != null && d[col] !== d.cluster_2023).length;
+      const pct = allData.length > 0 ? ((changed / allData.length)*100).toFixed(1) : 0;
+      el.innerHTML = `<b>${label}</b><br><b>Verschoven:</b> <span class="changed-count">${changed.toLocaleString('nl')} (${pct}%)</span>`;
     }
 
     // ── Legend ───────────────────────────────────────────────────────────────
@@ -1049,9 +758,69 @@
       }
     }
 
+    // ════════════════════════════════════════
+    // STORY MAP
+    // ════════════════════════════════════════
+    const TOTAL_CARDS = 5;
+    let currentCard = 0;
+
+    function setupStory() {
+      const track = document.getElementById('story-track');
+      const dotsEl = document.getElementById('story-dots');
+      const prevBtn = document.getElementById('story-prev');
+      const nextBtn = document.getElementById('story-next');
+      const skipBtn = document.getElementById('story-skip');
+
+      // Build dots
+      for (let i = 0; i < TOTAL_CARDS; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'story-dot' + (i === 0 ? ' active' : '');
+        dotsEl.appendChild(dot);
+      }
+
+      function goTo(n) {
+        currentCard = Math.max(0, Math.min(TOTAL_CARDS - 1, n));
+        track.style.transform = `translateX(-${currentCard * 100}%)`;
+
+        // Update dots
+        dotsEl.querySelectorAll('.story-dot').forEach((d, i) => {
+          d.className = 'story-dot' + (i === currentCard ? ' active' : i < currentCard ? ' done' : '');
+        });
+
+        prevBtn.disabled = currentCard === 0;
+        const isLast = currentCard === TOTAL_CARDS - 1;
+        nextBtn.textContent = isLast ? 'Open kaart →' : 'Volgende →';
+        nextBtn.className = 'story-btn next' + (isLast ? ' cta' : '');
+        skipBtn.style.visibility = isLast ? 'hidden' : 'visible';
+      }
+
+      prevBtn.addEventListener('click', () => goTo(currentCard - 1));
+      nextBtn.addEventListener('click', () => {
+        if (currentCard < TOTAL_CARDS - 1) { goTo(currentCard + 1); }
+        else { closeStory(); }
+      });
+      skipBtn.addEventListener('click', closeStory);
+
+      // Touch/swipe
+      let touchStartX = 0;
+      const cards = document.querySelector('.story-cards');
+      cards.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+      cards.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(dx) > 40) goTo(currentCard + (dx < 0 ? 1 : -1));
+      }, { passive: true });
+
+      goTo(0);
+    }
+
+    function closeStory() {
+      document.getElementById('story-overlay').classList.add('hidden');
+      if (deckInstance) deckInstance.setProps({ controller: true });
+    }
+
     // ── Controls ─────────────────────────────────────────────────────────────
     function setupControls() {
-      // Mode tabs
+      // Tabs
       document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
           mode = tab.dataset.mode;
@@ -1059,37 +828,34 @@
           document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
           tab.classList.add('active');
           document.getElementById(`panel-${mode}`).classList.add('active');
-          // Expand on mobile when tab clicked
           document.getElementById('controls').classList.remove('collapsed');
           render();
         });
       });
 
       // Year slider
-      const yearSlider = document.getElementById('year-slider');
-      const yearDisplay = document.getElementById('year-display');
-      yearSlider.addEventListener('input', () => {
-        activeYear = parseInt(yearSlider.value);
-        yearDisplay.textContent = activeYear;
+      const slider = document.getElementById('year-slider');
+      const display = document.getElementById('year-display');
+      slider.addEventListener('input', () => {
+        activeYear = parseInt(slider.value);
+        display.textContent = activeYear;
         render();
       });
 
-      // Play button
+      // Play
       const playBtn = document.getElementById('play-btn');
       playBtn.addEventListener('click', () => {
         if (playInterval) {
-          clearInterval(playInterval);
-          playInterval = null;
-          playBtn.innerHTML = '&#9654; Afspelen';
-          return;
+          clearInterval(playInterval); playInterval = null;
+          playBtn.textContent = '▶ Afspelen';
+        } else {
+          playBtn.textContent = '⏸ Pauzeren';
+          playInterval = setInterval(() => {
+            activeYear = activeYear >= 2023 ? 2018 : activeYear + 1;
+            slider.value = activeYear; display.textContent = activeYear;
+            render();
+          }, 700);
         }
-        playBtn.innerHTML = '&#9646;&#9646; Pauzeren';
-        playInterval = setInterval(() => {
-          activeYear = activeYear >= 2023 ? 2018 : activeYear + 1;
-          yearSlider.value = activeYear;
-          yearDisplay.textContent = activeYear;
-          render();
-        }, 700);
       });
 
       // Scenario buttons
@@ -1112,22 +878,29 @@
         });
       });
 
-      // Changed-only toggles
-      document.getElementById('changed-only').addEventListener('change', e => {
-        changedOnly = e.target.checked;
-        render();
-      });
-      document.getElementById('trend-changed-only').addEventListener('change', e => {
-        trendChangedOnly = e.target.checked;
-        render();
-      });
+      document.getElementById('changed-only').addEventListener('change', e => { changedOnly = e.target.checked; render(); });
+      document.getElementById('trend-changed-only').addEventListener('change', e => { trendChangedOnly = e.target.checked; render(); });
 
-      // Mobile collapse toggle
       document.getElementById('controls-collapse').addEventListener('click', () => {
         document.getElementById('controls').classList.toggle('collapsed');
       });
 
-      // Info toggle
+      // Re-open story
+      document.getElementById('controls-info-btn').addEventListener('click', () => {
+        currentCard = 0;
+        const track = document.getElementById('story-track');
+        track.style.transform = 'translateX(0)';
+        document.getElementById('story-dots').querySelectorAll('.story-dot').forEach((d, i) => {
+          d.className = 'story-dot' + (i === 0 ? ' active' : '');
+        });
+        document.getElementById('story-prev').disabled = true;
+        document.getElementById('story-next').textContent = 'Volgende →';
+        document.getElementById('story-next').className = 'story-btn next';
+        document.getElementById('story-skip').style.visibility = 'visible';
+        document.getElementById('story-overlay').classList.remove('hidden');
+        if (deckInstance) deckInstance.setProps({ controller: false });
+      });
+
       const infoToggle = document.getElementById('info-toggle');
       const infoBody = document.getElementById('info-body');
       infoToggle.addEventListener('click', () => {
@@ -1135,55 +908,34 @@
         infoBody.classList.toggle('open');
       });
 
-      // Fullscreen
       document.getElementById('fullscreen-btn').addEventListener('click', () => {
-        if (!document.fullscreenElement) {
-          document.getElementById('container').requestFullscreen?.();
-        } else {
-          document.exitFullscreen?.();
-        }
+        if (!document.fullscreenElement) document.getElementById('container').requestFullscreen?.();
+        else document.exitFullscreen?.();
       });
-
-      // Overlay
-      document.getElementById('activate-btn').addEventListener('click', activateMap);
-      document.getElementById('map-overlay').addEventListener('click', e => {
-        if (e.target === e.currentTarget) activateMap();
-      });
-    }
-
-    function activateMap() {
-      mapActive = true;
-      document.getElementById('map-overlay').classList.add('hidden');
-      if (deckInstance) deckInstance.setProps({ controller: true });
     }
 
     // ── Init ─────────────────────────────────────────────────────────────────
     async function init() {
       try {
-        const response = await fetch(DATA_URL);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const raw = await response.json();
-
+        const resp = await fetch(DATA_URL);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const raw = await resp.json();
         allData = raw.filter(d => inZuidHolland(d.h3) && hasContent(d));
-
-        console.log(`Geladen: ${raw.length.toLocaleString('nl')} totaal → ${allData.length.toLocaleString('nl')} in Zuid-Holland`);
+        console.log(`${raw.length.toLocaleString('nl')} totaal → ${allData.length.toLocaleString('nl')} Zuid-Holland`);
 
         document.getElementById('loading').style.display = 'none';
         document.getElementById('controls').style.display = 'block';
 
+        setupStory();
         setupControls();
         buildLegend();
 
         deckInstance = new DeckGL({
           container: 'container',
-          initialViewState: INITIAL_VIEW,
-          viewState,
+          initialViewState: INITIAL_VIEW, viewState,
           controller: false,
           layers: [DeckGLUtils.createBasemap('dark-matter'), buildLayer()],
-          onViewStateChange: ({ viewState: vs }) => {
-            viewState = vs;
-            deckInstance.setProps({ viewState });
-          },
+          onViewStateChange: ({ viewState: vs }) => { viewState = vs; deckInstance.setProps({ viewState }); },
           getTooltip: ({ object }) => object ? buildTooltip(object) : null,
         });
 
@@ -1194,11 +946,8 @@
       }
     }
 
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', init);
-    } else {
-      init();
-    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
   </script>
 </body>
 </html>
