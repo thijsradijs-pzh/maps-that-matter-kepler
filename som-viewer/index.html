@@ -605,11 +605,23 @@
       line-height: 1.4;
     }
 
+    /* ── Mobile-only / desktop-only helpers ── */
+    .mobile-only { display: none; }
     @media (max-width: 640px) {
-      .theme-cards { grid-template-columns: 1fr; gap: 8px; }
-      .theme-card { padding: 12px; }
-      .theme-questions { display: none; }
-      .how-it-works { flex-direction: column; gap: 6px; }
+      .desktop-only { display: none !important; }
+      .mobile-only  { display: block; }
+
+      .theme-cards { grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+      .theme-card { padding: 10px 8px; text-align: center; }
+      .theme-icon { font-size: 20px; margin-bottom: 4px; }
+      .theme-name { font-size: 11px; margin-bottom: 0; }
+      .theme-desc, .theme-questions { display: none; }
+
+      .how-it-works { gap: 5px; }
+      .how-step { padding: 8px; }
+      .how-step-num { font-size: 15px; }
+      .how-step-title { font-size: 10px; }
+      .how-step-desc { display: none; }
     }
 
     #activate-btn {
@@ -701,7 +713,7 @@
     <div class="source-strip">
       <div class="source-strip-label">Databronnen</div>
       <span class="source-chip cbs">CBS</span>
-      <span class="source-chip lgn">LGN</span>
+      <span class="source-chip lgn" title="Landgebruikskaart Nederland">LGN</span>
       <span class="source-chip bag">BAG</span>
       <span class="source-chip rivm">RIVM · AHN</span>
       <span class="source-chip s2">Sentinel-2</span>
@@ -751,7 +763,8 @@
   <div id="map-overlay">
     <div id="map-overlay-content">
       <h2>Ruimtelijke intelligentie voor Zuid-Holland</h2>
-      <p>Elk buurt, elk perceel — ingedeeld op basis van wat er echt speelt. Combineer CBS-cijfers, satellietbeelden en klimaatdata om gebiedsverandering te zien, door te rekenen en te onderbouwen. Voor beleidsmakers die verder kijken dan één thema.</p>
+      <p class="desktop-only">Elk buurt, elk perceel — ingedeeld op basis van wat er echt speelt. Combineer CBS-cijfers, satellietbeelden en klimaatdata om gebiedsverandering te zien, door te rekenen en te onderbouwen. Voor beleidsmakers die verder kijken dan één thema.</p>
+      <p class="mobile-only" style="margin:0 0 12px;font-size:13px;color:#999;line-height:1.5">Elk stukje Zuid-Holland krijgt een kleur op basis van wie er woont, hoe het eruitziet en hoe kwetsbaar het is. <b style="color:#e0e0e0">Gelijke kleur = vergelijkbaar gebied.</b></p>
 
       <!-- Theme cards -->
       <div class="theme-cards">
@@ -778,7 +791,7 @@
         <div class="theme-card landbouw">
           <div class="theme-icon">🌾</div>
           <div class="theme-name">Landbouw</div>
-          <div class="theme-desc">Landgebruik en vegetatiegezondheid vanuit satelliet — van glastuinbouw tot veenweide, jaar op jaar.</div>
+          <div class="theme-desc">Landgebruik per type (LGN — Landgebruikskaart Nederland) en vegetatiegezondheid via satelliet — van glastuinbouw tot veenweide, jaar op jaar.</div>
           <ul class="theme-questions">
             <li>Waar staat agrarisch land onder druk?</li>
             <li>Welke percelen laten vegetatieafname zien?</li>
@@ -792,17 +805,17 @@
         <div class="how-step">
           <div class="how-step-num">1</div>
           <div class="how-step-title">Data samenvoegen</div>
-          <div class="how-step-desc">~105 variabelen per vakje van 500m: CBS, BAG, LGN, RIVM, AHN en Sentinel-2 satellietbeelden (2018–2023).</div>
+          <div class="how-step-desc">Per vakje van 500m worden ~105 kenmerken gecombineerd: bevolking (CBS), gebouwen (BAG), landgebruik (LGN), klimaat (RIVM &amp; AHN) en satellietbeelden (Sentinel-2) — voor elk jaar van 2018 t/m 2023.</div>
         </div>
         <div class="how-step">
           <div class="how-step-num">2</div>
-          <div class="how-step-title">Patronen herkennen</div>
-          <div class="how-step-desc">Een AI-model groepeert vergelijkbare gebieden automatisch. Zo ontstaan 100 herkenbare gebiedstypen — zichtbaar als kleuren.</div>
+          <div class="how-step-title">Gebiedstypen herkennen</div>
+          <div class="how-step-desc">Een AI-model zoekt automatisch welke vakjes op elkaar lijken. Vergelijkbare vakjes krijgen dezelfde kleur. Zo ontstaan 100 herkenbare gebiedstypen — van stadscentrum tot veenpolder.</div>
         </div>
         <div class="how-step">
           <div class="how-step-num">3</div>
-          <div class="how-step-title">Doorrekenen</div>
-          <div class="how-step-desc">Verander één variabele (bijv. hitte +30%) of trek de trend door naar 2030. Zie direct welke gebieden verschuiven.</div>
+          <div class="how-step-title">Doorrekenen &amp; vergelijken</div>
+          <div class="how-step-desc">Stel een scenario in (bijv. hitte +30%) of kijk naar de trend richting 2030. Oranje vakjes zijn van type veranderd — dat zijn de plekken die het meest gevoelig zijn voor die verandering.</div>
         </div>
       </div>
 
@@ -816,7 +829,7 @@
           </div>
           <div class="overlay-source-item">
             <span class="src-badge src-lgn">LGN</span>
-            <span class="src-label">Landgebruik</span>
+            <span class="src-label">Landgebruikskaart Nederland</span>
           </div>
           <div class="overlay-source-item">
             <span class="src-badge src-bag">BAG</span>
