@@ -858,7 +858,7 @@
         (d.inwoners || 0) > 0 ||
         (d.woz      || 0) > 0 ||
         (d.hitte    || 0) > 0.5 ||
-        (d.bebouwing || 0) >= 0.05
+        (d.bebouwing || 0) >= 5    // 0-255 index; 5 ≈ 2% bebouwing
       );
     }
 
@@ -889,6 +889,16 @@
       updateStats();
     }
 
+    // Shared helper: 0-255 index → readable level label
+    function idxLbl(v) {
+      if (v == null) return '–';
+      if (v < 30)  return 'laag';
+      if (v < 90)  return 'matig';
+      if (v < 160) return 'gemiddeld';
+      if (v < 220) return 'hoog';
+      return 'zeer hoog';
+    }
+
     // ── Tooltip ──────────────────────────────────────────────────────────────
     function buildTooltip(d) {
       const col = mode === 'scenario' ? activeScenarioCol : activeTrendCol;
@@ -902,10 +912,10 @@
         html: `<div style="font-size:12px;line-height:1.7">
           <b>${d.gemeente || '–'}</b>${d.wijk ? ` / ${d.wijk}` : ''}<br>
           Gebiedstype: <b>${id ?? '–'}</b> (${cx},${cy})${changed}<br>
-          Inwoners: <b>${d.inwoners != null ? Math.round(d.inwoners) : '–'}</b><br>
-          WOZ: <b>${d.woz != null ? '€' + Math.round(d.woz).toLocaleString('nl') : '–'}</b><br>
-          Hitte: <b>${d.hitte != null ? d.hitte.toFixed(1) : '–'}</b><br>
-          Bebouwing: <b>${d.bebouwing != null ? (d.bebouwing*100).toFixed(1)+'%' : '–'}</b>
+          Bevolkingsdichtheid: <b>${d.inwoners != null ? idxLbl(d.inwoners) : '–'}</b><br>
+          Woningwaarde: <b>${d.woz != null ? idxLbl(d.woz) : '–'}</b><br>
+          Hitte-index: <b>${d.hitte != null ? d.hitte.toFixed(1) : '–'}</b><br>
+          Bebouwingsgraad: <b>${d.bebouwing != null ? idxLbl(d.bebouwing) : '–'}</b>
         </div>`,
         style: { background:'rgba(13,13,22,0.97)', color:'#ddd', border:'1px solid #2a2a4a', borderRadius:'8px', padding:'10px 14px' },
       };
@@ -942,18 +952,18 @@
     const YEARS = [2018, 2019, 2020, 2021, 2022, 2023];
 
     function getAreaType(d) {
-      const beb  = d.bebouwing || 0;
-      const inw  = d.inwoners  || 0;
-      const ndvi = d.ndvi      || 1;  // shifted: >1 = vegetation, <1 = bare/built
-      const ndwi = d.ndwi      || 1;  // shifted: >1 = water
+      const beb  = d.bebouwing || 0;   // 0-255 index
+      const inw  = d.inwoners  || 0;   // 0-255 index
+      const ndvi = d.ndvi      || 1;   // shifted [0,2]: >1 = vegetation
+      const ndwi = d.ndwi      || 1;   // shifted [0,2]: >1 = water
       const hitte = d.hitte    || 0;
-      if (ndwi > 1.4)               return 'Watergebied / natte natuur';
-      if (beb > 0.45 && inw < 10)   return 'Bedrijventerrein / industrie';
-      if (beb > 0.35)               return 'Dicht stedelijk gebied';
-      if (beb > 0.15 && inw > 20)   return 'Woonwijk';
-      if (beb > 0.08)               return 'Suburbaan / gemengd';
-      if (ndvi > 1.6 && hitte > 1)  return 'Tuinbouw / glastuinbouw';
-      if (ndvi > 1.5)               return 'Agrarisch / natuur';
+      if (ndwi > 1.4)                return 'Watergebied / natte natuur';
+      if (beb > 115 && inw < 10)     return 'Bedrijventerrein / industrie';
+      if (beb > 90)                  return 'Dicht stedelijk gebied';
+      if (beb > 38 && inw > 20)      return 'Woonwijk';
+      if (beb > 20)                  return 'Suburbaan / gemengd';
+      if (ndvi > 1.6 && hitte > 1)   return 'Tuinbouw / glastuinbouw';
+      if (ndvi > 1.5)                return 'Agrarisch / natuur';
       return 'Buitengebied';
     }
 
@@ -970,15 +980,38 @@
       document.getElementById('traj-type').textContent = `${getAreaType(d)}  ·  ${stability}`;
 
       // Stats pills
+      // inwoners / woz / bebouwing are 0-255 normalized indices (NOT real units)
+      // geluid = real dB, groundheight = real meters NAP, ndvi/ndwi shifted to [0,2]
       const statsEl = document.getElementById('traj-stats');
       const pills = [];
-      if (d.inwoners != null) pills.push(`Inwoners <b>${Math.round(d.inwoners)}/hex</b>`);
-      if (d.woz      != null && d.woz > 0) pills.push(`WOZ <b>€${Math.round(d.woz / 1000)}k</b>`);
-      if (d.hitte    != null && d.hitte > 0) pills.push(`Hitte <b>${d.hitte.toFixed(1)}</b>`);
-      if (d.bebouwing != null) pills.push(`Bebouwing <b>${(d.bebouwing * 100).toFixed(0)}%</b>`);
-      if (d.geluid   != null && d.geluid > 0) pills.push(`Geluid <b>${d.geluid.toFixed(0)} dB</b>`);
-      if (d.ndvi     != null) pills.push(`NDVI <b>${(d.ndvi - 1).toFixed(2)}</b>`);
-      if (d.ndwi     != null) pills.push(`NDWI <b>${(d.ndwi - 1).toFixed(2)}</b>`);
+
+      // Normalized 0-255 indices — show as level label
+      if ((d.inwoners || 0) > 0)  pills.push(`Bevolkingsdichtheid <b>${idxLbl(d.inwoners)}</b>`);
+      if ((d.woz || 0) > 0)       pills.push(`Woningwaarde <b>${idxLbl(d.woz)}</b>`);
+      if ((d.bebouwing || 0) > 0) pills.push(`Bebouwingsgraad <b>${idxLbl(d.bebouwing)}</b>`);
+      if ((d.hitte || 0) > 0)     pills.push(`Hitte-index <b>${d.hitte.toFixed(1)}</b>`);
+
+      // Real values
+      if (d.geluid != null && d.geluid > 0) pills.push(`Geluid <b>${d.geluid.toFixed(0)} dB</b>`);
+
+      // Groundheight — real meters vs NAP (AHN)
+      if (d.groundheight != null) {
+        const gh = d.groundheight;
+        const sign = gh >= 0 ? '+' : '';
+        const warn = gh < -2 ? ' ⚠' : '';
+        pills.push(`Hoogte NAP <b style="color:${gh < 0 ? '#ff8c42' : '#6ee8a2'}">${sign}${gh.toFixed(1)}m${warn}</b>`);
+      }
+
+      // Flooddepth scenario 1
+      if (d.flood1 != null && d.flood1 > 0) pills.push(`Overstromingsdiepte <b style="color:#ff6b6b">${d.flood1.toFixed(1)}m</b>`);
+
+      // Bodem type
+      if (d.bodem) pills.push(`Bodem <b>${d.bodem}</b>`);
+
+      // Satellite indices (shifted: 1.0 = neutral)
+      if (d.ndvi != null) pills.push(`NDVI <b>${(d.ndvi - 1).toFixed(2)}</b>`);
+      if (d.ndwi != null) pills.push(`NDWI <b>${(d.ndwi - 1).toFixed(2)}</b>`);
+
       statsEl.innerHTML = pills.map(p => `<span class="traj-pill">${p}</span>`).join('');
 
       // Year dots
