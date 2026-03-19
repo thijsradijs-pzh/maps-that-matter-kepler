@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Ruimtelijke Patronen – SOM Viewer – Maps That Matter</title>
+  <title>Ruimtelijke Intelligentie Zuid-Holland – Maps That Matter</title>
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
 
   <!-- Privacy-friendly analytics -->
@@ -515,6 +515,103 @@
     .src-rivm { background: rgba(200,100,255,0.2); color: #c87aff; }
     .src-s2   { background: rgba(255,100,100,0.2); color: #ff8080; }
 
+    /* ── Theme cards ── */
+    .theme-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin: 0 0 18px;
+      text-align: left;
+    }
+
+    .theme-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid #2a2a4a;
+      border-radius: 10px;
+      padding: 14px 12px;
+      cursor: default;
+    }
+
+    .theme-card.wonen   { border-top: 3px solid #4da6ff; }
+    .theme-card.water   { border-top: 3px solid #4dd9c0; }
+    .theme-card.landbouw { border-top: 3px solid #7dd66b; }
+
+    .theme-icon { font-size: 22px; margin-bottom: 6px; }
+
+    .theme-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .theme-card.wonen   .theme-name { color: #4da6ff; }
+    .theme-card.water   .theme-name { color: #4dd9c0; }
+    .theme-card.landbouw .theme-name { color: #7dd66b; }
+
+    .theme-desc {
+      font-size: 11px;
+      color: #888;
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+
+    .theme-questions {
+      list-style: none;
+      padding: 0; margin: 0;
+      font-size: 10px;
+      color: #666;
+      line-height: 1.6;
+    }
+
+    .theme-questions li::before { content: "→ "; color: #444; }
+
+    /* ── How it works ── */
+    .how-it-works {
+      display: flex;
+      gap: 8px;
+      margin: 0 0 18px;
+      text-align: left;
+    }
+
+    .how-step {
+      flex: 1;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid #222238;
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .how-step-num {
+      font-size: 18px;
+      font-weight: 800;
+      color: #2a4a6a;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .how-step-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #ccc;
+      margin-bottom: 3px;
+    }
+
+    .how-step-desc {
+      font-size: 10px;
+      color: #666;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 640px) {
+      .theme-cards { grid-template-columns: 1fr; gap: 8px; }
+      .theme-card { padding: 12px; }
+      .theme-questions { display: none; }
+      .how-it-works { flex-direction: column; gap: 6px; }
+    }
+
     #activate-btn {
       background: #2a6496;
       color: #fff;
@@ -617,32 +714,28 @@
     </div>
     <div class="info-body" id="info-body">
       <div class="info-section">
-        <b>Wat zie je op de kaart?</b><br>
-        Nederland is opgedeeld in vakjes van ~500 meter. Elk vakje krijgt een kleur op basis van hoe het eruitziet en wie er woont. Vakjes met dezelfde kleur lijken op elkaar — of ze nu in Amsterdam, Rotterdam of Groningen liggen. Zo ontstaan 100 herkenbare gebiedstypen.
+        <b>Wat zie je?</b><br>
+        Zuid-Holland opgedeeld in vakjes van ~500 meter. Elk vakje krijgt een kleur op basis van 105 kenmerken. Gelijke kleur = vergelijkbaar gebied. Zo zijn 100 gebiedstypen ontstaan — van Rotterdams havengebied tot Groene Hart veenweide.
       </div>
 
       <div class="info-section">
-        <b>Waar komt de data vandaan?</b><br><br>
-        <span class="info-tag">CBS</span> Hoeveel mensen er wonen, hoe oud ze zijn, wat woningen kosten, huur of koop.<br><br>
-        <span class="info-tag">BAG</span> Welke gebouwen er staan — winkels, kantoren, scholen, ziekenhuizen.<br><br>
-        <span class="info-tag">LGN</span> Wat er op de grond ligt — bos, akkers, weilanden, bebouwing, water.<br><br>
-        <span class="info-tag">RIVM · AHN</span> Hoe warm een gebied wordt, hoeveel geluid er is, hoe hoog het ligt en of het kan overstromen.<br><br>
-        <span class="info-tag">Sentinel-2</span> Satellietbeelden van de Europese ruimtevaartorganisatie. De enige bron die <i>echt kijkt</i> naar hoe groen, bebouwd of nat een gebied is — los van wat er op papier staat.
-      </div>
-
-      <div class="info-section">
-        <b>Wat betekenen de kleuren?</b><br>
-        Aangrenzende kleuren in het raster zijn meer op elkaar. Donkerblauw en lichtblauw lijken meer op elkaar dan donkerblauw en rood. De kaart loopt ruwweg van <i>stedelijk</i> (links) naar <i>landelijk</i> (rechts).
+        <b>Data per thema</b><br><br>
+        <span class="info-tag" style="background:rgba(74,166,255,0.15);color:#4da6ff">🏘️ Wonen</span><br>
+        CBS: inwoners, leeftijd, huishoudenstype, WOZ-waarde, huur/koop, bouwjaar. BAG: type gebouwen per vakje. Sterkste drijvers: WOZ-waarde en bebouwingsdichtheid.<br><br>
+        <span class="info-tag" style="background:rgba(77,217,192,0.15);color:#4dd9c0">🌊 Water &amp; Klimaat</span><br>
+        RIVM: hittestress (UHI-index) en geluid. AHN: hoogte in meters NAP. Waterschappen: 5 overstromingsdiepte-scenario's. Sentinel-2: NDWI (wateraanwezigheid en bodemvocht per vakje per jaar).<br><br>
+        <span class="info-tag" style="background:rgba(125,214,107,0.15);color:#7dd66b">🌾 Landbouw</span><br>
+        LGN: landgebruik per type — glastuinbouw, akkerbouw, grasland, natuur. Sentinel-2: NDVI en EVI (vegetatiegezondheid per jaar, objectief gemeten vanuit de ruimte).
       </div>
 
       <div class="info-section">
         <b>Scenario's — wat als?</b><br>
-        Je past één ding aan (bijv. bevolking +20%) en ziet welke vakjes van kleur wisselen. <span style="color:#ff8c42">Oranje</span> = van type veranderd. Die gebieden staan het dichtst op een kantelpunt.
+        Eén variabele aanpassen (bv. hitte +30%), rest blijft 2023. <span style="color:#ff8c42">Oranje</span> = van gebiedstype gewisseld. Die plekken zitten het dichtst op een kantelpunt.
       </div>
 
       <div class="info-section">
         <b>Trend — geen voorspelling</b><br>
-        We trekken de lijn van 2018–2023 gewoon door. Geen garantie, wel een eerlijke blik op de richting die gebieden nu opgaan.
+        De lijn van 2018–2023 doorgetrokken naar 2030/2035. Eerlijk en transparant — gebaseerd op wat er feitelijk is veranderd.
       </div>
     </div>
 
@@ -657,34 +750,69 @@
   <!-- Intro overlay -->
   <div id="map-overlay">
     <div id="map-overlay-content">
-      <h2>Hoe ziet Zuid-Holland eruit?</h2>
-      <p>Elk stukje Zuid-Holland van ~500 meter krijgt een kleur op basis van wie er woont, welke gebouwen er staan, hoe groen het is en wat satellieten zien. <b style="color:#e0e0e0">Gelijke kleuren = vergelijkbare gebieden.</b> Zo ontstaan 100 herkenbare gebiedstypen — van stadscentrum tot veenweide.</p>
+      <h2>Ruimtelijke intelligentie voor Zuid-Holland</h2>
+      <p>Elk buurt, elk perceel — ingedeeld op basis van wat er echt speelt. Combineer CBS-cijfers, satellietbeelden en klimaatdata om gebiedsverandering te zien, door te rekenen en te onderbouwen. Voor beleidsmakers die verder kijken dan één thema.</p>
 
-      <div class="overlay-grid">
-        <div class="overlay-card">
-          <div class="card-title">&#128197; Door de tijd</div>
-          <p>Schuif door 2018–2023 en zie welke gebieden van karakter veranderd zijn.</p>
+      <!-- Theme cards -->
+      <div class="theme-cards">
+        <div class="theme-card wonen">
+          <div class="theme-icon">🏘️</div>
+          <div class="theme-name">Wonen</div>
+          <div class="theme-desc">Wie woont waar, in welk type woning, tegen welke prijs — en hoe verschuift dat?</div>
+          <ul class="theme-questions">
+            <li>Waar staat de woningdruk het hoogst?</li>
+            <li>Welke wijken veranderen van sociaal profiel?</li>
+            <li>Wat doet bevolkingsgroei met gebiedstype?</li>
+          </ul>
         </div>
-        <div class="overlay-card">
-          <div class="card-title">&#127922; Scenario's</div>
-          <p>Wat als de bevolking groeit, of het warmer wordt? Zie welke gebieden dan van type wisselen.</p>
+        <div class="theme-card water">
+          <div class="theme-icon">🌊</div>
+          <div class="theme-name">Water &amp; Klimaat</div>
+          <div class="theme-desc">Hittestress, overstromingsrisico en bodemdaling zichtbaar per gebied — gecombineerd met satellietdata over groen en vocht.</div>
+          <ul class="theme-questions">
+            <li>Welke gebieden zijn het kwetsbaarst bij hitte?</li>
+            <li>Waar neemt overstromingsrisico toe?</li>
+            <li>Hoe verhoudt groenstructuur zich tot hittestress?</li>
+          </ul>
         </div>
-        <div class="overlay-card">
-          <div class="card-title">&#128204; Trend naar 2030–2035</div>
-          <p>Als de huidige ontwikkeling doorzet — waar gaat Nederland dan naartoe?</p>
-        </div>
-        <div class="overlay-card">
-          <div class="card-title">&#128269; Schaal</div>
-          <p>Vakjes van elk ~500 meter. Provincie Zuid-Holland. Data van 2018 t/m 2023.</p>
+        <div class="theme-card landbouw">
+          <div class="theme-icon">🌾</div>
+          <div class="theme-name">Landbouw</div>
+          <div class="theme-desc">Landgebruik en vegetatiegezondheid vanuit satelliet — van glastuinbouw tot veenweide, jaar op jaar.</div>
+          <ul class="theme-questions">
+            <li>Waar staat agrarisch land onder druk?</li>
+            <li>Welke percelen laten vegetatieafname zien?</li>
+            <li>Waar verandert landgebruik het snelst?</li>
+          </ul>
         </div>
       </div>
 
+      <!-- How it works -->
+      <div class="how-it-works">
+        <div class="how-step">
+          <div class="how-step-num">1</div>
+          <div class="how-step-title">Data samenvoegen</div>
+          <div class="how-step-desc">~105 variabelen per vakje van 500m: CBS, BAG, LGN, RIVM, AHN en Sentinel-2 satellietbeelden (2018–2023).</div>
+        </div>
+        <div class="how-step">
+          <div class="how-step-num">2</div>
+          <div class="how-step-title">Patronen herkennen</div>
+          <div class="how-step-desc">Een AI-model groepeert vergelijkbare gebieden automatisch. Zo ontstaan 100 herkenbare gebiedstypen — zichtbaar als kleuren.</div>
+        </div>
+        <div class="how-step">
+          <div class="how-step-num">3</div>
+          <div class="how-step-title">Doorrekenen</div>
+          <div class="how-step-desc">Verander één variabele (bijv. hitte +30%) of trek de trend door naar 2030. Zie direct welke gebieden verschuiven.</div>
+        </div>
+      </div>
+
+      <!-- Sources -->
       <div class="overlay-sources">
-        <div class="overlay-sources-label">Gebaseerd op ~105 variabelen uit</div>
+        <div class="overlay-sources-label">Databronnen</div>
         <div class="overlay-source-row">
           <div class="overlay-source-item">
             <span class="src-badge src-cbs">CBS</span>
-            <span class="src-label">Bevolking &amp; woningen</span>
+            <span class="src-label">Bevolking, wonen &amp; inkomen</span>
           </div>
           <div class="overlay-source-item">
             <span class="src-badge src-lgn">LGN</span>
@@ -692,20 +820,20 @@
           </div>
           <div class="overlay-source-item">
             <span class="src-badge src-bag">BAG</span>
-            <span class="src-label">Gebouwen</span>
+            <span class="src-label">Gebouwen &amp; functies</span>
           </div>
           <div class="overlay-source-item">
             <span class="src-badge src-rivm">RIVM · AHN</span>
-            <span class="src-label">Hitte, geluid &amp; water</span>
+            <span class="src-label">Hitte, geluid, hoogte &amp; overstroming</span>
           </div>
           <div class="overlay-source-item">
             <span class="src-badge src-s2">Sentinel-2</span>
-            <span class="src-label">Satellietbeelden</span>
+            <span class="src-label">Satelliet: groen, bebouwing, water</span>
           </div>
         </div>
       </div>
 
-      <button id="activate-btn">Kaart verkennen →</button>
+      <button id="activate-btn">Verken Zuid-Holland →</button>
     </div>
   </div>
 
