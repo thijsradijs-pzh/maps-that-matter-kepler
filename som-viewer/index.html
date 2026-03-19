@@ -409,16 +409,17 @@
           <div class="story-card-eyebrow">Wat zie je</div>
           <div class="story-card-title">Elk gebied heeft een karakter</div>
           <div class="story-card-body">
-            Zuid-Holland is opgedeeld in hexagons van <b>~500 meter</b>. Elk hexagon krijgt een kleur op basis van drie onafhankelijke databronnen die samen een compleet beeld geven van een plek.<br><br>
-            <em>Gelijke kleur = vergelijkbare gebieden</em> — of ze nu in Rotterdam, Leiden of de Hoeksche Waard liggen. Zo ontstaan <b>100 herkenbare gebiedstypen</b> die jaarlijks kunnen verschuiven.
+            Zuid-Holland is opgedeeld in <b>~7.500 hexagons</b> van elk ~500 meter. Per hexagon worden meer dan <b>100 kenmerken</b> uit drie databronnen samengevoegd.<br><br>
+            Een AI-model (Self-Organizing Map) leert hier patronen in: het groepeert vergelijkbare hexagons in een <b>10×10 raster van 100 gebiedstypen</b>. De kleur = positie in dat raster.<br><br>
+            <em>Zelfde kleur = zelfde karakter</em> — of dat nu in Rotterdam-Zuid, Westland of de Alblasserwaard is.
           </div>
           <div class="contrib-bar" style="margin-top:14px">
-            <div class="contrib-seg" style="flex:4;background:#4da6ff55" title="CBS"></div>
-            <div class="contrib-seg" style="flex:3;background:#6ccc8a55" title="LGN + RIVM"></div>
-            <div class="contrib-seg" style="flex:3;background:#ff808055" title="Sentinel-2"></div>
+            <div class="contrib-seg" style="flex:4;background:#4da6ff55"></div>
+            <div class="contrib-seg" style="flex:3;background:#6ccc8a55"></div>
+            <div class="contrib-seg" style="flex:3;background:#ff808055"></div>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:10px;color:#444;margin-top:3px;padding:0 2px">
-            <span style="color:#5a9ed8">CBS</span><span style="color:#5ab877">LGN · RIVM</span><span style="color:#cc5555">Sentinel-2</span>
+            <span style="color:#5a9ed8">CBS</span><span style="color:#5ab877">LGN</span><span style="color:#cc5555">Sentinel-2</span>
           </div>
         </div>
 
@@ -428,30 +429,29 @@
           <div class="story-card-eyebrow">Databron 1 van 3 — Bevolking & wonen</div>
           <div class="story-card-title">CBS 100m vierkantstatistieken</div>
           <div class="story-card-body">
-            Het CBS publiceert jaarlijks statistieken per vakje van <b>100×100 meter</b> voor heel Nederland. Per hexagon weten we daardoor precies:<br><br>
+            Het CBS publiceert jaarlijks statistieken per vakje van <b>100×100 meter</b>. In één H3 hexagon van 500m passen zo'n 25 van die vakjes — we middelen ze samen tot één gebiedsprofiel.<br><br>
             👥 <b>Bevolking</b> — inwoners per leeftijdsgroep, huishoudenssamenstelling<br>
             🏠 <b>Wonen</b> — WOZ-waarde, verhouding huur/koop, aandeel sociale huur<br>
-            📅 <b>Bouwjaar</b> — wanneer de woningen in dit gebied zijn gebouwd<br><br>
-            Deze data loopt van <em>2018 tot 2023</em> — zo zien we hoe buurten veranderen.
+            📅 <b>Bouwjaar</b> — wanneer de woningen zijn gebouwd<br><br>
+            Doordat we <em>6 jaarlijkse snapshots</em> (2018–2023) hebben per hexagon, is te zien of een buurt aan het vergrijzen, verdichten of in waarde stijgen is.
           </div>
           <div class="story-sources">
             <span class="story-src cbs">CBS Vierkantstatistieken</span>
           </div>
         </div>
 
-        <!-- Card 3: LGN + RIVM -->
+        <!-- Card 3: LGN -->
         <div class="story-card">
           <div class="story-card-icon">🌾</div>
-          <div class="story-card-eyebrow">Databron 2 van 3 — Landgebruik & klimaat</div>
-          <div class="story-card-title">LGN: 28 landgebruikstypen per hexagon</div>
+          <div class="story-card-eyebrow">Databron 2 van 3 — Landgebruik</div>
+          <div class="story-card-title">LGN: wat er echt op de grond ligt</div>
           <div class="story-card-body">
-            De <b>Landgebruikskaart Nederland (LGN)</b> classificeert elke vierkante meter bodem in één van 28 categorieën: akkerbouw, glastuinbouw, grasland, loofbos, heide, duinen, rietmoeras, bebouwing, water.<br><br>
-            Per hexagon berekenen we welk <em>aandeel</em> van het oppervlak elk type beslaat — zo is te zien of een plek voor 80% glastuinbouw is of juist gemengd.<br><br>
-            <b>RIVM</b> voegt toe: hittestress in de zomer en geluidsbelasting (dB). Waterschappen leveren vijf overstromingsscenario's.
+            De <b>Landgebruikskaart Nederland (LGN)</b> is gebaseerd op satellietbeelden en luchtfoto's en classificeert elke vierkante meter bodem in één van <b>28 categorieën</b>: akkerbouw, glastuinbouw, grasland, loofbos, naaldbos, heide, duinen, rietmoeras, bebouwing, water, en meer.<br><br>
+            Per hexagon berekenen we het <em>aandeel per type</em> — een hexagon kan voor 65% glastuinbouw zijn, 25% water en 10% bebouwing. Dat profiel vertelt meer dan één hoofdcategorie ooit kan.<br><br>
+            Waterschappen leveren aanvullend vijf overstromingsscenario's per hexagon.
           </div>
           <div class="story-sources">
             <span class="story-src lgn">LGN · lgn.nl</span>
-            <span class="story-src rivm">RIVM</span>
           </div>
         </div>
 
@@ -459,14 +459,15 @@
         <div class="story-card">
           <div class="story-card-icon">🛰️</div>
           <div class="story-card-eyebrow">Databron 3 van 3 — Satellietmetingen</div>
-          <div class="story-card-title">Sentinel-2: wat de bodem echt doet</div>
+          <div class="story-card-title">Sentinel-2: de bodem gemeten vanuit de ruimte</div>
           <div class="story-card-body">
-            De Europese <b>Sentinel-2</b> satelliet (Copernicus-programma, ESA) vliegt elke <b>5 dagen</b> over Nederland op 10m resolutie. Via Google Earth Engine berekenen we per hexagon het wolkenvrije jaargemiddelde van vier indices:<br><br>
-            🌱 <b>NDVI</b> — vegetatiedichtheid: hoe groen is het echt?<br>
-            🏗️ <b>NDBI</b> — bebouwings­intensiteit: verharding en bebouwing<br>
-            💧 <b>NDWI</b> — water en bodemvocht<br>
+            De Europese <b>Sentinel-2</b> satelliet (ESA · Copernicus) scant Nederland elke <b>5 dagen</b> op 10m resolutie. Alle wolkenvrije beelden van een jaar worden gestapeld en er wordt een mediaan genomen — zo valt ruis weg.<br><br>
+            Via <b>Google Earth Engine</b> berekenen we per hexagon het gemiddelde over het volledige oppervlak van vier spectrale indices:<br><br>
+            🌱 <b>NDVI</b> — fotosynthetische activiteit: hoe groen en vitaal?<br>
+            🏗️ <b>NDBI</b> — verharding en bebouwingsintensiteit<br>
+            💧 <b>NDWI</b> — wateroppervlak en bodemvocht<br>
             🌿 <b>EVI</b> — vegetatiegezondheid in dichte kronen<br><br>
-            Dit is de <em>enige bron die fysiek meet</em> wat er is — los van registers en administratie.
+            Dit is de <em>enige bron die fysiek meet</em> wat er is — onafhankelijk van registers, kadaster of beleid.
           </div>
           <div class="story-sources">
             <span class="story-src s2">Sentinel-2 · ESA Copernicus</span>
@@ -479,15 +480,15 @@
           <div class="story-card-eyebrow">Wat kun je doen</div>
           <div class="story-card-title">Verkennen, doorrekenen, vergelijken</div>
           <div class="story-card-body">
-            Al deze data is samengevoegd in één kaart. Je kunt nu drie dingen doen:
+            Al deze data is samengevoegd in één kaart. Elk hexagon heeft een tijdreeks van 2018 tot 2023. Drie modi:
           </div>
           <div class="capability-chips">
-            <div class="cap-chip"><b>📅 2018–2023</b>Speel de tijdreeks af en zie welke gebieden van karakter veranderden</div>
-            <div class="cap-chip"><b>🎚️ Scenario's</b>Wat als de bevolking groeit of het warmer wordt? Welke gebieden kantelen?</div>
-            <div class="cap-chip"><b>📈 Trend 2030–35</b>Doorgetrokken trend: waar gaat Zuid-Holland op deze koers naartoe?</div>
+            <div class="cap-chip"><b>📅 2018–2023</b>Speel de tijdreeks af — welke gebieden zijn van karakter veranderd en waarom?</div>
+            <div class="cap-chip"><b>🎚️ Scenario's</b>Verhoog de bevolking of hitte met 20–50% — welke hexagons kantelen naar een ander type?</div>
+            <div class="cap-chip"><b>📈 Trend 2030–35</b>De trend van 2018–2023 doorgetrokken: wat zijn de kwetsbare gebieden als niets verandert?</div>
           </div>
           <div class="story-card-body" style="margin-top:10px;margin-bottom:0;font-size:12px">
-            <em>Oranje vakjes</em> = van gebiedstype gewisseld. Dat zijn de plekken het meest gevoelig voor die verandering.
+            <em>Oranje hexagons</em> = van gebiedstype gewisseld. Dat zijn de plekken die het meest gevoelig zijn voor die specifieke verandering — de kantelpunten.
           </div>
         </div>
 
@@ -571,7 +572,6 @@
         <div class="source-strip-label">Databronnen</div>
         <span class="source-chip cbs">CBS</span>
         <span class="source-chip lgn" title="Landgebruikskaart Nederland">LGN</span>
-        <span class="source-chip rivm">RIVM</span>
         <span class="source-chip s2">Sentinel-2</span>
       </div>
 
@@ -582,23 +582,23 @@
       <div class="info-body" id="info-body">
         <div class="info-section">
           <b>Hoe werkt de kleur?</b><br>
-          Een Self-Organizing Map (SOM) groepeert hexagons op basis van ruim 100 kenmerken. Vergelijkbare hexagons — qua bevolking, landgebruik én satellietmeting — krijgen dezelfde kleur, ongeacht waar ze liggen.
+          Een Self-Organizing Map (SOM) traint op 100+ kenmerken per hexagon. Het AI-model ordent alle hexagons in een 10×10 raster zodat vergelijkbare buren zijn. Kleur = positie in dat raster. Elk jaar opnieuw berekend.
         </div>
         <div class="info-section">
           <b>CBS Vierkantstatistieken</b><br>
-          100×100m grid, jaarlijks gepubliceerd. Bevat: inwoners per leeftijdsgroep, WOZ-waarde, huur/koop-verhouding, sociale huur, bouwjaar, huishoudenstype.
+          100×100m grid, jaarlijks. Per hexagon (~25 vakjes) gemiddeld. Kenmerken: inwoners, leeftijdsopbouw, WOZ, huur/koop, sociale huur, bouwjaar, huishoudenstype. Tijdreeks 2018–2023.
         </div>
         <div class="info-section">
-          <b>LGN — Landgebruikskaart</b><br>
-          28 landgebruikstypen per pixel: glastuinbouw, akkerbouw, grasland, loofbos, naaldbos, heide, duinen, rietmoeras, bebouwing, water, e.a. Per hexagon als aandeel (0–100%) opgenomen. <span style="color:#5ab877">lgn.nl</span>
+          <b>LGN — Landgebruikskaart Nederland</b><br>
+          Satelliet + luchtfoto classificatie, 28 typen. Per hexagon als fractie (0–1) per type: glastuinbouw, akkerbouw, grasland, bos, heide, duinen, rietmoeras, bebouwing, water. Plus overstromingsdiepte (5 scenario's, waterschappen).
         </div>
         <div class="info-section">
           <b>Sentinel-2 · ESA Copernicus</b><br>
-          Elke 5 dagen over NL, 10m resolutie. Jaargemiddelde per hexagon via Google Earth Engine. Vier indices: NDVI (groen), NDBI (bebouwing), NDWI (water/vocht), EVI (vegetatiegezondheid).
+          Elke 5 dagen over NL, 10m resolutie. Wolkenvrije beelden per jaar gestapeld → mediaan → 4 indices per hexagon (gemiddeld over volledig oppervlak via Google Earth Engine): NDVI, NDBI, NDWI, EVI.
         </div>
         <div class="info-section">
           <b>Oranje = kantelpunt</b><br>
-          In scenario- en trendmodus zijn oranje hexagons van gebiedstype gewisseld. Ze zitten dicht bij een grens — het meest gevoelig voor die verandering.
+          In scenario- en trendmodus zijn oranje hexagons van gebiedstype gewisseld. Ze zitten dicht bij een grens in de dataruimte — het meest gevoelig voor die specifieke verandering.
         </div>
       </div>
 
