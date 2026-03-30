@@ -1,12 +1,13 @@
 // gebiedsviewer/js/wms-layer.js
 
 function tileToBoundingBox(x, y, z) {
-  const e = 20037508.34;
-  const resolution = e * 2 / Math.pow(2, z);
-  const west = x * resolution - e;
-  const north = e - y * resolution;
-  const east = west + resolution;
-  const south = north - resolution;
+  const n = Math.pow(2, z);
+  const west = (x / n) * 360 - 180;
+  const east = ((x + 1) / n) * 360 - 180;
+  const northRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n)));
+  const southRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * (y + 1) / n)));
+  const north = northRad * 180 / Math.PI;
+  const south = southRad * 180 / Math.PI;
   return [west, south, east, north];
 }
 
@@ -27,7 +28,7 @@ function createWMSLayer(layerConfig) {
       wmsUrl.searchParams.set('REQUEST', 'GetMap');
       wmsUrl.searchParams.set('LAYERS', layerConfig.layer);
       wmsUrl.searchParams.set('STYLES', '');
-      wmsUrl.searchParams.set('SRS', 'EPSG:3857');
+      wmsUrl.searchParams.set('SRS', 'EPSG:4326');
       wmsUrl.searchParams.set('WIDTH', '256');
       wmsUrl.searchParams.set('HEIGHT', '256');
       wmsUrl.searchParams.set('FORMAT', 'image/png');
