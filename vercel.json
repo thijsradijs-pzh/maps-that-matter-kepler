@@ -17,6 +17,7 @@
     { "source": "/schiedam-bos", "destination": "/schiedam-bos/index.html" },
     { "source": "/geluid-groen-viewer", "destination": "/geluid-groen-viewer/index.html" },
     { "source": "/som-viewer", "destination": "/som-viewer/index.html" },
+    { "source": "/gebiedsviewer", "destination": "/gebiedsviewer/index.html" },
     { "source": "/api/agro-proxy", "destination": "/api/agro-proxy.js" },
     { "source": "/api/proxy", "destination": "/api/proxy.js" },
     { "source": "/api/search-ngr", "destination": "/api/search-ngr.js" },

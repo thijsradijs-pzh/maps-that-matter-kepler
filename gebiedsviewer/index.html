@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <title>Zuid-Holland Gebiedsviewer – Maps That Matter</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+
+  <script async src="https://plausible.io/js/pa-unGG15m6r6ufvAQNAPz3f.js"></script>
+  <script>
+    window.plausible = window.plausible || function() { (plausible.q = plausible.q || []).push(arguments) };
+    plausible.init = plausible.init || function(i) { plausible.o = i || {} };
+    plausible.init();
+  </script>
+
+  <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <script src="/shared/deckgl-utils.js"></script>
+  <script src="/gebiedsviewer/config.js"></script>
+
+  <link rel="stylesheet" href="/gebiedsviewer/css/style.css">
+</head>
+<body>
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+
+    <div class="sidebar-header">
+      <div class="app-title">Zuid-Holland<br>Gebiedsviewer</div>
+      <div class="app-subtitle">Kaartlagen Provincie Zuid-Holland</div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="layers" onclick="switchTab('layers')">Kaartlagen</div>
+      <div class="tab" data-tab="legend" onclick="switchTab('legend')">Legenda</div>
+    </div>
+
+    <!-- LAYERS TAB -->
+    <div id="layers-content" class="sidebar-content active">
+
+      <div class="search-bar">
+        <i class="fa fa-search"></i>
+        <input type="text" id="layer-search" placeholder="Zoek kaartlagen...">
+        <i class="fa fa-times" id="search-clear"></i>
+      </div>
+
+      <div id="active-layers-panel">
+        <div class="active-panel-title">Actieve lagen</div>
+        <div id="active-layers-list"></div>
+      </div>
+
+      <div id="layer-tree"></div>
+    </div>
+
+    <!-- LEGEND TAB -->
+    <div id="legend-content" class="sidebar-content">
+      <div id="legend-items">
+        <p class="legend-empty">Geen actieve kaartlagen.<br>Kies lagen via het tabblad "Kaartlagen".</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MAP -->
+  <div id="map-container">
+
+    <div class="top-toolbar">
+      <div class="tool-pill" onclick="activateSearch()">
+        <i class="fa fa-search"></i> Adres zoeken
+      </div>
+    </div>
+
+    <div id="address-search-container">
+      <div class="search-pill-box">
+        <i class="fa fa-location-dot search-pill-icon"></i>
+        <input type="text" id="address-input" placeholder="Zoek adres of plaats..." autocomplete="off">
+        <i class="fa fa-times search-pill-close" onclick="closeAddressSearch()"></i>
+      </div>
+      <div id="address-results"></div>
+    </div>
+
+    <div class="zoom-controls">
+      <div class="zoom-btn" onclick="zoomIn()" title="Inzoomen"><i class="fa fa-plus"></i></div>
+      <div class="zoom-btn" onclick="zoomOut()" title="Uitzoomen"><i class="fa fa-minus"></i></div>
+      <div class="zoom-btn" onclick="resetView()" title="Beginpositie"><i class="fa fa-home"></i></div>
+      <div class="zoom-btn" id="btn-basemap" onclick="toggleBasemap()" title="Luchtfoto / Kaart" style="font-size:10px;font-weight:700;">Foto</div>
+    </div>
+
+    <div class="scale-bar" id="scale-bar">
+      <div class="scale-tick" style="left:0;"></div>
+      <div class="scale-tick" style="right:0;"></div>
+      <span class="scale-text" id="scale-text">...</span>
+    </div>
+
+    <div id="coords-widget" class="coords-widget">...</div>
+
+    <div id="loading">Kaart laden...</div>
+
+    <canvas id="deck-canvas"></canvas>
+
+  </div>
+
+  <script src="/gebiedsviewer/js/wms-layer.js"></script>
+  <script src="/gebiedsviewer/js/app.js"></script>
+</body>
+</html>
