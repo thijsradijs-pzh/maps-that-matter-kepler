@@ -13,12 +13,13 @@ function tileToWebMercatorBbox(x, y, z) {
 }
 
 function createWMSLayer(layerConfig) {
-  // Strip /WMSServer suffix if present to get the MapServer base URL
   const mapServerUrl = layerConfig.url.replace(/\/WMSServer$/, '');
 
   return new deck.TileLayer({
     id: `wms-${layerConfig.id}`,
     tileSize: 256,
+    maxCacheSize: 100,
+    opacity: layerConfig.opacity ?? 0.9,
     minZoom: 0,
     maxZoom: 19,
 

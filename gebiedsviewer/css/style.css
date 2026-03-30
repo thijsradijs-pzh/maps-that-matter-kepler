@@ -113,32 +113,82 @@ body {
 /* ── ACTIVE LAYERS PANEL ── */
 #active-layers-panel {
   display: none;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  background: #f0f7ff;
+  border-bottom: 2px solid var(--border);
+  background: #f8fafd;
 }
 .active-panel-title {
   font-size: 10px;
   font-weight: 700;
   color: var(--esri-blue);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 6px;
+  letter-spacing: 0.6px;
+  padding: 8px 12px 4px;
 }
-#active-layers-list { display: flex; flex-wrap: wrap; gap: 4px; }
-.active-layer-chip {
+#active-layers-list { display: flex; flex-direction: column; gap: 0; }
+
+/* Layer cards */
+.layer-card {
+  border-bottom: 1px solid #e4eef7;
+  background: white;
+  padding: 6px 10px;
+}
+.layer-card:hover { background: #f5f9ff; }
+.layer-card-header {
   display: flex;
   align-items: center;
-  gap: 5px;
-  background: white;
-  border: 1px solid #b3d4f0;
-  border-radius: 12px;
-  padding: 3px 8px;
-  font-size: 11px;
-  color: #004a7f;
+  gap: 6px;
 }
-.active-layer-chip i { cursor: pointer; color: #aaa; font-size: 10px; }
-.active-layer-chip i:hover { color: var(--pzh-red); }
+.layer-card-order {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex-shrink: 0;
+}
+.lc-btn {
+  font-size: 10px;
+  color: #999;
+  cursor: pointer;
+  padding: 1px 3px;
+  line-height: 1.2;
+  transition: color 0.1s;
+}
+.lc-btn:hover { color: var(--esri-blue); }
+.lc-disabled { color: #ddd !important; cursor: default; pointer-events: none; }
+.lc-remove:hover { color: var(--pzh-red) !important; }
+.layer-card-name {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.layer-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.layer-card-opacity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding-left: 24px;
+}
+.opacity-slider {
+  flex: 1;
+  height: 3px;
+  accent-color: var(--esri-blue);
+  cursor: pointer;
+}
+.opacity-val {
+  font-size: 10px;
+  color: #888;
+  width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+}
 
 /* ── LAYER TREE ── */
 #layer-tree { flex: 1; overflow-y: auto; }
@@ -278,14 +328,17 @@ details[open] > summary .toggle-arrow { transform: rotate(90deg); }
   background: white;
 }
 
-.legend-body { padding: 6px 8px; background: white; }
+.legend-body { padding: 6px 10px; background: white; }
+.legend-loading { font-size: 11px; color: #aaa; font-style: italic; }
 .legend-row {
   display: flex;
   align-items: center;
+  gap: 8px;
   font-size: 11px;
   color: #444;
-  padding: 2px 0;
+  padding: 3px 0;
 }
+.legend-row img { flex-shrink: 0; }
 
 /* ── MAP CONTAINER ── */
 #map-container {
@@ -412,8 +465,8 @@ details[open] > summary .toggle-arrow { transform: rotate(90deg); }
   border: 1px solid #ccc;
   border-radius: 6px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-  width: 300px;
-  max-height: 320px;
+  width: 320px;
+  max-height: 400px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -444,25 +497,41 @@ details[open] > summary .toggle-arrow { transform: rotate(90deg); }
 .popup-layer { margin-bottom: 10px; }
 .popup-layer-title {
   font-weight: 700;
-  color: var(--esri-blue);
-  font-size: 11px;
-  margin-bottom: 4px;
+  color: white;
+  font-size: 10px;
+  padding: 3px 8px;
+  background: var(--esri-blue);
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.4px;
+  margin: -1px -1px 0;
+  border-radius: 0;
 }
-.popup-text {
-  margin: 0;
-  white-space: pre-wrap;
+.popup-layer:first-child .popup-layer-title { margin-top: 0; }
+
+.attr-table {
+  width: 100%;
+  border-collapse: collapse;
   font-size: 11px;
-  color: #444;
-  font-family: monospace;
-  background: #f8f8f8;
-  padding: 6px;
-  border-radius: 3px;
-  border: 1px solid #eee;
-  max-height: 150px;
-  overflow-y: auto;
 }
+.attr-table tr { border-bottom: 1px solid #f0f0f0; }
+.attr-table tr:last-child { border-bottom: none; }
+.attr-table th {
+  text-align: left;
+  padding: 4px 8px 4px 0;
+  color: #666;
+  font-weight: 600;
+  white-space: nowrap;
+  width: 40%;
+  vertical-align: top;
+}
+.attr-table td {
+  padding: 4px 0;
+  color: #222;
+  word-break: break-word;
+}
+
+.popup-loading { color: #888; font-size: 12px; }
+.popup-empty { color: #888; font-size: 12px; font-style: italic; }
 
 /* ── SCALE BAR ── */
 .scale-bar {
