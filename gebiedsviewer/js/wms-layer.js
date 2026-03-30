@@ -1,17 +1,21 @@
 // gebiedsviewer/js/wms-layer.js
+// Uses ArcGIS MapServer REST export API instead of WMS
 
-function tileToBoundingBox(x, y, z) {
+function tileToWebMercatorBbox(x, y, z) {
+  const e = 20037508.34;
   const n = Math.pow(2, z);
-  const west = (x / n) * 360 - 180;
-  const east = ((x + 1) / n) * 360 - 180;
-  const northRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n)));
-  const southRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * (y + 1) / n)));
-  const north = northRad * 180 / Math.PI;
-  const south = southRad * 180 / Math.PI;
-  return [west, south, east, north];
+  const tileSize = e * 2 / n;
+  const xmin = x * tileSize - e;
+  const ymax = e - y * tileSize;
+  const xmax = xmin + tileSize;
+  const ymin = ymax - tileSize;
+  return [xmin, ymin, xmax, ymax];
 }
 
 function createWMSLayer(layerConfig) {
+  // Strip /WMSServer suffix if present to get the MapServer base URL
+  const mapServerUrl = layerConfig.url.replace(/\/WMSServer$/, '');
+
   return new deck.TileLayer({
     id: `wms-${layerConfig.id}`,
     tileSize: 256,
@@ -20,22 +24,19 @@ function createWMSLayer(layerConfig) {
 
     getTileData: async (props) => {
       const { x, y, z } = props.index;
-      const bbox = tileToBoundingBox(x, y, z);
+      const [xmin, ymin, xmax, ymax] = tileToWebMercatorBbox(x, y, z);
 
-      const wmsUrl = new URL(layerConfig.url);
-      wmsUrl.searchParams.set('SERVICE', 'WMS');
-      wmsUrl.searchParams.set('VERSION', '1.1.1');
-      wmsUrl.searchParams.set('REQUEST', 'GetMap');
-      wmsUrl.searchParams.set('LAYERS', layerConfig.layer);
-      wmsUrl.searchParams.set('STYLES', '');
-      wmsUrl.searchParams.set('SRS', 'EPSG:4326');
-      wmsUrl.searchParams.set('WIDTH', '256');
-      wmsUrl.searchParams.set('HEIGHT', '256');
-      wmsUrl.searchParams.set('FORMAT', 'image/png');
-      wmsUrl.searchParams.set('TRANSPARENT', 'true');
-      wmsUrl.searchParams.set('BBOX', bbox.join(','));
+      const exportUrl = new URL(`${mapServerUrl}/export`);
+      exportUrl.searchParams.set('bbox', `${xmin},${ymin},${xmax},${ymax}`);
+      exportUrl.searchParams.set('bboxSR', '3857');
+      exportUrl.searchParams.set('imageSR', '3857');
+      exportUrl.searchParams.set('size', '256,256');
+      exportUrl.searchParams.set('format', 'png');
+      exportUrl.searchParams.set('layers', `show:${layerConfig.layer}`);
+      exportUrl.searchParams.set('transparent', 'true');
+      exportUrl.searchParams.set('f', 'image');
 
-      const proxyUrl = `/api/proxy?url=${encodeURIComponent(wmsUrl.toString())}`;
+      const proxyUrl = `/api/proxy?url=${encodeURIComponent(exportUrl.toString())}`;
 
       try {
         const response = await fetch(proxyUrl);

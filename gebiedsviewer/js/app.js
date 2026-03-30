@@ -205,16 +205,29 @@ function updateLegend() {
   }
 
   activeLayers.forEach(({ wmsUrl, layerId, label }) => {
-    const legendUrl = `${wmsUrl}?SERVICE=WMS&REQUEST=GetLegendGraphic&VERSION=1.1.1&FORMAT=image/png&LAYER=${layerId}&TRANSPARENT=true`;
-    const proxyUrl = `/api/proxy?url=${encodeURIComponent(legendUrl)}`;
+    const mapServerUrl = wmsUrl.replace(/\/WMSServer$/, '');
+    const legendJsonUrl = `${mapServerUrl}/legend?f=pjson`;
+    const proxyUrl = `/api/proxy?url=${encodeURIComponent(legendJsonUrl)}`;
 
     const div = document.createElement('div');
     div.className = 'legend-item';
-    div.innerHTML = `
-      <div class="legend-layer-name">${label}</div>
-      <img src="${proxyUrl}" class="legend-img" onerror="this.style.display='none'" loading="lazy">
-    `;
+    div.innerHTML = `<div class="legend-layer-name">${label}</div><div class="legend-body"></div>`;
     container.appendChild(div);
+
+    fetch(proxyUrl)
+      .then(r => r.json())
+      .then(data => {
+        const layerEntry = (data.layers || []).find(l => String(l.layerId) === String(layerId));
+        if (!layerEntry || !layerEntry.legend || !layerEntry.legend.length) return;
+        const body = div.querySelector('.legend-body');
+        body.innerHTML = layerEntry.legend.map(item => `
+          <div class="legend-row">
+            <img src="data:${item.contentType};base64,${item.imageData}" width="${item.width}" height="${item.height}" style="vertical-align:middle;margin-right:6px;">
+            <span>${item.label || ''}</span>
+          </div>
+        `).join('');
+      })
+      .catch(() => {});
   });
 }
 
@@ -272,35 +285,46 @@ function handleMapClick({ coordinate, x, y }) {
   }
 
   const [lon, lat] = coordinate;
-  const delta = 0.0015;
-  const bbox = [lon - delta, lat - delta, lon + delta, lat + delta].join(',');
 
   showPopup(x, y, 'Laden...');
 
+  // Convert click coords to Web Mercator for ArcGIS identify
+  const R = 6378137;
+  const mx = lon * Math.PI / 180 * R;
+  const my = Math.log(Math.tan((90 + lat) * Math.PI / 360)) * R;
+  const delta = 500; // meters tolerance
+  const mapExtent = `${mx - delta},${my - delta},${mx + delta},${my + delta}`;
+
   const requests = [...activeLayers.values()].map(({ wmsUrl, layerId, label }) => {
-    const url = new URL(wmsUrl);
-    url.searchParams.set('SERVICE', 'WMS');
-    url.searchParams.set('VERSION', '1.1.1');
-    url.searchParams.set('REQUEST', 'GetFeatureInfo');
-    url.searchParams.set('QUERY_LAYERS', layerId);
-    url.searchParams.set('LAYERS', layerId);
-    url.searchParams.set('INFO_FORMAT', 'text/plain');
-    url.searchParams.set('FEATURE_COUNT', '5');
-    url.searchParams.set('X', '50');
-    url.searchParams.set('Y', '50');
-    url.searchParams.set('WIDTH', '101');
-    url.searchParams.set('HEIGHT', '101');
-    url.searchParams.set('SRS', 'EPSG:4326');
-    url.searchParams.set('BBOX', bbox);
+    const mapServerUrl = wmsUrl.replace(/\/WMSServer$/, '');
+    const url = new URL(`${mapServerUrl}/identify`);
+    url.searchParams.set('geometry', `${mx},${my}`);
+    url.searchParams.set('geometryType', 'esriGeometryPoint');
+    url.searchParams.set('sr', '3857');
+    url.searchParams.set('layers', `top:${layerId}`);
+    url.searchParams.set('tolerance', '10');
+    url.searchParams.set('mapExtent', mapExtent);
+    url.searchParams.set('imageDisplay', '256,256,96');
+    url.searchParams.set('returnGeometry', 'false');
+    url.searchParams.set('f', 'json');
     return fetch(`/api/proxy?url=${encodeURIComponent(url.toString())}`)
-      .then(r => r.text())
-      .then(text => ({ label, text }))
+      .then(r => r.json())
+      .then(data => {
+        const results = data.results || [];
+        if (!results.length) return { label, text: '' };
+        const text = results.map(r => {
+          const attrs = Object.entries(r.attributes || {})
+            .filter(([k]) => k !== 'OBJECTID' && k !== 'Shape')
+            .map(([k, v]) => `${k}: ${v}`).join('\n');
+          return attrs;
+        }).join('\n---\n');
+        return { label, text };
+      })
       .catch(() => ({ label, text: '' }));
   });
 
   Promise.all(requests).then(results => {
-    const filtered = results.filter(r => r.text && r.text.trim().length > 10
-      && !r.text.toLowerCase().includes('no features'));
+    const filtered = results.filter(r => r.text && r.text.trim().length > 3);
     if (filtered.length === 0) {
       showPopup(x, y, '<em style="color:#888">Geen objecten gevonden op deze locatie.</em>');
     } else {

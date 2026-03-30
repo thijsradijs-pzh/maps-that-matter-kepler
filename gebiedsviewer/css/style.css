@@ -278,6 +278,15 @@ details[open] > summary .toggle-arrow { transform: rotate(90deg); }
   background: white;
 }
 
+.legend-body { padding: 6px 8px; background: white; }
+.legend-row {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  color: #444;
+  padding: 2px 0;
+}
+
 /* ── MAP CONTAINER ── */
 #map-container {
   flex: 1;
