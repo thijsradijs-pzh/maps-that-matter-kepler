@@ -155,6 +155,12 @@ body {
 .lc-btn:hover { color: var(--esri-blue); }
 .lc-disabled { color: #ddd !important; cursor: default; pointer-events: none; }
 .lc-remove:hover { color: var(--pzh-red) !important; }
+.layer-card-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
 .layer-card-name {
   flex: 1;
   font-size: 12px;
@@ -189,6 +195,11 @@ body {
   text-align: right;
   flex-shrink: 0;
 }
+.lc-status { font-size: 10px; flex-shrink: 0; }
+.lc-loading-icon { color: var(--esri-blue); }
+.lc-error-icon { color: #cc4400; }
+.lc-count { color: #888; font-size: 10px; }
+.popup-more { font-size: 10px; color: #888; margin: 4px 0 0; font-style: italic; }
 
 /* ── LAYER TREE ── */
 #layer-tree { flex: 1; overflow-y: auto; }

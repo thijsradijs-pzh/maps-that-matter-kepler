@@ -1,63 +1,75 @@
-// gebiedsviewer/js/wms-layer.js
-// Uses ArcGIS MapServer REST export API instead of WMS
+// gebiedsviewer/js/vector-layer.js
+// Fetches features from ArcGIS REST query endpoint and renders with Deck.gl GeoJsonLayer.
 
-function tileToWebMercatorBbox(x, y, z) {
-  const e = 20037508.34;
-  const n = Math.pow(2, z);
-  const tileSize = e * 2 / n;
-  const xmin = x * tileSize - e;
-  const ymax = e - y * tileSize;
-  const xmax = xmin + tileSize;
-  const ymin = ymax - tileSize;
-  return [xmin, ymin, xmax, ymax];
+async function fetchFeatures(mapServerUrl, layerId) {
+  const base = `${mapServerUrl}/${layerId}/query`;
+  const PAGE = 2000;
+
+  async function fetchPage(offset) {
+    const params = new URLSearchParams({
+      where: '1=1',
+      outFields: '*',
+      returnGeometry: 'true',
+      outSR: '4326',
+      f: 'geojson',
+      resultRecordCount: PAGE,
+      resultOffset: offset,
+    });
+    const url = `/api/proxy?url=${encodeURIComponent(`${base}?${params}`)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  const first = await fetchPage(0);
+  if (!first.features) throw new Error('No features in response');
+
+  let features = first.features;
+
+  // Paginate if server indicates more records exist
+  if (first.exceededTransferLimit) {
+    let offset = PAGE;
+    while (offset < 10000) {          // hard cap: 10 000 features
+      const page = await fetchPage(offset);
+      features = features.concat(page.features || []);
+      if (!page.exceededTransferLimit) break;
+      offset += PAGE;
+    }
+  }
+
+  return { type: 'FeatureCollection', features };
 }
 
-function createWMSLayer(layerConfig) {
-  const mapServerUrl = layerConfig.url.replace(/\/WMSServer$/, '');
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return [r, g, b];
+}
 
-  return new deck.TileLayer({
-    id: `wms-${layerConfig.id}`,
-    tileSize: 256,
-    maxCacheSize: 100,
-    opacity: layerConfig.opacity ?? 0.9,
-    minZoom: 0,
-    maxZoom: 19,
+function createVectorLayer(key, entry) {
+  if (!entry.geojson) return null;
 
-    getTileData: async (props) => {
-      const { x, y, z } = props.index;
-      const [xmin, ymin, xmax, ymax] = tileToWebMercatorBbox(x, y, z);
+  const [r, g, b] = hexToRgb(entry.color || '#007ac2');
+  const opacity = entry.visible ? entry.opacity : 0;
 
-      const exportUrl = new URL(`${mapServerUrl}/export`);
-      exportUrl.searchParams.set('bbox', `${xmin},${ymin},${xmax},${ymax}`);
-      exportUrl.searchParams.set('bboxSR', '3857');
-      exportUrl.searchParams.set('imageSR', '3857');
-      exportUrl.searchParams.set('size', '256,256');
-      exportUrl.searchParams.set('format', 'png');
-      exportUrl.searchParams.set('layers', `show:${layerConfig.layer}`);
-      exportUrl.searchParams.set('transparent', 'true');
-      exportUrl.searchParams.set('f', 'image');
-
-      const proxyUrl = `/api/proxy?url=${encodeURIComponent(exportUrl.toString())}`;
-
-      try {
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error('Proxy failed');
-        const blob = await response.blob();
-        return await createImageBitmap(blob);
-      } catch (error) {
-        console.warn(`Error loading tile for ${layerConfig.title}:`, error);
-        return null;
-      }
+  return new deck.GeoJsonLayer({
+    id: `vector-${key}`,
+    data: entry.geojson,
+    opacity,
+    stroked: true,
+    filled: true,
+    getFillColor:  [r, g, b, 160],
+    getLineColor:  [r, g, b, 230],
+    getLineWidth: 1.5,
+    lineWidthMinPixels: 1,
+    getPointRadius: 6,
+    pointRadiusMinPixels: 4,
+    pickable: true,
+    autoHighlight: true,
+    highlightColor: [255, 220, 0, 200],
+    updateTriggers: {
+      opacity: [opacity],
     },
-
-    renderSubLayers: props => {
-      if (!props.data) return null;
-      const { bbox: { west, south, east, north } } = props.tile;
-      return new deck.BitmapLayer(props, {
-        data: null,
-        image: props.data,
-        bounds: [west, south, east, north]
-      });
-    }
   });
 }
