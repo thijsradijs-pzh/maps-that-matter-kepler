@@ -4,7 +4,7 @@
 let deckInstance = null;
 let currentViewState = { ...CONFIG.initialView };
 let isSatellite = false;
-// key → { wmsUrl, layerId, label, serviceId, color, opacity, visible, geojson, loading, error }
+// key → { wmsUrl, mapServerUrl, layerId, label, serviceId, color, opacity, visible }
 const activeLayers = new Map();
 let popupEl = null;
 let searchTerm = '';
@@ -117,9 +117,8 @@ function getThemeColor(serviceId) {
   return theme ? theme.color : '#007ac2';
 }
 
-async function enableLayer(key, service, layer) {
+function enableLayer(key, service, layer) {
   const mapServerUrl = service.wmsUrl.replace(/\/WMSServer$/, '');
-
   activeLayers.set(key, {
     wmsUrl: service.wmsUrl,
     mapServerUrl,
@@ -129,33 +128,10 @@ async function enableLayer(key, service, layer) {
     color: getThemeColor(service.id),
     opacity: 0.9,
     visible: true,
-    geojson: null,
-    loading: true,
-    error: false,
-    featureCount: 0,
   });
-
-  renderLayerPanel();
-  rebuildDeck();
-  updateBadges();
-
-  try {
-    const geojson = await fetchFeatures(mapServerUrl, layer.id);
-    const entry = activeLayers.get(key);
-    if (!entry) return; // was removed while loading
-    entry.geojson = geojson;
-    entry.featureCount = geojson.features.length;
-    entry.loading = false;
-  } catch (e) {
-    const entry = activeLayers.get(key);
-    if (!entry) return;
-    entry.loading = false;
-    entry.error = true;
-    console.warn(`Failed to load ${layer.label}:`, e);
-  }
-
   rebuildDeck();
   updateLegend();
+  updateBadges();
   renderLayerPanel();
 }
 
@@ -243,14 +219,7 @@ function renderLayerPanel() {
     const pct = Math.round(entry.opacity * 100);
     const eyeIcon = entry.visible ? 'fa-eye' : 'fa-eye-slash';
 
-    let statusHtml;
-    if (entry.loading) {
-      statusHtml = `<i class="fa fa-circle-notch fa-spin lc-status lc-loading-icon"></i>`;
-    } else if (entry.error) {
-      statusHtml = `<i class="fa fa-exclamation-triangle lc-status lc-error-icon" title="Kon laag niet laden"></i>`;
-    } else {
-      statusHtml = `<span class="lc-status lc-count">${entry.featureCount.toLocaleString('nl')} obj.</span>`;
-    }
+    const statusHtml = `<span class="lc-status lc-count" style="color:${entry.color}"><i class="fa fa-circle" style="font-size:7px"></i></span>`;
 
     const card = document.createElement('div');
     card.className = 'layer-card';
@@ -340,10 +309,16 @@ function initDeck() {
 function rebuildDeck() {
   if (!deckInstance) return;
   const basemap = isSatellite ? createSatelliteLayer() : DeckGLUtils.createBasemap('light');
-  const vectorLayers = [...activeLayers.entries()]
-    .map(([key, entry]) => createVectorLayer(key, entry))
-    .filter(Boolean);
-  deckInstance.setProps({ layers: [basemap, ...vectorLayers] });
+  const tileLayers = [...activeLayers.entries()].map(([key, entry]) =>
+    createWMSLayer({
+      id: key,
+      url: entry.wmsUrl,
+      layer: entry.layerId,
+      title: entry.label,
+      opacity: entry.visible ? entry.opacity : 0,
+    })
+  );
+  deckInstance.setProps({ layers: [basemap, ...tileLayers] });
 }
 
 function createSatelliteLayer() {
@@ -360,45 +335,75 @@ function createSatelliteLayer() {
 }
 
 // --- CLICK / IDENTIFY ---
-function handleMapClick({ x, y }) {
-  if (activeLayers.size === 0) { closePopup(); return; }
+const SKIP_FIELDS = new Set([
+  'OBJECTID', 'Shape', 'Shape.STArea()', 'Shape.STLength()',
+  'Shape_Length', 'Shape_Area', 'FID', 'GlobalID',
+]);
 
-  const picks = deckInstance.pickMultipleObjects({ x, y, radius: 4 });
-  if (!picks.length) { closePopup(); return; }
+function handleMapClick({ coordinate, x, y }) {
+  if (!coordinate || activeLayers.size === 0) { closePopup(); return; }
 
-  // Group picks by layer
-  const grouped = new Map();
-  picks.forEach(pick => {
-    if (!pick.object || !pick.layer) return;
-    const layerKey = pick.layer.id.replace(/^vector-/, '');
-    const entry = activeLayers.get(layerKey);
-    if (!entry) return;
-    if (!grouped.has(layerKey)) grouped.set(layerKey, { label: entry.label, features: [] });
-    grouped.get(layerKey).features.push(pick.object.properties || {});
+  const visibleLayers = [...activeLayers.values()].filter(e => e.visible);
+  if (!visibleLayers.length) { closePopup(); return; }
+
+  const [lon, lat] = coordinate;
+  showPopup(x, y, '<span class="popup-loading"><i class="fa fa-circle-notch fa-spin"></i> Laden...</span>');
+
+  const R = 6378137;
+  const mx = lon * Math.PI / 180 * R;
+  const my = Math.log(Math.tan((90 + lat) * Math.PI / 360)) * R;
+  const delta = 300;
+  const mapExtent = `${mx - delta},${my - delta},${mx + delta},${my + delta}`;
+
+  const requests = visibleLayers.map(entry => {
+    const url = new URL(`${entry.mapServerUrl}/identify`);
+    url.searchParams.set('geometry', `${mx},${my}`);
+    url.searchParams.set('geometryType', 'esriGeometryPoint');
+    url.searchParams.set('sr', '3857');
+    url.searchParams.set('layers', `top:${entry.layerId}`);
+    url.searchParams.set('tolerance', '8');
+    url.searchParams.set('mapExtent', mapExtent);
+    url.searchParams.set('imageDisplay', '256,256,96');
+    url.searchParams.set('returnGeometry', 'false');
+    url.searchParams.set('f', 'json');
+    return fetch(`/api/proxy?url=${encodeURIComponent(url.toString())}`)
+      .then(r => r.json())
+      .then(data => ({
+        label: entry.label,
+        results: (data.results || []).map(r =>
+          Object.fromEntries(
+            Object.entries(r.attributes || {}).filter(([k]) => !SKIP_FIELDS.has(k))
+          )
+        ),
+      }))
+      .catch(() => ({ label: entry.label, results: [] }));
   });
 
-  if (grouped.size === 0) { closePopup(); return; }
+  Promise.all(requests).then(responses => {
+    const found = responses.filter(r => r.results.length > 0);
+    if (!found.length) {
+      showPopup(x, y, '<em class="popup-empty">Geen objecten gevonden op deze locatie.</em>');
+      return;
+    }
 
-  const SKIP_FIELDS = new Set(['OBJECTID', 'Shape', 'Shape.STArea()', 'Shape.STLength()',
-    'Shape_Length', 'Shape_Area', 'FID', 'GlobalID']);
+    const html = found.map(({ label, results }) => {
+      const attrs = results[0];
+      const rows = Object.entries(attrs)
+        .filter(([, v]) => v !== null && v !== '' && v !== undefined)
+        .map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`)
+        .join('');
+      const more = results.length > 1
+        ? `<p class="popup-more">+${results.length - 1} meer object${results.length > 2 ? 'en' : ''}</p>` : '';
+      return `
+        <div class="popup-layer">
+          <div class="popup-layer-title">${label}</div>
+          <table class="attr-table"><tbody>${rows}</tbody></table>
+          ${more}
+        </div>`;
+    }).join('');
 
-  const html = [...grouped.values()].map(({ label, features }) => {
-    const tableRows = Object.entries(features[0] || {})
-      .filter(([k]) => !SKIP_FIELDS.has(k) && features[0][k] !== null && features[0][k] !== '')
-      .map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`)
-      .join('');
-    const moreCount = features.length - 1;
-    const more = moreCount > 0 ? `<p class="popup-more">+${moreCount} meer object${moreCount > 1 ? 'en' : ''}</p>` : '';
-    return `
-      <div class="popup-layer">
-        <div class="popup-layer-title">${label}</div>
-        <table class="attr-table"><tbody>${tableRows}</tbody></table>
-        ${more}
-      </div>
-    `;
-  }).join('');
-
-  showPopup(x, y, html);
+    showPopup(x, y, html);
+  });
 }
 
 function showPopup(x, y, html) {

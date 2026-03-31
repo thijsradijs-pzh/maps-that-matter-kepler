@@ -1,75 +1,57 @@
-// gebiedsviewer/js/vector-layer.js
-// Fetches features from ArcGIS REST query endpoint and renders with Deck.gl GeoJsonLayer.
+// gebiedsviewer/js/wms-layer.js
+// Renders ArcGIS MapServer layers as raster tiles via the export endpoint.
+// Feature data is only fetched on click (via identify in app.js).
 
-async function fetchFeatures(mapServerUrl, layerId) {
-  const base = `${mapServerUrl}/${layerId}/query`;
-  const PAGE = 2000;
-
-  async function fetchPage(offset) {
-    const params = new URLSearchParams({
-      where: '1=1',
-      outFields: '*',
-      returnGeometry: 'true',
-      outSR: '4326',
-      f: 'geojson',
-      resultRecordCount: PAGE,
-      resultOffset: offset,
-    });
-    const url = `/api/proxy?url=${encodeURIComponent(`${base}?${params}`)}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
-  }
-
-  const first = await fetchPage(0);
-  if (!first.features) throw new Error('No features in response');
-
-  let features = first.features;
-
-  // Paginate if server indicates more records exist
-  if (first.exceededTransferLimit) {
-    let offset = PAGE;
-    while (offset < 10000) {          // hard cap: 10 000 features
-      const page = await fetchPage(offset);
-      features = features.concat(page.features || []);
-      if (!page.exceededTransferLimit) break;
-      offset += PAGE;
-    }
-  }
-
-  return { type: 'FeatureCollection', features };
+function tileToWebMercatorBbox(x, y, z) {
+  const e = 20037508.34;
+  const n = Math.pow(2, z);
+  const tileSize = e * 2 / n;
+  const xmin = x * tileSize - e;
+  const ymax = e - y * tileSize;
+  return [xmin, ymax - tileSize, xmin + tileSize, ymax];
 }
 
-function hexToRgb(hex) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return [r, g, b];
-}
+function createWMSLayer(layerConfig) {
+  const mapServerUrl = layerConfig.url.replace(/\/WMSServer$/, '');
 
-function createVectorLayer(key, entry) {
-  if (!entry.geojson) return null;
+  return new deck.TileLayer({
+    id: `wms-${layerConfig.id}`,
+    tileSize: 256,
+    maxCacheSize: 100,
+    opacity: layerConfig.opacity ?? 0.9,
+    minZoom: 0,
+    maxZoom: 19,
 
-  const [r, g, b] = hexToRgb(entry.color || '#007ac2');
-  const opacity = entry.visible ? entry.opacity : 0;
+    getTileData: async ({ index: { x, y, z } }) => {
+      const [xmin, ymin, xmax, ymax] = tileToWebMercatorBbox(x, y, z);
+      const params = new URLSearchParams({
+        bbox: `${xmin},${ymin},${xmax},${ymax}`,
+        bboxSR: '3857',
+        imageSR: '3857',
+        size: '256,256',
+        format: 'png',
+        layers: `show:${layerConfig.layer}`,
+        transparent: 'true',
+        f: 'image',
+      });
+      const proxyUrl = `/api/proxy?url=${encodeURIComponent(`${mapServerUrl}/export?${params}`)}`;
+      try {
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return createImageBitmap(await response.blob());
+      } catch (e) {
+        return null;
+      }
+    },
 
-  return new deck.GeoJsonLayer({
-    id: `vector-${key}`,
-    data: entry.geojson,
-    opacity,
-    stroked: true,
-    filled: true,
-    getFillColor:  [r, g, b, 160],
-    getLineColor:  [r, g, b, 230],
-    getLineWidth: 1.5,
-    lineWidthMinPixels: 1,
-    getPointRadius: 6,
-    pointRadiusMinPixels: 4,
-    pickable: true,
-    autoHighlight: true,
-    highlightColor: [255, 220, 0, 200],
-    updateTriggers: {
-      opacity: [opacity],
+    renderSubLayers: props => {
+      if (!props.data) return null;
+      const { bbox: { west, south, east, north } } = props.tile;
+      return new deck.BitmapLayer(props, {
+        data: null,
+        image: props.data,
+        bounds: [west, south, east, north],
+      });
     },
   });
 }
