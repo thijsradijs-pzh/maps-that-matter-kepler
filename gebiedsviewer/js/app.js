@@ -658,9 +658,12 @@ function printMap() {
              display: flex; flex-direction: column; padding: 18px 14px; overflow: hidden; }
     .brand { font-size: 15px; font-weight: 700; line-height: 1.3; color: #333; }
     .brand-sub { font-size: 10px; color: #aaa; margin-top: 2px; }
-    .print-btn { margin: 12px 0; padding: 9px; background: #007ac2; color: white; border: none;
+    .print-btn { margin: 6px 0; padding: 9px; background: #007ac2; color: white; border: none;
                  border-radius: 5px; font-size: 12px; font-weight: 600; cursor: pointer; width: 100%; }
     .print-btn:hover { background: #005f99; }
+    .back-btn { margin: 6px 0; padding: 9px; background: white; color: #555; border: 1px solid #ccc;
+                border-radius: 5px; font-size: 12px; font-weight: 600; cursor: pointer; width: 100%; }
+    .back-btn:hover { background: #f5f5f5; }
     h3 { font-size: 9px; text-transform: uppercase; letter-spacing: 0.6px; color: #999;
          font-weight: 700; margin: 14px 0 5px; border-top: 1px solid #f0f0f0; padding-top: 10px; }
     .pl-item { display: flex; align-items: center; gap: 7px; font-size: 11px; color: #333;
@@ -671,7 +674,7 @@ function printMap() {
     .pzh-stripe { height: 4px; background: #E3001B; margin: 0 0 14px; border-radius: 2px; }
     @media print {
       @page { margin: 0; size: A4 landscape; }
-      .print-btn { display: none !important; }
+      .print-btn, .back-btn { display: none !important; }
     }
   </style>
 </head>
@@ -684,6 +687,7 @@ function printMap() {
     <div class="brand">Zuid-Holland<br>Gebiedsviewer</div>
     <div class="brand-sub">Maps That Matter</div>
     <button class="print-btn" onclick="window.print()">&#128438; Afdrukken / Opslaan als PDF</button>
+    <button class="back-btn" onclick="window.close()">&#8592; Terug naar viewer</button>
     <h3>Actieve lagen</h3>
     ${legendItems}
     <h3>Kaartpositie</h3>
