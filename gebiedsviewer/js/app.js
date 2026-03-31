@@ -195,23 +195,35 @@ async function enableLayer(key, service, layer) {
     }
 
     // Detect group layers — they contain both polygon and point sublayers which
-    // would otherwise all render at once when using show:{groupId}
-    if (data.type === 'Group Layer' && data.subLayerIds?.length) {
+    // would otherwise all render at once when using show:{groupId}.
+    // ArcGIS ≤10.x returns subLayerIds (int[]); ArcGIS 11.x returns subLayers ([{id,name}])
+    const subLayerIds = data.subLayerIds
+      ?? data.subLayers?.map(s => s.id)
+      ?? [];
+
+    if (data.type === 'Group Layer' && subLayerIds.length) {
       entry.isGroupLayer = true;
-      // Fetch each sublayer's name + geometry type in parallel
+
+      // Use names from the group response directly (avoids N round-trips),
+      // then fetch geometryType for each sublayer in parallel
+      const nameMap = Object.fromEntries(
+        (data.subLayers || []).map(s => [s.id, s.name])
+      );
+
       const subInfos = await Promise.all(
-        data.subLayerIds.map(id =>
+        subLayerIds.map(id =>
           fetch(`/api/proxy?url=${encodeURIComponent(`${mapServerUrl}/${id}?f=json`)}`)
             .then(r => r.json())
-            .catch(() => ({ id, name: `Laag ${id}`, geometryType: null }))
+            .catch(() => ({ id, geometryType: null }))
         )
       );
+
       entry.subLayerDetails = subInfos.map(s => ({
         id: s.id,
-        name: s.name || `Laag ${s.id}`,
+        name: nameMap[s.id] || s.name || `Laag ${s.id}`,
         geometryType: s.geometryType || null,
       }));
-      entry.activeSubLayers = new Set(data.subLayerIds); // all on by default
+      entry.activeSubLayers = new Set(subLayerIds); // all on by default
       renderLayerPanel(); // re-render to show sublayer toggles
       rebuildDeck();      // re-render tiles with explicit sublayer IDs
     }
