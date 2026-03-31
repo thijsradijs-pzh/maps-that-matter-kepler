@@ -86,8 +86,8 @@ body {
 }
 
 .tab {
-  padding: 9px 15px;
-  font-size: 12px;
+  padding: 9px 6px;
+  font-size: 11px;
   font-weight: 600;
   color: #777;
   cursor: pointer;
@@ -715,6 +715,113 @@ details[open] > summary .toggle-arrow { transform: rotate(90deg); }
   background: #e6f4ea;
   color: #2d7a3a;
   border-color: #a8d5b0;
+}
+
+/* ── ANALYSE / MCA TAB ── */
+.mca-header {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border);
+  background: #f8fafd;
+}
+.mca-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+.mca-region {
+  font-size: 11px;
+  color: var(--esri-blue);
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+.mca-desc {
+  font-size: 11px;
+  color: #777;
+  line-height: 1.5;
+}
+.mca-loading {
+  padding: 20px;
+  text-align: center;
+  color: #888;
+  font-size: 12px;
+}
+#mca-controls { padding: 10px 12px 14px; }
+.mca-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #999;
+  margin-bottom: 8px;
+}
+.mca-slider-row {
+  margin-bottom: 10px;
+}
+.mca-slider-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: #444;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.mca-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.mca-slider-track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mca-slider {
+  flex: 1;
+  height: 4px;
+  accent-color: var(--esri-blue);
+  cursor: pointer;
+}
+.mca-slider-val {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--esri-blue);
+  width: 16px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.mca-view-toggle {
+  display: flex;
+  gap: 6px;
+}
+.mca-view-btn {
+  flex: 1;
+  padding: 7px 8px;
+  border: 1.5px solid #dde3ec;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #777;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.mca-view-btn:hover { border-color: var(--esri-blue); color: var(--esri-blue); }
+.mca-view-btn.active { background: var(--esri-blue); color: white; border-color: var(--esri-blue); }
+.mca-legend { display: flex; flex-direction: column; gap: 5px; }
+.mca-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #555;
 }
 
 /* ── ADD LAYER BUTTON ── */

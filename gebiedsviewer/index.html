@@ -13,6 +13,8 @@
   </script>
 
   <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
+  <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <script src="/shared/deckgl-utils.js"></script>
@@ -42,6 +44,7 @@
       <div class="tab active" data-tab="layers" onclick="switchTab('layers')">Kaartlagen</div>
       <div class="tab" data-tab="legend" onclick="switchTab('legend')">Legenda</div>
       <div class="tab" data-tab="catalog" onclick="switchTab('catalog')">Catalogus</div>
+      <div class="tab" data-tab="analyse" onclick="switchTab('analyse')">Analyse</div>
     </div>
 
     <!-- LAYERS TAB -->
@@ -70,6 +73,33 @@
     <div id="legend-content" class="sidebar-content">
       <div id="legend-items">
         <p class="legend-empty">Geen actieve kaartlagen.<br>Kies lagen via het tabblad "Kaartlagen".</p>
+      </div>
+    </div>
+
+    <!-- ANALYSE TAB -->
+    <div id="analyse-content" class="sidebar-content">
+      <div class="mca-header">
+        <div class="mca-title">Multi-Criteria Analyse</div>
+        <div class="mca-region"><i class="fa fa-location-dot"></i> Groene Hart Noord · Zuid-Holland</div>
+        <div class="mca-desc">Stel per criterium een gewicht in (0–10) om te zien waar ruimtelijke opgaven samenkomen.</div>
+      </div>
+      <div id="mca-loading" class="mca-loading" style="display:none">
+        <i class="fa fa-circle-notch fa-spin"></i> Data laden...
+      </div>
+      <div id="mca-controls" style="display:none">
+        <div class="mca-section-label">Gewichten</div>
+        <div id="mca-sliders"></div>
+        <div class="mca-section-label" style="margin-top:10px">Weergave</div>
+        <div class="mca-view-toggle">
+          <div class="mca-view-btn active" id="mca-btn-3d" onclick="setMcaView('3d')">
+            <i class="fa fa-cube"></i> 3D gestapeld
+          </div>
+          <div class="mca-view-btn" id="mca-btn-heatmap" onclick="setMcaView('heatmap')">
+            <i class="fa fa-fire"></i> Heatmap
+          </div>
+        </div>
+        <div class="mca-section-label" style="margin-top:10px">Legenda</div>
+        <div id="mca-legend" class="mca-legend"></div>
       </div>
     </div>
 
