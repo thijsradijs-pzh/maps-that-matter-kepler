@@ -16,7 +16,7 @@ const MCA_CRITERIA = [
   { key: 'boerenlandvogels', label: 'Boerenlandvogels', color: [255, 179, 0],  weightKey: 'w_boerenlandvogels' },
   { key: 'peilgebieden',     label: 'Peilgebieden',     color: [142, 68, 173], weightKey: 'w_peilgebieden' },
 ];
-const MCA_VIEW = { longitude: 4.70, latitude: 52.08, zoom: 10, pitch: 45, bearing: 0 };
+const MCA_VIEW = { longitude: 4.70, latitude: 52.08, zoom: 10, pitch: 0, bearing: 0 };
 
 // --- STATE ---
 let deckInstance = null;
@@ -31,7 +31,6 @@ let _customLayerCount = 0;
 const mcaState = {
   active: false,
   data: null,
-  view: '3d',   // '3d' or 'heatmap'
   weights: Object.fromEntries(MCA_CRITERIA.map(c => [c.weightKey, 2])),
 };
 
@@ -498,29 +497,6 @@ function initDeck() {
     },
 
     onClick: handleMapClick,
-
-    getTooltip: ({ object, layer }) => {
-      if (!object || !layer?.id?.startsWith('mca-stack')) return null;
-      let total = 0;
-      const lines = MCA_CRITERIA.map(c => {
-        const score = (Number(object[c.key]) || 0) * (mcaState.weights[c.weightKey] || 0);
-        total += score;
-        return score > 0
-          ? `<div style="display:flex;align-items:center;gap:6px;margin:2px 0">
-               <span style="width:8px;height:8px;border-radius:50%;background:rgb(${c.color.join(',')});flex-shrink:0"></span>
-               <span style="flex:1;color:#555">${c.label}</span>
-               <b style="color:#333">${score}</b>
-             </div>`
-          : '';
-      }).join('');
-      return {
-        html: `<div style="background:white;border-radius:5px;box-shadow:0 2px 10px rgba(0,0,0,0.2);overflow:hidden;min-width:180px">
-          <div style="background:#007ac2;color:white;padding:6px 10px;font-size:11px;font-weight:700">MCA Score: ${total}</div>
-          <div style="padding:8px 10px;font-size:11px">${lines || '<em style="color:#aaa">Score: 0</em>'}</div>
-        </div>`,
-        style: { padding: '0', background: 'transparent', boxShadow: 'none' },
-      };
-    },
   });
 
   updateScaleBar(currentViewState);
@@ -1106,17 +1082,6 @@ function onMcaSlider(el) {
   if (mcaState.active && mcaState.data) rebuildDeck();
 }
 
-function setMcaView(view) {
-  mcaState.view = view;
-  document.getElementById('mca-btn-3d').classList.toggle('active', view === '3d');
-  document.getElementById('mca-btn-heatmap').classList.toggle('active', view === 'heatmap');
-  // Heatmap works better flat; 3D needs pitch
-  const pitch = view === '3d' ? 45 : 0;
-  currentViewState = { ...currentViewState, pitch, transitionDuration: 500 };
-  deckInstance.setProps({ initialViewState: currentViewState });
-  if (mcaState.data) rebuildDeck();
-}
-
 async function loadMcaData() {
   if (mcaState.data) {
     // Already loaded — just show controls and rebuild
@@ -1147,66 +1112,20 @@ async function loadMcaData() {
 function buildMcaLayers() {
   if (!mcaState.active || !mcaState.data) return [];
 
-  const { data, weights, view } = mcaState;
+  const { data, weights } = mcaState;
 
-  if (view === 'heatmap') {
-    return [new deck.HeatmapLayer({
-      id: 'mca-heatmap',
-      data,
-      getPosition: d => { const [lat, lng] = h3.h3ToGeo(d.h3); return [lng, lat]; },
-      getWeight: d => MCA_CRITERIA.reduce((s, c) => s + (Number(d[c.key]) || 0) * (weights[c.weightKey] || 0), 0),
-      radiusPixels: 40,
-      intensity: 1.5,
-      threshold: 0.1,
-      aggregation: 'SUM',
-      colorRange: [[65,182,196],[127,205,187],[199,233,180],[237,248,177],[253,187,132],[227,74,51]],
-      updateTriggers: { getWeight: Object.values(weights) },
-    })];
-  }
-
-  // 3D stacked bars — one H3HexagonLayer per criterion, stacked by cumulative elevation
-  const stackLayers = MCA_CRITERIA.map((c, index) =>
-    new deck.H3HexagonLayer({
-      id: `mca-stack-${index}`,
-      data,
-      extruded: true,
-      pickable: true,
-      elevationScale: 150,
-      getHexagon: d => d.h3,
-      coverage: 0.9,
-      getFillColor: d => {
-        if ((weights[c.weightKey] || 0) === 0 || (Number(d[c.key]) || 0) === 0) return [0, 0, 0, 0];
-        return [...c.color, 220];
-      },
-      getElevation: d => {
-        let sum = 0;
-        for (let i = 0; i <= index; i++) {
-          const cr = MCA_CRITERIA[i];
-          sum += (Number(d[cr.key]) || 0) * (weights[cr.weightKey] || 0);
-        }
-        return sum;
-      },
-      updateTriggers: {
-        getFillColor: Object.values(weights),
-        getElevation: Object.values(weights),
-      },
-      transitions: { getElevation: 600, getFillColor: 600 },
-    })
-  ).reverse(); // reverse so lowest layer renders on top for picking
-
-  // Region boundary outline
-  const allH3 = data.map(d => d.h3);
-  const polygon = h3.h3SetToMultiPolygon(allH3, true);
-  const boundaryLayer = new deck.GeoJsonLayer({
-    id: 'mca-boundary',
-    data: [{ type: 'Feature', geometry: { type: 'MultiPolygon', coordinates: polygon } }],
-    stroked: true,
-    filled: false,
-    lineWidthMinPixels: 2,
-    getLineColor: [80, 80, 80, 160],
-  });
-
-  return [...stackLayers, boundaryLayer];
+  return [new deck.HeatmapLayer({
+    id: 'mca-heatmap',
+    data,
+    getPosition: d => { const [lat, lng] = h3.h3ToGeo(d.h3); return [lng, lat]; },
+    getWeight: d => MCA_CRITERIA.reduce((s, c) => s + (Number(d[c.key]) || 0) * (weights[c.weightKey] || 0), 0),
+    radiusPixels: 40,
+    intensity: 1.5,
+    threshold: 0.1,
+    aggregation: 'SUM',
+    colorRange: [[65,182,196],[127,205,187],[199,233,180],[237,248,177],[253,187,132],[227,74,51]],
+    updateTriggers: { getWeight: Object.values(weights) },
+  })];
 }
 
 function _renderMcaLegend() {
@@ -1374,10 +1293,9 @@ function switchTab(tab) {
 
   if (tab === 'analyse') {
     mcaState.active = true;
-    // Fly to Groene Hart Noord with pitch for 3D effect
-    currentViewState = { ...currentViewState, ...MCA_VIEW, transitionDuration: 900 };
+    currentViewState = { ...currentViewState, ...MCA_VIEW, pitch: 0, transitionDuration: 900 };
     deckInstance.setProps({ initialViewState: currentViewState });
-    loadMcaData(); // no-op if already loaded
+    loadMcaData();
   } else if (leavingAnalyse) {
     mcaState.active = false;
     // Restore flat view
