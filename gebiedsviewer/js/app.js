@@ -455,6 +455,37 @@ function switchTab(tab) {
   document.getElementById(`${tab}-content`).classList.add('active');
 }
 
+// --- EXPORT CSV ---
+function exportCatalogCSV() {
+  const header = ['Thema', 'Service', 'Laag', 'GeoJSON URL'];
+  const rows = [header];
+
+  CATALOG.forEach(theme => {
+    theme.services.forEach(service => {
+      const mapServerUrl = service.wmsUrl.replace(/\/WMSServer$/, '');
+      service.layers.forEach(layer => {
+        const params = new URLSearchParams({
+          where: '1=1',
+          outFields: '*',
+          returnGeometry: 'true',
+          outSR: '4326',
+          f: 'geojson',
+        });
+        const url = `${mapServerUrl}/${layer.id}/query?${params}`;
+        rows.push([theme.label, service.label, layer.label, url]);
+      });
+    });
+  });
+
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'zuidholland-geojson-catalogus.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 // --- SCALE BAR ---
 const SCALE_DISTANCES = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000];
 

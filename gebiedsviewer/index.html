@@ -26,8 +26,16 @@
   <div id="sidebar">
 
     <div class="sidebar-header">
-      <div class="app-title">Zuid-Holland<br>Gebiedsviewer</div>
-      <div class="app-subtitle">Kaartlagen Provincie Zuid-Holland</div>
+      <div class="sidebar-header-top">
+        <div>
+          <div class="app-title">Zuid-Holland<br>Gebiedsviewer</div>
+          <div class="app-subtitle">Kaartlagen Provincie Zuid-Holland</div>
+        </div>
+        <button class="export-btn" onclick="exportCatalogCSV()" title="Download catalogus als CSV met GeoJSON links">
+          <i class="fa fa-download"></i>
+          <span>Export</span>
+        </button>
+      </div>
     </div>
 
     <div class="tabs">
