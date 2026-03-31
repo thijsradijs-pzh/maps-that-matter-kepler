@@ -401,8 +401,6 @@ function initDeck() {
     canvas: 'deck-canvas',
     initialViewState: currentViewState,
     controller: true,
-    // preserveDrawingBuffer needed for canvas.toDataURL() in printMap()
-    glOptions: { preserveDrawingBuffer: true },
     layers: [DeckGLUtils.createBasemap('light')],
 
     onViewStateChange: ({ viewState }) => {
@@ -623,6 +621,10 @@ function closePopup() {
 // ═══════════════════════════════════════════════════════
 
 function printMap() {
+  // Force a synchronous redraw so the WebGL backbuffer is populated
+  // (without preserveDrawingBuffer we capture right after render to avoid it being cleared)
+  if (deckInstance && deckInstance.redraw) deckInstance.redraw(true);
+
   const canvas = document.getElementById('deck-canvas');
   let imgData;
   try {
