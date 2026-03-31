@@ -306,11 +306,17 @@ details[open] > summary .toggle-arrow { transform: rotate(90deg); }
 }
 .layer-item[style*="display: none"] { display: none !important; }
 
+.layer-row {
+  display: flex;
+  align-items: stretch;
+}
+
 .layer-label {
+  flex: 1;
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 5px 14px 5px 44px;
+  padding: 5px 6px 5px 44px;
   cursor: pointer;
   font-size: 12px;
   color: #444;
@@ -318,6 +324,23 @@ details[open] > summary .toggle-arrow { transform: rotate(90deg); }
   transition: background 0.1s;
 }
 .layer-label:hover { background: #f0f7ff; }
+
+.layer-meta-link {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  color: #ccc;
+  font-size: 11px;
+  text-decoration: none;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+.layer-meta-link:hover { color: var(--esri-blue); }
+.layer-item--active .layer-meta-link { color: #a0c4e8; }
+.layer-item--active .layer-meta-link:hover { color: var(--esri-blue); }
+
+.lc-meta { color: #bbb !important; text-decoration: none; }
+.lc-meta:hover { color: var(--esri-blue) !important; }
 
 .layer-checkbox {
   flex-shrink: 0;
@@ -625,6 +648,350 @@ details[open] > summary .toggle-arrow { transform: rotate(90deg); }
   font-weight: 600;
   z-index: 200;
 }
+
+/* ── ACTIVE LAYER HIGHLIGHT IN TREE ── */
+.layer-item--active > .layer-row {
+  background: #eef5ff;
+  border-left: 3px solid var(--esri-blue);
+}
+.layer-item--active > .layer-row .layer-label { padding-left: 41px; }
+.layer-item--active > .layer-row:hover { background: #daeeff; }
+.layer-item--active > .layer-row .layer-label:hover { background: transparent; }
+
+/* ── SCALE-DEPENDENT VISIBILITY ── */
+.layer-item--outofscale > .layer-row .layer-name {
+  color: #bbb;
+  font-style: italic;
+}
+.layer-card--outofscale .layer-card-name {
+  color: #bbb;
+  font-style: italic;
+}
+.layer-card--outofscale .layer-card-name::after {
+  content: ' (buiten schaal)';
+  font-size: 10px;
+  font-weight: 400;
+  color: #ccc;
+}
+
+/* ── BASEMAP PANEL ── */
+.basemap-panel {
+  position: fixed;  /* fixed so WebGL stacking context can't clip it */
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  min-width: 140px;
+  z-index: 9999;
+  overflow: hidden;
+}
+.basemap-panel-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 12px 5px;
+  border-bottom: 1px solid #eee;
+}
+.basemap-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #444;
+  border-bottom: 1px solid #f5f5f5;
+  transition: background 0.12s;
+}
+.basemap-option:last-child { border-bottom: none; }
+.basemap-option:hover { background: #f0f8ff; color: var(--esri-blue); }
+.basemap-option.active { background: var(--esri-blue); color: white; font-weight: 600; }
+.basemap-option i { width: 14px; text-align: center; flex-shrink: 0; }
+
+/* ── SHARE BUTTON ── */
+#btn-share.active {
+  background: #e6f4ea;
+  color: #2d7a3a;
+  border-color: #a8d5b0;
+}
+
+/* ── ADD LAYER BUTTON ── */
+.add-layer-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: calc(100% - 24px);
+  margin: 10px 12px 14px;
+  padding: 8px 12px;
+  background: white;
+  border: 1.5px dashed #c0d8ef;
+  border-radius: 6px;
+  color: var(--esri-blue);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.add-layer-btn:hover { background: #f0f8ff; border-color: var(--esri-blue); }
+.add-layer-btn i { font-size: 11px; }
+
+/* ── TABLE PANEL ── */
+.table-panel {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 38vh;
+  min-height: 200px;
+  background: white;
+  border-top: 2px solid var(--esri-blue);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.12);
+}
+.table-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  background: var(--esri-blue);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  gap: 10px;
+}
+.table-panel-header span:first-child { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.table-panel-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.table-count-info { font-size: 10px; font-weight: 400; color: rgba(255,255,255,0.75); }
+.tp-btn {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: white;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+.tp-btn:hover:not(:disabled) { background: rgba(255,255,255,0.3); }
+.tp-btn:disabled { opacity: 0.4; cursor: default; }
+.table-content {
+  flex: 1;
+  overflow: auto;
+  font-size: 11px;
+}
+.table-loading {
+  padding: 20px;
+  text-align: center;
+  color: #888;
+  font-style: italic;
+}
+.attr-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.attr-data-table th {
+  position: sticky;
+  top: 0;
+  background: #f5f7fa;
+  border-bottom: 2px solid #dde3ec;
+  padding: 5px 10px;
+  text-align: left;
+  font-weight: 700;
+  color: #555;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  z-index: 1;
+}
+.attr-data-table td {
+  padding: 4px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  color: #333;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.attr-data-table tr:hover td { background: #f5f9ff; }
+.table-panel-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 12px;
+  background: #f5f7fa;
+  border-top: 1px solid #e0e0e0;
+  flex-shrink: 0;
+}
+.table-page-info { font-size: 11px; color: #888; }
+
+/* ── ADD LAYER MODAL ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-box {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  width: 420px;
+  max-width: 95vw;
+  overflow: hidden;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--esri-blue);
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+}
+.modal-close { cursor: pointer; opacity: 0.8; font-size: 14px; }
+.modal-close:hover { opacity: 1; }
+.modal-body { padding: 16px; }
+.modal-tabs { display: flex; gap: 0; margin-bottom: 14px; border-bottom: 2px solid #eee; }
+.modal-tab {
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+}
+.modal-tab.active { color: var(--esri-blue); border-bottom-color: var(--esri-blue); }
+.modal-hint { font-size: 12px; color: #666; margin-bottom: 10px; line-height: 1.5; }
+.modal-hint-ex { font-size: 10px; color: #aaa; }
+.modal-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 12px;
+  font-family: inherit;
+  margin-bottom: 10px;
+  outline: none;
+}
+.modal-input:focus { border-color: var(--esri-blue); }
+.modal-btn-primary {
+  padding: 8px 16px;
+  background: var(--esri-blue);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.modal-btn-primary:hover { background: #005f99; }
+.add-layer-status { margin-top: 10px; font-size: 11px; line-height: 1.5; }
+.status-error { color: #c0392b; }
+.modal-layer-pick-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  margin-bottom: 4px;
+  background: #f5f9ff;
+  border: 1px solid #c8dff5;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  color: var(--esri-blue);
+}
+.modal-layer-pick-btn:hover { background: #daeeff; }
+.file-drop-zone {
+  border: 2px dashed #c0d8ef;
+  border-radius: 8px;
+  padding: 30px 20px;
+  text-align: center;
+  cursor: pointer;
+  color: #888;
+  font-size: 13px;
+  transition: border-color 0.15s, background 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.file-drop-zone i { font-size: 24px; color: #c0d8ef; }
+.file-drop-zone:hover, .file-drop-zone.dragging {
+  border-color: var(--esri-blue);
+  background: #f0f8ff;
+  color: var(--esri-blue);
+}
+.file-drop-zone.dragging i { color: var(--esri-blue); }
+
+/* ── CATALOG TAB ── */
+#catalog-results { flex: 1; overflow-y: auto; padding: 0; }
+.catalog-loading { padding: 20px; text-align: center; color: #888; font-size: 12px; }
+.catalog-result {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.1s;
+}
+.catalog-result:hover { background: #fafcff; }
+.catalog-result-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+.catalog-result-abstract {
+  font-size: 11px;
+  color: #777;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+.catalog-result-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.catalog-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: var(--esri-blue);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.catalog-add-btn:hover { background: #005f99; }
+.catalog-no-service { font-size: 10px; color: #bbb; font-style: italic; }
+.catalog-meta-link {
+  font-size: 11px;
+  color: #aaa;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.catalog-meta-link:hover { color: var(--esri-blue); }
 
 /* ── PRINT ── */
 @media print {
