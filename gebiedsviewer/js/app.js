@@ -188,11 +188,34 @@ async function enableLayer(key, service, layer) {
   try {
     const infoUrl = `/api/proxy?url=${encodeURIComponent(`${mapServerUrl}/${layer.id}?f=json`)}`;
     const data = await (await fetch(infoUrl)).json();
+
     if (data.minScale !== undefined) {
       entry.minScale = data.minScale;
       updateScaleDependency(currentViewState.zoom);
     }
-  } catch (e) { /* minScale stays 0 */ }
+
+    // Detect group layers — they contain both polygon and point sublayers which
+    // would otherwise all render at once when using show:{groupId}
+    if (data.type === 'Group Layer' && data.subLayerIds?.length) {
+      entry.isGroupLayer = true;
+      // Fetch each sublayer's name + geometry type in parallel
+      const subInfos = await Promise.all(
+        data.subLayerIds.map(id =>
+          fetch(`/api/proxy?url=${encodeURIComponent(`${mapServerUrl}/${id}?f=json`)}`)
+            .then(r => r.json())
+            .catch(() => ({ id, name: `Laag ${id}`, geometryType: null }))
+        )
+      );
+      entry.subLayerDetails = subInfos.map(s => ({
+        id: s.id,
+        name: s.name || `Laag ${s.id}`,
+        geometryType: s.geometryType || null,
+      }));
+      entry.activeSubLayers = new Set(data.subLayerIds); // all on by default
+      renderLayerPanel(); // re-render to show sublayer toggles
+      rebuildDeck();      // re-render tiles with explicit sublayer IDs
+    }
+  } catch (e) { /* ignore — minScale stays 0, no sublayer detection */ }
 }
 
 function disableLayer(key) {
@@ -250,6 +273,17 @@ function moveLayerDown(key) {
   activeLayers.clear();
   entries.forEach(([k, v]) => activeLayers.set(k, v));
   rebuildDeck(); renderLayerPanel();
+}
+
+function toggleSubLayer(key, subId) {
+  const entry = activeLayers.get(key);
+  if (!entry?.activeSubLayers) return;
+  if (entry.activeSubLayers.has(subId)) {
+    entry.activeSubLayers.delete(subId);
+  } else {
+    entry.activeSubLayers.add(subId);
+  }
+  rebuildDeck();
 }
 
 function updateBadges() {
@@ -355,6 +389,22 @@ function renderLayerPanel() {
                oninput="setLayerOpacity('${key}', this.value/100)">
         <span class="opacity-val">${pct}%</span>
       </div>
+      ${entry.subLayerDetails?.length ? `
+        <div class="sublayer-list">
+          <div class="sublayer-list-title"><i class="fa fa-layer-group"></i> Sublagen</div>
+          ${entry.subLayerDetails.map(sub => {
+            const checked = entry.activeSubLayers?.has(sub.id) ? 'checked' : '';
+            const geoIcon = sub.geometryType?.includes('Point') ? 'fa-circle-dot'
+                          : sub.geometryType?.includes('Polygon') ? 'fa-draw-polygon'
+                          : sub.geometryType?.includes('Line') ? 'fa-minus'
+                          : 'fa-layer-group';
+            return `<label class="sublayer-toggle">
+              <input type="checkbox" ${checked} onchange="toggleSubLayer('${key}', ${sub.id})">
+              <i class="fa ${geoIcon} sublayer-geo-icon"></i>
+              <span>${sub.name}</span>
+            </label>`;
+          }).join('')}
+        </div>` : ''}
     `;
     list.appendChild(card);
   });
@@ -486,10 +536,14 @@ function rebuildDeck() {
         pointRadiusMinPixels: 4,
       });
     }
+    // For group layers use explicit sublayer IDs so only selected geometries render
+    const layerIds = entry.activeSubLayers?.size
+      ? [...entry.activeSubLayers].join(',')
+      : entry.layerId;
     return createWMSLayer({
       id: key,
       url: entry.wmsUrl,
-      layer: entry.layerId,
+      layer: layerIds,
       title: entry.label,
       opacity: entry.visible ? entry.opacity : 0,
     });

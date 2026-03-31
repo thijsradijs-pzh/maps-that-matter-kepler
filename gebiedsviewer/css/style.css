@@ -342,6 +342,46 @@ details[open] > summary .toggle-arrow { transform: rotate(90deg); }
 .lc-meta { color: #bbb !important; text-decoration: none; }
 .lc-meta:hover { color: var(--esri-blue) !important; }
 
+/* ── SUBLAYER TOGGLES (group layers) ── */
+.sublayer-list {
+  padding: 5px 10px 6px 24px;
+  background: #f8fafd;
+  border-top: 1px solid #eef2f8;
+}
+.sublayer-list-title {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #aaa;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.sublayer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #555;
+  padding: 2px 0;
+  cursor: pointer;
+  line-height: 1.3;
+}
+.sublayer-toggle input[type="checkbox"] {
+  accent-color: var(--esri-blue);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.sublayer-geo-icon {
+  font-size: 9px;
+  color: #aaa;
+  width: 10px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
 .layer-checkbox {
   flex-shrink: 0;
   margin-top: 1px;
