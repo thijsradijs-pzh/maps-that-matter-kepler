@@ -12,8 +12,19 @@
     plausible.init();
   </script>
 
-  <!-- DuckDB WASM — unpkg serves correct JS MIME type (jsDelivr serves text/plain on some versions) -->
-  <script src="https://unpkg.com/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser.js"></script>
+  <!-- DuckDB WASM — both jsDelivr and unpkg serve this file as text/plain which browsers block.
+       Workaround: fetch as text, wrap in a Blob with the correct MIME type, inject as script. -->
+  <script>
+    window._duckdbLoading = fetch('https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser.js')
+      .then(r => r.text())
+      .then(code => new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+        const s = Object.assign(document.createElement('script'), {
+          src: url, onload: () => { URL.revokeObjectURL(url); resolve(); }, onerror: reject,
+        });
+        document.head.appendChild(s);
+      }));
+  </script>
   <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
   <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
   <script src="/shared/deckgl-utils.js"></script>
@@ -295,6 +306,7 @@
       constructor() { this.db = null; this.conn = null; }
 
       async waitForDuckDB(maxMs = 12000) {
+        if (window._duckdbLoading) await window._duckdbLoading;
         const t0 = Date.now();
         while (typeof duckdb === 'undefined') {
           if (Date.now() - t0 > maxMs) throw new Error('DuckDB library load timeout');
@@ -305,12 +317,7 @@
       async initialize() {
         if (this.db) return;
         await this.waitForDuckDB();
-        // Use unpkg bundle URLs — avoids jsDelivr MIME type issues
-        const UNPKG = 'https://unpkg.com/@duckdb/duckdb-wasm@1.28.0/dist/';
-        const bundles = {
-          mvp: { mainModule: `${UNPKG}duckdb_wasm.wasm`,    mainWorker: `${UNPKG}duckdb-browser-mvp.worker.js` },
-          eh:  { mainModule: `${UNPKG}duckdb_wasm_eh.wasm`, mainWorker: `${UNPKG}duckdb-browser-eh.worker.js`  },
-        };
+        const bundles = duckdb.getJsDelivrBundles();
         const bundle  = await duckdb.selectBundle(bundles);
         const worker  = new Worker(bundle.mainWorker);
         const logger  = new duckdb.ConsoleLogger();

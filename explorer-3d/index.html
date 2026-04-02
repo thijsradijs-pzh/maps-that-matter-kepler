@@ -5,8 +5,19 @@
   <title>Data Explorer (Parquet) – Maps That Matter</title>
   <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
   
-  <!-- Load DuckDB synchronously first -->
-  <script src="https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser.js"></script>
+  <!-- DuckDB WASM — CDNs serve this file as text/plain which browsers block.
+       Workaround: fetch as text, wrap in a Blob with the correct MIME type, inject as script. -->
+  <script>
+    window._duckdbLoading = fetch('https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser.js')
+      .then(r => r.text())
+      .then(code => new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+        const s = Object.assign(document.createElement('script'), {
+          src: url, onload: () => { URL.revokeObjectURL(url); resolve(); }, onerror: reject,
+        });
+        document.head.appendChild(s);
+      }));
+  </script>
   
   <style>
     body { 
@@ -299,15 +310,16 @@
       }
 
       async waitForDuckDB(maxWaitMs = 10000) {
+        if (window._duckdbLoading) await window._duckdbLoading;
         const startTime = Date.now();
-        
+
         while (typeof duckdb === 'undefined') {
           if (Date.now() - startTime > maxWaitMs) {
             throw new Error('Timeout waiting for DuckDB library to load');
           }
           await new Promise(resolve => setTimeout(resolve, 100));
         }
-        
+
         console.log('✅ DuckDB library loaded');
       }
 
