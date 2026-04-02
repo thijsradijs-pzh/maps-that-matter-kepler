@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>PDOK Verkenner — Maps That Matter</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+
+  <script async src="https://plausible.io/js/pa-unGG15m6r6ufvAQNAPz3f.js"></script>
+  <script>
+    window.plausible = window.plausible || function() { (plausible.q = plausible.q || []).push(arguments) };
+    plausible.init = plausible.init || function(i) { plausible.o = i || {} };
+    plausible.init();
+  </script>
+
+  <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
+  <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
+  <script src="/shared/deckgl-utils.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0; padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+      background: #0a0a0a;
+      color: #ddd;
+    }
+
+    #container { width: 100vw; height: 100vh; }
+
+    /* ── Chat panel ── */
+    #chat-panel {
+      position: absolute; top: 0; right: 0; bottom: 0;
+      width: 360px;
+      background: rgba(10,10,18,0.97);
+      border-left: 1px solid #1e1e2e;
+      display: flex; flex-direction: column;
+      z-index: 10;
+    }
+
+    /* Header */
+    #chat-header {
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid #1e1e2e;
+      flex-shrink: 0;
+    }
+    #chat-header h2 {
+      margin: 0 0 3px; font-size: 14px; font-weight: 700; color: #fff;
+    }
+    #chat-header .subtitle {
+      font-size: 11px; color: #555; line-height: 1.4;
+    }
+
+    /* Lang toggle */
+    .lang-row { display: flex; gap: 4px; margin-top: 10px; }
+    .lang-btn {
+      padding: 3px 10px; font-size: 11px; font-weight: 600;
+      border: 1px solid #2a2a3a; border-radius: 4px;
+      background: #14141e; color: #555; cursor: pointer; transition: all 0.15s;
+    }
+    .lang-btn.active { background: #1a3a52; border-color: #2a6496; color: #fff; }
+
+    /* Messages */
+    #messages {
+      flex: 1; overflow-y: auto; padding: 14px 14px 8px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    #messages::-webkit-scrollbar { width: 4px; }
+    #messages::-webkit-scrollbar-track { background: transparent; }
+    #messages::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 2px; }
+
+    /* Welcome card */
+    .welcome-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid #1e1e2e;
+      border-radius: 8px; padding: 12px 14px;
+      font-size: 12px; color: #666; line-height: 1.7;
+    }
+    .welcome-card b { color: #aaa; }
+    .example-question {
+      display: block; margin-top: 5px;
+      font-size: 11px; color: #4da6ff;
+      cursor: pointer; padding: 3px 0;
+      text-decoration: none; transition: color 0.15s;
+    }
+    .example-question:hover { color: #7ec8ff; }
+
+    /* User message */
+    .msg-user {
+      align-self: flex-end; max-width: 88%;
+      background: rgba(26,58,82,0.85);
+      border: 1px solid #1e4a6e;
+      border-radius: 10px 10px 2px 10px;
+      padding: 9px 12px;
+      font-size: 12px; color: #c8e4ff; line-height: 1.5;
+    }
+
+    /* Assistant result card */
+    .msg-assistant { align-self: flex-start; max-width: 100%; width: 100%; }
+    .msg-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid #1e1e2e;
+      border-radius: 8px; overflow: hidden;
+    }
+    .msg-title {
+      padding: 10px 14px 8px;
+      font-size: 12px; font-weight: 700; color: #fff;
+      border-bottom: 1px solid #1e1e2e;
+    }
+    .msg-meta {
+      padding: 6px 14px 8px;
+      font-size: 10px; color: #444; line-height: 1.8;
+    }
+    .msg-meta span { color: #666; }
+    .msg-status {
+      padding: 0 14px 8px;
+      font-size: 11px; color: #4da6ff;
+    }
+    .msg-status.error { color: #ff8a8a; }
+
+    /* WFS details toggle */
+    .wfs-toggle {
+      display: flex; align-items: center; gap: 5px;
+      padding: 7px 14px;
+      border-top: 1px solid #1e1e2e;
+      font-size: 10px; color: #444;
+      cursor: pointer; user-select: none; transition: color 0.15s;
+    }
+    .wfs-toggle:hover { color: #666; }
+    .wfs-toggle .arrow { font-size: 8px; transition: transform 0.2s; }
+    .wfs-toggle.open .arrow { transform: rotate(90deg); }
+    .wfs-body { display: none; padding: 0 14px 12px; }
+    .wfs-body.open { display: block; }
+    pre.wfs-pre {
+      margin: 0;
+      background: #0d0d18; border: 1px solid #1e1e2e;
+      border-radius: 5px; padding: 10px;
+      font-size: 10px; color: #a8c7f0;
+      line-height: 1.6; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-all;
+    }
+
+    /* Thinking */
+    .msg-thinking {
+      align-self: flex-start;
+      font-size: 11px; color: #444; padding: 6px 2px;
+    }
+    .dots span { animation: blink 1.4s infinite; }
+    .dots span:nth-child(2) { animation-delay: 0.2s; }
+    .dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes blink { 0%,80%,100% { opacity: 0.2; } 40% { opacity: 1; } }
+
+    /* Error */
+    .msg-error {
+      align-self: flex-start; width: 100%;
+      background: rgba(200,30,30,0.08);
+      border: 1px solid rgba(200,30,30,0.2);
+      border-radius: 8px; padding: 10px 14px;
+      font-size: 11px; color: #ff8a8a; line-height: 1.5;
+    }
+
+    /* Input bar */
+    #input-bar {
+      flex-shrink: 0;
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 12px;
+      border-top: 1px solid #1e1e2e;
+      background: rgba(14,14,22,0.99);
+    }
+    #question-input {
+      flex: 1; background: #0d0d18;
+      border: 1px solid #2a2a3a; border-radius: 6px;
+      padding: 8px 12px; font-size: 12px; color: #ddd;
+      outline: none; transition: border-color 0.15s;
+      font-family: inherit;
+    }
+    #question-input::placeholder { color: #333; }
+    #question-input:focus { border-color: #2a6496; }
+    #submit-btn {
+      background: #1a3a52; border: 1px solid #2a6496;
+      color: #4da6ff; border-radius: 6px;
+      width: 34px; height: 34px; font-size: 16px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s; flex-shrink: 0;
+    }
+    #submit-btn:hover { background: #2a4a62; }
+    #submit-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* NGR layer suggestion card */
+    .msg-layers {
+      align-self: flex-start; width: 100%;
+      background: rgba(20,30,20,0.6);
+      border: 1px solid #1e3a22;
+      border-radius: 8px; overflow: hidden;
+    }
+    .layers-header {
+      padding: 8px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px;
+    }
+    .layers-header-title { color: #8fc; font-weight: 600; flex: 1; }
+    .layers-source { font-size: 10px; color: #3a5a3a; }
+    .layer-row {
+      padding: 8px 14px; border-bottom: 1px solid rgba(255,255,255,0.03);
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .layer-row:last-child { border-bottom: none; }
+    .layer-row-info { flex: 1; min-width: 0; }
+    .layer-row-title { font-size: 11px; color: #ccc; line-height: 1.4; }
+    .layer-row-abstract { font-size: 10px; color: #444; margin-top: 2px; line-height: 1.4; }
+    .layer-add-btn {
+      flex-shrink: 0;
+      background: rgba(20,50,30,0.6); border: 1px solid #2a5a32;
+      color: #6da; border-radius: 4px;
+      padding: 3px 10px; font-size: 10px; cursor: pointer;
+      white-space: nowrap; transition: all 0.15s; font-family: inherit;
+    }
+    .layer-add-btn:hover { background: rgba(20,70,40,0.8); }
+    .layer-add-btn.active { background: rgba(20,70,40,0.9); border-color: #4a9a5a; color: #8fe8a0; }
+
+    /* Data reload indicator */
+    #reload-indicator {
+      position: absolute; bottom: 24px; left: 24px;
+      background: rgba(10,10,18,0.88); border: 1px solid #2a2a3a;
+      border-radius: 16px; padding: 5px 12px;
+      font-size: 11px; color: #4da6ff;
+      z-index: 10; display: none;
+      align-items: center; gap: 6px;
+    }
+    #reload-indicator.visible { display: flex; }
+    .reload-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #4da6ff; animation: pulse 1s infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+    /* Active WMS overlay chips */
+    #wms-panel {
+      position: absolute; bottom: 24px; left: 24px;
+      z-index: 10; display: flex; flex-direction: column; gap: 5px;
+      max-width: 260px; pointer-events: none;
+    }
+    .wms-chip {
+      background: rgba(10,10,18,0.92); border: 1px solid #2a6244;
+      border-radius: 16px; padding: 4px 8px 4px 12px;
+      font-size: 11px; color: #6da;
+      display: flex; align-items: center; gap: 6px;
+      pointer-events: all;
+    }
+    .wms-chip-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wms-chip-remove {
+      background: none; border: none; color: #3a5a3a;
+      font-size: 15px; line-height: 1; cursor: pointer; padding: 0 2px;
+      transition: color 0.15s;
+    }
+    .wms-chip-remove:hover { color: #ff8a8a; }
+
+    /* Legend */
+    #legend {
+      position: absolute; bottom: 24px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10,10,18,0.88); border: 1px solid #1e1e2e;
+      border-radius: 8px; padding: 8px 14px;
+      z-index: 10; display: none; min-width: 180px;
+    }
+    #legend.visible { display: block; }
+    .legend-title { font-size: 10px; color: #666; margin-bottom: 5px; }
+    .legend-bar {
+      height: 8px; border-radius: 4px; margin-bottom: 3px;
+    }
+    .legend-labels {
+      display: flex; justify-content: space-between;
+      font-size: 10px; color: #444;
+    }
+
+    /* Mobile */
+    @media (max-width: 700px) {
+      #chat-panel {
+        top: auto; left: 0; right: 0; bottom: 0; width: 100%;
+        height: 55vh;
+        border-left: none; border-top: 1px solid #1e1e2e;
+      }
+      #reload-indicator, #wms-panel, #legend { bottom: calc(55vh + 10px); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Map canvas -->
+  <div id="container"></div>
+
+  <!-- Data reload indicator -->
+  <div id="reload-indicator">
+    <div class="reload-dot"></div>
+    <span id="reload-text">Data laden...</span>
+  </div>
+
+  <!-- Active WMS overlay chips (positioned above reload indicator when both visible) -->
+  <div id="wms-panel"></div>
+
+  <!-- Color legend -->
+  <div id="legend">
+    <div class="legend-title" id="legend-title"></div>
+    <div class="legend-bar" id="legend-bar"></div>
+    <div class="legend-labels">
+      <span id="legend-min"></span>
+      <span id="legend-max"></span>
+    </div>
+  </div>
+
+  <!-- Chat panel -->
+  <div id="chat-panel">
+
+    <div id="chat-header">
+      <h2>PDOK Verkenner</h2>
+      <div class="subtitle">Live data · CBS 100m grid · BAG gebouwen · NGR lagen</div>
+      <div class="lang-row">
+        <button class="lang-btn active" data-lang="nl">NL</button>
+        <button class="lang-btn" data-lang="en">EN</button>
+      </div>
+    </div>
+
+    <div id="messages">
+      <div class="welcome-card">
+        <b>Stel een vraag over de kaart.</b><br>
+        Data wordt live opgehaald van PDOK voor het zichtbare gebied.
+        <a class="example-question" href="#">Waar wonen de meeste mensen per 100m²?</a>
+        <a class="example-question" href="#">Toon de gemiddelde WOZ-waarde van woningen</a>
+        <a class="example-question" href="#">Welke gebieden hebben de meeste sociale huurwoningen?</a>
+        <a class="example-question" href="#">Show buildings built before 1945</a>
+        <a class="example-question" href="#">Waar is het aandeel eenpersoonshuishoudens het hoogst?</a>
+      </div>
+    </div>
+
+    <div id="input-bar">
+      <input id="question-input" type="text"
+        placeholder="Stel een vraag... / Ask a question..." autocomplete="off" />
+      <button id="submit-btn" title="Verstuur">&#8594;</button>
+    </div>
+
+  </div>
+
+  <script>
+    // ─────────────────────────────────────────────────────────────────
+    // Color scales
+    // ─────────────────────────────────────────────────────────────────
+    const SCALES = {
+      'blue-orange': [[26,107,189],[77,166,255],[255,224,102],[255,140,66],[217,48,48]],
+      'green-red':   [[0,180,80],[160,230,80],[255,224,102],[255,140,66],[200,40,40]],
+      'blue-green':  [[26,58,90],[26,107,130],[26,140,100],[80,180,80],[160,230,80]],
+      'sequential':  [[10,30,80],[26,107,189],[77,166,255],[160,210,255],[220,240,255]],
+    };
+
+    function interpolateColor(value, min, max, colors) {
+      if (value == null || isNaN(value)) return [40, 40, 60, 0];
+      const t  = Math.max(0, Math.min(1, (value - min) / (max - min || 1)));
+      const n  = colors.length - 1;
+      const i  = Math.floor(t * n);
+      const f  = t * n - i;
+      const c0 = colors[Math.min(i, n)];
+      const c1 = colors[Math.min(i + 1, n)];
+      return [
+        Math.round(c0[0] + f * (c1[0] - c0[0])),
+        Math.round(c0[1] + f * (c1[1] - c0[1])),
+        Math.round(c0[2] + f * (c1[2] - c0[2])),
+        200,
+      ];
+    }
+
+    function gradientCss(colorScale) {
+      const stops = SCALES[colorScale] || SCALES['sequential'];
+      const pct = stops.map((c, i) => `rgb(${c.join(',')}) ${Math.round(i / (stops.length - 1) * 100)}%`);
+      return `linear-gradient(to right, ${pct.join(', ')})`;
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // H3 binning
+    // ─────────────────────────────────────────────────────────────────
+    function flattenFirstRing(geom) {
+      // Returns array of [lon, lat] pairs from first ring/polygon
+      if (geom.type === 'Point') return [geom.coordinates];
+      if (geom.type === 'MultiPoint') return geom.coordinates;
+      if (geom.type === 'Polygon') return geom.coordinates[0];
+      if (geom.type === 'MultiPolygon') return geom.coordinates[0][0];
+      if (geom.type === 'LineString') return geom.coordinates;
+      return [];
+    }
+
+    function centroid(geom) {
+      const pts = flattenFirstRing(geom);
+      if (!pts.length) return null;
+      const lon = pts.reduce((s, p) => s + p[0], 0) / pts.length;
+      const lat = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+      return { lat, lon };
+    }
+
+    function binFeaturesToH3(features, metricProp, aggregation, resolution) {
+      const cells = new Map(); // h3id → { sum, count, max }
+
+      for (const f of features) {
+        if (!f.geometry) continue;
+        const c = centroid(f.geometry);
+        if (!c) continue;
+
+        // Axis-order safety: if lat looks like a longitude (>90), swap
+        let lat = c.lat, lon = c.lon;
+        if (Math.abs(lat) > 90 && Math.abs(lon) <= 90) { lat = c.lon; lon = c.lat; }
+
+        let h3id;
+        try { h3id = h3.latLngToCell(lat, lon, resolution); } catch { continue; }
+
+        const raw = f.properties?.[metricProp];
+        const val = raw != null ? Number(raw) : NaN;
+
+        if (!cells.has(h3id)) cells.set(h3id, { sum: 0, count: 0, max: -Infinity });
+        const cell = cells.get(h3id);
+        cell.count++;
+        if (!isNaN(val)) { cell.sum += val; cell.max = Math.max(cell.max, val); }
+      }
+
+      const result = [];
+      for (const [h3id, cell] of cells) {
+        let value;
+        if (aggregation === 'count') value = cell.count;
+        else if (aggregation === 'sum') value = cell.sum;
+        else if (aggregation === 'avg') value = cell.count > 0 ? cell.sum / cell.count : NaN;
+        else if (aggregation === 'max') value = cell.max === -Infinity ? NaN : cell.max;
+        else value = cell.sum;
+        result.push({ h3id, value });
+      }
+      return result;
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // State
+    // ─────────────────────────────────────────────────────────────────
+    let deckInstance  = null;
+    let currentQuery  = null;   // { wfsUrl, typeName, propertyNames, cqlFilter, aggregation, h3Resolution, metric_column, color_scale }
+    let currentH3Data = [];
+    let currentMetric = null;
+    let currentColorScale = 'sequential';
+    let lang          = 'nl';
+    let busy          = false;
+    let reloadTimer   = null;
+    let currentViewState = null;
+    let activeCardEl  = null;   // The last result card DOM element
+    const wmsLayers   = new Map();
+    const _ngrData    = {};
+
+    // ─────────────────────────────────────────────────────────────────
+    // Deck.gl setup
+    // ─────────────────────────────────────────────────────────────────
+    function initDeck() {
+      deckInstance = new deck.DeckGL({
+        container: 'container',
+        mapStyle: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+        initialViewState: {
+          longitude: 4.9, latitude: 52.37,
+          zoom: 12, pitch: 0, bearing: 0,
+        },
+        controller: true,
+        onViewStateChange: ({ viewState }) => {
+          currentViewState = viewState;
+          if (currentQuery) scheduleReload();
+        },
+        getTooltip: ({ object }) => {
+          if (!object) return null;
+          const val = object.value;
+          const label = currentMetric || 'waarde';
+          return {
+            html: `<div style="font-size:12px;padding:4px 8px;">${formatValue(val)} <span style="color:#888">${label}</span></div>`,
+            style: { background: 'rgba(10,10,18,0.95)', border: '1px solid #2a2a3a', borderRadius: '6px', color: '#ddd' },
+          };
+        },
+      });
+    }
+
+    function getViewportBbox() {
+      if (!currentViewState) return null;
+      try {
+        const vp = new deck.WebMercatorViewport({
+          width: window.innerWidth,
+          height: window.innerHeight,
+          longitude: currentViewState.longitude,
+          latitude: currentViewState.latitude,
+          zoom: currentViewState.zoom,
+        });
+        const [[west, south], [east, north]] = vp.getBounds();
+        return [west, south, east, north];
+      } catch { return null; }
+    }
+
+    function scheduleReload() {
+      clearTimeout(reloadTimer);
+      reloadTimer = setTimeout(() => loadDataForViewport(false), 600);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Layer building
+    // ─────────────────────────────────────────────────────────────────
+    function buildH3Layer(h3data, colorScale) {
+      const colors = SCALES[colorScale] || SCALES['sequential'];
+      const vals   = h3data.map(d => d.value).filter(v => v != null && !isNaN(v));
+      if (!vals.length) return null;
+      const min = Math.min(...vals);
+      const max = Math.max(...vals);
+
+      updateLegend(colorScale, min, max);
+
+      return new deck.H3HexagonLayer({
+        id: 'h3-layer',
+        data: h3data,
+        getHexagon:   d => d.h3id,
+        getFillColor: d => interpolateColor(d.value, min, max, colors),
+        getElevation: d => {
+          const v = d.value;
+          if (v == null || isNaN(v)) return 0;
+          return Math.max(0, (v - min) / (max - min || 1)) * 300;
+        },
+        extruded: true, elevationScale: 1,
+        pickable: true,
+        updateTriggers: { getFillColor: [min, max, colorScale] },
+      });
+    }
+
+    function updateMap() {
+      if (!deckInstance) return;
+      const layers = [DeckGLUtils.createBasemap('dark-matter')];
+      if (currentH3Data.length) {
+        const l = buildH3Layer(currentH3Data, currentColorScale);
+        if (l) layers.push(l);
+      }
+      wmsLayers.forEach((info, id) => layers.push(createWmsTileLayer(id, info.wmsUrl, info.layerName)));
+      deckInstance.setProps({ layers });
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // WMS tile layers (NGR overlay)
+    // ─────────────────────────────────────────────────────────────────
+    function tileBbox3857(x, y, z) {
+      const R = 20037508.342789244;
+      const n = Math.pow(2, z);
+      return {
+        west:  -R + (x / n) * 2 * R,
+        east:  -R + ((x + 1) / n) * 2 * R,
+        north:  R - (y / n) * 2 * R,
+        south:  R - ((y + 1) / n) * 2 * R,
+      };
+    }
+
+    function createWmsTileLayer(id, wmsUrl, layerName) {
+      return new deck.TileLayer({
+        id: `wms-${id}`,
+        tileSize: 256, minZoom: 0, maxZoom: 19,
+        getTileData: async ({ x, y, z }) => {
+          const { west, south, east, north } = tileBbox3857(x, y, z);
+          const params = new URLSearchParams({
+            SERVICE: 'WMS', VERSION: '1.1.1', REQUEST: 'GetMap',
+            LAYERS: layerName, STYLES: '',
+            BBOX: `${west},${south},${east},${north}`,
+            WIDTH: '256', HEIGHT: '256',
+            SRS: 'EPSG:3857', FORMAT: 'image/png', TRANSPARENT: 'TRUE',
+          });
+          try {
+            const r = await fetch(`/api/proxy?url=${encodeURIComponent(wmsUrl + '?' + params)}`);
+            if (!r.ok) return null;
+            const ct = r.headers.get('content-type') || '';
+            if (!ct.startsWith('image/')) return null;
+            return createImageBitmap(await r.blob());
+          } catch { return null; }
+        },
+        renderSubLayers: props => {
+          if (!props.data) return null;
+          const { bbox: { west, south, east, north } } = props.tile;
+          return new deck.BitmapLayer(props, { data: null, image: props.data, bounds: [west, south, east, north] });
+        },
+        pickable: false,
+      });
+    }
+
+    function toggleNgrLayer(id) {
+      const info = _ngrData[id];
+      if (!info) return;
+      const btn = document.querySelector(`#row-${id} .layer-add-btn`);
+      if (wmsLayers.has(id)) {
+        wmsLayers.delete(id);
+        if (btn) { btn.textContent = lang === 'nl' ? 'Toon' : 'Show'; btn.classList.remove('active'); }
+      } else {
+        wmsLayers.set(id, info);
+        if (btn) { btn.textContent = lang === 'nl' ? 'Verberg' : 'Hide'; btn.classList.add('active'); }
+      }
+      updateMap();
+      updateWmsPanel();
+    }
+    window.toggleNgrLayer = toggleNgrLayer;
+
+    function updateWmsPanel() {
+      const panel = document.getElementById('wms-panel');
+      if (!panel) return;
+      panel.innerHTML = [...wmsLayers.entries()].map(([id, info]) => `
+        <div class="wms-chip">
+          <span class="wms-chip-title">${esc(info.title.slice(0, 36))}</span>
+          <button class="wms-chip-remove" onclick="removeNgrLayer('${id}')" title="Verwijder">×</button>
+        </div>`).join('');
+    }
+    function removeNgrLayer(id) {
+      wmsLayers.delete(id);
+      updateMap(); updateWmsPanel();
+    }
+    window.removeNgrLayer = removeNgrLayer;
+
+    // ─────────────────────────────────────────────────────────────────
+    // Legend
+    // ─────────────────────────────────────────────────────────────────
+    function updateLegend(colorScale, min, max) {
+      const el = document.getElementById('legend');
+      document.getElementById('legend-bar').style.background = gradientCss(colorScale);
+      document.getElementById('legend-min').textContent = formatValue(min);
+      document.getElementById('legend-max').textContent = formatValue(max);
+      document.getElementById('legend-title').textContent = currentMetric || '';
+      el.classList.add('visible');
+    }
+
+    function formatValue(v) {
+      if (v == null || isNaN(v)) return '—';
+      if (Math.abs(v) >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+      if (Math.abs(v) >= 1e3) return (v / 1e3).toFixed(1) + 'k';
+      if (Math.abs(v) < 10)   return v.toFixed(2);
+      return Math.round(v).toLocaleString('nl-NL');
+    }
+
+    function esc(s) { return String(s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Core: ask AI → fetch WFS → bin → render
+    // ─────────────────────────────────────────────────────────────────
+    async function ask(question) {
+      if (busy) return;
+      busy = true;
+      setBusy(true);
+
+      // User message
+      appendMsg('user', esc(question));
+      // Thinking indicator
+      const thinkEl = appendMsg('thinking', `<span class="dots"><span>.</span><span>.</span><span>.</span></span> ${lang === 'nl' ? 'Query genereren...' : 'Generating query...'}`);
+
+      try {
+        const aiRes = await fetch('/api/ask-wfs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question }),
+        });
+        const aiData = await aiRes.json();
+        if (!aiRes.ok || aiData.error) throw new Error(aiData.error || 'AI error');
+
+        thinkEl.remove();
+
+        // Store query
+        currentQuery = aiData;
+        currentMetric = aiData.metric_column;
+        currentColorScale = aiData.color_scale || 'sequential';
+
+        // Create result card (will be updated as data loads)
+        const cardEl = createResultCard(aiData);
+        document.getElementById('messages').appendChild(cardEl);
+        activeCardEl = cardEl;
+        scrollToBottom();
+
+        // Load data for current viewport
+        await loadDataForViewport(true);
+
+        // Search for NGR layers
+        if (aiData.ngr_keywords?.length) {
+          searchAndSuggestLayers(aiData.ngr_keywords);
+        }
+
+      } catch (err) {
+        thinkEl?.remove();
+        appendMsg('error', `${lang === 'nl' ? 'Fout' : 'Error'}: ${esc(err.message)}`);
+      } finally {
+        busy = false;
+        setBusy(false);
+      }
+    }
+
+    async function loadDataForViewport(isNewQuery = false) {
+      if (!currentQuery) return;
+
+      const bbox = getViewportBbox();
+      if (!bbox) return;
+
+      showReloadIndicator(isNewQuery ? (lang === 'nl' ? 'Data ophalen...' : 'Fetching data...') : (lang === 'nl' ? 'Vernieuwen...' : 'Refreshing...'));
+
+      try {
+        const { wfsUrl, typeName, propertyNames, cqlFilter, aggregation, h3Resolution, metric_column } = currentQuery;
+
+        const params = new URLSearchParams({
+          wfsUrl,
+          typeName,
+          bbox: bbox.join(','),
+        });
+        if (propertyNames?.length) params.set('propertyNames', propertyNames.join(','));
+        if (cqlFilter)             params.set('cqlFilter', cqlFilter);
+
+        const res = await fetch(`/api/wfs-proxy?${params}`);
+        const data = await res.json();
+
+        if (!res.ok || data.error) throw new Error(data.error || `WFS error ${res.status}`);
+
+        const features = data.features || [];
+        const binned = binFeaturesToH3(features, metric_column, aggregation, h3Resolution);
+
+        currentH3Data = binned;
+        updateMap();
+        updateCardStatus(features.length, binned.length);
+
+      } catch (err) {
+        if (activeCardEl) {
+          const statusEl = activeCardEl.querySelector('.msg-status');
+          if (statusEl) { statusEl.className = 'msg-status error'; statusEl.textContent = esc(err.message); }
+        }
+      } finally {
+        hideReloadIndicator();
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // DOM helpers
+    // ─────────────────────────────────────────────────────────────────
+    function appendMsg(type, html) {
+      const msgs = document.getElementById('messages');
+      const el   = document.createElement('div');
+      if (type === 'user')     { el.className = 'msg-user'; el.textContent = html.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"'); }
+      else if (type === 'thinking') { el.className = 'msg-thinking'; el.innerHTML = html; }
+      else if (type === 'error')    { el.className = 'msg-error'; el.textContent = html; }
+      else                     { el.className = type; el.innerHTML = html; }
+      msgs.appendChild(el);
+      scrollToBottom();
+      return el;
+    }
+
+    function createResultCard(aiData) {
+      const title = lang === 'nl' ? aiData.title_nl : aiData.title_en;
+      const source = aiData.wfsUrl.includes('vierkantstatistieken') ? 'CBS Vierkantstatistieken 100m' :
+                     aiData.wfsUrl.includes('bag') ? 'BAG Gebouwen' : 'PDOK WFS';
+      const year   = (aiData.wfsUrl.match(/\/(\d{4})\//) || [])[1] || '';
+
+      const el = document.createElement('div');
+      el.className = 'msg-assistant';
+      el.innerHTML = `
+        <div class="msg-card">
+          <div class="msg-title">${esc(title)}</div>
+          <div class="msg-meta">
+            <span>${esc(source)}${year ? ' · ' + year : ''}</span><br>
+            <span>${esc(aiData.typeName)}</span><br>
+            <span>${lang === 'nl' ? 'Metriek' : 'Metric'}: ${esc(aiData.metric_column)}</span>
+          </div>
+          <div class="msg-status" id="status-${Date.now()}">${lang === 'nl' ? 'Data laden...' : 'Loading data...'}</div>
+          <div class="wfs-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
+            <span class="arrow">▶</span>
+            <span>WFS query details</span>
+          </div>
+          <div class="wfs-body">
+            <pre class="wfs-pre">${esc(buildWfsQueryString(aiData))}</pre>
+          </div>
+        </div>`;
+
+      // Store reference to the status element
+      el._statusEl = el.querySelector('.msg-status');
+      return el;
+    }
+
+    function buildWfsQueryString(aiData) {
+      const params = new URLSearchParams({
+        wfsUrl: aiData.wfsUrl,
+        typeName: aiData.typeName,
+        propertyNames: (aiData.propertyNames || []).join(','),
+      });
+      if (aiData.cqlFilter) params.set('cqlFilter', aiData.cqlFilter);
+      params.set('bbox', '[viewport bbox]');
+      return `/api/wfs-proxy?${params}`;
+    }
+
+    function updateCardStatus(featureCount, hexCount) {
+      if (!activeCardEl) return;
+      const statusEl = activeCardEl._statusEl;
+      if (!statusEl) return;
+      statusEl.className = 'msg-status';
+      statusEl.textContent = `${featureCount.toLocaleString('nl-NL')} ${lang === 'nl' ? 'features' : 'features'} → ${hexCount.toLocaleString('nl-NL')} ${lang === 'nl' ? 'hexagonen' : 'hexagons'}`;
+    }
+
+    function setBusy(val) {
+      document.getElementById('submit-btn').disabled = val;
+    }
+
+    function showReloadIndicator(text) {
+      const el = document.getElementById('reload-indicator');
+      document.getElementById('reload-text').textContent = text;
+      el.classList.add('visible');
+    }
+
+    function hideReloadIndicator() {
+      document.getElementById('reload-indicator').classList.remove('visible');
+    }
+
+    function scrollToBottom() {
+      const msgs = document.getElementById('messages');
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // NGR layer suggestions
+    // ─────────────────────────────────────────────────────────────────
+    async function searchAndSuggestLayers(keywords) {
+      for (const kw of keywords.slice(0, 2)) {
+        try {
+          const res = await fetch(`/api/search-wms?q=${encodeURIComponent(kw)}`);
+          const { layers } = await res.json();
+          if (layers?.length) { addLayerSuggestionsMessage(kw, layers); return; }
+        } catch {}
+      }
+    }
+
+    function addLayerSuggestionsMessage(keyword, layers) {
+      const ts = Date.now();
+      const rowsHtml = layers.map((l, i) => {
+        const id = `ngr-${ts}-${i}`;
+        _ngrData[id] = l;
+        return `<div class="layer-row" id="row-${id}">
+          <div class="layer-row-info">
+            <div class="layer-row-title">${esc(l.title)}</div>
+            ${l.abstract ? `<div class="layer-row-abstract">${esc(l.abstract)}</div>` : ''}
+          </div>
+          <button class="layer-add-btn" onclick="toggleNgrLayer('${id}')">
+            ${lang === 'nl' ? 'Toon' : 'Show'}
+          </button>
+        </div>`;
+      }).join('');
+
+      const el = document.createElement('div');
+      el.className = 'msg-layers';
+      el.innerHTML = `
+        <div class="layers-header">
+          <span>🗺</span>
+          <span class="layers-header-title">${lang === 'nl' ? 'Gerelateerde kaartlagen' : 'Related map layers'}</span>
+          <span class="layers-source">NGR · ${esc(keyword)}</span>
+        </div>
+        ${rowsHtml}`;
+      document.getElementById('messages').appendChild(el);
+      scrollToBottom();
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Input / event wiring
+    // ─────────────────────────────────────────────────────────────────
+    function submitQuestion() {
+      const input = document.getElementById('question-input');
+      const q = input.value.trim();
+      if (!q) return;
+      input.value = '';
+      ask(q);
+    }
+
+    document.getElementById('submit-btn').addEventListener('click', submitQuestion);
+    document.getElementById('question-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') submitQuestion();
+    });
+
+    // Language toggle
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        lang = btn.dataset.lang;
+        document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+      });
+    });
+
+    // Example questions
+    document.querySelectorAll('.example-question').forEach(a => {
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        document.getElementById('question-input').value = a.textContent.trim();
+        submitQuestion();
+      });
+    });
+
+    // ─────────────────────────────────────────────────────────────────
+    // Init
+    // ─────────────────────────────────────────────────────────────────
+    initDeck();
+  </script>
+</body>
+</html>
