@@ -315,8 +315,11 @@
           eh:  { mainModule: `${UNPKG}duckdb-eh.wasm`,  mainWorker: `${UNPKG}duckdb-browser-eh.worker.js`  },
         };
         const bundle  = await window.duckdb.selectBundle(bundles);
-        const worker  = new Worker(bundle.mainWorker);
-        const logger  = new window.duckdb.ConsoleLogger();
+        // Workers must be same-origin — fetch cross-origin script and wrap in blob URL
+        const workerCode = await fetch(bundle.mainWorker).then(r => r.text());
+        const workerUrl  = URL.createObjectURL(new Blob([workerCode], { type: 'application/javascript' }));
+        const worker     = new Worker(workerUrl);
+        const logger     = new window.duckdb.ConsoleLogger();
         this.db = new window.duckdb.AsyncDuckDB(logger, worker);
         await this.db.instantiate(bundle.mainModule, bundle.pthreadWorker);
         this.conn = await this.db.connect();
