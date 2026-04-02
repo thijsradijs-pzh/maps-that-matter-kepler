@@ -643,8 +643,8 @@
 
       const { sql, title_nl, title_en, metric_column, color_scale } = result;
 
-      // Safety: only run SELECT
-      if (!sql?.trim().toLowerCase().startsWith('select')) {
+      // Safety: only run SELECT (or WITH...SELECT for CTEs)
+      if (!sql?.trim().toLowerCase().startsWith('select') && !sql?.trim().toLowerCase().startsWith('with')) {
         thinkingEl.remove();
         addError('Onveilige query geweigerd / Unsafe query rejected');
         busy = false;
