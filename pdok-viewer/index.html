@@ -127,8 +127,20 @@
       margin: 0 14px 10px;
       background: rgba(180,120,0,0.12); border: 1px solid rgba(180,120,0,0.25);
       border-radius: 5px; padding: 6px 10px;
-      font-size: 10px; color: #c8a040; line-height: 1.5;
+      font-size: 10px; color: #c8a040; line-height: 1.6;
     }
+    .load-all-row {
+      display: flex; align-items: center; gap: 8px; margin-top: 5px;
+    }
+    .load-all-btn {
+      background: rgba(180,120,0,0.2); border: 1px solid rgba(180,120,0,0.4);
+      color: #e8c060; border-radius: 4px;
+      padding: 3px 10px; font-size: 10px; cursor: pointer;
+      font-family: inherit; transition: all 0.15s;
+    }
+    .load-all-btn:hover:not(:disabled) { background: rgba(180,120,0,0.35); }
+    .load-all-btn:disabled { opacity: 0.4; cursor: default; }
+    .load-all-note { color: #7a6020; font-size: 10px; }
 
     /* WFS details toggle */
     .wfs-toggle {
@@ -250,18 +262,36 @@
     /* Data reload indicator */
     #reload-indicator {
       position: absolute; bottom: 24px; left: 24px;
-      background: rgba(10,10,18,0.88); border: 1px solid #2a2a3a;
-      border-radius: 16px; padding: 5px 12px;
-      font-size: 11px; color: #4da6ff;
+      background: rgba(10,10,18,0.92); border: 1px solid #3a6aaa;
+      border-radius: 8px; padding: 8px 14px;
+      font-size: 12px; color: #6ab4ff;
       z-index: 10; display: none;
-      align-items: center; gap: 6px;
+      align-items: center; gap: 8px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+      max-width: 320px;
     }
     #reload-indicator.visible { display: flex; }
     .reload-dot {
-      width: 6px; height: 6px; border-radius: 50%;
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
       background: #4da6ff; animation: pulse 1s infinite;
     }
     @keyframes pulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
+    #reload-sub {
+      font-size: 10px; color: #444; display: block; margin-top: 1px;
+    }
+
+    /* Map loading overlay — subtle progress bar at top of map */
+    #map-loading-bar {
+      position: absolute; top: 0; left: 0; right: 360px; height: 3px;
+      z-index: 20; pointer-events: none;
+      background: transparent;
+    }
+    #map-loading-bar.active {
+      background: linear-gradient(90deg, transparent 0%, #4da6ff 50%, transparent 100%);
+      background-size: 200% 100%;
+      animation: shimmer 1.2s ease-in-out infinite;
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
     /* Active WMS overlay chips */
     #wms-panel {
@@ -318,10 +348,16 @@
   <!-- Map canvas -->
   <div id="container"></div>
 
+  <!-- Shimmer loading bar at top of map area -->
+  <div id="map-loading-bar"></div>
+
   <!-- Data reload indicator -->
   <div id="reload-indicator">
     <div class="reload-dot"></div>
-    <span id="reload-text">Data laden...</span>
+    <div>
+      <span id="reload-text">Data laden...</span>
+      <span id="reload-sub"></span>
+    </div>
   </div>
 
   <!-- Active WMS overlay chips (positioned above reload indicator when both visible) -->
@@ -513,18 +549,23 @@
     // ─────────────────────────────────────────────────────────────────
     // State
     // ─────────────────────────────────────────────────────────────────
-    let deckInstance  = null;
-    let currentQuery  = null;   // { wfsUrl, typeName, propertyNames, cqlFilter, aggregation, h3Resolution, metric_column, color_scale }
-    let currentH3Data = [];
-    let currentMetric = null;
+    const PAGE_SIZE = 1000; // PDOK's hard cap per request
+
+    let deckInstance    = null;
+    let currentQuery    = null;
+    let currentH3Data   = null;
+    let currentMetric   = null;
     let currentColorScale = 'sequential';
-    let lang          = 'nl';
-    let busy          = false;
-    let reloadTimer   = null;
+    let currentBbox     = null;  // bbox used for last load (for pagination)
+    let currentRawFeatures = []; // accumulated features across pages
+    let lang            = 'nl';
+    let busy            = false;
+    let paging          = false; // true while "load all" pagination is in progress
+    let reloadTimer     = null;
     let currentViewState = null;
-    let activeCardEl  = null;   // The last result card DOM element
-    const wmsLayers   = new Map();
-    const _ngrData    = {};
+    let activeCardEl    = null;
+    const wmsLayers     = new Map();
+    const _ngrData      = {};
 
     // ─────────────────────────────────────────────────────────────────
     // Deck.gl setup
@@ -781,7 +822,7 @@
         const bbox = getViewportBbox();
         if (!bbox) throw new Error('Viewport niet beschikbaar');
 
-        const params = new URLSearchParams({ wfsUrl: aiData.wfsUrl, typeName: aiData.typeName, bbox: bbox.join(','), maxFeatures: '10000' });
+        const params = new URLSearchParams({ wfsUrl: aiData.wfsUrl, typeName: aiData.typeName, bbox: bbox.join(',') });
         if (aiData.cqlFilter) params.set('cqlFilter', aiData.cqlFilter);
 
         const res = await fetch(`/api/wfs-proxy?${params}`);
@@ -789,6 +830,10 @@
         if (!res.ok || data.error) throw new Error(data.error || `WFS fout ${res.status}`);
 
         const features = data.features || [];
+        const truncated = res.headers.get('X-Truncated') === '1' || features.length >= PAGE_SIZE;
+
+        currentBbox        = bbox;
+        currentRawFeatures = features;
 
         // Step 3: H3 binning
         think.step(`${features.length.toLocaleString('nl-NL')} features → H3-9 hexagonen berekenen...`);
@@ -801,7 +846,7 @@
 
         // Replace think card with result card
         think.remove();
-        const cardEl = createResultCard(aiData, features, binned);
+        const cardEl = createResultCard(aiData, features, binned, truncated);
         document.getElementById('messages').appendChild(cardEl);
         activeCardEl = cardEl;
         scrollToBottom();
@@ -818,16 +863,16 @@
 
     // Viewport-change reload (no think card, just indicator)
     async function loadDataForViewport() {
-      if (!currentQuery) return;
+      if (!currentQuery || paging) return;
       const bbox = getViewportBbox();
       if (!bbox) return;
 
-      showReloadIndicator(lang === 'nl' ? 'Vernieuwen...' : 'Refreshing...');
+      showReloadIndicator(lang === 'nl' ? 'Kaart vernieuwen...' : 'Refreshing map...');
 
       try {
         const { wfsUrl, typeName, cqlFilter, metric_column, aggregation } = currentQuery;
 
-        const params = new URLSearchParams({ wfsUrl, typeName, bbox: bbox.join(','), maxFeatures: '10000' });
+        const params = new URLSearchParams({ wfsUrl, typeName, bbox: bbox.join(',') });
         if (cqlFilter) params.set('cqlFilter', cqlFilter);
 
         const res = await fetch(`/api/wfs-proxy?${params}`);
@@ -835,15 +880,75 @@
         if (!res.ok || data.error) throw new Error(data.error || 'WFS fout');
 
         const features = data.features || [];
-        currentH3Data = binFeaturesToH3(features, metric_column, aggregation, 9);
+        const truncated = res.headers.get('X-Truncated') === '1' || features.length >= PAGE_SIZE;
+
+        currentBbox        = bbox;
+        currentRawFeatures = features;
+        currentH3Data      = binFeaturesToH3(features, metric_column, aggregation, 9);
         updateMap();
-        updateCardStatus(features.length, currentH3Data.hexCount);
+        updateCardStatus(features.length, currentH3Data.hexCount, truncated);
       } catch {
         // Silently fail on pan/zoom reloads
       } finally {
         hideReloadIndicator();
       }
     }
+
+    // Paginate through all PDOK pages for the current query/bbox
+    async function loadAllPages() {
+      if (!currentQuery || paging) return;
+      paging = true;
+
+      const btn = document.querySelector('.load-all-btn');
+      if (btn) btn.disabled = true;
+
+      const { wfsUrl, typeName, cqlFilter, metric_column, aggregation } = currentQuery;
+      const bbox = currentBbox || getViewportBbox();
+
+      let allFeatures  = [...currentRawFeatures];
+      let startIndex   = allFeatures.length;
+      let pageNum      = 2;
+      let hasMore      = true;
+
+      setMapLoading(true);
+
+      try {
+        while (hasMore) {
+          showReloadIndicator(
+            `Pagina ${pageNum} laden...`,
+            `${allFeatures.length.toLocaleString('nl-NL')} features geladen`
+          );
+
+          const params = new URLSearchParams({ wfsUrl, typeName, bbox: bbox.join(','), startIndex });
+          if (cqlFilter) params.set('cqlFilter', cqlFilter);
+
+          const res = await fetch(`/api/wfs-proxy?${params}`);
+          const data = await res.json();
+          if (!res.ok || data.error) break;
+
+          const page = data.features || [];
+          allFeatures = [...allFeatures, ...page];
+
+          if (page.length < PAGE_SIZE) {
+            hasMore = false;  // Last page — we have everything
+          } else {
+            startIndex += PAGE_SIZE;
+            pageNum++;
+          }
+        }
+
+        currentRawFeatures = allFeatures;
+        currentH3Data      = binFeaturesToH3(allFeatures, metric_column, aggregation, 9);
+        updateMap();
+        updateCardStatus(allFeatures.length, currentH3Data.hexCount, false);
+
+      } finally {
+        paging = false;
+        setMapLoading(false);
+        hideReloadIndicator();
+      }
+    }
+    window.loadAllPages = loadAllPages;
 
     // ─────────────────────────────────────────────────────────────────
     // DOM helpers
@@ -859,7 +964,7 @@
       return el;
     }
 
-    function createResultCard(aiData, features, binResult) {
+    function createResultCard(aiData, features, binResult, truncated) {
       const title     = lang === 'nl' ? aiData.title_nl : aiData.title_en;
       const source    = aiData.wfsUrl.includes('vierkantstatistieken') ? 'CBS Vierkantstatistieken 100m' :
                         aiData.wfsUrl.includes('bag') ? 'BAG Gebouwen' : 'PDOK WFS';
@@ -894,7 +999,14 @@
           <div class="msg-stats">
             ${statsLines.map(l => `<span>${esc(l)}</span>`).join('')}
           </div>
-          ${isTruncated ? `<div class="msg-warning">⚠ PDOK heeft de respons afgekapt op ${featureCount.toLocaleString('nl-NL')} cellen. Zoom in voor volledige dekking van het gebied.</div>` : ''}
+          ${(truncated || isTruncated) ? `
+          <div class="msg-warning">
+            ⚠ PDOK heeft de respons afgekapt op ${featureCount.toLocaleString('nl-NL')} features — de kaart toont een onvolledig beeld.
+            <div class="load-all-row">
+              <button class="load-all-btn" onclick="loadAllPages()">Alles laden</button>
+              <span class="load-all-note">Haalt alle pagina's op via PDOK WFS — kan traag zijn</span>
+            </div>
+          </div>` : ''}
           <div class="msg-status"></div>
           <div class="wfs-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
             <span class="arrow">▶</span>
@@ -920,24 +1032,33 @@
       return `/api/wfs-proxy?${params}`;
     }
 
-    function updateCardStatus(featureCount, hexCount) {
+    function updateCardStatus(featureCount, hexCount, truncated) {
       if (!activeCardEl?._statusEl) return;
       activeCardEl._statusEl.textContent =
         `↻ ${featureCount.toLocaleString('nl-NL')} features → ${hexCount.toLocaleString('nl-NL')} hexagonen (vernieuwd)`;
+      // Update warning section visibility
+      const warn = activeCardEl.querySelector('.msg-warning');
+      if (warn) warn.style.display = truncated ? '' : 'none';
     }
 
     function setBusy(val) {
       document.getElementById('submit-btn').disabled = val;
     }
 
-    function showReloadIndicator(text) {
-      const el = document.getElementById('reload-indicator');
+    function showReloadIndicator(text, sub) {
       document.getElementById('reload-text').textContent = text;
-      el.classList.add('visible');
+      document.getElementById('reload-sub').textContent  = sub || '';
+      document.getElementById('reload-indicator').classList.add('visible');
+      setMapLoading(true);
     }
 
     function hideReloadIndicator() {
       document.getElementById('reload-indicator').classList.remove('visible');
+      setMapLoading(false);
+    }
+
+    function setMapLoading(on) {
+      document.getElementById('map-loading-bar').classList.toggle('active', on);
     }
 
     function scrollToBottom() {

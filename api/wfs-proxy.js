@@ -4,12 +4,12 @@
 // GET /api/wfs-proxy
 //   ?wfsUrl=<base WFS URL>
 //   &typeName=<namespace:typename>
-//   &propertyNames=<comma-separated columns>   (optional — omit for all)
-//   &cqlFilter=<CQL filter string>             (optional)
-//   &bbox=<minLon,minLat,maxLon,maxLat>        (WGS84 lon/lat)
-//   &maxFeatures=<number>                      (default 2000)
+//   &cqlFilter=<CQL filter string>   (optional)
+//   &bbox=<minLon,minLat,maxLon,maxLat>  (WGS84 lon/lat)
+//   &pageSize=<number>               (features per page, default 1000)
+//   &startIndex=<number>             (for pagination, default 0)
 //
-// Returns: GeoJSON FeatureCollection
+// Returns: GeoJSON FeatureCollection + X-Feature-Count + X-Truncated headers
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).end();
 
-  const { wfsUrl, typeName, propertyNames, cqlFilter, bbox, maxFeatures } = req.query;
+  const { wfsUrl, typeName, cqlFilter, bbox, pageSize, startIndex } = req.query;
 
   if (!wfsUrl || !typeName) {
     return res.status(400).json({ error: 'wfsUrl and typeName are required' });
@@ -33,6 +33,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid wfsUrl' });
   }
 
+  const requestedCount = Math.min(parseInt(pageSize, 10) || 1000, 1000); // PDOK max per page
+
   const params = new URLSearchParams({
     SERVICE: 'WFS',
     VERSION: '2.0.0',
@@ -40,17 +42,16 @@ export default async function handler(req, res) {
     TYPENAMES: typeName,
     SRSNAME: 'EPSG:4326',
     outputFormat: 'application/json',
-    count: maxFeatures || '2000',
+    count: requestedCount,
   });
+
+  if (startIndex && parseInt(startIndex, 10) > 0) {
+    params.set('startIndex', startIndex);
+  }
 
   // Spatial filter — BBOX in CRS84 guarantees lon/lat axis order
   if (bbox) {
     params.set('BBOX', `${bbox},urn:ogc:def:crs:OGC:1.3:CRS84`);
-  }
-
-  // Property filter (comma-separated column names)
-  if (propertyNames) {
-    params.set('PROPERTYNAME', propertyNames);
   }
 
   // Attribute filter
@@ -80,10 +81,12 @@ export default async function handler(req, res) {
 
     const geojson = await upstream.json();
 
-    // Forward feature count in header for the UI
     const featureCount = geojson.features?.length ?? 0;
+    const truncated = featureCount >= requestedCount;
     res.setHeader('X-Feature-Count', featureCount);
-    res.setHeader('Cache-Control', 'public, max-age=60');
+    res.setHeader('X-Truncated', truncated ? '1' : '0');
+    res.setHeader('X-Page-Size', requestedCount);
+    res.setHeader('Cache-Control', 'no-cache');
     return res.status(200).json(geojson);
   } catch (err) {
     return res.status(500).json({ error: err.message });
