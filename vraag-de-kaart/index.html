@@ -12,10 +12,9 @@
     plausible.init();
   </script>
 
-  <!-- DuckDB WASM — loaded as ESM module; unpkg serves .mjs with correct MIME type.
-       duckdb-browser.js was renamed to .cjs/.mjs in 1.28.0 — the .js path never existed. -->
+  <!-- DuckDB WASM via esm.sh — auto-resolves bare specifier deps (apache-arrow etc.) -->
   <script type="module">
-    import * as duckdb from 'https://unpkg.com/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser.mjs';
+    import * as duckdb from 'https://esm.sh/@duckdb/duckdb-wasm@1.28.0';
     window.duckdb = duckdb;
   </script>
   <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
