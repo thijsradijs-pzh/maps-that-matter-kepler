@@ -148,7 +148,10 @@ export default async function handler(req, res) {
 
     if (!geminiRes.ok) {
       const detail = await geminiRes.text();
-      return res.status(502).json({ error: 'Gemini API error', detail });
+      // Surface the Gemini error message directly so the frontend can show it
+      let message = 'Gemini API error';
+      try { message = JSON.parse(detail)?.error?.message || message; } catch {}
+      return res.status(502).json({ error: message, detail });
     }
 
     const data = await geminiRes.json();
