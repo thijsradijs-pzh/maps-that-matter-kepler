@@ -404,11 +404,11 @@
                   - 32.58297  * p * p
                   -  0.24750  * q * q * q
                   -  0.84978  * p * p * q
-                  -  0.06550  * q * q * q
+                  -  0.06550  * q * q        // q² (not q³)
                   -  0.01709  * p * p * q * q
                   -  0.00738  * p
                   +  0.00530  * p * p * p * q
-                  -  0.00039  * p * q * q * q;
+                  -  0.00039  * p * q * q;
       const dLon =  5260.52916 * p
                   +  105.94684 * p * q
                   +    2.45656 * q * q
@@ -462,7 +462,7 @@
         if (!c) continue;
 
         let h3id;
-        try { h3id = h3.latLngToCell(c.lat, c.lon, resolution); } catch { continue; }
+        try { h3id = h3.geoToH3(c.lat, c.lon, resolution); } catch { continue; }
 
         const raw = f.properties?.[metricProp];
         const val = raw != null ? Number(raw) : NaN;
