@@ -160,9 +160,9 @@ export default async function handler(req, res) {
 
     const result = JSON.parse(text);
 
-    // Safety: only allow SELECT
+    // Safety: only allow SELECT (and WITH ... SELECT for CTEs)
     const sqlStart = (result.sql || '').trim().toLowerCase();
-    if (!sqlStart.startsWith('select')) {
+    if (!sqlStart.startsWith('select') && !sqlStart.startsWith('with')) {
       return res.status(400).json({ error: 'Only SELECT queries are allowed' });
     }
 
