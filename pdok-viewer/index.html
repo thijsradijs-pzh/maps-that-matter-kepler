@@ -392,10 +392,51 @@
     }
 
     // ─────────────────────────────────────────────────────────────────
+    // Coordinate conversion helpers
+    // ─────────────────────────────────────────────────────────────────
+
+    // RD New (EPSG:28992) → WGS84 polynomial approximation
+    // Source: RDNAPTRANS white paper (accuracy ~1m for the Netherlands)
+    function rdNewToWgs84(rdX, rdY) {
+      const p = (rdX - 155000) / 100000;
+      const q = (rdY - 463000) / 100000;
+      const dLat =  3235.65389 * q
+                  - 32.58297  * p * p
+                  -  0.24750  * q * q * q
+                  -  0.84978  * p * p * q
+                  -  0.06550  * q * q * q
+                  -  0.01709  * p * p * q * q
+                  -  0.00738  * p
+                  +  0.00530  * p * p * p * q
+                  -  0.00039  * p * q * q * q;
+      const dLon =  5260.52916 * p
+                  +  105.94684 * p * q
+                  +    2.45656 * q * q
+                  -    0.81885 * p * p * p
+                  +    0.05594 * p * q * q
+                  -    0.05607 * p * p * p * q
+                  +    0.01199 * q
+                  -    0.00256 * p * p * p * q * q
+                  +    0.00128 * p * q * q * q
+                  +    0.00022 * q * q
+                  -    0.00022 * p * p;
+      return { lat: 52.15517440 + dLat / 3600, lon: 5.38720621 + dLon / 3600 };
+    }
+
+    // Return { lat, lon } from any supported coordinate pair
+    function toLatLon(x, y) {
+      // RD New: X ~0-280000, Y ~300000-625000 (both >> 90)
+      if (Math.abs(x) > 100 || Math.abs(y) > 100) return rdNewToWgs84(x, y);
+      // EPSG:4326 lat/lon axis order: first coord is latitude (50-54 for NL)
+      if (x >= 48 && x <= 56) return { lat: x, lon: y };
+      // GeoJSON standard: [lon, lat]
+      return { lat: y, lon: x };
+    }
+
+    // ─────────────────────────────────────────────────────────────────
     // H3 binning
     // ─────────────────────────────────────────────────────────────────
     function flattenFirstRing(geom) {
-      // Returns array of [lon, lat] pairs from first ring/polygon
       if (geom.type === 'Point') return [geom.coordinates];
       if (geom.type === 'MultiPoint') return geom.coordinates;
       if (geom.type === 'Polygon') return geom.coordinates[0];
@@ -407,25 +448,21 @@
     function centroid(geom) {
       const pts = flattenFirstRing(geom);
       if (!pts.length) return null;
-      const lon = pts.reduce((s, p) => s + p[0], 0) / pts.length;
-      const lat = pts.reduce((s, p) => s + p[1], 0) / pts.length;
-      return { lat, lon };
+      const x = pts.reduce((s, p) => s + p[0], 0) / pts.length;
+      const y = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+      return toLatLon(x, y);
     }
 
     function binFeaturesToH3(features, metricProp, aggregation, resolution) {
-      const cells = new Map(); // h3id → { sum, count, max }
+      const cells = new Map();
 
       for (const f of features) {
         if (!f.geometry) continue;
         const c = centroid(f.geometry);
         if (!c) continue;
 
-        // Axis-order safety: if lat looks like a longitude (>90), swap
-        let lat = c.lat, lon = c.lon;
-        if (Math.abs(lat) > 90 && Math.abs(lon) <= 90) { lat = c.lon; lon = c.lat; }
-
         let h3id;
-        try { h3id = h3.latLngToCell(lat, lon, resolution); } catch { continue; }
+        try { h3id = h3.latLngToCell(c.lat, c.lon, resolution); } catch { continue; }
 
         const raw = f.properties?.[metricProp];
         const val = raw != null ? Number(raw) : NaN;
@@ -469,12 +506,12 @@
     // Deck.gl setup
     // ─────────────────────────────────────────────────────────────────
     function initDeck() {
-      currentViewState = { longitude: 4.9, latitude: 52.37, zoom: 12, pitch: 0, bearing: 0 };
+      currentViewState = { longitude: 5.2, latitude: 52.2, zoom: 7, pitch: 0, bearing: 0 };
 
       deckInstance = new deck.DeckGL({
         container: 'container',
         initialViewState: currentViewState,
-        layers: [DeckGLUtils.createBasemap('dark')],
+        layers: [DeckGLUtils.createBasemap('voyager')],
         controller: true,
         onViewStateChange: ({ viewState }) => {
           currentViewState = viewState;
@@ -540,7 +577,7 @@
 
     function updateMap() {
       if (!deckInstance) return;
-      const layers = [DeckGLUtils.createBasemap('dark')];
+      const layers = [DeckGLUtils.createBasemap('voyager')];
       if (currentH3Data.length) {
         const l = buildH3Layer(currentH3Data, currentColorScale);
         if (l) layers.push(l);
