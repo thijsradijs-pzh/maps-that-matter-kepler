@@ -12,8 +12,8 @@
     plausible.init();
   </script>
 
-  <!-- DuckDB WASM — must load before other scripts -->
-  <script src="https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser.js"></script>
+  <!-- DuckDB WASM — unpkg serves correct JS MIME type (jsDelivr serves text/plain on some versions) -->
+  <script src="https://unpkg.com/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser.js"></script>
   <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
   <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
   <script src="/shared/deckgl-utils.js"></script>
@@ -305,7 +305,12 @@
       async initialize() {
         if (this.db) return;
         await this.waitForDuckDB();
-        const bundles = duckdb.getJsDelivrBundles();
+        // Use unpkg bundle URLs — avoids jsDelivr MIME type issues
+        const UNPKG = 'https://unpkg.com/@duckdb/duckdb-wasm@1.28.0/dist/';
+        const bundles = {
+          mvp: { mainModule: `${UNPKG}duckdb_wasm.wasm`,    mainWorker: `${UNPKG}duckdb-browser-mvp.worker.js` },
+          eh:  { mainModule: `${UNPKG}duckdb_wasm_eh.wasm`, mainWorker: `${UNPKG}duckdb-browser-eh.worker.js`  },
+        };
         const bundle  = await duckdb.selectBundle(bundles);
         const worker  = new Worker(bundle.mainWorker);
         const logger  = new duckdb.ConsoleLogger();
