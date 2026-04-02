@@ -98,6 +98,7 @@ RULES:
 9. Column names are exact — copy them precisely from the schema above.
 10. For population questions, filter WHERE aantal_inwoners_sum > 10 to exclude uninhabited areas.
 11. metric_column must be a column name that appears in your SELECT clause.
+12. For "where is X highest/lowest" or "top N municipalities/areas" questions: GROUP BY gemeentenaam (or buurtnaam/wijknaam if relevant), use AVG() or MAX() on the metric, and pick a representative h3_id with ANY_VALUE(h3_id). This avoids showing the same municipality many times. Example: SELECT ANY_VALUE(h3_id) AS h3_id, gemeentenaam, AVG(soortenrijkdomsklasse) AS soortenrijkdomsklasse FROM datacube WHERE year_int = 2023 GROUP BY gemeentenaam ORDER BY soortenrijkdomsklasse DESC LIMIT 50
 
 Return ONLY valid JSON with exactly these fields:
 {
