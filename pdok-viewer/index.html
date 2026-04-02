@@ -17,341 +17,427 @@
   <script src="/shared/deckgl-utils.js"></script>
 
   <style>
-    * { box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      margin: 0; padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
       overflow: hidden;
-      background: #0a0a0a;
-      color: #ddd;
     }
 
     #container { width: 100vw; height: 100vh; }
 
-    /* ── Chat panel ── */
-    #chat-panel {
+    /* ─── Side panel ─── */
+    #panel {
       position: absolute; top: 0; right: 0; bottom: 0;
-      width: 360px;
-      background: rgba(10,10,18,0.97);
-      border-left: 1px solid #1e1e2e;
+      width: 380px;
+      background: #161b22;
+      border-left: 1px solid #21262d;
       display: flex; flex-direction: column;
       z-index: 10;
     }
 
-    /* Header */
-    #chat-header {
-      padding: 16px 18px 12px;
-      border-bottom: 1px solid #1e1e2e;
+    .panel-header {
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid #21262d;
       flex-shrink: 0;
     }
-    #chat-header h2 {
-      margin: 0 0 3px; font-size: 14px; font-weight: 700; color: #fff;
+    .panel-header h1 {
+      font-size: 14px; font-weight: 700; color: #f0f6fc;
+      letter-spacing: -0.2px;
     }
-    #chat-header .subtitle {
-      font-size: 11px; color: #555; line-height: 1.4;
+    .panel-header p {
+      font-size: 11px; color: #7d8590; margin-top: 3px; line-height: 1.5;
     }
 
-    /* Lang toggle */
-    .lang-row { display: flex; gap: 4px; margin-top: 10px; }
-    .lang-btn {
-      padding: 3px 10px; font-size: 11px; font-weight: 600;
-      border: 1px solid #2a2a3a; border-radius: 4px;
-      background: #14141e; color: #555; cursor: pointer; transition: all 0.15s;
+    /* Step indicator */
+    .steps-row {
+      display: flex; gap: 4px; margin-top: 12px;
     }
-    .lang-btn.active { background: #1a3a52; border-color: #2a6496; color: #fff; }
+    .step-pill {
+      flex: 1; height: 3px; border-radius: 2px;
+      background: #21262d; transition: background 0.4s;
+    }
+    .step-pill.done   { background: #1f6feb; }
+    .step-pill.active { background: #58a6ff; animation: step-pulse 1.2s ease-in-out infinite alternate; }
+    @keyframes step-pulse { to { opacity: 0.45; } }
 
-    /* Messages */
+    /* Messages feed */
     #messages {
-      flex: 1; overflow-y: auto; padding: 14px 14px 8px;
+      flex: 1; overflow-y: auto;
+      padding: 14px 14px 8px;
       display: flex; flex-direction: column; gap: 10px;
+      scroll-behavior: smooth;
     }
     #messages::-webkit-scrollbar { width: 4px; }
     #messages::-webkit-scrollbar-track { background: transparent; }
-    #messages::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 2px; }
+    #messages::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
 
-    /* Welcome card */
-    .welcome-card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid #1e1e2e;
-      border-radius: 8px; padding: 12px 14px;
-      font-size: 12px; color: #666; line-height: 1.7;
+    /* Input bar */
+    #input-area {
+      flex-shrink: 0;
+      padding: 12px 14px;
+      border-top: 1px solid #21262d;
+      background: #161b22;
     }
-    .welcome-card b { color: #aaa; }
-    .example-question {
-      display: block; margin-top: 5px;
-      font-size: 11px; color: #4da6ff;
-      cursor: pointer; padding: 3px 0;
-      text-decoration: none; transition: color 0.15s;
+    .input-row { display: flex; gap: 8px; align-items: center; }
+    #question-input {
+      flex: 1;
+      background: #0d1117; border: 1px solid #30363d;
+      border-radius: 8px; padding: 9px 12px;
+      font-size: 13px; color: #e6edf3; outline: none;
+      font-family: inherit; transition: border-color 0.15s;
     }
-    .example-question:hover { color: #7ec8ff; }
+    #question-input::placeholder { color: #484f58; }
+    #question-input:focus { border-color: #388bfd; }
+    #submit-btn {
+      background: #1f6feb; border: none; border-radius: 8px;
+      color: #fff; font-size: 16px; font-weight: 600;
+      width: 36px; height: 36px; flex-shrink: 0;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    #submit-btn:hover:not(:disabled) { background: #388bfd; }
+    #submit-btn:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
 
-    /* User message */
+    /* ─── Message types ─── */
+
+    /* User bubble */
     .msg-user {
-      align-self: flex-end; max-width: 88%;
-      background: rgba(26,58,82,0.85);
-      border: 1px solid #1e4a6e;
-      border-radius: 10px 10px 2px 10px;
-      padding: 9px 12px;
-      font-size: 12px; color: #c8e4ff; line-height: 1.5;
-    }
-
-    /* Assistant result card */
-    .msg-assistant { align-self: flex-start; max-width: 100%; width: 100%; }
-    .msg-card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid #1e1e2e;
-      border-radius: 8px; overflow: hidden;
-    }
-    .msg-title {
-      padding: 10px 14px 8px;
-      font-size: 12px; font-weight: 700; color: #fff;
-      border-bottom: 1px solid #1e1e2e;
-    }
-    .msg-meta {
-      padding: 6px 14px 8px;
-      font-size: 10px; color: #444; line-height: 1.8;
-    }
-    .msg-meta span { color: #666; }
-    .msg-status {
-      padding: 0 14px 6px;
-      font-size: 11px; color: #4da6ff;
-    }
-    .msg-status.error { color: #ff8a8a; }
-    .msg-stats {
-      padding: 0 14px 8px;
-      font-size: 11px; color: #666; line-height: 1.7;
-    }
-    .msg-stats span { display: block; }
-    .msg-warning {
-      margin: 0 14px 10px;
-      background: rgba(180,120,0,0.12); border: 1px solid rgba(180,120,0,0.25);
-      border-radius: 5px; padding: 6px 10px;
-      font-size: 10px; color: #c8a040; line-height: 1.6;
-    }
-    .load-all-row {
-      display: flex; align-items: center; gap: 8px; margin-top: 5px;
-    }
-    .load-all-btn {
-      background: rgba(180,120,0,0.2); border: 1px solid rgba(180,120,0,0.4);
-      color: #e8c060; border-radius: 4px;
-      padding: 3px 10px; font-size: 10px; cursor: pointer;
-      font-family: inherit; transition: all 0.15s;
-    }
-    .load-all-btn:hover:not(:disabled) { background: rgba(180,120,0,0.35); }
-    .load-all-btn:disabled { opacity: 0.4; cursor: default; }
-    .load-all-note { color: #7a6020; font-size: 10px; }
-
-    /* WFS details toggle */
-    .wfs-toggle {
-      display: flex; align-items: center; gap: 5px;
-      padding: 7px 14px;
-      border-top: 1px solid #1e1e2e;
-      font-size: 10px; color: #444;
-      cursor: pointer; user-select: none; transition: color 0.15s;
-    }
-    .wfs-toggle:hover { color: #666; }
-    .wfs-toggle .arrow { font-size: 8px; transition: transform 0.2s; }
-    .wfs-toggle.open .arrow { transform: rotate(90deg); }
-    .wfs-body { display: none; padding: 0 14px 12px; }
-    .wfs-body.open { display: block; }
-    pre.wfs-pre {
-      margin: 0;
-      background: #0d0d18; border: 1px solid #1e1e2e;
-      border-radius: 5px; padding: 10px;
-      font-size: 10px; color: #a8c7f0;
-      line-height: 1.6; overflow-x: auto;
-      white-space: pre-wrap; word-break: break-all;
-    }
-
-    /* Thinking step card */
-    .msg-think-card {
-      align-self: flex-start; width: 100%;
-      background: rgba(20,20,32,0.7);
-      border: 1px solid #2a2a3a;
-      border-radius: 8px; padding: 10px 14px;
-    }
-    .think-steps { display: flex; flex-direction: column; gap: 5px; }
-    .think-step {
-      display: flex; align-items: center; gap: 8px;
-      font-size: 11px; color: #444; line-height: 1.4;
-    }
-    .think-step.active { color: #aaa; }
-    .think-step.done { color: #3a5a3a; }
-    .think-spinner { display: inline-block; animation: spin 1s linear infinite; }
-    .think-check { color: #4a8a5a; }
-    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-    /* Reasoning block inside result card */
-    .msg-reasoning {
-      padding: 8px 14px 10px;
-      font-size: 11px; color: #666; line-height: 1.6;
-      border-bottom: 1px solid #1e1e2e;
-      font-style: italic;
+      align-self: flex-end;
+      background: #1f6feb; border-radius: 12px 12px 4px 12px;
+      padding: 9px 13px; font-size: 12px; color: #fff;
+      max-width: 86%; line-height: 1.5;
     }
 
     /* Error */
     .msg-error {
-      align-self: flex-start; width: 100%;
-      background: rgba(200,30,30,0.08);
-      border: 1px solid rgba(200,30,30,0.2);
+      background: rgba(248,81,73,0.08);
+      border: 1px solid rgba(248,81,73,0.25);
       border-radius: 8px; padding: 10px 14px;
-      font-size: 11px; color: #ff8a8a; line-height: 1.5;
+      font-size: 12px; color: #f85149; line-height: 1.5;
     }
 
-    /* Input bar */
-    #input-bar {
-      flex-shrink: 0;
-      display: flex; align-items: center; gap: 8px;
-      padding: 10px 12px;
-      border-top: 1px solid #1e1e2e;
-      background: rgba(14,14,22,0.99);
+    /* Thinking card */
+    .card-thinking {
+      background: #21262d; border: 1px solid #30363d;
+      border-radius: 10px; padding: 12px 14px;
+      display: flex; flex-direction: column; gap: 6px;
     }
-    #question-input {
-      flex: 1; background: #0d0d18;
-      border: 1px solid #2a2a3a; border-radius: 6px;
-      padding: 8px 12px; font-size: 12px; color: #ddd;
-      outline: none; transition: border-color 0.15s;
-      font-family: inherit;
+    .think-step {
+      display: flex; align-items: center; gap: 9px;
+      font-size: 12px; color: #484f58; line-height: 1.4;
+      transition: color 0.2s;
     }
-    #question-input::placeholder { color: #333; }
-    #question-input:focus { border-color: #2a6496; }
-    #submit-btn {
-      background: #1a3a52; border: 1px solid #2a6496;
-      color: #4da6ff; border-radius: 6px;
-      width: 34px; height: 34px; font-size: 16px;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      transition: all 0.15s; flex-shrink: 0;
-    }
-    #submit-btn:hover { background: #2a4a62; }
-    #submit-btn:disabled { opacity: 0.4; cursor: default; }
+    .think-step.active { color: #c9d1d9; }
+    .think-step.done   { color: #56d364; }
+    .think-icon { width: 14px; flex-shrink: 0; font-size: 12px; text-align: center; }
+    .think-icon.spin { animation: spin 0.8s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* NGR layer suggestion card */
-    .msg-layers {
-      align-self: flex-start; width: 100%;
-      background: rgba(20,30,20,0.6);
-      border: 1px solid #1e3a22;
-      border-radius: 8px; overflow: hidden;
+    /* AI analysis card */
+    .card-ai {
+      background: #21262d; border: 1px solid #30363d;
+      border-radius: 10px; overflow: hidden;
     }
-    .layers-header {
-      padding: 8px 14px;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-      display: flex; align-items: center; gap: 6px;
+    .card-ai-header {
+      padding: 12px 14px 10px;
+    }
+    .card-ai-title {
+      font-size: 13px; font-weight: 600; color: #f0f6fc; margin-bottom: 5px;
+    }
+    .card-ai-reasoning {
+      font-size: 11px; color: #8b949e; line-height: 1.65;
+    }
+    .card-ai-tags {
+      padding: 8px 14px 12px;
+      border-top: 1px solid #21262d;
+      display: flex; flex-wrap: wrap; gap: 5px;
+    }
+    .tag {
+      background: #0d1117; border: 1px solid #30363d;
+      border-radius: 5px; padding: 3px 8px;
+      font-size: 10px; font-family: 'SF Mono', 'Fira Mono', monospace;
+      color: #7d8590;
+    }
+    .tag.blue { border-color: #1f4f8e; color: #79c0ff; background: rgba(31,79,142,0.15); }
+    .tag.green { border-color: #196127; color: #56d364; background: rgba(25,97,39,0.15); }
+
+    /* Draw area prompt card */
+    .card-draw-prompt {
+      background: linear-gradient(160deg, #0f2643 0%, #091e36 100%);
+      border: 1px solid #1f4f8e; border-radius: 10px;
+      padding: 16px;
+    }
+    .card-draw-prompt .dp-icon {
+      font-size: 22px; margin-bottom: 8px; line-height: 1;
+    }
+    .card-draw-prompt .dp-title {
+      font-size: 13px; font-weight: 700; color: #79c0ff; margin-bottom: 6px;
+    }
+    .card-draw-prompt .dp-desc {
+      font-size: 12px; color: #7d8590; line-height: 1.65; margin-bottom: 10px;
+    }
+    .card-draw-prompt .dp-hint {
+      font-size: 11px; color: #388bfd; line-height: 1.6;
+      background: rgba(56,139,253,0.08); border: 1px solid rgba(56,139,253,0.2);
+      border-radius: 6px; padding: 8px 10px;
+    }
+
+    /* Result card */
+    .card-result {
+      background: #21262d; border: 1px solid #30363d;
+      border-radius: 10px; overflow: hidden;
+    }
+    .card-result-header {
+      padding: 12px 14px 10px;
+    }
+    .card-result-title {
+      font-size: 13px; font-weight: 600; color: #f0f6fc; margin-bottom: 4px;
+    }
+    .card-result-subtitle {
+      font-size: 11px; color: #7d8590;
+    }
+    .card-result-stats {
+      padding: 8px 14px 10px;
+      border-top: 1px solid #21262d;
+      display: flex; flex-direction: column; gap: 5px;
+    }
+    .stat-row {
+      display: flex; justify-content: space-between;
       font-size: 11px;
     }
-    .layers-header-title { color: #8fc; font-weight: 600; flex: 1; }
-    .layers-source { font-size: 10px; color: #3a5a3a; }
+    .stat-label { color: #7d8590; }
+    .stat-value { color: #e6edf3; font-weight: 500; font-family: 'SF Mono', 'Fira Mono', monospace; }
+    .card-result-warning {
+      margin: 0 14px 10px;
+      background: rgba(210,153,34,0.08); border: 1px solid rgba(210,153,34,0.25);
+      border-radius: 6px; padding: 9px 12px;
+      font-size: 11px; color: #e3b341; line-height: 1.6;
+    }
+    .load-all-btn {
+      display: inline-block; margin-top: 7px;
+      background: #21262d; border: 1px solid #30363d;
+      border-radius: 6px; padding: 5px 12px;
+      font-size: 11px; color: #c9d1d9; cursor: pointer;
+      font-family: inherit; transition: border-color 0.15s, color 0.15s;
+    }
+    .load-all-btn:hover:not(:disabled) { border-color: #58a6ff; color: #58a6ff; }
+    .load-all-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .card-result-status {
+      padding: 0 14px 8px;
+      font-size: 11px; color: #388bfd;
+    }
+
+    /* Collapsible WFS details */
+    .wfs-toggle {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 14px; border-top: 1px solid #21262d;
+      font-size: 11px; color: #484f58;
+      cursor: pointer; user-select: none; transition: color 0.15s;
+    }
+    .wfs-toggle:hover { color: #7d8590; }
+    .wfs-arrow { font-size: 8px; transition: transform 0.15s; }
+    .wfs-toggle.open .wfs-arrow { transform: rotate(90deg); }
+    .wfs-body { display: none; padding: 0 14px 12px; }
+    .wfs-body.open { display: block; }
+    pre.wfs-pre {
+      background: #0d1117; border: 1px solid #21262d;
+      border-radius: 6px; padding: 10px;
+      font-size: 10px; color: #7d8590;
+      white-space: pre-wrap; word-break: break-all;
+      line-height: 1.6; overflow-x: auto;
+    }
+
+    /* Welcome card */
+    .card-welcome {
+      background: #21262d; border: 1px solid #30363d;
+      border-radius: 10px; padding: 16px;
+    }
+    .card-welcome h3 {
+      font-size: 13px; font-weight: 700; color: #f0f6fc; margin-bottom: 6px;
+    }
+    .card-welcome p {
+      font-size: 12px; color: #7d8590; line-height: 1.65; margin-bottom: 14px;
+    }
+    .examples-label {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.6px; color: #484f58; margin-bottom: 8px;
+    }
+    .example-btn {
+      display: block; width: 100%; text-align: left;
+      background: #161b22; border: 1px solid #30363d;
+      border-radius: 7px; padding: 8px 12px;
+      font-size: 12px; color: #58a6ff; cursor: pointer;
+      font-family: inherit; margin-bottom: 6px;
+      transition: border-color 0.15s, background 0.15s;
+      line-height: 1.4;
+    }
+    .example-btn:last-child { margin-bottom: 0; }
+    .example-btn:hover { background: #21262d; border-color: #58a6ff; }
+
+    /* NGR layer card */
+    .card-layers {
+      background: #21262d; border: 1px solid #30363d;
+      border-radius: 10px; overflow: hidden;
+    }
+    .layers-header {
+      padding: 10px 14px; border-bottom: 1px solid #21262d;
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12px; font-weight: 600; color: #f0f6fc;
+    }
+    .layers-source { margin-left: auto; font-size: 10px; color: #484f58; font-weight: 400; }
     .layer-row {
-      padding: 8px 14px; border-bottom: 1px solid rgba(255,255,255,0.03);
+      padding: 9px 14px; border-bottom: 1px solid #21262d;
       display: flex; align-items: flex-start; gap: 10px;
     }
     .layer-row:last-child { border-bottom: none; }
     .layer-row-info { flex: 1; min-width: 0; }
-    .layer-row-title { font-size: 11px; color: #ccc; line-height: 1.4; }
-    .layer-row-abstract { font-size: 10px; color: #444; margin-top: 2px; line-height: 1.4; }
-    .layer-add-btn {
-      flex-shrink: 0;
-      background: rgba(20,50,30,0.6); border: 1px solid #2a5a32;
-      color: #6da; border-radius: 4px;
-      padding: 3px 10px; font-size: 10px; cursor: pointer;
-      white-space: nowrap; transition: all 0.15s; font-family: inherit;
+    .layer-row-title {
+      font-size: 12px; color: #e6edf3; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
     }
-    .layer-add-btn:hover { background: rgba(20,70,40,0.8); }
-    .layer-add-btn.active { background: rgba(20,70,40,0.9); border-color: #4a9a5a; color: #8fe8a0; }
+    .layer-row-abstract {
+      font-size: 10px; color: #7d8590; margin-top: 2px; line-height: 1.5;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .layer-add-btn {
+      flex-shrink: 0; background: #161b22; border: 1px solid #30363d;
+      border-radius: 6px; padding: 4px 11px;
+      font-size: 11px; color: #7d8590; cursor: pointer;
+      font-family: inherit; white-space: nowrap; transition: all 0.15s;
+    }
+    .layer-add-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+    .layer-add-btn.active { background: #1f4f8e; border-color: #58a6ff; color: #79c0ff; }
+
+    /* ─── Map overlays ─── */
+
+    /* Draw tools */
+    #map-tools {
+      position: absolute; top: 16px; left: 16px; z-index: 10;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .map-tool-btn {
+      width: 36px; height: 36px;
+      background: rgba(22,27,34,0.96); border: 1px solid #30363d;
+      border-radius: 8px; color: #7d8590; font-size: 17px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      transition: all 0.15s; user-select: none;
+    }
+    .map-tool-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+    .map-tool-btn.active {
+      background: rgba(31,79,142,0.9); border-color: #388bfd; color: #79c0ff;
+    }
+    .map-tool-btn.pulse {
+      animation: btn-pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes btn-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(56,139,253,0.6), 0 2px 8px rgba(0,0,0,0.5); }
+      50% { box-shadow: 0 0 0 6px rgba(56,139,253,0), 0 2px 8px rgba(0,0,0,0.5); }
+    }
+
+    /* Area info badge */
+    #area-info {
+      position: absolute; top: 16px; left: 62px; z-index: 10;
+      background: rgba(22,27,34,0.96); border: 1px solid #1f4f8e;
+      border-radius: 8px; padding: 8px 14px;
+      font-size: 12px; color: #79c0ff;
+      display: none; align-items: center; gap: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    }
+    #area-info.visible { display: flex; }
+    .area-label { color: #484f58; font-size: 11px; }
+
+    /* Map loading bar */
+    #map-loading-bar {
+      position: absolute; top: 0; left: 0; right: 380px; height: 2px; z-index: 20;
+      pointer-events: none; overflow: hidden;
+    }
+    #map-loading-bar.active::after {
+      content: '';
+      position: absolute; top: 0; height: 100%; width: 45%;
+      background: linear-gradient(90deg, transparent, #388bfd, transparent);
+      animation: shimmer 1.2s ease-in-out infinite;
+    }
+    @keyframes shimmer { from { left: -45%; } to { left: 100%; } }
 
     /* Data reload indicator */
     #reload-indicator {
-      position: absolute; bottom: 24px; left: 24px;
-      background: rgba(10,10,18,0.92); border: 1px solid #3a6aaa;
+      position: absolute; bottom: 20px; left: 16px; z-index: 10;
+      background: rgba(22,27,34,0.96); border: 1px solid #21262d;
       border-radius: 8px; padding: 8px 14px;
-      font-size: 12px; color: #6ab4ff;
-      z-index: 10; display: none;
-      align-items: center; gap: 8px;
+      font-size: 12px; color: #7d8590;
+      display: none; align-items: center; gap: 10px;
       box-shadow: 0 2px 12px rgba(0,0,0,0.4);
-      max-width: 320px;
     }
     #reload-indicator.visible { display: flex; }
     .reload-dot {
-      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-      background: #4da6ff; animation: pulse 1s infinite;
+      width: 7px; height: 7px; border-radius: 50%; background: #388bfd; flex-shrink: 0;
+      animation: blink 1s ease-in-out infinite;
     }
-    @keyframes pulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
-    #reload-sub {
-      font-size: 10px; color: #444; display: block; margin-top: 1px;
-    }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+    #reload-sub { font-size: 10px; color: #484f58; display: block; margin-top: 1px; }
 
-    /* Map loading overlay — subtle progress bar at top of map */
-    #map-loading-bar {
-      position: absolute; top: 0; left: 0; right: 360px; height: 3px;
-      z-index: 20; pointer-events: none;
-      background: transparent;
-    }
-    #map-loading-bar.active {
-      background: linear-gradient(90deg, transparent 0%, #4da6ff 50%, transparent 100%);
-      background-size: 200% 100%;
-      animation: shimmer 1.2s ease-in-out infinite;
-    }
-    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-
-    /* Active WMS overlay chips */
+    /* Active WMS chips */
     #wms-panel {
-      position: absolute; bottom: 24px; left: 24px;
-      z-index: 10; display: flex; flex-direction: column; gap: 5px;
-      max-width: 260px; pointer-events: none;
+      position: absolute; bottom: 20px; right: 396px; z-index: 10;
+      display: flex; flex-direction: column; gap: 5px; align-items: flex-end;
     }
     .wms-chip {
-      background: rgba(10,10,18,0.92); border: 1px solid #2a6244;
-      border-radius: 16px; padding: 4px 8px 4px 12px;
-      font-size: 11px; color: #6da;
-      display: flex; align-items: center; gap: 6px;
-      pointer-events: all;
+      background: rgba(22,27,34,0.96); border: 1px solid #21262d;
+      border-radius: 6px; padding: 5px 10px;
+      font-size: 11px; color: #7d8590;
+      display: flex; align-items: center; gap: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
     }
-    .wms-chip-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wms-chip-title { color: #e6edf3; }
     .wms-chip-remove {
-      background: none; border: none; color: #3a5a3a;
-      font-size: 15px; line-height: 1; cursor: pointer; padding: 0 2px;
+      background: none; border: none; color: #484f58;
+      font-size: 14px; line-height: 1; cursor: pointer; padding: 0;
       transition: color 0.15s;
     }
-    .wms-chip-remove:hover { color: #ff8a8a; }
+    .wms-chip-remove:hover { color: #f85149; }
 
     /* Legend */
     #legend {
-      position: absolute; bottom: 24px; left: 50%;
-      transform: translateX(-50%);
-      background: rgba(10,10,18,0.88); border: 1px solid #1e1e2e;
-      border-radius: 8px; padding: 8px 14px;
-      z-index: 10; display: none; min-width: 180px;
+      position: absolute; bottom: 20px;
+      left: calc(50% - 190px); /* centered in map area (full width - 380px panel) */
+      background: rgba(22,27,34,0.96); border: 1px solid #21262d;
+      border-radius: 8px; padding: 10px 16px; z-index: 10;
+      display: none; min-width: 200px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
     }
     #legend.visible { display: block; }
-    .legend-title { font-size: 10px; color: #666; margin-bottom: 5px; }
-    .legend-bar {
-      height: 8px; border-radius: 4px; margin-bottom: 3px;
-    }
-    .legend-labels {
-      display: flex; justify-content: space-between;
-      font-size: 10px; color: #444;
-    }
+    .legend-title { font-size: 10px; color: #7d8590; margin-bottom: 6px; }
+    .legend-bar { height: 8px; border-radius: 4px; margin-bottom: 5px; }
+    .legend-labels { display: flex; justify-content: space-between; font-size: 10px; color: #484f58; }
 
     /* Mobile */
     @media (max-width: 700px) {
-      #chat-panel {
-        top: auto; left: 0; right: 0; bottom: 0; width: 100%;
-        height: 55vh;
-        border-left: none; border-top: 1px solid #1e1e2e;
-      }
-      #reload-indicator, #wms-panel, #legend { bottom: calc(55vh + 10px); }
+      #panel { top: auto; left: 0; right: 0; bottom: 0; width: 100%; height: 52vh; border-left: none; border-top: 1px solid #21262d; }
+      #map-loading-bar { right: 0; }
+      #legend { left: 50%; transform: translateX(-50%); bottom: calc(52vh + 12px); }
+      #reload-indicator { bottom: calc(52vh + 10px); }
+      #wms-panel { right: 8px; bottom: calc(52vh + 10px); }
     }
   </style>
 </head>
 <body>
 
-  <!-- Map canvas -->
   <div id="container"></div>
-
-  <!-- Shimmer loading bar at top of map area -->
   <div id="map-loading-bar"></div>
 
-  <!-- Data reload indicator -->
+  <div id="map-tools">
+    <button class="map-tool-btn" id="draw-btn" title="Teken studiegebied" onclick="toggleDrawMode()">⬚</button>
+    <button class="map-tool-btn" id="clear-btn" title="Verwijder selectie" onclick="clearDrawnArea()" style="display:none">✕</button>
+  </div>
+  <div id="area-info">
+    <span class="area-label">Gebied</span>
+    <span id="area-desc">—</span>
+  </div>
+
   <div id="reload-indicator">
     <div class="reload-dot"></div>
     <div>
@@ -360,10 +446,8 @@
     </div>
   </div>
 
-  <!-- Active WMS overlay chips (positioned above reload indicator when both visible) -->
   <div id="wms-panel"></div>
 
-  <!-- Color legend -->
   <div id="legend">
     <div class="legend-title" id="legend-title"></div>
     <div class="legend-bar" id="legend-bar"></div>
@@ -373,36 +457,38 @@
     </div>
   </div>
 
-  <!-- Chat panel -->
-  <div id="chat-panel">
-
-    <div id="chat-header">
-      <h2>PDOK Verkenner</h2>
-      <div class="subtitle">Live data · CBS 100m grid · BAG gebouwen · NGR lagen</div>
-      <div class="lang-row">
-        <button class="lang-btn active" data-lang="nl">NL</button>
-        <button class="lang-btn" data-lang="en">EN</button>
+  <!-- Side panel -->
+  <div id="panel">
+    <div class="panel-header">
+      <h1>PDOK Verkenner</h1>
+      <p>CBS · BAG · NGR — live geodata voor Nederland</p>
+      <div class="steps-row">
+        <div class="step-pill" id="step-1"></div>
+        <div class="step-pill" id="step-2"></div>
+        <div class="step-pill" id="step-3"></div>
       </div>
     </div>
 
     <div id="messages">
-      <div class="welcome-card">
-        <b>Stel een vraag over de kaart.</b><br>
-        Data wordt live opgehaald van PDOK voor het zichtbare gebied.
-        <a class="example-question" href="#">Waar wonen de meeste mensen per 100m²?</a>
-        <a class="example-question" href="#">Toon de gemiddelde WOZ-waarde van woningen</a>
-        <a class="example-question" href="#">Welke gebieden hebben de meeste sociale huurwoningen?</a>
-        <a class="example-question" href="#">Show buildings built before 1945</a>
-        <a class="example-question" href="#">Waar is het aandeel eenpersoonshuishoudens het hoogst?</a>
+      <div class="card-welcome">
+        <h3>Verken Nederland in data</h3>
+        <p>Stel een vraag, de AI kiest de juiste databron. Je tekent daarna het studiegebied op de kaart — dan wordt de data voor precies dat gebied opgehaald.</p>
+        <div class="examples-label">Voorbeelden</div>
+        <button class="example-btn" onclick="useExample(this)">Waar wonen de meeste mensen per 100m²?</button>
+        <button class="example-btn" onclick="useExample(this)">Toon de gemiddelde WOZ-waarde van woningen</button>
+        <button class="example-btn" onclick="useExample(this)">Welke gebieden hebben veel sociale huurwoningen?</button>
+        <button class="example-btn" onclick="useExample(this)">Toon gebouwen gebouwd vóór 1945</button>
+        <button class="example-btn" onclick="useExample(this)">Afstand tot dichtstbijzijnde supermarkt</button>
       </div>
     </div>
 
-    <div id="input-bar">
-      <input id="question-input" type="text"
-        placeholder="Stel een vraag... / Ask a question..." autocomplete="off" />
-      <button id="submit-btn" title="Verstuur">&#8594;</button>
+    <div id="input-area">
+      <div class="input-row">
+        <input id="question-input" type="text"
+          placeholder="Stel een vraag over Nederland..." autocomplete="off" />
+        <button id="submit-btn" title="Verstuur">→</button>
+      </div>
     </div>
-
   </div>
 
   <script>
@@ -413,12 +499,13 @@
       'blue-orange': [[26,107,189],[77,166,255],[255,224,102],[255,140,66],[217,48,48]],
       'green-red':   [[0,180,80],[160,230,80],[255,224,102],[255,140,66],[200,40,40]],
       'blue-green':  [[26,58,90],[26,107,130],[26,140,100],[80,180,80],[160,230,80]],
-      'sequential':  [[10,30,80],[26,107,189],[77,166,255],[160,210,255],[220,240,255]],
+      'sequential':  [[8,30,90],[26,107,189],[77,166,255],[160,210,255],[220,240,255]],
     };
 
     function interpolateColor(value, min, max, colors) {
       if (value == null || isNaN(value)) return [40, 40, 60, 0];
-      const t  = Math.max(0, Math.min(1, (value - min) / (max - min || 1)));
+      const range = max > min ? max - min : 1;
+      const t  = Math.max(0, Math.min(1, (value - min) / range));
       const n  = colors.length - 1;
       const i  = Math.floor(t * n);
       const f  = t * n - i;
@@ -428,7 +515,7 @@
         Math.round(c0[0] + f * (c1[0] - c0[0])),
         Math.round(c0[1] + f * (c1[1] - c0[1])),
         Math.round(c0[2] + f * (c1[2] - c0[2])),
-        200,
+        210,
       ];
     }
 
@@ -439,23 +526,20 @@
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // Coordinate conversion helpers
+    // Coordinate conversion — RD New (EPSG:28992) → WGS84
     // ─────────────────────────────────────────────────────────────────
-
-    // RD New (EPSG:28992) → WGS84 polynomial approximation
-    // Source: RDNAPTRANS white paper (accuracy ~1m for the Netherlands)
     function rdNewToWgs84(rdX, rdY) {
       const p = (rdX - 155000) / 100000;
       const q = (rdY - 463000) / 100000;
       const dLat =  3235.65389 * q
-                  - 32.58297  * p * p
-                  -  0.24750  * q * q * q
-                  -  0.84978  * p * p * q
-                  -  0.06550  * q * q        // q² (not q³)
-                  -  0.01709  * p * p * q * q
-                  -  0.00738  * p
-                  +  0.00530  * p * p * p * q
-                  -  0.00039  * p * q * q;
+                  -   32.58297 * p * p
+                  -    0.24750 * q * q * q
+                  -    0.84978 * p * p * q
+                  -    0.06550 * q * q
+                  -    0.01709 * p * p * q * q
+                  -    0.00738 * p
+                  +    0.00530 * p * p * p * q
+                  -    0.00039 * p * q * q;
       const dLon =  5260.52916 * p
                   +  105.94684 * p * q
                   +    2.45656 * q * q
@@ -470,25 +554,21 @@
       return { lat: 52.15517440 + dLat / 3600, lon: 5.38720621 + dLon / 3600 };
     }
 
-    // Return { lat, lon } from any supported coordinate pair
     function toLatLon(x, y) {
-      // RD New: X ~0-280000, Y ~300000-625000 (both >> 90)
       if (Math.abs(x) > 100 || Math.abs(y) > 100) return rdNewToWgs84(x, y);
-      // EPSG:4326 lat/lon axis order: first coord is latitude (50-54 for NL)
-      if (x >= 48 && x <= 56) return { lat: x, lon: y };
-      // GeoJSON standard: [lon, lat]
-      return { lat: y, lon: x };
+      if (x >= 48 && x <= 56) return { lat: x, lon: y };   // EPSG:4326 lat/lon order
+      return { lat: y, lon: x };                             // GeoJSON [lon, lat]
     }
 
     // ─────────────────────────────────────────────────────────────────
     // H3 binning
     // ─────────────────────────────────────────────────────────────────
     function flattenFirstRing(geom) {
-      if (geom.type === 'Point') return [geom.coordinates];
-      if (geom.type === 'MultiPoint') return geom.coordinates;
-      if (geom.type === 'Polygon') return geom.coordinates[0];
+      if (geom.type === 'Point')        return [geom.coordinates];
+      if (geom.type === 'MultiPoint')   return geom.coordinates;
+      if (geom.type === 'Polygon')      return geom.coordinates[0];
       if (geom.type === 'MultiPolygon') return geom.coordinates[0][0];
-      if (geom.type === 'LineString') return geom.coordinates;
+      if (geom.type === 'LineString')   return geom.coordinates;
       return [];
     }
 
@@ -500,7 +580,7 @@
       return toLatLon(x, y);
     }
 
-    const CBS_SUPPRESSED = -9000; // CBS uses -99997/-99998/-99999 for suppressed/missing cells
+    const CBS_SUPPRESSED = -9000; // CBS uses -99997/-99998/-99999 for missing/suppressed
 
     function binFeaturesToH3(features, metricProp, aggregation, resolution) {
       const cells = new Map();
@@ -515,28 +595,30 @@
 
         const raw = f.properties?.[metricProp];
         const num = raw != null ? Number(raw) : NaN;
-        // Filter CBS suppressed/missing value codes (e.g. -99997, -99998, -99999)
         const val = (!isNaN(num) && num > CBS_SUPPRESSED) ? num : NaN;
 
         if (!cells.has(h3id)) cells.set(h3id, { sum: 0, count: 0, max: -Infinity, validCount: 0 });
         const cell = cells.get(h3id);
         cell.count++;
-        if (!isNaN(val)) { cell.sum += val; cell.max = Math.max(cell.max, val); cell.validCount++; }
+        if (!isNaN(val)) {
+          cell.sum  += val;
+          cell.max   = Math.max(cell.max, val);
+          cell.validCount++;
+        }
       }
 
       const data = [];
       for (const [h3id, cell] of cells) {
         let value;
-        if (aggregation === 'count') value = cell.count;
-        else if (aggregation === 'sum') value = cell.validCount > 0 ? cell.sum : NaN;
-        else if (aggregation === 'avg') value = cell.validCount > 0 ? cell.sum / cell.validCount : NaN;
-        else if (aggregation === 'max') value = cell.max === -Infinity ? NaN : cell.max;
-        else value = cell.validCount > 0 ? cell.sum : NaN;
-        data.push({ h3id, value });
+        if      (aggregation === 'count') value = cell.count;
+        else if (aggregation === 'sum')   value = cell.validCount > 0 ? cell.sum : NaN;
+        else if (aggregation === 'avg')   value = cell.validCount > 0 ? cell.sum / cell.validCount : NaN;
+        else if (aggregation === 'max')   value = cell.max === -Infinity ? NaN : cell.max;
+        else                              value = cell.validCount > 0 ? cell.sum / cell.validCount : NaN;
+        if (!isNaN(value)) data.push({ h3id, value });
       }
 
-      // Compute stats for display (excluding NaN)
-      const vals = data.map(d => d.value).filter(v => v != null && !isNaN(v) && isFinite(v));
+      const vals = data.map(d => d.value).filter(v => isFinite(v));
       return {
         data,
         min: vals.length ? Math.min(...vals) : 0,
@@ -547,25 +629,32 @@
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // State
+    // App state
     // ─────────────────────────────────────────────────────────────────
-    const PAGE_SIZE = 1000; // PDOK's hard cap per request
+    const PAGE_SIZE = 1000;
 
-    let deckInstance    = null;
-    let currentQuery    = null;
-    let currentH3Data   = null;
-    let currentMetric   = null;
-    let currentColorScale = 'sequential';
-    let currentBbox     = null;  // bbox used for last load (for pagination)
-    let currentRawFeatures = []; // accumulated features across pages
-    let lang            = 'nl';
-    let busy            = false;
-    let paging          = false; // true while "load all" pagination is in progress
-    let reloadTimer     = null;
-    let currentViewState = null;
-    let activeCardEl    = null;
-    const wmsLayers     = new Map();
-    const _ngrData      = {};
+    let deckInstance       = null;
+    let currentViewState   = null;
+    let currentQuery       = null;   // AI response; set after askAI succeeds
+    let currentH3Data      = null;
+    let currentMetric      = null;
+    let currentColorScale  = 'sequential';
+    let currentBbox        = null;
+    let currentRawFeatures = [];
+    let busy               = false;
+    let paging             = false;
+    let activeCardEl       = null;
+    let drawCardEl         = null;   // the "draw your area" prompt card
+
+    // Draw state
+    let drawMode    = false;
+    let drawStart   = null;
+    let drawnBbox   = null;
+    let drawPreview = null;
+
+    // WMS overlay
+    const wmsLayers = new Map();
+    const _ngrData  = {};
 
     // ─────────────────────────────────────────────────────────────────
     // Deck.gl setup
@@ -578,46 +667,121 @@
         initialViewState: currentViewState,
         layers: [DeckGLUtils.createBasemap('voyager')],
         controller: true,
-        onViewStateChange: ({ viewState }) => {
-          currentViewState = viewState;
-          if (currentQuery) scheduleReload();
-        },
+        onViewStateChange: ({ viewState }) => { currentViewState = viewState; },
         getTooltip: ({ object }) => {
           if (!object) return null;
-          const val = object.value;
-          const label = currentMetric || 'waarde';
           return {
-            html: `<div style="font-size:12px;padding:4px 8px;">${formatValue(val)} <span style="color:#888">${label}</span></div>`,
-            style: { background: 'rgba(10,10,18,0.95)', border: '1px solid #2a2a3a', borderRadius: '6px', color: '#ddd' },
+            html: `<div style="font-size:12px;padding:4px 8px;">${formatValue(object.value)} <span style="color:#7d8590">${esc(currentMetric || '')}</span></div>`,
+            style: { background: 'rgba(13,17,23,0.95)', border: '1px solid #30363d', borderRadius: '6px', color: '#e6edf3' },
           };
         },
       });
+
+      const container = document.getElementById('container');
+
+      container.addEventListener('mousedown', e => {
+        if (!drawMode) return;
+        e.stopPropagation();
+        drawStart   = pixelToLatLon(e.clientX, e.clientY);
+        drawPreview = { start: drawStart, end: drawStart };
+        deckInstance.setProps({ controller: false });
+      });
+
+      container.addEventListener('mousemove', e => {
+        if (!drawMode || !drawStart) return;
+        drawPreview = { start: drawStart, end: pixelToLatLon(e.clientX, e.clientY) };
+        updateMap();
+      });
+
+      container.addEventListener('mouseup', e => {
+        if (!drawMode || !drawStart) return;
+        const end = pixelToLatLon(e.clientX, e.clientY);
+        drawnBbox  = normBbox(drawStart, end);
+        drawStart  = null; drawPreview = null; drawMode = false;
+        deckInstance.setProps({ controller: true });
+        container.style.cursor = '';
+        document.getElementById('draw-btn').classList.remove('active', 'pulse');
+        document.getElementById('clear-btn').style.display = '';
+        updateAreaInfo();
+        updateMap();
+        // Remove the "draw your area" prompt card if present
+        if (drawCardEl) { drawCardEl.remove(); drawCardEl = null; }
+        // If AI already responded, fetch data now
+        if (currentQuery) fetchDataForBbox(drawnBbox);
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Coordinate helpers
+    // ─────────────────────────────────────────────────────────────────
+    function pixelToLatLon(cx, cy) {
+      if (!currentViewState) return { lat: 0, lon: 0 };
+      const { longitude, latitude, zoom } = currentViewState;
+      const metersPerPx = 156543.03392 * Math.cos(latitude * Math.PI / 180) / Math.pow(2, zoom);
+      const dx = (cx - window.innerWidth  / 2) * metersPerPx;
+      const dy = (cy - window.innerHeight / 2) * metersPerPx;
+      return {
+        lon: longitude + dx / (111319.9 * Math.cos(latitude * Math.PI / 180)),
+        lat: latitude  - dy / 110574,
+      };
+    }
+
+    function normBbox(a, b) {
+      return [
+        Math.min(a.lon, b.lon), Math.min(a.lat, b.lat),
+        Math.max(a.lon, b.lon), Math.max(a.lat, b.lat),
+      ];
     }
 
     function getViewportBbox() {
       if (!currentViewState) return null;
       const { longitude, latitude, zoom } = currentViewState;
-      // Web Mercator: meters per pixel at given zoom and latitude
       const metersPerPx = 156543.03392 * Math.cos(latitude * Math.PI / 180) / Math.pow(2, zoom);
-      const w = window.innerWidth - 360; // subtract sidebar width
-      const h = window.innerHeight;
-      // Approximate degrees from meters (near the given latitude)
-      const dLon = (metersPerPx * w / 2) / (111319.9 * Math.cos(latitude * Math.PI / 180));
-      const dLat = (metersPerPx * h / 2) / 110574;
+      const dLon = (metersPerPx * (window.innerWidth - 380) / 2) / (111319.9 * Math.cos(latitude * Math.PI / 180));
+      const dLat = (metersPerPx * window.innerHeight / 2) / 110574;
       return [longitude - dLon, latitude - dLat, longitude + dLon, latitude + dLat];
     }
 
-    function scheduleReload() {
-      clearTimeout(reloadTimer);
-      reloadTimer = setTimeout(() => loadDataForViewport(), 600);
+    // ─────────────────────────────────────────────────────────────────
+    // Draw mode controls
+    // ─────────────────────────────────────────────────────────────────
+    function toggleDrawMode() {
+      drawMode = !drawMode;
+      document.getElementById('container').style.cursor = drawMode ? 'crosshair' : '';
+      const btn = document.getElementById('draw-btn');
+      btn.classList.toggle('active', drawMode);
+      btn.classList.toggle('pulse', drawMode);
+      if (!drawMode) { drawStart = null; drawPreview = null; updateMap(); }
+    }
+    window.toggleDrawMode = toggleDrawMode;
+
+    function clearDrawnArea() {
+      drawnBbox = null; drawPreview = null; drawStart = null;
+      document.getElementById('clear-btn').style.display = 'none';
+      document.getElementById('area-info').classList.remove('visible');
+      currentH3Data = null;
+      updateMap();
+      document.getElementById('legend').classList.remove('visible');
+    }
+    window.clearDrawnArea = clearDrawnArea;
+
+    function updateAreaInfo() {
+      if (!drawnBbox) return;
+      const [w, s, e, n] = drawnBbox;
+      const kmW = Math.round(Math.abs(e - w) * 111.32 * Math.cos((s + n) / 2 * Math.PI / 180));
+      const kmH = Math.round(Math.abs(n - s) * 110.574);
+      document.getElementById('area-desc').textContent = `${kmW} × ${kmH} km`;
+      document.getElementById('area-info').classList.add('visible');
     }
 
     // ─────────────────────────────────────────────────────────────────
     // Layer building
     // ─────────────────────────────────────────────────────────────────
     function buildH3Layer(h3data, colorScale, min, max) {
+      if (!h3data.length) return null;
       const colors = SCALES[colorScale] || SCALES['sequential'];
-      if (!h3data.length || min === max) return null;
+      // If all values equal, shift max by 1 so interpolation still assigns the top color
+      const effectiveMax = max > min ? max : min + 1;
 
       updateLegend(colorScale, min, max);
 
@@ -625,15 +789,31 @@
         id: 'h3-layer',
         data: h3data,
         getHexagon:   d => d.h3id,
-        getFillColor: d => interpolateColor(d.value, min, max, colors),
+        getFillColor: d => interpolateColor(d.value, min, effectiveMax, colors),
         getElevation: d => {
-          const v = d.value;
-          if (v == null || isNaN(v)) return 0;
-          return Math.max(0, (v - min) / (max - min || 1)) * 300;
+          if (d.value == null || isNaN(d.value)) return 0;
+          return Math.max(0, (d.value - min) / (effectiveMax - min)) * 250;
         },
         extruded: true, elevationScale: 1,
         pickable: true,
-        updateTriggers: { getFillColor: [min, max, colorScale] },
+        updateTriggers: { getFillColor: [min, effectiveMax, colorScale] },
+      });
+    }
+
+    function buildDrawLayer() {
+      const bbox = drawPreview ? normBbox(drawPreview.start, drawPreview.end) : drawnBbox;
+      if (!bbox) return null;
+      const [w, s, e, n] = bbox;
+      const isDraft = !!drawPreview;
+      return new deck.PolygonLayer({
+        id: 'draw-layer',
+        data: [{ polygon: [[w, s], [w, n], [e, n], [e, s], [w, s]] }],
+        getPolygon:   d => d.polygon,
+        filled: true, stroked: true,
+        getFillColor:  [56, 139, 253, isDraft ? 18 : 28],
+        getLineColor:  [56, 139, 253, isDraft ? 160 : 220],
+        getLineWidth: 2, lineWidthMinPixels: 2,
+        pickable: false,
       });
     }
 
@@ -645,27 +825,26 @@
         if (l) layers.push(l);
       }
       wmsLayers.forEach((info, id) => layers.push(createWmsTileLayer(id, info.wmsUrl, info.layerName)));
+      const drawLayer = buildDrawLayer();
+      if (drawLayer) layers.push(drawLayer);
       deckInstance.setProps({ layers });
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // WMS tile layers (NGR overlay)
+    // WMS tile layers
     // ─────────────────────────────────────────────────────────────────
     function tileBbox3857(x, y, z) {
       const R = 20037508.342789244;
       const n = Math.pow(2, z);
       return {
-        west:  -R + (x / n) * 2 * R,
-        east:  -R + ((x + 1) / n) * 2 * R,
-        north:  R - (y / n) * 2 * R,
-        south:  R - ((y + 1) / n) * 2 * R,
+        west:  -R + (x / n) * 2 * R,       east:  -R + ((x + 1) / n) * 2 * R,
+        north:  R - (y / n) * 2 * R,        south:  R - ((y + 1) / n) * 2 * R,
       };
     }
 
     function createWmsTileLayer(id, wmsUrl, layerName) {
       return new deck.TileLayer({
-        id: `wms-${id}`,
-        tileSize: 256, minZoom: 0, maxZoom: 19,
+        id: `wms-${id}`, tileSize: 256, minZoom: 0, maxZoom: 19,
         getTileData: async ({ x, y, z }) => {
           const { west, south, east, north } = tileBbox3857(x, y, z);
           const params = new URLSearchParams({
@@ -698,28 +877,24 @@
       const btn = document.querySelector(`#row-${id} .layer-add-btn`);
       if (wmsLayers.has(id)) {
         wmsLayers.delete(id);
-        if (btn) { btn.textContent = lang === 'nl' ? 'Toon' : 'Show'; btn.classList.remove('active'); }
+        if (btn) { btn.textContent = 'Toon'; btn.classList.remove('active'); }
       } else {
         wmsLayers.set(id, info);
-        if (btn) { btn.textContent = lang === 'nl' ? 'Verberg' : 'Hide'; btn.classList.add('active'); }
+        if (btn) { btn.textContent = 'Verberg'; btn.classList.add('active'); }
       }
-      updateMap();
-      updateWmsPanel();
+      updateMap(); updateWmsPanel();
     }
     window.toggleNgrLayer = toggleNgrLayer;
 
     function updateWmsPanel() {
-      const panel = document.getElementById('wms-panel');
-      if (!panel) return;
-      panel.innerHTML = [...wmsLayers.entries()].map(([id, info]) => `
+      document.getElementById('wms-panel').innerHTML = [...wmsLayers.entries()].map(([id, info]) => `
         <div class="wms-chip">
           <span class="wms-chip-title">${esc(info.title.slice(0, 36))}</span>
-          <button class="wms-chip-remove" onclick="removeNgrLayer('${id}')" title="Verwijder">×</button>
+          <button class="wms-chip-remove" onclick="removeNgrLayer('${id}')">×</button>
         </div>`).join('');
     }
     function removeNgrLayer(id) {
-      wmsLayers.delete(id);
-      updateMap(); updateWmsPanel();
+      wmsLayers.delete(id); updateMap(); updateWmsPanel();
     }
     window.removeNgrLayer = removeNgrLayer;
 
@@ -727,12 +902,11 @@
     // Legend
     // ─────────────────────────────────────────────────────────────────
     function updateLegend(colorScale, min, max) {
-      const el = document.getElementById('legend');
       document.getElementById('legend-bar').style.background = gradientCss(colorScale);
       document.getElementById('legend-min').textContent = formatValue(min);
       document.getElementById('legend-max').textContent = formatValue(max);
       document.getElementById('legend-title').textContent = currentMetric || '';
-      el.classList.add('visible');
+      document.getElementById('legend').classList.add('visible');
     }
 
     function formatValue(v) {
@@ -743,59 +917,39 @@
       return Math.round(v).toLocaleString('nl-NL');
     }
 
-    function esc(s) { return String(s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Thinking step card — shows live progress during query
-    // ─────────────────────────────────────────────────────────────────
-    function createThinkCard() {
-      const el = document.createElement('div');
-      el.className = 'msg-think-card';
-      const stepsEl = document.createElement('div');
-      stepsEl.className = 'think-steps';
-      el.appendChild(stepsEl);
-      document.getElementById('messages').appendChild(el);
-      scrollToBottom();
-
-      let activeEl = null;
-
-      return {
-        step(text) {
-          if (activeEl) {
-            activeEl.className = 'think-step done';
-            const spin = activeEl.querySelector('.think-spinner');
-            if (spin) { spin.className = 'think-check'; spin.textContent = '✓'; }
-          }
-          activeEl = document.createElement('div');
-          activeEl.className = 'think-step active';
-          activeEl.innerHTML = `<span class="think-spinner">↻</span> ${esc(text)}`;
-          stepsEl.appendChild(activeEl);
-          scrollToBottom();
-        },
-        done() {
-          if (activeEl) {
-            activeEl.className = 'think-step done';
-            const spin = activeEl.querySelector('.think-spinner');
-            if (spin) { spin.className = 'think-check'; spin.textContent = '✓'; }
-          }
-        },
-        remove() { el.remove(); },
-      };
+    function esc(s) {
+      return String(s).replace(/[<>&"]/g, c => ({ '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;' }[c]));
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // Core: ask AI → fetch WFS → bin → render
+    // Step indicator
     // ─────────────────────────────────────────────────────────────────
-    async function ask(question) {
+    function setStep(n) {
+      // n = 1 (asking AI), 2 (draw area), 3 (data loaded)
+      ['step-1','step-2','step-3'].forEach((id, i) => {
+        const el = document.getElementById(id);
+        el.className = 'step-pill ' + (i + 1 < n ? 'done' : i + 1 === n ? 'active' : '');
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Core workflow
+    // ─────────────────────────────────────────────────────────────────
+
+    // Phase 1: send question to AI, get dataset selection
+    async function askAI(question) {
       if (busy) return;
       busy = true; setBusy(true);
+      setStep(1);
 
       appendMsg('user', question);
-      const think = createThinkCard();
+
+      // Show thinking card
+      const thinkEl = createThinkCard();
+      const think = thinkEl._ctrl;
 
       try {
-        // Step 1: AI call
-        think.step(lang === 'nl' ? 'AI analyseert vraag...' : 'AI is analysing your question...');
+        think.step('AI analyseert vraag en kiest databron...');
 
         const aiRes = await fetch('/api/ask-wfs', {
           method: 'POST',
@@ -803,122 +957,96 @@
           body: JSON.stringify({ question }),
         });
         const aiData = await aiRes.json();
-        if (!aiRes.ok || aiData.error) throw new Error(aiData.error || 'AI error');
+        if (!aiRes.ok || aiData.error) throw new Error(aiData.error || 'AI fout');
 
-        // Always use H3 resolution 9 for CBS 100m data (best visual fit)
+        // Force H3 res 9 and avg aggregation for CBS
         aiData.h3Resolution = 9;
-
-        currentQuery    = aiData;
-        currentMetric   = aiData.metric_column;
-        currentColorScale = aiData.color_scale || 'sequential';
-
-        const source = aiData.wfsUrl.includes('vierkantstatistieken') ? 'CBS Vierkantstatistieken 100m' :
-                       aiData.wfsUrl.includes('bag') ? 'BAG Gebouwen' : 'PDOK WFS';
-        const year   = (aiData.wfsUrl.match(/\/(\d{4})\//) || [])[1] || '';
-
-        // Step 2: WFS fetch
-        think.step(`${source}${year ? ' ' + year : ''} ophalen via PDOK...`);
-
-        const bbox = getViewportBbox();
-        if (!bbox) throw new Error('Viewport niet beschikbaar');
-
-        const params = new URLSearchParams({ wfsUrl: aiData.wfsUrl, typeName: aiData.typeName, bbox: bbox.join(',') });
-        if (aiData.cqlFilter) params.set('cqlFilter', aiData.cqlFilter);
-
-        const res = await fetch(`/api/wfs-proxy?${params}`);
-        const data = await res.json();
-        if (!res.ok || data.error) throw new Error(data.error || `WFS fout ${res.status}`);
-
-        const features = data.features || [];
-        const truncated = res.headers.get('X-Truncated') === '1' || features.length >= PAGE_SIZE;
-
-        currentBbox        = bbox;
-        currentRawFeatures = features;
-
-        // Step 3: H3 binning
-        think.step(`${features.length.toLocaleString('nl-NL')} features → H3-9 hexagonen berekenen...`);
-        const binned = binFeaturesToH3(features, aiData.metric_column, aiData.aggregation, 9);
+        if (aiData.wfsUrl.includes('vierkantstatistieken')) aiData.aggregation = 'avg';
 
         think.done();
+        thinkEl.remove();
 
-        currentH3Data = binned;
-        updateMap();
+        currentQuery      = aiData;
+        currentMetric     = aiData.metric_column;
+        currentColorScale = aiData.color_scale || 'sequential';
 
-        // Replace think card with result card
-        think.remove();
-        const cardEl = createResultCard(aiData, features, binned, truncated);
-        document.getElementById('messages').appendChild(cardEl);
-        activeCardEl = cardEl;
-        scrollToBottom();
+        // Show AI analysis card
+        appendAiCard(aiData);
 
-        if (aiData.ngr_keywords?.length) searchAndSuggestLayers(aiData.ngr_keywords);
+        // Show "draw your area" prompt and activate draw mode
+        setStep(2);
+        drawCardEl = appendDrawPromptCard(aiData);
+        activateDrawMode();
 
       } catch (err) {
-        think.remove();
-        appendMsg('error', `${lang === 'nl' ? 'Fout' : 'Error'}: ${esc(err.message)}`);
+        think.done();
+        thinkEl.remove();
+        appendMsg('error', `Fout: ${esc(err.message)}`);
+        setStep(0);
       } finally {
         busy = false; setBusy(false);
       }
     }
 
-    // Viewport-change reload (no think card, just indicator)
-    async function loadDataForViewport() {
+    // Phase 2: user drew a bbox → fetch WFS data
+    async function fetchDataForBbox(bbox) {
       if (!currentQuery || paging) return;
-      const bbox = getViewportBbox();
-      if (!bbox) return;
+      setStep(3);
+      setMapLoading(true);
+      showReloadIndicator('Data ophalen via PDOK...');
 
-      showReloadIndicator(lang === 'nl' ? 'Kaart vernieuwen...' : 'Refreshing map...');
+      const { wfsUrl, typeName, cqlFilter, metric_column, aggregation } = currentQuery;
 
       try {
-        const { wfsUrl, typeName, cqlFilter, metric_column, aggregation } = currentQuery;
-
         const params = new URLSearchParams({ wfsUrl, typeName, bbox: bbox.join(',') });
         if (cqlFilter) params.set('cqlFilter', cqlFilter);
 
         const res = await fetch(`/api/wfs-proxy?${params}`);
         const data = await res.json();
-        if (!res.ok || data.error) throw new Error(data.error || 'WFS fout');
+        if (!res.ok || data.error) throw new Error(data.error || `WFS fout ${res.status}`);
 
-        const features = data.features || [];
+        const features  = data.features || [];
         const truncated = res.headers.get('X-Truncated') === '1' || features.length >= PAGE_SIZE;
 
         currentBbox        = bbox;
         currentRawFeatures = features;
         currentH3Data      = binFeaturesToH3(features, metric_column, aggregation, 9);
         updateMap();
-        updateCardStatus(features.length, currentH3Data.hexCount, truncated);
-      } catch {
-        // Silently fail on pan/zoom reloads
+
+        // Replace or append result card
+        if (activeCardEl) { activeCardEl.remove(); activeCardEl = null; }
+        activeCardEl = appendResultCard(currentQuery, features, currentH3Data, truncated);
+
+        if (currentQuery.ngr_keywords?.length) searchAndSuggestLayers(currentQuery.ngr_keywords);
+
+      } catch (err) {
+        appendMsg('error', `Fout: ${esc(err.message)}`);
       } finally {
         hideReloadIndicator();
+        setMapLoading(false);
       }
     }
 
-    // Paginate through all PDOK pages for the current query/bbox
+    // Paginate through all PDOK pages
     async function loadAllPages() {
       if (!currentQuery || paging) return;
       paging = true;
-
       const btn = document.querySelector('.load-all-btn');
       if (btn) btn.disabled = true;
 
       const { wfsUrl, typeName, cqlFilter, metric_column, aggregation } = currentQuery;
-      const bbox = currentBbox || getViewportBbox();
+      const bbox = currentBbox;
 
-      let allFeatures  = [...currentRawFeatures];
-      let startIndex   = allFeatures.length;
-      let pageNum      = 2;
-      let hasMore      = true;
+      let allFeatures = [...currentRawFeatures];
+      let startIndex  = allFeatures.length;
+      let pageNum     = 2;
+      let hasMore     = true;
 
       setMapLoading(true);
 
       try {
         while (hasMore) {
-          showReloadIndicator(
-            `Pagina ${pageNum} laden...`,
-            `${allFeatures.length.toLocaleString('nl-NL')} features geladen`
-          );
-
+          showReloadIndicator(`Pagina ${pageNum} laden...`, `${allFeatures.length.toLocaleString('nl-NL')} features geladen`);
           const params = new URLSearchParams({ wfsUrl, typeName, bbox: bbox.join(','), startIndex });
           if (cqlFilter) params.set('cqlFilter', cqlFilter);
 
@@ -928,13 +1056,8 @@
 
           const page = data.features || [];
           allFeatures = [...allFeatures, ...page];
-
-          if (page.length < PAGE_SIZE) {
-            hasMore = false;  // Last page — we have everything
-          } else {
-            startIndex += PAGE_SIZE;
-            pageNum++;
-          }
+          if (page.length < PAGE_SIZE) { hasMore = false; }
+          else { startIndex += PAGE_SIZE; pageNum++; }
         }
 
         currentRawFeatures = allFeatures;
@@ -951,73 +1074,141 @@
     window.loadAllPages = loadAllPages;
 
     // ─────────────────────────────────────────────────────────────────
-    // DOM helpers
+    // UI cards
     // ─────────────────────────────────────────────────────────────────
-    function appendMsg(type, text) {
-      const msgs = document.getElementById('messages');
-      const el   = document.createElement('div');
-      if (type === 'user')  { el.className = 'msg-user'; el.textContent = text; }
-      else if (type === 'error') { el.className = 'msg-error'; el.textContent = text; }
-      else { el.className = type; el.textContent = text; }
-      msgs.appendChild(el);
+    function createThinkCard() {
+      const el = document.createElement('div');
+      el.className = 'card-thinking';
+      document.getElementById('messages').appendChild(el);
+      scrollToBottom();
+
+      let activeStep = null;
+
+      el._ctrl = {
+        step(text) {
+          if (activeStep) {
+            activeStep.className = 'think-step done';
+            activeStep.querySelector('.think-icon').className = 'think-icon';
+            activeStep.querySelector('.think-icon').textContent = '✓';
+          }
+          activeStep = document.createElement('div');
+          activeStep.className = 'think-step active';
+          activeStep.innerHTML = `<span class="think-icon spin">↻</span><span>${esc(text)}</span>`;
+          el.appendChild(activeStep);
+          scrollToBottom();
+        },
+        done() {
+          if (activeStep) {
+            activeStep.className = 'think-step done';
+            const icon = activeStep.querySelector('.think-icon');
+            icon.className = 'think-icon';
+            icon.textContent = '✓';
+          }
+        },
+        remove() { el.remove(); },
+      };
+      return el;
+    }
+
+    function appendAiCard(aiData) {
+      const source = aiData.wfsUrl.includes('vierkantstatistieken') ? 'CBS Vierkantstatistieken 100m' :
+                     aiData.wfsUrl.includes('bag') ? 'BAG Gebouwen' : 'PDOK WFS';
+      const year   = (aiData.wfsUrl.match(/\/(\d{4})\//) || [])[1] || '';
+      const title  = aiData.title_nl || aiData.title_en || '';
+
+      const el = document.createElement('div');
+      el.className = 'card-ai';
+      el.innerHTML = `
+        <div class="card-ai-header">
+          <div class="card-ai-title">${esc(title)}</div>
+          ${aiData.reasoning ? `<div class="card-ai-reasoning">${esc(aiData.reasoning)}</div>` : ''}
+        </div>
+        <div class="card-ai-tags">
+          <span class="tag blue">${esc(source)}${year ? ' · ' + year : ''}</span>
+          <span class="tag">${esc(aiData.metric_column)}</span>
+          <span class="tag">${esc(aiData.aggregation)}</span>
+          ${aiData.cqlFilter ? `<span class="tag">filter: ${esc(aiData.cqlFilter)}</span>` : ''}
+        </div>`;
+      document.getElementById('messages').appendChild(el);
       scrollToBottom();
       return el;
     }
 
-    function createResultCard(aiData, features, binResult, truncated) {
-      const title     = lang === 'nl' ? aiData.title_nl : aiData.title_en;
-      const source    = aiData.wfsUrl.includes('vierkantstatistieken') ? 'CBS Vierkantstatistieken 100m' :
-                        aiData.wfsUrl.includes('bag') ? 'BAG Gebouwen' : 'PDOK WFS';
-      const year      = (aiData.wfsUrl.match(/\/(\d{4})\//) || [])[1] || '';
-      const reasoning = aiData.reasoning || '';
-      const isCbs     = aiData.wfsUrl.includes('vierkantstatistieken');
+    function appendDrawPromptCard(aiData) {
+      const el = document.createElement('div');
+      el.className = 'card-draw-prompt';
+      el.innerHTML = `
+        <div class="dp-icon">⬚</div>
+        <div class="dp-title">Teken nu je studiegebied</div>
+        <div class="dp-desc">Klik en sleep op de kaart om het gebied te selecteren waarvoor je data wilt ophalen. PDOK geeft maximaal 1.000 features per aanvraag — een kleiner gebied geeft een vollediger beeld.</div>
+        <div class="dp-hint">Tip: zoom in op je gewenste gebied vóórdat je tekent voor de beste datadichtheid.</div>`;
+      document.getElementById('messages').appendChild(el);
+      scrollToBottom();
+      return el;
+    }
 
-      const featureCount = Array.isArray(features) ? features.length : features;
-      const hexCount     = binResult?.hexCount ?? binResult ?? 0;
-      const minVal       = binResult?.min;
-      const maxVal       = binResult?.max;
+    function activateDrawMode() {
+      if (drawMode) return;
+      drawMode = true;
+      document.getElementById('container').style.cursor = 'crosshair';
+      const btn = document.getElementById('draw-btn');
+      btn.classList.add('active', 'pulse');
+    }
 
-      const aggLabel = { sum: 'som', avg: 'gemiddelde', count: 'aantal', max: 'maximum' }[aiData.aggregation] || aiData.aggregation;
-      const isTruncated = featureCount >= 1000;  // PDOK page limit
-
-      const statsLines = [
-        `${featureCount.toLocaleString('nl-NL')} ${isCbs ? '100m-cellen' : 'features'} → ${hexCount.toLocaleString('nl-NL')} H3-9 hexagonen (~174m)`,
-        (minVal != null && maxVal != null && !isNaN(minVal)) ? `Bereik: ${formatValue(minVal)} – ${formatValue(maxVal)}` : null,
-        aiData.cqlFilter ? `Filter: ${aiData.cqlFilter}` : null,
-      ].filter(Boolean);
+    function appendResultCard(aiData, features, binResult, truncated) {
+      const title        = aiData.title_nl || aiData.title_en || '';
+      const source       = aiData.wfsUrl.includes('vierkantstatistieken') ? 'CBS Vierkantstatistieken 100m' :
+                           aiData.wfsUrl.includes('bag') ? 'BAG Gebouwen' : 'PDOK WFS';
+      const year         = (aiData.wfsUrl.match(/\/(\d{4})\//) || [])[1] || '';
+      const featureCount = features.length;
+      const hexCount     = binResult.hexCount;
+      const [w, s, e, n] = currentBbox || [0, 0, 0, 0];
+      const kmW = Math.round(Math.abs(e - w) * 111.32 * Math.cos((s + n) / 2 * Math.PI / 180));
+      const kmH = Math.round(Math.abs(n - s) * 110.574);
 
       const el = document.createElement('div');
-      el.className = 'msg-assistant';
+      el.className = 'card-result';
       el.innerHTML = `
-        <div class="msg-card">
-          <div class="msg-title">${esc(title)}</div>
-          ${reasoning ? `<div class="msg-reasoning">${esc(reasoning)}</div>` : ''}
-          <div class="msg-meta">
-            <span>${esc(source)}${year ? ' · ' + year : ''}</span><br>
-            <span>${lang === 'nl' ? 'Metriek' : 'Metric'}: <b>${esc(aiData.metric_column)}</b> · ${esc(aggLabel)}</span>
+        <div class="card-result-header">
+          <div class="card-result-title">${esc(title)}</div>
+          <div class="card-result-subtitle">${esc(source)}${year ? ' · ' + year : ''}</div>
+        </div>
+        <div class="card-result-stats">
+          <div class="stat-row">
+            <span class="stat-label">Studiegebied</span>
+            <span class="stat-value">${kmW} × ${kmH} km</span>
           </div>
-          <div class="msg-stats">
-            ${statsLines.map(l => `<span>${esc(l)}</span>`).join('')}
+          <div class="stat-row">
+            <span class="stat-label">CBS-cellen opgehaald</span>
+            <span class="stat-value">${featureCount.toLocaleString('nl-NL')}</span>
           </div>
-          ${(truncated || isTruncated) ? `
-          <div class="msg-warning">
-            ⚠ PDOK heeft de respons afgekapt op ${featureCount.toLocaleString('nl-NL')} features — de kaart toont een onvolledig beeld.
-            <div class="load-all-row">
-              <button class="load-all-btn" onclick="loadAllPages()">Alles laden</button>
-              <span class="load-all-note">Haalt alle pagina's op via PDOK WFS — kan traag zijn</span>
-            </div>
+          <div class="stat-row">
+            <span class="stat-label">H3-9 hexagonen</span>
+            <span class="stat-value">${hexCount.toLocaleString('nl-NL')} (~174 m)</span>
+          </div>
+          ${binResult.min != null && !isNaN(binResult.min) ? `
+          <div class="stat-row">
+            <span class="stat-label">Bereik (${esc(aiData.metric_column)})</span>
+            <span class="stat-value">${formatValue(binResult.min)} – ${formatValue(binResult.max)}</span>
           </div>` : ''}
-          <div class="msg-status"></div>
-          <div class="wfs-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
-            <span class="arrow">▶</span>
-            <span>WFS query details</span>
-          </div>
-          <div class="wfs-body">
-            <pre class="wfs-pre">${esc(buildWfsQueryString(aiData))}</pre>
-          </div>
+        </div>
+        ${truncated ? `
+        <div class="card-result-warning">
+          ⚠ PDOK heeft de respons afgekapt op ${featureCount.toLocaleString('nl-NL')} features — het beeld is mogelijk onvolledig.
+          <br><button class="load-all-btn" onclick="loadAllPages()">Alle pagina's ophalen</button>
+        </div>` : ''}
+        <div class="card-result-status"></div>
+        <div class="wfs-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
+          <span class="wfs-arrow">▶</span>
+          <span>WFS query details</span>
+        </div>
+        <div class="wfs-body">
+          <pre class="wfs-pre">${esc(buildWfsQueryString(aiData))}</pre>
         </div>`;
 
-      el._statusEl = el.querySelector('.msg-status');
+      el._statusEl = el.querySelector('.card-result-status');
+      document.getElementById('messages').appendChild(el);
+      scrollToBottom();
       return el;
     }
 
@@ -1025,8 +1216,7 @@
       const params = new URLSearchParams({
         wfsUrl: aiData.wfsUrl,
         typeName: aiData.typeName,
-        maxFeatures: '10000',
-        bbox: '[huidige viewport]',
+        bbox: currentBbox ? currentBbox.join(',') : '[bbox]',
       });
       if (aiData.cqlFilter) params.set('cqlFilter', aiData.cqlFilter);
       return `/api/wfs-proxy?${params}`;
@@ -1035,26 +1225,76 @@
     function updateCardStatus(featureCount, hexCount, truncated) {
       if (!activeCardEl?._statusEl) return;
       activeCardEl._statusEl.textContent =
-        `↻ ${featureCount.toLocaleString('nl-NL')} features → ${hexCount.toLocaleString('nl-NL')} hexagonen (vernieuwd)`;
-      // Update warning section visibility
-      const warn = activeCardEl.querySelector('.msg-warning');
+        `↻ ${featureCount.toLocaleString('nl-NL')} features → ${hexCount.toLocaleString('nl-NL')} hexagonen (alle pagina's geladen)`;
+      const warn = activeCardEl.querySelector('.card-result-warning');
       if (warn) warn.style.display = truncated ? '' : 'none';
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // NGR layer suggestions
+    // ─────────────────────────────────────────────────────────────────
+    async function searchAndSuggestLayers(keywords) {
+      for (const kw of keywords.slice(0, 2)) {
+        try {
+          const res = await fetch(`/api/search-wms?q=${encodeURIComponent(kw)}`);
+          const { layers } = await res.json();
+          if (layers?.length) { appendLayerSuggestionsCard(kw, layers); return; }
+        } catch {}
+      }
+    }
+
+    function appendLayerSuggestionsCard(keyword, layers) {
+      const ts = Date.now();
+      const rowsHtml = layers.map((l, i) => {
+        const id = `ngr-${ts}-${i}`;
+        _ngrData[id] = l;
+        return `<div class="layer-row" id="row-${id}">
+          <div class="layer-row-info">
+            <div class="layer-row-title">${esc(l.title)}</div>
+            ${l.abstract ? `<div class="layer-row-abstract">${esc(l.abstract)}</div>` : ''}
+          </div>
+          <button class="layer-add-btn" onclick="toggleNgrLayer('${id}')">Toon</button>
+        </div>`;
+      }).join('');
+
+      const el = document.createElement('div');
+      el.className = 'card-layers';
+      el.innerHTML = `
+        <div class="layers-header">
+          <span>🗺</span>
+          <span>Gerelateerde kaartlagen</span>
+          <span class="layers-source">NGR · ${esc(keyword)}</span>
+        </div>
+        ${rowsHtml}`;
+      document.getElementById('messages').appendChild(el);
+      scrollToBottom();
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // DOM helpers
+    // ─────────────────────────────────────────────────────────────────
+    function appendMsg(type, text) {
+      const el = document.createElement('div');
+      el.className = type === 'user' ? 'msg-user' : 'msg-error';
+      el.textContent = text;
+      document.getElementById('messages').appendChild(el);
+      scrollToBottom();
+      return el;
     }
 
     function setBusy(val) {
       document.getElementById('submit-btn').disabled = val;
+      document.getElementById('question-input').disabled = val;
     }
 
     function showReloadIndicator(text, sub) {
       document.getElementById('reload-text').textContent = text;
       document.getElementById('reload-sub').textContent  = sub || '';
       document.getElementById('reload-indicator').classList.add('visible');
-      setMapLoading(true);
     }
 
     function hideReloadIndicator() {
       document.getElementById('reload-indicator').classList.remove('visible');
-      setMapLoading(false);
     }
 
     function setMapLoading(on) {
@@ -1067,78 +1307,35 @@
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // NGR layer suggestions
-    // ─────────────────────────────────────────────────────────────────
-    async function searchAndSuggestLayers(keywords) {
-      for (const kw of keywords.slice(0, 2)) {
-        try {
-          const res = await fetch(`/api/search-wms?q=${encodeURIComponent(kw)}`);
-          const { layers } = await res.json();
-          if (layers?.length) { addLayerSuggestionsMessage(kw, layers); return; }
-        } catch {}
-      }
-    }
-
-    function addLayerSuggestionsMessage(keyword, layers) {
-      const ts = Date.now();
-      const rowsHtml = layers.map((l, i) => {
-        const id = `ngr-${ts}-${i}`;
-        _ngrData[id] = l;
-        return `<div class="layer-row" id="row-${id}">
-          <div class="layer-row-info">
-            <div class="layer-row-title">${esc(l.title)}</div>
-            ${l.abstract ? `<div class="layer-row-abstract">${esc(l.abstract)}</div>` : ''}
-          </div>
-          <button class="layer-add-btn" onclick="toggleNgrLayer('${id}')">
-            ${lang === 'nl' ? 'Toon' : 'Show'}
-          </button>
-        </div>`;
-      }).join('');
-
-      const el = document.createElement('div');
-      el.className = 'msg-layers';
-      el.innerHTML = `
-        <div class="layers-header">
-          <span>🗺</span>
-          <span class="layers-header-title">${lang === 'nl' ? 'Gerelateerde kaartlagen' : 'Related map layers'}</span>
-          <span class="layers-source">NGR · ${esc(keyword)}</span>
-        </div>
-        ${rowsHtml}`;
-      document.getElementById('messages').appendChild(el);
-      scrollToBottom();
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Input / event wiring
+    // Input wiring
     // ─────────────────────────────────────────────────────────────────
     function submitQuestion() {
       const input = document.getElementById('question-input');
       const q = input.value.trim();
       if (!q) return;
       input.value = '';
-      ask(q);
+      // Reset for a new question
+      currentQuery = null; currentH3Data = null; currentBbox = null;
+      currentRawFeatures = [];
+      drawnBbox = null; drawMode = false;
+      document.getElementById('draw-btn').classList.remove('active', 'pulse');
+      document.getElementById('clear-btn').style.display = 'none';
+      document.getElementById('area-info').classList.remove('visible');
+      document.getElementById('legend').classList.remove('visible');
+      document.getElementById('container').style.cursor = '';
+      updateMap();
+      askAI(q);
     }
+
+    function useExample(btn) {
+      document.getElementById('question-input').value = btn.textContent.trim();
+      submitQuestion();
+    }
+    window.useExample = useExample;
 
     document.getElementById('submit-btn').addEventListener('click', submitQuestion);
     document.getElementById('question-input').addEventListener('keydown', e => {
       if (e.key === 'Enter') submitQuestion();
-    });
-
-    // Language toggle
-    document.querySelectorAll('.lang-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        lang = btn.dataset.lang;
-        document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
-      });
-    });
-
-    // Example questions
-    document.querySelectorAll('.example-question').forEach(a => {
-      a.addEventListener('click', e => {
-        e.preventDefault();
-        document.getElementById('question-input').value = a.textContent.trim();
-        submitQuestion();
-      });
     });
 
     // ─────────────────────────────────────────────────────────────────

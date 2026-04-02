@@ -88,10 +88,10 @@ RULES:
 3. propertyNames: array of EXACT column names from the schema above. Include the metric column you want to visualize plus crs28992res100m for CBS (for identification). Max 4 properties to keep response small.
 4. cqlFilter: CQL filter string for attribute filtering (e.g. "aantalInwoners > 0"). Empty string if no filter.
 5. aggregation: how to combine multiple features into one H3 cell:
-   - "sum" — for counts (population, homes, etc.)
-   - "avg" — for rates/percentages/values (WOZ, household size, distances)
-   - "count" — to count number of features per H3 cell
-   - "max" — for maximum values
+   - For CBS Vierkantstatistieken: ALWAYS use "avg" — CBS cells are already per-100m² values; summing them gives nonsensical totals
+   - "sum" — only for BAG counts (buildings, units)
+   - "avg" — for all CBS properties (population density, percentages, distances, WOZ, energy)
+   - "count" — to count number of BAG features per H3 cell
 6. h3Resolution: 8 for city/region overview (~460m hexagons), 9 for neighborhood (~170m), 10 for building-level (~65m, only for BAG).
 7. metric_column must be one of the propertyNames.
 8. color_scale:
@@ -108,7 +108,7 @@ Return ONLY valid JSON with exactly these fields:
   "typeName": "namespace:typename",
   "propertyNames": ["prop1", "prop2"],
   "cqlFilter": "",
-  "aggregation": "sum",
+  "aggregation": "avg",
   "h3Resolution": 8,
   "metric_column": "the_property_to_visualize",
   "title_nl": "Dutch title (max 60 chars)",
