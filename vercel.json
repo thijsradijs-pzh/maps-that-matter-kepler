@@ -22,6 +22,7 @@
     { "source": "/api/proxy", "destination": "/api/proxy.js" },
     { "source": "/api/search-ngr", "destination": "/api/search-ngr.js" },
     { "source": "/api/ask-map", "destination": "/api/ask-map.js" },
+    { "source": "/api/search-wms", "destination": "/api/search-wms.js" },
     { "source": "/api/suggest-location", "destination": "/api/suggest-location.js" },
     { "source": "/vraag-de-kaart", "destination": "/vraag-de-kaart/index.html" },
     { "source": "/", "destination": "/population-3d/index.html" }

@@ -234,6 +234,60 @@
     #submit-btn:hover { background: #2a4a62; }
     #submit-btn:disabled { opacity: 0.4; cursor: default; }
 
+    /* Layer suggestion card */
+    .msg-layers {
+      align-self: flex-start; width: 100%;
+      background: rgba(20,30,20,0.6);
+      border: 1px solid #1e3a22;
+      border-radius: 8px; overflow: hidden;
+    }
+    .layers-header {
+      padding: 8px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px;
+    }
+    .layers-header-title { color: #8fc; font-weight: 600; flex: 1; }
+    .layers-source { font-size: 10px; color: #3a5a3a; }
+    .layer-row {
+      padding: 8px 14px; border-bottom: 1px solid rgba(255,255,255,0.03);
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .layer-row:last-child { border-bottom: none; }
+    .layer-row-info { flex: 1; min-width: 0; }
+    .layer-row-title { font-size: 11px; color: #ccc; line-height: 1.4; }
+    .layer-row-abstract { font-size: 10px; color: #444; margin-top: 2px; line-height: 1.4; }
+    .layer-add-btn {
+      flex-shrink: 0;
+      background: rgba(20,50,30,0.6); border: 1px solid #2a5a32;
+      color: #6da; border-radius: 4px;
+      padding: 3px 10px; font-size: 10px; cursor: pointer;
+      white-space: nowrap; transition: all 0.15s; font-family: inherit;
+    }
+    .layer-add-btn:hover { background: rgba(20,70,40,0.8); }
+    .layer-add-btn.active { background: rgba(20,70,40,0.9); border-color: #4a9a5a; color: #8fe8a0; }
+
+    /* Active WMS overlay panel */
+    #wms-panel {
+      position: absolute; bottom: 20px; left: 20px;
+      z-index: 10; display: flex; flex-direction: column; gap: 5px;
+      max-width: 260px; pointer-events: none;
+    }
+    .wms-chip {
+      background: rgba(10,10,18,0.92); border: 1px solid #2a6244;
+      border-radius: 16px; padding: 4px 8px 4px 12px;
+      font-size: 11px; color: #6da;
+      display: flex; align-items: center; gap: 6px;
+      pointer-events: all;
+    }
+    .wms-chip-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wms-chip-remove {
+      background: none; border: none; color: #3a5a3a;
+      font-size: 15px; line-height: 1; cursor: pointer; padding: 0 2px;
+      transition: color 0.15s;
+    }
+    .wms-chip-remove:hover { color: #ff8a8a; }
+
     /* Mobile */
     @media (max-width: 700px) {
       #chat-panel {
@@ -255,6 +309,9 @@
 
   <!-- Map canvas -->
   <div id="container"></div>
+
+  <!-- Active WMS overlay chips -->
+  <div id="wms-panel"></div>
 
   <!-- Chat panel -->
   <div id="chat-panel">
@@ -363,6 +420,11 @@
     let   acFocused    = -1;
     let   busy         = false;
 
+    // WMS overlay state
+    const wmsLayers   = new Map(); // id → { title, wmsUrl, layerName }
+    const _ngrData    = {};        // id → layer info (avoids encoding in onclick)
+    let   currentRows = null, currentMetric = null, currentColorScale = 'blue-orange';
+
     const PARQUET_URL  = window.location.origin + '/data/volledige_tijdreeks_met_namen.parquet';
 
     // Color scales
@@ -412,10 +474,135 @@
       });
     }
 
-    function renderLayer(rows, metricCol, colorScale, viewState) {
+    // ── WMS tile rendering ──────────────────────────────────────────
+    function tileBbox3857(x, y, z) {
+      const R = 20037508.342789244;
+      const n = Math.pow(2, z);
+      return {
+        west:  -R + (x / n) * 2 * R,
+        east:  -R + ((x + 1) / n) * 2 * R,
+        north:  R - (y / n) * 2 * R,
+        south:  R - ((y + 1) / n) * 2 * R,
+      };
+    }
+
+    function createWmsTileLayer(id, wmsUrl, layerName) {
+      return new deck.TileLayer({
+        id: `wms-${id}`,
+        tileSize: 256, minZoom: 0, maxZoom: 19,
+        getTileData: async ({ x, y, z }) => {
+          const { west, south, east, north } = tileBbox3857(x, y, z);
+          const params = new URLSearchParams({
+            SERVICE: 'WMS', VERSION: '1.1.1', REQUEST: 'GetMap',
+            LAYERS: layerName, STYLES: '',
+            BBOX: `${west},${south},${east},${north}`,
+            WIDTH: '256', HEIGHT: '256',
+            SRS: 'EPSG:3857', FORMAT: 'image/png', TRANSPARENT: 'TRUE',
+          });
+          try {
+            const r = await fetch(`/api/proxy?url=${encodeURIComponent(wmsUrl + '?' + params)}`);
+            if (!r.ok) return null;
+            const ct = r.headers.get('content-type') || '';
+            if (!ct.startsWith('image/')) return null;
+            return createImageBitmap(await r.blob());
+          } catch { return null; }
+        },
+        renderSubLayers: props => {
+          if (!props.data) return null;
+          const { bbox: { west, south, east, north } } = props.tile;
+          return new deck.BitmapLayer(props, { data: null, image: props.data, bounds: [west, south, east, north] });
+        },
+        pickable: false,
+      });
+    }
+
+    function updateMap() {
+      if (!deckInstance) return;
       const layers = [DeckGLUtils.createBasemap('dark-matter')];
-      if (rows && rows.length) layers.push(buildLayer(rows, metricCol, colorScale));
+      if (currentRows?.length) layers.push(buildLayer(currentRows, currentMetric, currentColorScale));
+      wmsLayers.forEach((info, id) => layers.push(createWmsTileLayer(id, info.wmsUrl, info.layerName)));
       deckInstance.setProps({ layers });
+    }
+
+    function renderLayer(rows, metricCol, colorScale) {
+      currentRows = rows; currentMetric = metricCol; currentColorScale = colorScale;
+      updateMap();
+    }
+
+    function addNgrLayer(id, info) {
+      wmsLayers.set(id, info);
+      updateMap();
+      updateWmsPanel();
+    }
+
+    function removeNgrLayer(id) {
+      wmsLayers.delete(id);
+      updateMap();
+      updateWmsPanel();
+    }
+
+    function updateWmsPanel() {
+      const panel = document.getElementById('wms-panel');
+      if (!panel) return;
+      panel.innerHTML = [...wmsLayers.entries()].map(([id, info]) => `
+        <div class="wms-chip">
+          <span class="wms-chip-title">${info.title.replace(/</g,'&lt;').slice(0, 36)}</span>
+          <button class="wms-chip-remove" onclick="removeNgrLayer('${id}')" title="Verwijder laag">×</button>
+        </div>`).join('');
+    }
+
+    // ── NGR layer suggestions ───────────────────────────────────────
+    async function searchAndSuggestLayers(keywords) {
+      if (!keywords?.length) return;
+      for (const kw of keywords.slice(0, 2)) {
+        try {
+          const res = await fetch(`/api/search-wms?q=${encodeURIComponent(kw)}`);
+          const { layers } = await res.json();
+          if (layers?.length) { addLayerSuggestionsMessage(kw, layers); return; }
+        } catch {}
+      }
+    }
+
+    function addLayerSuggestionsMessage(keyword, layers) {
+      const ts = Date.now();
+      const rowsHtml = layers.map((l, i) => {
+        const id = `ngr-${ts}-${i}`;
+        _ngrData[id] = l;
+        return `<div class="layer-row" id="row-${id}">
+          <div class="layer-row-info">
+            <div class="layer-row-title">${l.title.replace(/</g,'&lt;')}</div>
+            ${l.abstract ? `<div class="layer-row-abstract">${l.abstract.replace(/</g,'&lt;')}</div>` : ''}
+          </div>
+          <button class="layer-add-btn" onclick="toggleNgrLayer('${id}')">
+            ${lang === 'nl' ? 'Toon' : 'Show'}
+          </button>
+        </div>`;
+      }).join('');
+
+      const el = document.createElement('div');
+      el.className = 'msg-layers';
+      el.innerHTML = `
+        <div class="layers-header">
+          <span>🗺</span>
+          <span class="layers-header-title">${lang === 'nl' ? 'Gerelateerde kaartlagen' : 'Related map layers'}</span>
+          <span class="layers-source">NGR · ${keyword.replace(/</g,'&lt;')}</span>
+        </div>
+        ${rowsHtml}`;
+      document.getElementById('messages').appendChild(el);
+      scrollToBottom();
+    }
+
+    function toggleNgrLayer(id) {
+      const info = _ngrData[id];
+      if (!info) return;
+      const btn = document.querySelector(`#row-${id} .layer-add-btn`);
+      if (wmsLayers.has(id)) {
+        removeNgrLayer(id);
+        if (btn) { btn.textContent = lang === 'nl' ? 'Toon' : 'Show'; btn.classList.remove('active'); }
+      } else {
+        addNgrLayer(id, info);
+        if (btn) { btn.textContent = lang === 'nl' ? 'Verberg' : 'Hide'; btn.classList.add('active'); }
+      }
     }
 
     function flyToResults(rows) {
@@ -680,6 +867,9 @@
       flyToResults(rows);
 
       plausible('ask-map', { props: { question: question.slice(0, 80) } });
+
+      // In background: search NGR for related WMS layers and suggest them
+      if (result.ngr_keywords?.length) searchAndSuggestLayers(result.ngr_keywords);
 
       busy = false;
       document.getElementById('submit-btn').disabled = false;

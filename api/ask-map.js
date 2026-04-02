@@ -99,6 +99,7 @@ RULES:
 10. For population questions, filter WHERE aantal_inwoners_sum > 10 to exclude uninhabited areas.
 11. metric_column must be a column name that appears in your SELECT clause.
 12. For "where is X highest/lowest" or "top N municipalities/areas" questions: GROUP BY gemeentenaam (or buurtnaam/wijknaam if relevant), use AVG() or MAX() on the metric, and pick a representative h3_id with ANY_VALUE(h3_id). This avoids showing the same municipality many times. Example: SELECT ANY_VALUE(h3_id) AS h3_id, gemeentenaam, AVG(soortenrijkdomsklasse) AS soortenrijkdomsklasse FROM datacube WHERE year_int = 2023 GROUP BY gemeentenaam ORDER BY soortenrijkdomsklasse DESC LIMIT 50
+13. Return ngr_keywords: 2–3 short Dutch nouns to find related WMS layers on the Dutch National Geo Register. Pick specific terms that match the topic. Examples: biodiversity → ["soortenrijkdom", "natuur"]; noise → ["geluid", "verkeerslawaai"]; flooding → ["overstromingen", "waterdiepte"]; housing → ["woningbouw", "woningen"].
 
 Return ONLY valid JSON with exactly these fields:
 {
@@ -106,7 +107,8 @@ Return ONLY valid JSON with exactly these fields:
   "title_nl": "Dutch title (max 60 chars)",
   "title_en": "English title (max 60 chars)",
   "metric_column": "the_column_used_for_map_coloring",
-  "color_scale": "blue-orange"
+  "color_scale": "blue-orange",
+  "ngr_keywords": ["keyword1", "keyword2"]
 }
 
 color_scale options:
