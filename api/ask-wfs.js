@@ -15,52 +15,81 @@ TypeName: vierkantstatistieken100m:vierkant_100m
 GeometryType: MultiPolygon (100×100m squares, Netherlands only)
 Cell identifier: crs28992res100m  (e.g. "E85900N436000")
 
-Properties available in 2024 (most complete year):
+EXACT property names for 2024 (copy verbatim — wrong names return 0 results):
   Demographics:
-    aantalInwoners            — total population
-    aantalMannen              — male residents
-    aantalVrouwen             — female residents
-    aantalInwoners0Tot15Jaar  — residents age 0–15
-    aantalInwoners15Tot25Jaar — residents age 15–25
-    aantalInwoners25Tot45Jaar — residents age 25–45
-    aantalInwoners45Tot65Jaar — residents age 45–65
+    aantalInwoners              — total population
+    aantalMannen                — male residents
+    aantalVrouwen               — female residents
+    aantalInwoners0Tot15Jaar    — residents age 0–15
+    aantalInwoners15Tot25Jaar   — residents age 15–25
+    aantalInwoners25Tot45Jaar   — residents age 25–45
+    aantalInwoners45Tot65Jaar   — residents age 45–65
     aantalInwoners65JaarEnOuder — residents age 65+
-    aantalGeboorten           — births
-    percentageNederlandseAchtergrond    — % Dutch background
-    percentageWesterseMigrAchtergr      — % western migration background
-    percentageNietWesterseMigrAchtergr  — % non-western migration background
+    aantalGeboorten             — births
+    percentageGebNederlandHerkomstNederland      — % born in NL with Dutch background
+    percentageGebNederlandHerkomstOverigEuropa   — % born in NL, European background
+    percentageGebNederlandHerkomstBuitenEuropa   — % born in NL, non-European background
+    percentageGebBuitenNederlandHerkomstEuropa   — % born abroad, European background
+    percentageGebBuitenNederlandHerkmstBuitenEuropa — % born abroad, non-European background
   Households:
-    aantalPartHuishoudens                       — total households
-    aantalEenpersoonshuishoudens                — single-person households
-    aantalMeerpersoonshuishoudensZonderKind     — multi-person, no children
-    aantalEenouderhuishoudens                   — single-parent households
-    aantalTweeouderhuishoudens                  — two-parent households
-    gemiddeldeHuishoudensgrootte                — avg household size
+    aantalPartHuishoudens                    — total households
+    aantalEenpersoonshuishoudens             — single-person households
+    aantalMeerpersoonshuishoudensZonderKind  — multi-person, no children
+    aantalEenouderhuishoudens                — single-parent households
+    aantalTweeouderhuishoudens               — two-parent households
+    gemiddeldeHuishoudensgrootte             — avg household size
   Housing:
-    aantalWoningen                              — total homes
-    aantalNietBewoondeWoningen                  — unoccupied homes
-    aantalHuurwoningenInBezitWoningcorporaties  — social housing units
-    percentageKoopwoningen                      — % owner-occupied
-    percentageHuurwoningen                      — % rental
-    gemiddeldeWozWaardeWoning                   — avg WOZ value (euros)
-    aantalWoningenBouwjaarVoor1945              — homes built before 1945
-    aantalWoningenBouwjaar1945Tot1965           — homes built 1945–1965
-    aantalWoningenBouwjaar1965Tot1975           — homes built 1965–1975
-    aantalWoningenBouwjaar1975Tot1985           — homes built 1975–1985
-    aantalWoningenBouwjaar1985Tot2000           — homes built 1985–2000
-    aantalWoningenBouwjaar2000Tot2010           — homes built 2000–2010
+    aantalWoningen                             — total homes
+    aantalNietBewoondeWoningen                 — unoccupied homes
+    aantalHuurwoningenInBezitWoningcorporaties — social housing units
+    aantalMeergezinsWoningen                   — multi-family homes (apartments)
+    percentageKoopwoningen                     — % owner-occupied
+    percentageHuurwoningen                     — % rental
+    gemiddeldeWozWaardeWoning                  — avg WOZ value (euros)
+    aantalWoningenBouwjaarVoor1945   — homes built before 1945
+    aantalWoningenBouwjaar45Tot65    — homes built 1945–1965
+    aantalWoningenBouwjaar65Tot75    — homes built 1965–1975
+    aantalWoningenBouwjaar75Tot85    — homes built 1975–1985
+    aantalWoningenBouwjaar85Tot95    — homes built 1985–1995
+    aantalWoningenBouwjaar95Tot05    — homes built 1995–2005
+    aantalWoningenBouwjaar05Tot15    — homes built 2005–2015
+    aantalWoningenBouwjaar15EnLater  — homes built 2015 or later
   Energy:
-    gemiddeldGasverbruikWoning              — avg gas use per home (m³/year)
-    gemiddeldElektriciteitsverbruikWoning   — avg electricity per home (kWh/year)
-  Income & Benefits (2019+):
-    aantalPersonenMetUitkeringOnderAowlft   — persons on benefits (below pension age)
-  Distances to services (km, nearest):
-    dichtstbijzijndeSupermArktAfstandInKm          — nearest supermarket
-    dichtstbijzijndeHuisartsenpraktijkAfstandInKm  — nearest GP/doctor
-    dichtstbijzijndeBasisOnderwijsSchoolAfstandInKm — nearest primary school
-    dichtstbijzijndeZiekenhuisAfstandInKm          — nearest hospital
-    dichtstbijzijndeTrainStationAfstandInKm         — nearest train station
-    dichtstbijzijndeCafeAfstandInKm                 — nearest café
+    gemiddeldGasverbruikWoning             — avg gas use per home (m³/year)
+    gemiddeldElektriciteitsverbruikWoning  — avg electricity per home (kWh/year)
+  Income & Benefits:
+    aantalPersonenMetUitkeringOnderAowlft  — persons on benefits (below pension age)
+  Distances to services (km, nearest) — use avg aggregation:
+    dichtstbijzijndeGroteSupermarktAfstandInKm        — nearest large supermarket
+    dichtstbijzijndeWinkelsOvDagelLevensmAfstInKm     — nearest daily groceries store
+    dichtstbijzijndeWarenhuisAfstandInKm               — nearest department store
+    dichtstbijzijndeCafeAfstandInKm                    — nearest café
+    dichtstbijzijndeCafetariaAfstandInKm               — nearest fast food / cafetaria
+    dichtstbijzijndeRestaurantAfstandInKm               — nearest restaurant
+    dichtstbijzijndeBioscoopAfstandInKm                — nearest cinema
+    dichtstbijzijndeMuseumAfstandInKm                  — nearest museum
+    dichtstbijzijndeTheaterAfstandInKm                 — nearest theatre
+    dichtstbijzijndeBibliotheekAfstandInKm             — nearest library
+    dichtstbijzijndeZwembadAfstandInKm                 — nearest swimming pool
+    dichtstbijzijndeBasisonderwijsAfstandInKm          — nearest primary school
+    dichtstbijzijndeHavoVwoAfstandInKm                 — nearest havo/vwo school
+    dichtstbijzijndeVmboAfstandInKm                    — nearest vmbo school
+    dichtstbijzijndeVoortgezetOnderwijsAfstandInKm     — nearest secondary school (any)
+    dichtstbijzijndeKinderdagverblijfAfstandInKm       — nearest daycare
+    dichtstbijzijndeBuitenschoolseOpvangAfstandInKm    — nearest after-school care
+    dichtstbijzijndeHuisartsenpraktijkAfstandInKm      — nearest GP/doctor practice
+    dichtstbijzijndeHuisartsenpostAfstandInKm          — nearest GP emergency post
+    dichtstbijzijndeApotheekAfstandInKm                — nearest pharmacy
+    dichtstbijzijndeZiekenhExclBuitenpoliAfstInKm      — nearest hospital (excl. outpatient)
+    dichtstbijzijndeZiekenhInclBuitenpoliAfstInKm      — nearest hospital (incl. outpatient)
+    dichtstbijzijndeTreinstationAfstandInKm            — nearest train station
+    dichtstbijzijndeOverstapstationAfstandInKm         — nearest transfer station
+    dichtstbijzijndeOpritHoofdverkeerswegAfstandInKm   — nearest motorway on-ramp
+    dichtstbijzijndeBrandweerkazerneAfstandInKm        — nearest fire station
+    dichtstbijzijndeAttractieparkAfstandInKm           — nearest theme park
+    dichtstbijzijndePoppodiumAfstandInKm               — nearest music venue
+    dichtstbijzijndeSaunaAfstandInKm                   — nearest sauna
+    dichtstbijzijndeKunstijsbaanAfstandInKm            — nearest ice rink
 
 ────────────────────────────────────────────────────────────
 2. BAG — Buildings and Addresses Register
