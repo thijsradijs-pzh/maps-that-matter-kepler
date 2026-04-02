@@ -141,15 +141,31 @@
       white-space: pre-wrap; word-break: break-all;
     }
 
-    /* Thinking */
-    .msg-thinking {
-      align-self: flex-start;
-      font-size: 11px; color: #444; padding: 6px 2px;
+    /* Thinking step card */
+    .msg-think-card {
+      align-self: flex-start; width: 100%;
+      background: rgba(20,20,32,0.7);
+      border: 1px solid #2a2a3a;
+      border-radius: 8px; padding: 10px 14px;
     }
-    .dots span { animation: blink 1.4s infinite; }
-    .dots span:nth-child(2) { animation-delay: 0.2s; }
-    .dots span:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes blink { 0%,80%,100% { opacity: 0.2; } 40% { opacity: 1; } }
+    .think-steps { display: flex; flex-direction: column; gap: 5px; }
+    .think-step {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; color: #444; line-height: 1.4;
+    }
+    .think-step.active { color: #aaa; }
+    .think-step.done { color: #3a5a3a; }
+    .think-spinner { display: inline-block; animation: spin 1s linear infinite; }
+    .think-check { color: #4a8a5a; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    /* Reasoning block inside result card */
+    .msg-reasoning {
+      padding: 8px 14px 10px;
+      font-size: 11px; color: #666; line-height: 1.6;
+      border-bottom: 1px solid #1e1e2e;
+      font-style: italic;
+    }
 
     /* Error */
     .msg-error {
@@ -453,13 +469,12 @@
     // Deck.gl setup
     // ─────────────────────────────────────────────────────────────────
     function initDeck() {
+      currentViewState = { longitude: 4.9, latitude: 52.37, zoom: 12, pitch: 0, bearing: 0 };
+
       deckInstance = new deck.DeckGL({
         container: 'container',
-        mapStyle: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-        initialViewState: {
-          longitude: 4.9, latitude: 52.37,
-          zoom: 12, pitch: 0, bearing: 0,
-        },
+        initialViewState: currentViewState,
+        layers: [DeckGLUtils.createBasemap('dark')],
         controller: true,
         onViewStateChange: ({ viewState }) => {
           currentViewState = viewState;
@@ -527,7 +542,7 @@
 
     function updateMap() {
       if (!deckInstance) return;
-      const layers = [DeckGLUtils.createBasemap('dark-matter')];
+      const layers = [DeckGLUtils.createBasemap('dark')];
       if (currentH3Data.length) {
         const l = buildH3Layer(currentH3Data, currentColorScale);
         if (l) layers.push(l);
@@ -634,19 +649,57 @@
     function esc(s) { return String(s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
 
     // ─────────────────────────────────────────────────────────────────
+    // Thinking step card — shows live progress during query
+    // ─────────────────────────────────────────────────────────────────
+    function createThinkCard() {
+      const el = document.createElement('div');
+      el.className = 'msg-think-card';
+      const stepsEl = document.createElement('div');
+      stepsEl.className = 'think-steps';
+      el.appendChild(stepsEl);
+      document.getElementById('messages').appendChild(el);
+      scrollToBottom();
+
+      let activeEl = null;
+
+      return {
+        step(text) {
+          if (activeEl) {
+            activeEl.className = 'think-step done';
+            const spin = activeEl.querySelector('.think-spinner');
+            if (spin) { spin.className = 'think-check'; spin.textContent = '✓'; }
+          }
+          activeEl = document.createElement('div');
+          activeEl.className = 'think-step active';
+          activeEl.innerHTML = `<span class="think-spinner">↻</span> ${esc(text)}`;
+          stepsEl.appendChild(activeEl);
+          scrollToBottom();
+        },
+        done() {
+          if (activeEl) {
+            activeEl.className = 'think-step done';
+            const spin = activeEl.querySelector('.think-spinner');
+            if (spin) { spin.className = 'think-check'; spin.textContent = '✓'; }
+          }
+        },
+        remove() { el.remove(); },
+      };
+    }
+
+    // ─────────────────────────────────────────────────────────────────
     // Core: ask AI → fetch WFS → bin → render
     // ─────────────────────────────────────────────────────────────────
     async function ask(question) {
       if (busy) return;
-      busy = true;
-      setBusy(true);
+      busy = true; setBusy(true);
 
-      // User message
-      appendMsg('user', esc(question));
-      // Thinking indicator
-      const thinkEl = appendMsg('thinking', `<span class="dots"><span>.</span><span>.</span><span>.</span></span> ${lang === 'nl' ? 'Query genereren...' : 'Generating query...'}`);
+      appendMsg('user', question);
+      const think = createThinkCard();
 
       try {
+        // Step 1: AI call
+        think.step(lang === 'nl' ? 'AI analyseert vraag...' : 'AI is analysing your question...');
+
         const aiRes = await fetch('/api/ask-wfs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -655,72 +708,82 @@
         const aiData = await aiRes.json();
         if (!aiRes.ok || aiData.error) throw new Error(aiData.error || 'AI error');
 
-        thinkEl.remove();
+        // Always use H3 resolution 9 for CBS 100m data (best visual fit)
+        aiData.h3Resolution = 9;
 
-        // Store query
-        currentQuery = aiData;
-        currentMetric = aiData.metric_column;
+        currentQuery    = aiData;
+        currentMetric   = aiData.metric_column;
         currentColorScale = aiData.color_scale || 'sequential';
 
-        // Create result card (will be updated as data loads)
-        const cardEl = createResultCard(aiData);
+        const source = aiData.wfsUrl.includes('vierkantstatistieken') ? 'CBS Vierkantstatistieken 100m' :
+                       aiData.wfsUrl.includes('bag') ? 'BAG Gebouwen' : 'PDOK WFS';
+        const year   = (aiData.wfsUrl.match(/\/(\d{4})\//) || [])[1] || '';
+
+        // Step 2: WFS fetch
+        think.step(`${source}${year ? ' ' + year : ''} ophalen via PDOK...`);
+
+        const bbox = getViewportBbox();
+        if (!bbox) throw new Error('Viewport niet beschikbaar');
+
+        const params = new URLSearchParams({ wfsUrl: aiData.wfsUrl, typeName: aiData.typeName, bbox: bbox.join(',') });
+        if (aiData.cqlFilter) params.set('cqlFilter', aiData.cqlFilter);
+
+        const res = await fetch(`/api/wfs-proxy?${params}`);
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || `WFS fout ${res.status}`);
+
+        const features = data.features || [];
+
+        // Step 3: H3 binning
+        think.step(`${features.length.toLocaleString('nl-NL')} features → H3-9 hexagonen berekenen...`);
+        const binned = binFeaturesToH3(features, aiData.metric_column, aiData.aggregation, 9);
+
+        think.done();
+
+        currentH3Data = binned;
+        updateMap();
+
+        // Replace think card with result card
+        think.remove();
+        const cardEl = createResultCard(aiData, features.length, binned.length);
         document.getElementById('messages').appendChild(cardEl);
         activeCardEl = cardEl;
         scrollToBottom();
 
-        // Load data for current viewport
-        await loadDataForViewport(true);
-
-        // Search for NGR layers
-        if (aiData.ngr_keywords?.length) {
-          searchAndSuggestLayers(aiData.ngr_keywords);
-        }
+        if (aiData.ngr_keywords?.length) searchAndSuggestLayers(aiData.ngr_keywords);
 
       } catch (err) {
-        thinkEl?.remove();
+        think.remove();
         appendMsg('error', `${lang === 'nl' ? 'Fout' : 'Error'}: ${esc(err.message)}`);
       } finally {
-        busy = false;
-        setBusy(false);
+        busy = false; setBusy(false);
       }
     }
 
-    async function loadDataForViewport(isNewQuery = false) {
+    // Viewport-change reload (no think card, just indicator)
+    async function loadDataForViewport() {
       if (!currentQuery) return;
-
       const bbox = getViewportBbox();
       if (!bbox) return;
 
-      showReloadIndicator(isNewQuery ? (lang === 'nl' ? 'Data ophalen...' : 'Fetching data...') : (lang === 'nl' ? 'Vernieuwen...' : 'Refreshing...'));
+      showReloadIndicator(lang === 'nl' ? 'Vernieuwen...' : 'Refreshing...');
 
       try {
-        const { wfsUrl, typeName, propertyNames, cqlFilter, aggregation, h3Resolution, metric_column } = currentQuery;
+        const { wfsUrl, typeName, cqlFilter, metric_column, aggregation } = currentQuery;
 
-        const params = new URLSearchParams({
-          wfsUrl,
-          typeName,
-          bbox: bbox.join(','),
-        });
-        if (propertyNames?.length) params.set('propertyNames', propertyNames.join(','));
-        if (cqlFilter)             params.set('cqlFilter', cqlFilter);
+        const params = new URLSearchParams({ wfsUrl, typeName, bbox: bbox.join(',') });
+        if (cqlFilter) params.set('cqlFilter', cqlFilter);
 
         const res = await fetch(`/api/wfs-proxy?${params}`);
         const data = await res.json();
-
-        if (!res.ok || data.error) throw new Error(data.error || `WFS error ${res.status}`);
+        if (!res.ok || data.error) throw new Error(data.error || 'WFS fout');
 
         const features = data.features || [];
-        const binned = binFeaturesToH3(features, metric_column, aggregation, h3Resolution);
-
-        currentH3Data = binned;
+        currentH3Data = binFeaturesToH3(features, metric_column, aggregation, 9);
         updateMap();
-        updateCardStatus(features.length, binned.length);
-
-      } catch (err) {
-        if (activeCardEl) {
-          const statusEl = activeCardEl.querySelector('.msg-status');
-          if (statusEl) { statusEl.className = 'msg-status error'; statusEl.textContent = esc(err.message); }
-        }
+        updateCardStatus(features.length, currentH3Data.length);
+      } catch {
+        // Silently fail on pan/zoom reloads
       } finally {
         hideReloadIndicator();
       }
@@ -729,35 +792,39 @@
     // ─────────────────────────────────────────────────────────────────
     // DOM helpers
     // ─────────────────────────────────────────────────────────────────
-    function appendMsg(type, html) {
+    function appendMsg(type, text) {
       const msgs = document.getElementById('messages');
       const el   = document.createElement('div');
-      if (type === 'user')     { el.className = 'msg-user'; el.textContent = html.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"'); }
-      else if (type === 'thinking') { el.className = 'msg-thinking'; el.innerHTML = html; }
-      else if (type === 'error')    { el.className = 'msg-error'; el.textContent = html; }
-      else                     { el.className = type; el.innerHTML = html; }
+      if (type === 'user')  { el.className = 'msg-user'; el.textContent = text; }
+      else if (type === 'error') { el.className = 'msg-error'; el.textContent = text; }
+      else { el.className = type; el.textContent = text; }
       msgs.appendChild(el);
       scrollToBottom();
       return el;
     }
 
-    function createResultCard(aiData) {
-      const title = lang === 'nl' ? aiData.title_nl : aiData.title_en;
-      const source = aiData.wfsUrl.includes('vierkantstatistieken') ? 'CBS Vierkantstatistieken 100m' :
-                     aiData.wfsUrl.includes('bag') ? 'BAG Gebouwen' : 'PDOK WFS';
-      const year   = (aiData.wfsUrl.match(/\/(\d{4})\//) || [])[1] || '';
+    function createResultCard(aiData, featureCount, hexCount) {
+      const title   = lang === 'nl' ? aiData.title_nl : aiData.title_en;
+      const source  = aiData.wfsUrl.includes('vierkantstatistieken') ? 'CBS Vierkantstatistieken 100m' :
+                      aiData.wfsUrl.includes('bag') ? 'BAG Gebouwen' : 'PDOK WFS';
+      const year    = (aiData.wfsUrl.match(/\/(\d{4})\//) || [])[1] || '';
+      const reasoning = aiData.reasoning || '';
+
+      const statusText = featureCount != null
+        ? `${featureCount.toLocaleString('nl-NL')} features → ${hexCount.toLocaleString('nl-NL')} hexagonen`
+        : (lang === 'nl' ? 'Data laden...' : 'Loading data...');
 
       const el = document.createElement('div');
       el.className = 'msg-assistant';
       el.innerHTML = `
         <div class="msg-card">
           <div class="msg-title">${esc(title)}</div>
+          ${reasoning ? `<div class="msg-reasoning">${esc(reasoning)}</div>` : ''}
           <div class="msg-meta">
             <span>${esc(source)}${year ? ' · ' + year : ''}</span><br>
-            <span>${esc(aiData.typeName)}</span><br>
-            <span>${lang === 'nl' ? 'Metriek' : 'Metric'}: ${esc(aiData.metric_column)}</span>
+            <span>${lang === 'nl' ? 'Metriek' : 'Metric'}: ${esc(aiData.metric_column)} · ${esc(aiData.aggregation || 'sum')} · H3-9</span>
           </div>
-          <div class="msg-status" id="status-${Date.now()}">${lang === 'nl' ? 'Data laden...' : 'Loading data...'}</div>
+          <div class="msg-status">${esc(statusText)}</div>
           <div class="wfs-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
             <span class="arrow">▶</span>
             <span>WFS query details</span>
@@ -767,7 +834,6 @@
           </div>
         </div>`;
 
-      // Store reference to the status element
       el._statusEl = el.querySelector('.msg-status');
       return el;
     }
@@ -784,11 +850,9 @@
     }
 
     function updateCardStatus(featureCount, hexCount) {
-      if (!activeCardEl) return;
-      const statusEl = activeCardEl._statusEl;
-      if (!statusEl) return;
-      statusEl.className = 'msg-status';
-      statusEl.textContent = `${featureCount.toLocaleString('nl-NL')} ${lang === 'nl' ? 'features' : 'features'} → ${hexCount.toLocaleString('nl-NL')} ${lang === 'nl' ? 'hexagonen' : 'hexagons'}`;
+      if (!activeCardEl?._statusEl) return;
+      activeCardEl._statusEl.textContent =
+        `${featureCount.toLocaleString('nl-NL')} features → ${hexCount.toLocaleString('nl-NL')} hexagonen`;
     }
 
     function setBusy(val) {

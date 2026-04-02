@@ -103,6 +103,7 @@ RULES:
 
 Return ONLY valid JSON with exactly these fields:
 {
+  "reasoning": "1-2 sentences in Dutch explaining why you chose this source and metric (shown to the user as a short explanation)",
   "wfsUrl": "https://service.pdok.nl/...",
   "typeName": "namespace:typename",
   "propertyNames": ["prop1", "prop2"],
