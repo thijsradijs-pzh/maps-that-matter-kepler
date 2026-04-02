@@ -494,17 +494,15 @@
 
     function getViewportBbox() {
       if (!currentViewState) return null;
-      try {
-        const vp = new deck.WebMercatorViewport({
-          width: window.innerWidth,
-          height: window.innerHeight,
-          longitude: currentViewState.longitude,
-          latitude: currentViewState.latitude,
-          zoom: currentViewState.zoom,
-        });
-        const [[west, south], [east, north]] = vp.getBounds();
-        return [west, south, east, north];
-      } catch { return null; }
+      const { longitude, latitude, zoom } = currentViewState;
+      // Web Mercator: meters per pixel at given zoom and latitude
+      const metersPerPx = 156543.03392 * Math.cos(latitude * Math.PI / 180) / Math.pow(2, zoom);
+      const w = window.innerWidth - 360; // subtract sidebar width
+      const h = window.innerHeight;
+      // Approximate degrees from meters (near the given latitude)
+      const dLon = (metersPerPx * w / 2) / (111319.9 * Math.cos(latitude * Math.PI / 180));
+      const dLat = (metersPerPx * h / 2) / 110574;
+      return [longitude - dLon, latitude - dLat, longitude + dLon, latitude + dLat];
     }
 
     function scheduleReload() {
