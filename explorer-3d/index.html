@@ -5,18 +5,11 @@
   <title>Data Explorer (Parquet) – Maps That Matter</title>
   <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
   
-  <!-- DuckDB WASM — CDNs serve this file as text/plain which browsers block.
-       Workaround: fetch as text, wrap in a Blob with the correct MIME type, inject as script. -->
-  <script>
-    window._duckdbLoading = fetch('https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser.js')
-      .then(r => r.text())
-      .then(code => new Promise((resolve, reject) => {
-        const url = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
-        const s = Object.assign(document.createElement('script'), {
-          src: url, onload: () => { URL.revokeObjectURL(url); resolve(); }, onerror: reject,
-        });
-        document.head.appendChild(s);
-      }));
+  <!-- DuckDB WASM — loaded as ESM module; unpkg serves .mjs with correct MIME type.
+       duckdb-browser.js was renamed to .cjs/.mjs in 1.28.0 — the .js path never existed. -->
+  <script type="module">
+    import * as duckdb from 'https://unpkg.com/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser.mjs';
+    window.duckdb = duckdb;
   </script>
   
   <style>
@@ -310,10 +303,9 @@
       }
 
       async waitForDuckDB(maxWaitMs = 10000) {
-        if (window._duckdbLoading) await window._duckdbLoading;
         const startTime = Date.now();
 
-        while (typeof duckdb === 'undefined') {
+        while (typeof window.duckdb === 'undefined') {
           if (Date.now() - startTime > maxWaitMs) {
             throw new Error('Timeout waiting for DuckDB library to load');
           }
@@ -328,18 +320,22 @@
 
         try {
           console.log('🦆 Initializing DuckDB-WASM...');
-          
+
           await this.waitForDuckDB();
 
-          const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
-          const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
-          
+          const UNPKG = 'https://unpkg.com/@duckdb/duckdb-wasm@1.28.0/dist/';
+          const bundles = {
+            mvp: { mainModule: `${UNPKG}duckdb-mvp.wasm`, mainWorker: `${UNPKG}duckdb-browser-mvp.worker.js` },
+            eh:  { mainModule: `${UNPKG}duckdb-eh.wasm`,  mainWorker: `${UNPKG}duckdb-browser-eh.worker.js`  },
+          };
+          const bundle = await window.duckdb.selectBundle(bundles);
+
           console.log('📦 Selected bundle:', bundle.mainModule.split('/').pop());
-          
+
           const worker = new Worker(bundle.mainWorker);
-          const logger = new duckdb.ConsoleLogger();
-          
-          this.db = new duckdb.AsyncDuckDB(logger, worker);
+          const logger = new window.duckdb.ConsoleLogger();
+
+          this.db = new window.duckdb.AsyncDuckDB(logger, worker);
           await this.db.instantiate(bundle.mainModule, bundle.pthreadWorker);
           
           this.conn = await this.db.connect();
