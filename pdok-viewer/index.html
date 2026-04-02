@@ -114,10 +114,21 @@
     }
     .msg-meta span { color: #666; }
     .msg-status {
-      padding: 0 14px 8px;
+      padding: 0 14px 6px;
       font-size: 11px; color: #4da6ff;
     }
     .msg-status.error { color: #ff8a8a; }
+    .msg-stats {
+      padding: 0 14px 8px;
+      font-size: 11px; color: #666; line-height: 1.7;
+    }
+    .msg-stats span { display: block; }
+    .msg-warning {
+      margin: 0 14px 10px;
+      background: rgba(180,120,0,0.12); border: 1px solid rgba(180,120,0,0.25);
+      border-radius: 5px; padding: 6px 10px;
+      font-size: 10px; color: #c8a040; line-height: 1.5;
+    }
 
     /* WFS details toggle */
     .wfs-toggle {
@@ -453,6 +464,8 @@
       return toLatLon(x, y);
     }
 
+    const CBS_SUPPRESSED = -9000; // CBS uses -99997/-99998/-99999 for suppressed/missing cells
+
     function binFeaturesToH3(features, metricProp, aggregation, resolution) {
       const cells = new Map();
 
@@ -465,25 +478,36 @@
         try { h3id = h3.geoToH3(c.lat, c.lon, resolution); } catch { continue; }
 
         const raw = f.properties?.[metricProp];
-        const val = raw != null ? Number(raw) : NaN;
+        const num = raw != null ? Number(raw) : NaN;
+        // Filter CBS suppressed/missing value codes (e.g. -99997, -99998, -99999)
+        const val = (!isNaN(num) && num > CBS_SUPPRESSED) ? num : NaN;
 
-        if (!cells.has(h3id)) cells.set(h3id, { sum: 0, count: 0, max: -Infinity });
+        if (!cells.has(h3id)) cells.set(h3id, { sum: 0, count: 0, max: -Infinity, validCount: 0 });
         const cell = cells.get(h3id);
         cell.count++;
-        if (!isNaN(val)) { cell.sum += val; cell.max = Math.max(cell.max, val); }
+        if (!isNaN(val)) { cell.sum += val; cell.max = Math.max(cell.max, val); cell.validCount++; }
       }
 
-      const result = [];
+      const data = [];
       for (const [h3id, cell] of cells) {
         let value;
         if (aggregation === 'count') value = cell.count;
-        else if (aggregation === 'sum') value = cell.sum;
-        else if (aggregation === 'avg') value = cell.count > 0 ? cell.sum / cell.count : NaN;
+        else if (aggregation === 'sum') value = cell.validCount > 0 ? cell.sum : NaN;
+        else if (aggregation === 'avg') value = cell.validCount > 0 ? cell.sum / cell.validCount : NaN;
         else if (aggregation === 'max') value = cell.max === -Infinity ? NaN : cell.max;
-        else value = cell.sum;
-        result.push({ h3id, value });
+        else value = cell.validCount > 0 ? cell.sum : NaN;
+        data.push({ h3id, value });
       }
-      return result;
+
+      // Compute stats for display (excluding NaN)
+      const vals = data.map(d => d.value).filter(v => v != null && !isNaN(v) && isFinite(v));
+      return {
+        data,
+        min: vals.length ? Math.min(...vals) : 0,
+        max: vals.length ? Math.max(...vals) : 0,
+        hexCount: data.length,
+        validValues: vals.length,
+      };
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -544,18 +568,15 @@
 
     function scheduleReload() {
       clearTimeout(reloadTimer);
-      reloadTimer = setTimeout(() => loadDataForViewport(false), 600);
+      reloadTimer = setTimeout(() => loadDataForViewport(), 600);
     }
 
     // ─────────────────────────────────────────────────────────────────
     // Layer building
     // ─────────────────────────────────────────────────────────────────
-    function buildH3Layer(h3data, colorScale) {
+    function buildH3Layer(h3data, colorScale, min, max) {
       const colors = SCALES[colorScale] || SCALES['sequential'];
-      const vals   = h3data.map(d => d.value).filter(v => v != null && !isNaN(v));
-      if (!vals.length) return null;
-      const min = Math.min(...vals);
-      const max = Math.max(...vals);
+      if (!h3data.length || min === max) return null;
 
       updateLegend(colorScale, min, max);
 
@@ -578,8 +599,8 @@
     function updateMap() {
       if (!deckInstance) return;
       const layers = [DeckGLUtils.createBasemap('voyager')];
-      if (currentH3Data.length) {
-        const l = buildH3Layer(currentH3Data, currentColorScale);
+      if (currentH3Data?.data?.length) {
+        const l = buildH3Layer(currentH3Data.data, currentColorScale, currentH3Data.min, currentH3Data.max);
         if (l) layers.push(l);
       }
       wmsLayers.forEach((info, id) => layers.push(createWmsTileLayer(id, info.wmsUrl, info.layerName)));
@@ -760,7 +781,7 @@
         const bbox = getViewportBbox();
         if (!bbox) throw new Error('Viewport niet beschikbaar');
 
-        const params = new URLSearchParams({ wfsUrl: aiData.wfsUrl, typeName: aiData.typeName, bbox: bbox.join(',') });
+        const params = new URLSearchParams({ wfsUrl: aiData.wfsUrl, typeName: aiData.typeName, bbox: bbox.join(','), maxFeatures: '10000' });
         if (aiData.cqlFilter) params.set('cqlFilter', aiData.cqlFilter);
 
         const res = await fetch(`/api/wfs-proxy?${params}`);
@@ -780,7 +801,7 @@
 
         // Replace think card with result card
         think.remove();
-        const cardEl = createResultCard(aiData, features.length, binned.length);
+        const cardEl = createResultCard(aiData, features, binned);
         document.getElementById('messages').appendChild(cardEl);
         activeCardEl = cardEl;
         scrollToBottom();
@@ -806,7 +827,7 @@
       try {
         const { wfsUrl, typeName, cqlFilter, metric_column, aggregation } = currentQuery;
 
-        const params = new URLSearchParams({ wfsUrl, typeName, bbox: bbox.join(',') });
+        const params = new URLSearchParams({ wfsUrl, typeName, bbox: bbox.join(','), maxFeatures: '10000' });
         if (cqlFilter) params.set('cqlFilter', cqlFilter);
 
         const res = await fetch(`/api/wfs-proxy?${params}`);
@@ -816,7 +837,7 @@
         const features = data.features || [];
         currentH3Data = binFeaturesToH3(features, metric_column, aggregation, 9);
         updateMap();
-        updateCardStatus(features.length, currentH3Data.length);
+        updateCardStatus(features.length, currentH3Data.hexCount);
       } catch {
         // Silently fail on pan/zoom reloads
       } finally {
@@ -838,16 +859,27 @@
       return el;
     }
 
-    function createResultCard(aiData, featureCount, hexCount) {
-      const title   = lang === 'nl' ? aiData.title_nl : aiData.title_en;
-      const source  = aiData.wfsUrl.includes('vierkantstatistieken') ? 'CBS Vierkantstatistieken 100m' :
-                      aiData.wfsUrl.includes('bag') ? 'BAG Gebouwen' : 'PDOK WFS';
-      const year    = (aiData.wfsUrl.match(/\/(\d{4})\//) || [])[1] || '';
+    function createResultCard(aiData, features, binResult) {
+      const title     = lang === 'nl' ? aiData.title_nl : aiData.title_en;
+      const source    = aiData.wfsUrl.includes('vierkantstatistieken') ? 'CBS Vierkantstatistieken 100m' :
+                        aiData.wfsUrl.includes('bag') ? 'BAG Gebouwen' : 'PDOK WFS';
+      const year      = (aiData.wfsUrl.match(/\/(\d{4})\//) || [])[1] || '';
       const reasoning = aiData.reasoning || '';
+      const isCbs     = aiData.wfsUrl.includes('vierkantstatistieken');
 
-      const statusText = featureCount != null
-        ? `${featureCount.toLocaleString('nl-NL')} features → ${hexCount.toLocaleString('nl-NL')} hexagonen`
-        : (lang === 'nl' ? 'Data laden...' : 'Loading data...');
+      const featureCount = Array.isArray(features) ? features.length : features;
+      const hexCount     = binResult?.hexCount ?? binResult ?? 0;
+      const minVal       = binResult?.min;
+      const maxVal       = binResult?.max;
+
+      const aggLabel = { sum: 'som', avg: 'gemiddelde', count: 'aantal', max: 'maximum' }[aiData.aggregation] || aiData.aggregation;
+      const isTruncated = featureCount >= 1000;  // PDOK page limit
+
+      const statsLines = [
+        `${featureCount.toLocaleString('nl-NL')} ${isCbs ? '100m-cellen' : 'features'} → ${hexCount.toLocaleString('nl-NL')} H3-9 hexagonen (~174m)`,
+        (minVal != null && maxVal != null && !isNaN(minVal)) ? `Bereik: ${formatValue(minVal)} – ${formatValue(maxVal)}` : null,
+        aiData.cqlFilter ? `Filter: ${aiData.cqlFilter}` : null,
+      ].filter(Boolean);
 
       const el = document.createElement('div');
       el.className = 'msg-assistant';
@@ -857,9 +889,13 @@
           ${reasoning ? `<div class="msg-reasoning">${esc(reasoning)}</div>` : ''}
           <div class="msg-meta">
             <span>${esc(source)}${year ? ' · ' + year : ''}</span><br>
-            <span>${lang === 'nl' ? 'Metriek' : 'Metric'}: ${esc(aiData.metric_column)} · ${esc(aiData.aggregation || 'sum')} · H3-9</span>
+            <span>${lang === 'nl' ? 'Metriek' : 'Metric'}: <b>${esc(aiData.metric_column)}</b> · ${esc(aggLabel)}</span>
           </div>
-          <div class="msg-status">${esc(statusText)}</div>
+          <div class="msg-stats">
+            ${statsLines.map(l => `<span>${esc(l)}</span>`).join('')}
+          </div>
+          ${isTruncated ? `<div class="msg-warning">⚠ PDOK heeft de respons afgekapt op ${featureCount.toLocaleString('nl-NL')} cellen. Zoom in voor volledige dekking van het gebied.</div>` : ''}
+          <div class="msg-status"></div>
           <div class="wfs-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
             <span class="arrow">▶</span>
             <span>WFS query details</span>
@@ -877,17 +913,17 @@
       const params = new URLSearchParams({
         wfsUrl: aiData.wfsUrl,
         typeName: aiData.typeName,
-        propertyNames: (aiData.propertyNames || []).join(','),
+        maxFeatures: '10000',
+        bbox: '[huidige viewport]',
       });
       if (aiData.cqlFilter) params.set('cqlFilter', aiData.cqlFilter);
-      params.set('bbox', '[viewport bbox]');
       return `/api/wfs-proxy?${params}`;
     }
 
     function updateCardStatus(featureCount, hexCount) {
       if (!activeCardEl?._statusEl) return;
       activeCardEl._statusEl.textContent =
-        `${featureCount.toLocaleString('nl-NL')} features → ${hexCount.toLocaleString('nl-NL')} hexagonen`;
+        `↻ ${featureCount.toLocaleString('nl-NL')} features → ${hexCount.toLocaleString('nl-NL')} hexagonen (vernieuwd)`;
     }
 
     function setBusy(val) {
