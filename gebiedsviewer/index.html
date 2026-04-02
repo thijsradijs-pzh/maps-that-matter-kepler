@@ -15,6 +15,7 @@
   <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
   <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <script src="/shared/deckgl-utils.js"></script>
@@ -24,14 +25,22 @@
 </head>
 <body>
 
+  <!-- MOBILE SIDEBAR TOGGLE -->
+  <button id="sidebar-toggle" onclick="toggleSidebar()" title="Menu">
+    <i class="fa fa-bars"></i>
+  </button>
+
   <!-- SIDEBAR -->
   <div id="sidebar">
 
     <div class="sidebar-header">
       <div class="sidebar-header-top">
-        <div>
-          <div class="app-title">Zuid-Holland<br>Gebiedsviewer</div>
-          <div class="app-subtitle">Kaartlagen Provincie Zuid-Holland</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <img src="/multi-criteria-analysis/image_1.png" alt="Provincie Zuid-Holland" class="sidebar-logo">
+          <div>
+            <div class="app-title" onclick="resetApp()" title="Terug naar beginpositie">Zuid-Holland<br>Gebiedsviewer</div>
+            <div class="app-subtitle">Kaartlagen Provincie Zuid-Holland</div>
+          </div>
         </div>
         <button class="export-btn" onclick="exportCatalogCSV()" title="Download catalogus als CSV met GeoJSON links">
           <i class="fa fa-download"></i>
@@ -57,11 +66,17 @@
       </div>
 
       <div id="active-layers-panel">
-        <div class="active-panel-title">Actieve lagen</div>
+        <div class="active-panel-title">
+          Actieve lagen
+          <button class="clear-all-btn" onclick="clearAllLayers()" title="Verwijder alle lagen"><i class="fa fa-times"></i> Alles wissen</button>
+        </div>
         <div id="active-layers-list"></div>
       </div>
 
       <div id="layer-tree"></div>
+      <div id="layer-search-empty" class="layer-search-empty" style="display:none">
+        <i class="fa fa-search"></i><br>Geen lagen gevonden voor<br><strong id="layer-search-term"></strong>
+      </div>
 
       <button class="add-layer-btn" onclick="showAddLayerModal()">
         <i class="fa fa-plus"></i> Eigen laag toevoegen
@@ -115,10 +130,13 @@
       <div class="tool-pill" onclick="activateSearch()">
         <i class="fa fa-search"></i> Adres zoeken
       </div>
+      <div class="tool-pill" id="btn-measure" onclick="toggleMeasure()" title="Meet afstand of oppervlak">
+        <i class="fa fa-ruler"></i> <span>Meten</span>
+      </div>
       <div class="tool-pill" id="btn-share" onclick="copyPermalink()" title="Deel deze kaart">
         <i class="fa fa-share-nodes"></i> <span>Deel</span>
       </div>
-      <div class="tool-pill" onclick="printMap()" title="Exporteer kaart als afbeelding">
+      <div class="tool-pill" onclick="openPrintDialog()" title="Exporteer kaart als afbeelding">
         <i class="fa fa-print"></i> Exporteer
       </div>
     </div>
@@ -203,6 +221,28 @@
       </div>
     </div>
   </div>
+
+  <!-- PRINT DIALOG -->
+  <div id="print-dialog" class="modal-overlay" style="display:none" onclick="printDialogOverlayClick(event)">
+    <div class="modal-box" style="width:360px">
+      <div class="modal-header">
+        <span>Kaart exporteren</span>
+        <i class="fa fa-times modal-close" onclick="closePrintDialog()"></i>
+      </div>
+      <div class="modal-body">
+        <label class="modal-hint" style="display:block;margin-bottom:6px">Titel <span style="color:#aaa;font-weight:400">(optioneel)</span></label>
+        <input type="text" id="print-title" class="modal-input" placeholder="Bijv. Hittestress Zuid-Holland">
+        <label class="modal-hint" style="display:block;margin-bottom:6px;margin-top:8px">Notitie <span style="color:#aaa;font-weight:400">(optioneel)</span></label>
+        <textarea id="print-notes" class="modal-input" rows="3" style="resize:vertical" placeholder="Bijv. bron, datum, context..."></textarea>
+        <button class="modal-btn-primary" style="width:100%;margin-top:10px" onclick="printMap()">
+          <i class="fa fa-print"></i> Exporteer kaart
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MEASURE TOOLTIP -->
+  <div id="measure-tooltip" class="measure-tooltip" style="display:none"></div>
 
   <script src="/gebiedsviewer/js/wms-layer.js"></script>
   <script src="/gebiedsviewer/js/app.js"></script>

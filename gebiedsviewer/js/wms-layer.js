@@ -38,8 +38,11 @@ function createWMSLayer(layerConfig) {
       try {
         const response = await fetch(proxyUrl);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return createImageBitmap(await response.blob());
+        const bitmap = await createImageBitmap(await response.blob());
+        if (layerConfig.onTileLoad) layerConfig.onTileLoad();
+        return bitmap;
       } catch (e) {
+        if (layerConfig.onError) layerConfig.onError();
         return null;
       }
     },

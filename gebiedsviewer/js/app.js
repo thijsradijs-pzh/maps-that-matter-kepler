@@ -4,7 +4,7 @@
 const BASEMAPS = [
   { id: 'light',     label: 'Licht',   icon: 'fa-sun',            create: () => DeckGLUtils.createBasemap('light') },
   { id: 'voyager',   label: 'Straten', icon: 'fa-road',           create: () => DeckGLUtils.createBasemap('voyager') },
-  { id: 'dark',      label: 'Donker',  icon: 'fa-moon',           create: () => DeckGLUtils.createBasemap('dark-matter') },
+  { id: 'dark',      label: 'Donker',  icon: 'fa-moon',           create: () => createDarkLayer() },
   { id: 'satellite', label: 'Foto',    icon: 'fa-satellite-dish', create: () => createSatelliteLayer() },
 ];
 
@@ -47,6 +47,32 @@ document.addEventListener('DOMContentLoaded', () => {
   setupFileDrop();
   enablePermalinkLayers();
   document.getElementById('loading').style.display = 'none';
+
+  // Escape key: stop measure → close popup → close address search → close table
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (measureState.active) { toggleMeasure(); return; }
+    if (popupEl) { closePopup(); return; }
+    if (document.getElementById('address-search-container').style.display !== 'none') {
+      closeAddressSearch(); return;
+    }
+    if (document.getElementById('table-panel').style.display !== 'none') {
+      closeTableView(); return;
+    }
+  });
+
+  // Coords widget: click to copy
+  const coordsEl = document.getElementById('coords-widget');
+  coordsEl.title = 'Klik om coördinaten te kopiëren';
+  coordsEl.style.cursor = 'pointer';
+  coordsEl.addEventListener('click', () => {
+    const text = coordsEl.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const prev = coordsEl.textContent;
+      coordsEl.textContent = 'Gekopieerd!';
+      setTimeout(() => coordsEl.textContent = prev, 1500);
+    });
+  });
 });
 
 // ═══════════════════════════════════════════════════════
@@ -135,6 +161,7 @@ function initSearch() {
 
 function filterLayerTree() {
   document.getElementById('search-clear').style.display = searchTerm ? 'block' : 'none';
+  let anyVisible = false;
   document.querySelectorAll('.theme-group').forEach(themeEl => {
     let themeVisible = false;
     themeEl.querySelectorAll('.service-group').forEach(serviceEl => {
@@ -151,7 +178,14 @@ function filterLayerTree() {
     });
     themeEl.style.display = themeVisible ? '' : 'none';
     if (themeVisible && searchTerm) themeEl.open = true;
+    if (themeVisible) anyVisible = true;
   });
+  const emptyEl = document.getElementById('layer-search-empty');
+  const termEl = document.getElementById('layer-search-term');
+  if (emptyEl) {
+    emptyEl.style.display = searchTerm && !anyVisible ? 'block' : 'none';
+    if (termEl) termEl.textContent = `"${searchTerm}"`;
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -176,6 +210,8 @@ async function enableLayer(key, service, layer) {
     visible: true,
     minScale: 0,
   };
+
+  // Render immediately for fast perceived performance
   activeLayers.set(key, entry);
   rebuildDeck();
   updateLegend();
@@ -184,49 +220,44 @@ async function enableLayer(key, service, layer) {
   updateLayerTreeActiveState();
   updatePermalink();
 
+  // Async detection — one request to get layer type, minScale, and sublayer list.
+  // Does NOT fetch per-sublayer info (avoids N round-trips for large group layers).
   try {
     const infoUrl = `/api/proxy?url=${encodeURIComponent(`${mapServerUrl}/${layer.id}?f=json`)}`;
     const data = await (await fetch(infoUrl)).json();
 
-    if (data.minScale !== undefined) {
+    let changed = false;
+
+    if (data.minScale !== undefined && data.minScale !== entry.minScale) {
       entry.minScale = data.minScale;
       updateScaleDependency(currentViewState.zoom);
+      changed = true;
     }
 
-    // Detect group layers — they contain both polygon and point sublayers which
-    // would otherwise all render at once when using show:{groupId}.
-    // ArcGIS ≤10.x returns subLayerIds (int[]); ArcGIS 11.x returns subLayers ([{id,name}])
-    const subLayerIds = data.subLayerIds
-      ?? data.subLayers?.map(s => s.id)
-      ?? [];
+    // ArcGIS ≤10.x: subLayerIds (int[]); ArcGIS 11.x: subLayers ([{id,name}])
+    const subLayerIds = data.subLayerIds ?? data.subLayers?.map(s => s.id) ?? [];
 
     if (data.type === 'Group Layer' && subLayerIds.length) {
       entry.isGroupLayer = true;
+      const nameMap = Object.fromEntries((data.subLayers || []).map(s => [s.id, s.name]));
 
-      // Use names from the group response directly (avoids N round-trips),
-      // then fetch geometryType for each sublayer in parallel
-      const nameMap = Object.fromEntries(
-        (data.subLayers || []).map(s => [s.id, s.name])
-      );
-
-      const subInfos = await Promise.all(
-        subLayerIds.map(id =>
-          fetch(`/api/proxy?url=${encodeURIComponent(`${mapServerUrl}/${id}?f=json`)}`)
-            .then(r => r.json())
-            .catch(() => ({ id, geometryType: null }))
-        )
-      );
-
-      entry.subLayerDetails = subInfos.map(s => ({
-        id: s.id,
-        name: nameMap[s.id] || s.name || `Laag ${s.id}`,
-        geometryType: s.geometryType || null,
+      // Build sublayer list from group response only — no per-child fetch needed
+      entry.subLayerDetails = subLayerIds.map(id => ({
+        id,
+        name: nameMap[id] || `Laag ${id}`,
+        geometryType: null,
       }));
-      entry.activeSubLayers = new Set(subLayerIds); // all on by default
-      renderLayerPanel(); // re-render to show sublayer toggles
-      rebuildDeck();      // re-render tiles with explicit sublayer IDs
+      // Default: show only the first sublayer. Showing all simultaneously layers
+      // multiple analyses on top of each other, making each toggle barely visible.
+      entry.activeSubLayers = new Set([subLayerIds[0]]);
+      changed = true;
     }
-  } catch (e) { /* ignore — minScale stays 0, no sublayer detection */ }
+
+    if (changed) {
+      renderLayerPanel(); // update sublayer checkboxes if group layer
+      rebuildDeck();      // re-render tiles with correct show: param + cache-busted ID
+    }
+  } catch (e) { /* ignore — initial render remains */ }
 }
 
 function disableLayer(key) {
@@ -245,6 +276,20 @@ function removeLayer(key) {
   disableLayer(key);
 }
 
+function clearAllLayers() {
+  [...activeLayers.keys()].forEach(key => {
+    const cb = document.querySelector(`input[data-key="${key}"]`);
+    if (cb) cb.checked = false;
+  });
+  activeLayers.clear();
+  rebuildDeck();
+  updateLegend();
+  updateBadges();
+  renderLayerPanel();
+  updateLayerTreeActiveState();
+  updatePermalink();
+}
+
 function setLayerOpacity(key, value) {
   const entry = activeLayers.get(key);
   if (!entry) return;
@@ -252,6 +297,7 @@ function setLayerOpacity(key, value) {
   const label = document.querySelector(`#layer-card-${CSS.escape(key)} .opacity-val`);
   if (label) label.textContent = `${Math.round(entry.opacity * 100)}%`;
   rebuildDeck();
+  updatePermalink();
 }
 
 function toggleLayerVisible(key) {
@@ -295,6 +341,8 @@ function toggleSubLayer(key, subId) {
     entry.activeSubLayers.add(subId);
   }
   rebuildDeck();
+  updateLegend();
+  updatePermalink();
 }
 
 function updateBadges() {
@@ -330,7 +378,19 @@ function updateScaleDependency(zoom) {
   activeLayers.forEach((entry, key) => {
     const outOfScale = entry.minScale > 0 && scaleDenom > entry.minScale;
     const card = document.getElementById(`layer-card-${CSS.escape(key)}`);
-    if (card) card.classList.toggle('layer-card--outofscale', outOfScale);
+    if (card) {
+      card.classList.toggle('layer-card--outofscale', outOfScale);
+      const scaleHint = card.querySelector('.scale-hint');
+      if (outOfScale && scaleHint) {
+        const neededZoom = Math.ceil(Math.log2(
+          (156543.03392 * Math.cos(lat * Math.PI / 180)) / (entry.minScale * 0.000264583)
+        ));
+        scaleHint.textContent = `Inzoomen naar niveau ~${neededZoom} om te zien`;
+        scaleHint.style.display = 'block';
+      } else if (scaleHint) {
+        scaleHint.style.display = 'none';
+      }
+    }
     const treeItem = document.querySelector(`.layer-item[data-key="${key}"]`);
     if (treeItem) treeItem.classList.toggle('layer-item--outofscale', outOfScale);
   });
@@ -343,17 +403,41 @@ function updateScaleDependency(zoom) {
 async function zoomToLayer(key) {
   const entry = activeLayers.get(key);
   if (!entry || !entry.mapServerUrl) return;
-  try {
-    const qUrl = `${entry.mapServerUrl}/${entry.layerId}/query?where=1%3D1&returnExtentOnly=true&outSR=4326&f=json`;
-    const data = await (await fetch(`/api/proxy?url=${encodeURIComponent(qUrl)}`)).json();
-    const ext = data.extent;
-    if (!ext || ext.xmin == null) return;
+
+  function flyToExtent(ext) {
+    if (!ext || ext.xmin == null) return false;
     const lon = (ext.xmin + ext.xmax) / 2;
     const lat = (ext.ymin + ext.ymax) / 2;
     const maxDelta = Math.max(ext.xmax - ext.xmin, ext.ymax - ext.ymin);
     const zoom = Math.max(6, Math.min(15, Math.log2(360 / maxDelta) - 0.5));
     currentViewState = { longitude: lon, latitude: lat, zoom, transitionDuration: 800 };
     deckInstance.setProps({ initialViewState: currentViewState });
+    return true;
+  }
+
+  try {
+    // Try query extent first (most accurate)
+    const qUrl = `${entry.mapServerUrl}/${entry.layerId}/query?where=1%3D1&returnExtentOnly=true&outSR=4326&f=json`;
+    const data = await (await fetch(`/api/proxy?url=${encodeURIComponent(qUrl)}`)).json();
+    if (flyToExtent(data.extent)) return;
+  } catch (e) { /* fall through to layer info */ }
+
+  try {
+    // Fallback: use fullExtent from layer info
+    const infoUrl = `/api/proxy?url=${encodeURIComponent(`${entry.mapServerUrl}/${entry.layerId}?f=json`)}`;
+    const info = await (await fetch(infoUrl)).json();
+    const ext = info.fullExtent || info.extent;
+    if (!ext) return;
+    // fullExtent may be in a projected CRS — convert if needed
+    if (ext.spatialReference?.wkid === 28992) {
+      // RD New → approximate WGS84 center for Zuid-Holland region
+      const lon = 4.5 + (ext.xmin + ext.xmax) / 2 / 700000 * 3.5;
+      const lat = 52.0 + (ext.ymin + ext.ymax) / 2 / 700000 * 2.0;
+      currentViewState = { longitude: lon, latitude: lat, zoom: 10, transitionDuration: 800 };
+      deckInstance.setProps({ initialViewState: currentViewState });
+    } else {
+      flyToExtent(ext);
+    }
   } catch (e) { console.warn('zoomToLayer failed', e); }
 }
 
@@ -370,7 +454,26 @@ function renderLayerPanel() {
   list.innerHTML = '';
 
   const entries = [...activeLayers.entries()];
-  entries.forEach(([key, entry], idx) => {
+
+  // Group entries by theme
+  const themeGroups = new Map(); // themeId → { label, color, entries[] }
+  entries.forEach(([key, entry]) => {
+    const theme = CATALOG.find(t => t.services.some(s => s.id === entry.serviceId));
+    const groupId = theme ? theme.id : '_custom';
+    const groupLabel = theme ? theme.label : 'Eigen lagen';
+    const groupColor = theme ? theme.color : '#e67e22';
+    if (!themeGroups.has(groupId)) themeGroups.set(groupId, { label: groupLabel, color: groupColor, entries: [] });
+    themeGroups.get(groupId).entries.push([key, entry]);
+  });
+
+  themeGroups.forEach(({ label: groupLabel, color: groupColor, entries: groupEntries }) => {
+    if (themeGroups.size > 1) {
+      const header = document.createElement('div');
+      header.className = 'active-group-header';
+      header.innerHTML = `<span class="active-group-dot" style="background:${groupColor}"></span>${groupLabel}`;
+      list.appendChild(header);
+    }
+    groupEntries.forEach(([key, entry], idx) => {
     const pct = Math.round(entry.opacity * 100);
     const eyeIcon = entry.visible ? 'fa-eye' : 'fa-eye-slash';
     const metaUrl = `https://opendata.Zuid-Holland.nl/geonetwork/srv/dut/catalog.search#/search?any=${encodeURIComponent(entry.label)}`;
@@ -380,9 +483,8 @@ function renderLayerPanel() {
     card.id = `layer-card-${CSS.escape(key)}`;
     card.innerHTML = `
       <div class="layer-card-header">
-        <div class="layer-card-order">
-          <i class="fa fa-chevron-up lc-btn${idx === 0 ? ' lc-disabled' : ''}" onclick="moveLayerUp('${key}')"></i>
-          <i class="fa fa-chevron-down lc-btn${idx === entries.length - 1 ? ' lc-disabled' : ''}" onclick="moveLayerDown('${key}')"></i>
+        <div class="layer-card-order drag-handle" title="Versleep om volgorde te wijzigen">
+          <i class="fa fa-grip-vertical"></i>
         </div>
         <span class="layer-card-dot" style="background:${entry.color}"></span>
         <span class="layer-card-name" title="${entry.label}">${entry.label}</span>
@@ -400,27 +502,49 @@ function renderLayerPanel() {
                oninput="setLayerOpacity('${key}', this.value/100)">
         <span class="opacity-val">${pct}%</span>
       </div>
-      ${entry.subLayerDetails?.length ? `
+      <div class="scale-hint" style="display:none"></div>
+      ${entry.subLayerDetails?.length ? (() => {
+        const activeCount = entry.activeSubLayers?.size || 0;
+        return `
         <div class="sublayer-list">
-          <div class="sublayer-list-title"><i class="fa fa-layer-group"></i> Sublagen</div>
+          <div class="sublayer-list-title">
+            <i class="fa fa-layer-group"></i> Sublagen
+            <span class="sublayer-count">${activeCount} / ${entry.subLayerDetails.length} actief</span>
+          </div>
           ${entry.subLayerDetails.map(sub => {
             const checked = entry.activeSubLayers?.has(sub.id) ? 'checked' : '';
-            const geoIcon = sub.geometryType?.includes('Point') ? 'fa-circle-dot'
-                          : sub.geometryType?.includes('Polygon') ? 'fa-draw-polygon'
-                          : sub.geometryType?.includes('Line') ? 'fa-minus'
-                          : 'fa-layer-group';
             return `<label class="sublayer-toggle">
               <input type="checkbox" ${checked} onchange="toggleSubLayer('${key}', ${sub.id})">
-              <i class="fa ${geoIcon} sublayer-geo-icon"></i>
               <span>${sub.name}</span>
             </label>`;
           }).join('')}
-        </div>` : ''}
+        </div>`;
+      })() : ''}
     `;
-    list.appendChild(card);
+      list.appendChild(card);
+    });
   });
 
   updateScaleDependency(currentViewState.zoom);
+
+  // Drag-to-reorder with SortableJS
+  if (typeof Sortable !== 'undefined') {
+    Sortable.create(list, {
+      handle: '.drag-handle',
+      animation: 150,
+      onEnd: evt => {
+        // Rebuild activeLayers Map in new order
+        const cards = [...list.querySelectorAll('.layer-card[id]')];
+        const orderedKeys = cards.map(el => el.id.replace('layer-card-', ''));
+        const snapshot = new Map([...activeLayers]);
+        activeLayers.clear();
+        orderedKeys.forEach(k => { if (snapshot.has(k)) activeLayers.set(k, snapshot.get(k)); });
+        // Re-append any theme headers (they're not cards)
+        rebuildDeck();
+        renderLayerPanel();
+      },
+    });
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -436,7 +560,8 @@ function updateLegend() {
     return;
   }
 
-  activeLayers.forEach(({ mapServerUrl, layerId, label, isGeoJson, color }) => {
+  activeLayers.forEach((entry) => {
+    const { mapServerUrl, layerId, label, isGeoJson, color } = entry;
     const div = document.createElement('div');
     div.className = 'legend-item';
 
@@ -458,15 +583,35 @@ function updateLegend() {
     container.appendChild(div);
 
     fetch(proxyUrl).then(r => r.json()).then(data => {
-      const layerEntry = (data.layers || []).find(l => String(l.layerId) === String(layerId));
       const body = div.querySelector('.legend-body');
-      if (!layerEntry?.legend?.length) { body.innerHTML = ''; return; }
-      body.innerHTML = layerEntry.legend.map(item => `
-        <div class="legend-row">
-          <img src="data:${item.contentType};base64,${item.imageData}" width="${item.width}" height="${item.height}">
-          <span>${item.label || ''}</span>
-        </div>
-      `).join('');
+      const allLayers = data.layers || [];
+
+      // For group layers show legend entries for each active sublayer
+      let legendHtml = '';
+      if (entry.isGroupLayer && entry.activeSubLayers?.size) {
+        const activeSubs = [...entry.activeSubLayers];
+        activeSubs.forEach(subId => {
+          const sub = allLayers.find(l => String(l.layerId) === String(subId));
+          if (!sub?.legend?.length) return;
+          legendHtml += sub.legend.map(item => `
+            <div class="legend-row">
+              <img src="data:${item.contentType};base64,${item.imageData}" width="${item.width}" height="${item.height}">
+              <span>${item.label || sub.layerName || ''}</span>
+            </div>
+          `).join('');
+        });
+      } else {
+        const layerEntry = allLayers.find(l => String(l.layerId) === String(layerId));
+        if (layerEntry?.legend?.length) {
+          legendHtml = layerEntry.legend.map(item => `
+            <div class="legend-row">
+              <img src="data:${item.contentType};base64,${item.imageData}" width="${item.width}" height="${item.height}">
+              <span>${item.label || ''}</span>
+            </div>
+          `).join('');
+        }
+      }
+      body.innerHTML = legendHtml;
     }).catch(() => { div.querySelector('.legend-body').innerHTML = ''; });
   });
 }
@@ -497,6 +642,9 @@ function initDeck() {
     },
 
     onClick: handleMapClick,
+    onDblClick: ({ coordinate }) => {
+      if (measureState.active && coordinate) handleMeasureDblClick(coordinate);
+    },
   });
 
   updateScaleBar(currentViewState);
@@ -508,6 +656,7 @@ function rebuildDeck() {
   const basemap = bm.create();
 
   const layers = [...activeLayers.entries()].map(([key, entry]) => {
+    entry.hasError = false; // reset error state on each rebuild
     if (entry.isGeoJson && entry.geojsonData) {
       return new deck.GeoJsonLayer({
         id: key,
@@ -524,20 +673,58 @@ function rebuildDeck() {
         pointRadiusMinPixels: 4,
       });
     }
-    // For group layers use explicit sublayer IDs so only selected geometries render
+    // For group layers use explicit sublayer IDs so only selected geometries render.
+    // Include layerIds in the deck.gl layer ID so that toggling sublayers busts the
+    // tile cache — without this deck.gl reuses cached tiles and ignores the new show: param.
     const layerIds = entry.activeSubLayers?.size
-      ? [...entry.activeSubLayers].join(',')
+      ? [...entry.activeSubLayers].sort((a, b) => a - b).join(',')
       : entry.layerId;
+    // Mark card as loading
+    entry.pendingTiles = (entry.pendingTiles || 0) + 1;
+    const card = document.getElementById(`layer-card-${CSS.escape(key)}`);
+    if (card) card.classList.add('layer-card--loading');
+
     return createWMSLayer({
-      id: key,
+      id: `${key}::${layerIds}`,
       url: entry.wmsUrl,
       layer: layerIds,
       title: entry.label,
       opacity: entry.visible ? entry.opacity : 0,
+      onTileLoad: () => {
+        entry.pendingTiles = Math.max(0, (entry.pendingTiles || 1) - 1);
+        if (entry.pendingTiles === 0) {
+          const c = document.getElementById(`layer-card-${CSS.escape(key)}`);
+          if (c) c.classList.remove('layer-card--loading');
+        }
+      },
+      onError: () => {
+        entry.pendingTiles = Math.max(0, (entry.pendingTiles || 1) - 1);
+        if (entry.pendingTiles === 0) {
+          const c = document.getElementById(`layer-card-${CSS.escape(key)}`);
+          if (c) c.classList.remove('layer-card--loading');
+        }
+        if (entry.hasError) return;
+        entry.hasError = true;
+        const c2 = document.getElementById(`layer-card-${CSS.escape(key)}`);
+        if (c2) c2.classList.add('layer-card--error');
+      },
     });
   });
 
-  deckInstance.setProps({ layers: [basemap, ...layers, ...buildMcaLayers()] });
+  deckInstance.setProps({ layers: [basemap, ...layers, ...buildMcaLayers(), ..._buildMeasureLayers()] });
+}
+
+function createDarkLayer() {
+  return new deck.TileLayer({
+    id: 'dark',
+    data: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    tileSize: 256,
+    renderSubLayers: props => {
+      const { bbox: { west, south, east, north } } = props.tile;
+      return new deck.BitmapLayer(props, { data: null, image: props.data, bounds: [west, south, east, north] });
+    },
+    pickable: false,
+  });
 }
 
 function createSatelliteLayer() {
@@ -612,10 +799,19 @@ const SKIP_FIELDS = new Set([
   'Shape_Length', 'Shape_Area', 'FID', 'GlobalID',
 ]);
 
+let _identifyController = null;
+
 function handleMapClick({ coordinate, x, y }) {
-  if (!coordinate || activeLayers.size === 0) { closePopup(); return; }
+  if (!coordinate) return;
+  if (measureState.active) { handleMeasureClick(coordinate, x, y); return; }
+  if (activeLayers.size === 0) { closePopup(); return; }
   const visibleLayers = [...activeLayers.values()].filter(e => e.visible && !e.isGeoJson);
   if (!visibleLayers.length) { closePopup(); return; }
+
+  // Cancel any in-flight identify requests
+  if (_identifyController) _identifyController.abort();
+  _identifyController = new AbortController();
+  const { signal } = _identifyController;
 
   const [lon, lat] = coordinate;
   showPopup(x, y, '<span class="popup-loading"><i class="fa fa-circle-notch fa-spin"></i> Laden...</span>');
@@ -627,17 +823,21 @@ function handleMapClick({ coordinate, x, y }) {
   const mapExtent = `${mx - delta},${my - delta},${mx + delta},${my + delta}`;
 
   const requests = visibleLayers.map(entry => {
+    // For group layers use the active sublayer IDs so identify matches what's visible
+    const identifyLayerId = entry.activeSubLayers?.size
+      ? [...entry.activeSubLayers].join(',')
+      : entry.layerId;
     const url = new URL(`${entry.mapServerUrl}/identify`);
     url.searchParams.set('geometry', `${mx},${my}`);
     url.searchParams.set('geometryType', 'esriGeometryPoint');
     url.searchParams.set('sr', '3857');
-    url.searchParams.set('layers', `top:${entry.layerId}`);
+    url.searchParams.set('layers', `top:${identifyLayerId}`);
     url.searchParams.set('tolerance', '8');
     url.searchParams.set('mapExtent', mapExtent);
     url.searchParams.set('imageDisplay', '256,256,96');
     url.searchParams.set('returnGeometry', 'false');
     url.searchParams.set('f', 'json');
-    return fetch(`/api/proxy?url=${encodeURIComponent(url.toString())}`)
+    return fetch(`/api/proxy?url=${encodeURIComponent(url.toString())}`, { signal })
       .then(r => r.json())
       .then(data => ({
         label: entry.label,
@@ -647,20 +847,29 @@ function handleMapClick({ coordinate, x, y }) {
           )
         ),
       }))
-      .catch(() => ({ label: entry.label, results: [] }));
+      .catch(e => ({ label: entry.label, results: [], aborted: e.name === 'AbortError' }));
   });
 
   Promise.all(requests).then(responses => {
+    if (responses.some(r => r.aborted)) return; // superseded by a newer click
     const found = responses.filter(r => r.results.length > 0);
     if (!found.length) {
       showPopup(x, y, '<em class="popup-empty">Geen objecten gevonden op deze locatie.</em>');
       return;
     }
+    const allAttrs = found.map(({ label, results }) => ({ label, attrs: results[0] }));
+    const copyJson = JSON.stringify(
+      allAttrs.length === 1 ? allAttrs[0].attrs : Object.fromEntries(allAttrs.map(a => [a.label, a.attrs])),
+      null, 2
+    );
     const html = found.map(({ label, results }) => {
       const attrs = results[0];
       const rows = Object.entries(attrs)
-        .filter(([, v]) => v !== null && v !== '' && v !== undefined)
-        .map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`)
+        .filter(([, v]) => v !== null && v !== '' && v !== undefined && v !== 'Null' && v !== 0 || v === 0)
+        .map(([k, v]) => {
+          const label = k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          return `<tr><th>${label}</th><td>${v}</td></tr>`;
+        })
         .join('');
       const more = results.length > 1
         ? `<p class="popup-more">+${results.length - 1} meer object${results.length > 2 ? 'en' : ''}</p>` : '';
@@ -671,11 +880,11 @@ function handleMapClick({ coordinate, x, y }) {
           ${more}
         </div>`;
     }).join('');
-    showPopup(x, y, html);
+    showPopup(x, y, html, copyJson);
   });
 }
 
-function showPopup(x, y, html) {
+function showPopup(x, y, html, copyJson) {
   closePopup();
   const container = document.getElementById('map-container');
   const rect = container.getBoundingClientRect();
@@ -685,14 +894,25 @@ function showPopup(x, y, html) {
   popupEl.className = 'info-popup';
   popupEl.style.left = `${left}px`;
   popupEl.style.top = `${top}px`;
+  const copyBtn = copyJson
+    ? `<i class="fa fa-copy popup-copy lc-btn" title="Kopieer als JSON" onclick="copyPopupAttrs(this, '${encodeURIComponent(copyJson)}')"></i>`
+    : '';
   popupEl.innerHTML = `
     <div class="popup-header">
       <span>Objectinformatie</span>
-      <i class="fa fa-times popup-close" onclick="closePopup()"></i>
+      <div style="display:flex;align-items:center;gap:6px">${copyBtn}<i class="fa fa-times popup-close" onclick="closePopup()"></i></div>
     </div>
     <div class="popup-body">${html}</div>
   `;
   container.appendChild(popupEl);
+}
+
+function copyPopupAttrs(btn, encodedJson) {
+  navigator.clipboard.writeText(decodeURIComponent(encodedJson)).then(() => {
+    btn.classList.remove('fa-copy'); btn.classList.add('fa-check');
+    btn.style.color = '#2d7a3a';
+    setTimeout(() => { btn.classList.remove('fa-check'); btn.classList.add('fa-copy'); btn.style.color = ''; }, 1800);
+  });
 }
 
 function closePopup() {
@@ -703,7 +923,19 @@ function closePopup() {
 // PRINT MAP
 // ═══════════════════════════════════════════════════════
 
+function openPrintDialog() {
+  document.getElementById('print-dialog').style.display = 'flex';
+  document.getElementById('print-title').focus();
+}
+function closePrintDialog() {
+  document.getElementById('print-dialog').style.display = 'none';
+}
+function printDialogOverlayClick(e) {
+  if (e.target === document.getElementById('print-dialog')) closePrintDialog();
+}
+
 function printMap() {
+  closePrintDialog();
   // Force a synchronous redraw so the WebGL backbuffer is populated
   // (without preserveDrawingBuffer we capture right after render to avoid it being cleared)
   if (deckInstance && deckInstance.redraw) deckInstance.redraw(true);
@@ -720,10 +952,20 @@ function printMap() {
   const now = new Date();
   const dateStr = now.toLocaleDateString('nl-NL', { year: 'numeric', month: 'long', day: 'numeric' });
   const { zoom, latitude, longitude } = currentViewState;
+  const printTitle = document.getElementById('print-title')?.value.trim() || '';
+  const printNotes = document.getElementById('print-notes')?.value.trim() || '';
 
-  const legendItems = [...activeLayers.values()].map(entry =>
-    `<div class="pl-item"><span class="pl-dot" style="background:${entry.color}"></span><span>${entry.label}</span></div>`
-  ).join('') || '<em style="color:#aaa;font-size:11px">Geen actieve lagen</em>';
+  // Capture legend from DOM (already rendered in the Legenda tab with real WMS images)
+  const legendDomItems = document.querySelectorAll('#legend-items .legend-item');
+  let legendItems;
+  if (legendDomItems.length) {
+    // Inline all img src attributes (already base64 from ArcGIS legend endpoint)
+    legendItems = [...legendDomItems].map(el => el.outerHTML).join('');
+  } else {
+    legendItems = [...activeLayers.values()].map(entry =>
+      `<div class="pl-item"><span class="pl-dot" style="background:${entry.color}"></span><span>${entry.label}</span></div>`
+    ).join('') || '<em style="color:#aaa;font-size:11px">Geen actieve lagen</em>';
+  }
 
   const basemapLabel = BASEMAPS.find(b => b.id === currentBasemap)?.label || currentBasemap;
 
@@ -752,6 +994,15 @@ function printMap() {
     .pl-item { display: flex; align-items: center; gap: 7px; font-size: 11px; color: #333;
                margin-bottom: 5px; line-height: 1.3; }
     .pl-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    /* legend-item from the viewer's DOM */
+    .legend-item { margin-bottom: 8px; }
+    .legend-layer-name { font-size: 10px; font-weight: 700; color: #555; margin-bottom: 3px; }
+    .legend-body { padding-left: 2px; }
+    .legend-row { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #333;
+                  margin-bottom: 3px; line-height: 1.3; }
+    .legend-row img { max-width: 20px; max-height: 20px; flex-shrink: 0; }
+    .legend-loading { display: none; }
+    .legend-empty { display: none; }
     .meta { font-size: 10px; color: #bbb; margin-top: auto; padding-top: 12px; line-height: 1.7;
             border-top: 1px solid #f0f0f0; }
     .pzh-stripe { height: 4px; background: #E3001B; margin: 0 0 14px; border-radius: 2px; }
@@ -769,6 +1020,8 @@ function printMap() {
     <div class="pzh-stripe"></div>
     <div class="brand">Zuid-Holland<br>Gebiedsviewer</div>
     <div class="brand-sub">Maps That Matter</div>
+    ${printTitle ? `<div style="font-size:13px;font-weight:700;color:#222;margin-top:8px;line-height:1.3">${printTitle}</div>` : ''}
+    ${printNotes ? `<div style="font-size:10px;color:#666;margin-top:4px;line-height:1.5">${printNotes}</div>` : ''}
     <button class="print-btn" onclick="window.print()">&#128438; Afdrukken / Opslaan als PDF</button>
     <button class="back-btn" onclick="window.close()">&#8592; Terug naar viewer</button>
     <h3>Actieve lagen</h3>
@@ -798,7 +1051,7 @@ let _tableData = [];
 async function openTableView(key) {
   const entry = activeLayers.get(key);
   if (!entry || !entry.mapServerUrl) return;
-  _tableState = { key, offset: 0, pageSize: 100, hasMore: false, fields: [] };
+  _tableState = { key, offset: 0, pageSize: 100, hasMore: false, fields: [], totalCount: null };
   _tableData = [];
 
   document.getElementById('table-panel-title').textContent = entry.label;
@@ -809,7 +1062,29 @@ async function openTableView(key) {
   document.getElementById('table-prev').disabled = true;
   document.getElementById('table-next').disabled = true;
 
+  // Fire count and first page in parallel
+  const countUrl = `${entry.mapServerUrl}/${entry.layerId}/query?where=1%3D1&returnCountOnly=true&f=json`;
+  fetch(`/api/proxy?url=${encodeURIComponent(countUrl)}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.count != null) {
+        _tableState.totalCount = d.count;
+        _updateTableCountInfo();
+      }
+    })
+    .catch(() => {});
+
   await _loadTablePage(entry, 0);
+}
+
+function _updateTableCountInfo() {
+  const { offset, pageSize, totalCount, hasMore } = _tableState;
+  const pageNum = Math.floor(offset / pageSize) + 1;
+  const totalPages = totalCount != null ? Math.ceil(totalCount / pageSize) : null;
+  const countStr = totalCount != null ? `${totalCount.toLocaleString('nl-NL')} rijen` : `${_tableData.length} rijen`;
+  const pageStr = totalPages != null ? `Pagina ${pageNum} van ${totalPages}` : `Pagina ${pageNum}`;
+  document.getElementById('table-page-info').textContent = pageStr;
+  document.getElementById('table-count-info').textContent = countStr;
 }
 
 async function _loadTablePage(entry, offset) {
@@ -842,9 +1117,7 @@ async function _loadTablePage(entry, offset) {
         <tbody>${rowsHtml}</tbody>
       </table>`;
 
-    const pageNum = Math.floor(offset / _tableState.pageSize) + 1;
-    document.getElementById('table-page-info').textContent = `Pagina ${pageNum}`;
-    document.getElementById('table-count-info').textContent = `${_tableData.length} rijen${_tableState.hasMore ? ' (meer beschikbaar)' : ''}`;
+    _updateTableCountInfo();
     document.getElementById('table-prev').disabled = offset === 0;
     document.getElementById('table-next').disabled = !_tableState.hasMore;
 
@@ -962,9 +1235,9 @@ async function addLayerFromUrl() {
   }
 }
 
-function addCustomMapServerLayer(mapServerUrl, layerId, layerName) {
+async function addCustomMapServerLayer(mapServerUrl, layerId, layerName) {
   const key = `custom::${++_customLayerCount}`;
-  activeLayers.set(key, {
+  const entry = {
     wmsUrl: `${mapServerUrl}/WMSServer`,
     mapServerUrl,
     layerId,
@@ -975,13 +1248,30 @@ function addCustomMapServerLayer(mapServerUrl, layerId, layerName) {
     visible: true,
     minScale: 0,
     isCustom: true,
-  });
+  };
+
+  activeLayers.set(key, entry);
   rebuildDeck();
   renderLayerPanel();
   updateLegend();
   updatePermalink();
   closeAddLayerModal();
   switchTab('layers');
+
+  // Async group layer detection (same pattern as enableLayer)
+  try {
+    const infoUrl = `/api/proxy?url=${encodeURIComponent(`${mapServerUrl}/${layerId}?f=json`)}`;
+    const data = await (await fetch(infoUrl)).json();
+    const subLayerIds = data.subLayerIds ?? data.subLayers?.map(s => s.id) ?? [];
+    if (data.type === 'Group Layer' && subLayerIds.length) {
+      entry.isGroupLayer = true;
+      const nameMap = Object.fromEntries((data.subLayers || []).map(s => [s.id, s.name]));
+      entry.subLayerDetails = subLayerIds.map(id => ({ id, name: nameMap[id] || `Laag ${id}`, geometryType: null }));
+      entry.activeSubLayers = new Set([subLayerIds[0]]);
+      renderLayerPanel();
+      rebuildDeck();
+    }
+  } catch (e) { /* ignore */ }
 }
 
 function setupFileDrop() {
@@ -1279,6 +1569,109 @@ function resetView() {
   deckInstance.setProps({ initialViewState: currentViewState });
 }
 
+function resetApp() {
+  location.replace(location.pathname);
+}
+
+// ═══════════════════════════════════════════════════════
+// MEASURE TOOL
+// ═══════════════════════════════════════════════════════
+
+const measureState = { active: false, points: [] };
+
+function toggleMeasure() {
+  measureState.active = !measureState.active;
+  measureState.points = [];
+  const btn = document.getElementById('btn-measure');
+  btn.classList.toggle('active', measureState.active);
+  btn.querySelector('span').textContent = measureState.active ? 'Stop meten' : 'Meten';
+  document.getElementById('deck-canvas').style.cursor = measureState.active ? 'crosshair' : '';
+  document.getElementById('measure-tooltip').style.display = 'none';
+  rebuildDeck();
+}
+
+function _haversineMeters([lon1, lat1], [lon2, lat2]) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function _measureTotalMeters(pts) {
+  let d = 0;
+  for (let i = 1; i < pts.length; i++) d += _haversineMeters(pts[i-1], pts[i]);
+  return d;
+}
+
+function _formatDist(m) {
+  return m >= 1000 ? `${(m/1000).toFixed(2)} km` : `${Math.round(m)} m`;
+}
+
+function _buildMeasureLayers() {
+  if (!measureState.active && !measureState.points.length) return [];
+  const pts = measureState.points;
+  const layers = [];
+  if (pts.length >= 2) {
+    layers.push(new deck.PathLayer({
+      id: '_measure-line',
+      data: [{ path: pts }],
+      getPath: d => d.path,
+      getColor: [230, 57, 70],
+      getWidth: 2,
+      widthMinPixels: 2,
+      pickable: false,
+    }));
+  }
+  if (pts.length >= 1) {
+    layers.push(new deck.ScatterplotLayer({
+      id: '_measure-dots',
+      data: pts,
+      getPosition: d => d,
+      getRadius: 5,
+      radiusMinPixels: 5,
+      getFillColor: [230, 57, 70],
+      getLineColor: [255, 255, 255],
+      stroked: true,
+      lineWidthMinPixels: 1.5,
+      pickable: false,
+    }));
+  }
+  return layers;
+}
+
+function handleMeasureClick(coordinate, x, y) {
+  measureState.points.push(coordinate);
+  const totalM = _measureTotalMeters(measureState.points);
+  const tooltip = document.getElementById('measure-tooltip');
+  tooltip.style.display = 'block';
+  tooltip.style.left = `${x + 14}px`;
+  tooltip.style.top = `${y - 10}px`;
+  const n = measureState.points.length;
+  tooltip.innerHTML = n === 1
+    ? 'Klik voor volgend punt · Dubbelklik om te stoppen'
+    : `<strong>${_formatDist(totalM)}</strong><br><span style="font-size:10px;color:#aaa">${n} punten · dubbelklik om te stoppen</span>`;
+  rebuildDeck();
+}
+
+function handleMeasureDblClick(coordinate) {
+  // Last point was already added on the preceding click; just stop
+  measureState.active = false;
+  const btn = document.getElementById('btn-measure');
+  btn.classList.remove('active');
+  btn.querySelector('span').textContent = 'Meten';
+  document.getElementById('deck-canvas').style.cursor = '';
+  // Keep the drawn line visible (don't clear points)
+  rebuildDeck();
+}
+
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const btn = document.getElementById('sidebar-toggle');
+  const open = sidebar.classList.toggle('sidebar-open');
+  btn.innerHTML = open ? '<i class="fa fa-times"></i>' : '<i class="fa fa-bars"></i>';
+}
+
 // ═══════════════════════════════════════════════════════
 // TABS
 // ═══════════════════════════════════════════════════════
@@ -1336,7 +1729,30 @@ function enablePermalinkLayers() {
   }));
   if (!params.layers) return;
 
-  params.layers.split(',').filter(Boolean).forEach(key => {
+  // Parse saved sublayer selections: "serviceId::layerId:subId1+subId2"
+  const sublayerMap = {};
+  if (params.sublayers) {
+    params.sublayers.split(',').forEach(part => {
+      const colonIdx = part.lastIndexOf(':');
+      if (colonIdx < 0) return;
+      const key = part.slice(0, colonIdx);
+      const ids = part.slice(colonIdx + 1).split('+').map(Number).filter(Boolean);
+      if (ids.length) sublayerMap[key] = ids;
+    });
+  }
+
+  // Parse saved opacity values: "key:0.70"
+  const opacityMap = {};
+  if (params.opacity) {
+    params.opacity.split(',').forEach(part => {
+      const colonIdx = part.lastIndexOf(':');
+      if (colonIdx < 0) return;
+      const key = part.slice(0, colonIdx);
+      opacityMap[key] = parseFloat(part.slice(colonIdx + 1));
+    });
+  }
+
+  params.layers.split(',').filter(Boolean).forEach(async key => {
     const [serviceId, layerId] = key.split('::');
     for (const theme of CATALOG) {
       const service = theme.services.find(s => s.id === serviceId);
@@ -1345,7 +1761,21 @@ function enablePermalinkLayers() {
         if (layer) {
           const cb = document.querySelector(`input[data-key="${key}"]`);
           if (cb) cb.checked = true;
-          enableLayer(key, service, layer);
+          await enableLayer(key, service, layer);
+          // Apply saved sublayer selection if present
+          if (sublayerMap[key]) {
+            const entry = activeLayers.get(key);
+            if (entry?.subLayerDetails?.length) {
+              entry.activeSubLayers = new Set(sublayerMap[key]);
+              renderLayerPanel();
+              rebuildDeck();
+            }
+          }
+          // Apply saved opacity if present
+          if (opacityMap[key] != null) {
+            const entry = activeLayers.get(key);
+            if (entry) { entry.opacity = opacityMap[key]; renderLayerPanel(); rebuildDeck(); }
+          }
           break;
         }
       }
@@ -1358,14 +1788,31 @@ function updatePermalink() {
   clearTimeout(_permalinkTimer);
   _permalinkTimer = setTimeout(() => {
     const { longitude, latitude, zoom } = currentViewState;
-    const layers = [...activeLayers.keys()].filter(k => !k.startsWith('custom::')).join(',');
+    const layerKeys = [...activeLayers.keys()].filter(k => !k.startsWith('custom::'));
     const parts = [
       `z=${zoom.toFixed(2)}`,
       `lat=${latitude.toFixed(5)}`,
       `lon=${longitude.toFixed(5)}`,
     ];
     if (currentBasemap !== 'light') parts.push(`bm=${currentBasemap}`);
-    if (layers) parts.push(`layers=${encodeURIComponent(layers)}`);
+    if (layerKeys.length) parts.push(`layers=${encodeURIComponent(layerKeys.join(','))}`);
+
+    // Encode non-default sublayer selections: key:id+id+id
+    const sublayerParts = layerKeys.map(k => {
+      const entry = activeLayers.get(k);
+      if (!entry?.activeSubLayers?.size) return null;
+      return `${k}:${[...entry.activeSubLayers].sort((a, b) => a - b).join('+')}`;
+    }).filter(Boolean);
+    if (sublayerParts.length) parts.push(`sublayers=${encodeURIComponent(sublayerParts.join(','))}`);
+
+    // Encode non-default opacity values (default is 0.9)
+    const opacityParts = layerKeys.map(k => {
+      const entry = activeLayers.get(k);
+      if (!entry || Math.abs(entry.opacity - 0.9) < 0.01) return null;
+      return `${k}:${entry.opacity.toFixed(2)}`;
+    }).filter(Boolean);
+    if (opacityParts.length) parts.push(`opacity=${encodeURIComponent(opacityParts.join(','))}`);
+
     history.replaceState(null, '', `#${parts.join('&')}`);
   }, 400);
 }

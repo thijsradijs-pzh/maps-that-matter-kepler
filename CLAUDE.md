@@ -29,7 +29,19 @@ bash new-example.sh
 ## Architecture
 
 ### Structure
-Each visualization lives in its own directory (`population-3d/`, `agro-viewer/`, `multi-criteria-analysis/`, etc.) as a standalone app. The `/shared/` directory holds utilities reused across examples.
+Each visualization lives in its own directory as a standalone app. The `/shared/` directory holds utilities reused across examples.
+
+Current examples:
+- `population-3d/` — 3D population time-series over Dutch H3 hexagons (Kepler.gl)
+- `agro-viewer/` — Agricultural WMS layer browser with NGR search (Deck.gl, most complex)
+- `multi-criteria-analysis/` — Multi-criteria spatial analysis with CSW/WMS layer search
+- `explorer-3d/` — Generic Parquet data explorer using DuckDB WASM + Deck.gl
+- `geluid-groen-viewer/` — Noise & green space analysis for Dutch municipalities (Deck.gl, H3)
+- `groundheight/` — Ground height (AHN) visualization over H3 hexagons (Deck.gl)
+- `schiedam-bos/` — Forest accessibility analysis around Schiedam (Deck.gl, H3)
+- `som-viewer/` — Self-organizing map / spatial intelligence viewer for Zuid-Holland with story overlay (Deck.gl, H3)
+- `gebiedsviewer/` — Zuid-Holland Gebiedsviewer: WMS layer browser for 6 thematic categories (Grenzen, Landelijk Gebied, Bodem, Klimaat, Water, Milieu) sourced from geoservices.zuid-holland.nl (Deck.gl, no H3)
+- `blog-h3-examples/` — Static article page ("From Hexagons to Foresight"), not a map app
 
 ### Shared Utilities (`/shared/`)
 - `deckgl-utils.js` — Color scales, color mapping functions, Carto basemap layer factory
