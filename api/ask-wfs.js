@@ -45,7 +45,6 @@ EXACT property names for 2024 (copy verbatim — wrong names return 0 results):
     aantalMeergezinsWoningen                   — multi-family homes (apartments)
     percentageKoopwoningen                     — % owner-occupied
     percentageHuurwoningen                     — % rental
-    gemiddeldeWozWaardeWoning                  — avg WOZ value (euros)
     aantalWoningenBouwjaarVoor1945   — homes built before 1945
     aantalWoningenBouwjaar45Tot65    — homes built 1945–1965
     aantalWoningenBouwjaar65Tot75    — homes built 1965–1975
@@ -54,11 +53,13 @@ EXACT property names for 2024 (copy verbatim — wrong names return 0 results):
     aantalWoningenBouwjaar95Tot05    — homes built 1995–2005
     aantalWoningenBouwjaar05Tot15    — homes built 2005–2015
     aantalWoningenBouwjaar15EnLater  — homes built 2015 or later
-  Energy:
+  Energy (⚠ often suppressed by CBS — only published for cells with enough homes):
     gemiddeldGasverbruikWoning             — avg gas use per home (m³/year)
     gemiddeldElektriciteitsverbruikWoning  — avg electricity per home (kWh/year)
-  Income & Benefits:
+  Income & Benefits (⚠ often suppressed):
     aantalPersonenMetUitkeringOnderAowlft  — persons on benefits (below pension age)
+  Housing values (⚠ frequently suppressed — CBS withholds when fewer than 5 homes per cell):
+    gemiddeldeWozWaardeWoning              — avg WOZ property value (euros)
   Distances to services (km, nearest) — use avg aggregation:
     dichtstbijzijndeGroteSupermarktAfstandInKm        — nearest large supermarket
     dichtstbijzijndeWinkelsOvDagelLevensmAfstInKm     — nearest daily groceries store
@@ -113,7 +114,7 @@ ${SCHEMA}
 
 RULES:
 1. Choose the most appropriate source. CBS Vierkantstatistieken for demographics / housing / income. BAG for buildings, construction years, building density.
-2. For CBS: default to year 2024 unless the question specifies a year.
+2. For CBS: default to year 2024 unless the question specifies a year. Prefer properties that are rarely suppressed: aantalInwoners, aantalWoningen, percentageKoopwoningen, aantalEenpersoonshuishoudens, distance properties. Avoid gemiddeldeWozWaardeWoning / gemiddeldGasverbruikWoning / gemiddeldElektriciteitsverbruikWoning unless specifically asked — these are suppressed in most cells.
 3. propertyNames: array of EXACT column names from the schema above. Include the metric column you want to visualize plus crs28992res100m for CBS (for identification). Max 4 properties to keep response small.
 4. cqlFilter: CQL filter string for attribute filtering (e.g. "aantalInwoners > 0"). Empty string if no filter.
 5. aggregation: how to combine multiple features into one H3 cell:

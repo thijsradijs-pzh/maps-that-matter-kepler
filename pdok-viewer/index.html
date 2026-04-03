@@ -1166,6 +1166,8 @@
       const kmW = Math.round(Math.abs(e - w) * 111.32 * Math.cos((s + n) / 2 * Math.PI / 180));
       const kmH = Math.round(Math.abs(n - s) * 110.574);
 
+      const isSuppressed = featureCount > 0 && hexCount === 0;
+
       const el = document.createElement('div');
       el.className = 'card-result';
       el.innerHTML = `
@@ -1183,16 +1185,22 @@
             <span class="stat-value">${featureCount.toLocaleString('nl-NL')}</span>
           </div>
           <div class="stat-row">
-            <span class="stat-label">H3-9 hexagonen</span>
+            <span class="stat-label">Hexagonen met data</span>
             <span class="stat-value">${hexCount.toLocaleString('nl-NL')} (~174 m)</span>
           </div>
-          ${binResult.min != null && !isNaN(binResult.min) ? `
+          ${hexCount > 0 && binResult.min != null && !isNaN(binResult.min) ? `
           <div class="stat-row">
             <span class="stat-label">Bereik (${esc(aiData.metric_column)})</span>
             <span class="stat-value">${formatValue(binResult.min)} – ${formatValue(binResult.max)}</span>
           </div>` : ''}
         </div>
-        ${truncated ? `
+        ${isSuppressed ? `
+        <div class="card-result-warning" style="border-color:rgba(248,81,73,0.3);background:rgba(248,81,73,0.08);color:#f85149;">
+          ✕ CBS heeft <b>${esc(aiData.metric_column)}</b> voor alle ${featureCount} cellen in dit gebied onderdrukt.<br><br>
+          CBS publiceert gevoelige waarden (WOZ, gas, energie, inkomen) alleen als een cel voldoende bewoners heeft — anders krijg je code <b>−99995</b> tot <b>−99999</b>.<br><br>
+          Probeer een ander kenmerk zoals <b>aantalInwoners</b>, <b>aantalWoningen</b> of <b>percentageKoopwoningen</b>, of kies een dichter bebouwd gebied.
+        </div>` : ''}
+        ${truncated && !isSuppressed ? `
         <div class="card-result-warning">
           ⚠ PDOK heeft de respons afgekapt op ${featureCount.toLocaleString('nl-NL')} features — het beeld is mogelijk onvolledig.
           <br><button class="load-all-btn" onclick="loadAllPages()">Alle pagina's ophalen</button>
