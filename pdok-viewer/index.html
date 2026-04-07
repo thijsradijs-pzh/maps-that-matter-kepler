@@ -338,9 +338,39 @@
       50% { box-shadow: 0 0 0 6px rgba(56,139,253,0), 0 2px 8px rgba(0,0,0,0.5); }
     }
 
+    /* Location search */
+    #location-search {
+      position: absolute; top: 16px; left: 62px; z-index: 10;
+      width: 210px;
+    }
+    #location-input {
+      width: 100%; background: rgba(22,27,34,0.96); border: 1px solid #30363d;
+      border-radius: 8px; padding: 8px 12px;
+      font-size: 12px; color: #e6edf3; outline: none; font-family: inherit;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5); transition: border-color 0.15s;
+    }
+    #location-input::placeholder { color: #484f58; }
+    #location-input:focus { border-color: #388bfd; }
+    .loc-dropdown {
+      margin-top: 4px; background: #161b22; border: 1px solid #30363d;
+      border-radius: 8px; overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+      display: none;
+    }
+    .loc-dropdown.open { display: block; }
+    .loc-item {
+      padding: 8px 12px; font-size: 12px; color: #e6edf3;
+      display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer; transition: background 0.1s;
+    }
+    .loc-item:hover { background: #21262d; }
+    .loc-type {
+      font-size: 10px; color: #484f58; margin-left: 8px; flex-shrink: 0;
+    }
+
     /* Area info badge */
     #area-info {
-      position: absolute; top: 16px; left: 62px; z-index: 10;
+      position: absolute; top: 58px; left: 62px; z-index: 10;
       background: rgba(22,27,34,0.96); border: 1px solid #1f4f8e;
       border-radius: 8px; padding: 8px 14px;
       font-size: 12px; color: #79c0ff;
@@ -421,6 +451,8 @@
       #legend { left: 50%; transform: translateX(-50%); bottom: calc(52vh + 12px); }
       #reload-indicator { bottom: calc(52vh + 10px); }
       #wms-panel { right: 8px; bottom: calc(52vh + 10px); }
+      #location-search { width: calc(100vw - 78px); }
+      #area-info { top: 58px; left: 62px; }
     }
   </style>
 </head>
@@ -433,6 +465,12 @@
     <button class="map-tool-btn" id="draw-btn" title="Teken studiegebied" onclick="toggleDrawMode()">⬚</button>
     <button class="map-tool-btn" id="clear-btn" title="Verwijder selectie" onclick="clearDrawnArea()" style="display:none">✕</button>
   </div>
+
+  <div id="location-search">
+    <input id="location-input" type="text" placeholder="Zoek gemeente, wijk..." autocomplete="off" />
+    <div id="location-dropdown" class="loc-dropdown"></div>
+  </div>
+
   <div id="area-info">
     <span class="area-label">Gebied</span>
     <span id="area-desc">—</span>
@@ -933,6 +971,87 @@
     }
 
     // ─────────────────────────────────────────────────────────────────
+    // Location search + fly-to
+    // ─────────────────────────────────────────────────────────────────
+    const ZOOM_FOR_TYPE = { gemeente: 11, woonplaats: 12, wijk: 13, buurt: 14 };
+
+    async function flyToLocationById(id) {
+      try {
+        const res = await fetch(`/api/suggest-location?id=${encodeURIComponent(id)}`);
+        const { doc } = await res.json();
+        if (!doc?.centroide_ll) return;
+        const m = doc.centroide_ll.match(/POINT\(([^ ]+) ([^)]+)\)/);
+        if (!m) return;
+        deckInstance.setProps({
+          initialViewState: {
+            longitude: parseFloat(m[1]),
+            latitude:  parseFloat(m[2]),
+            zoom:      ZOOM_FOR_TYPE[doc.type] || 11,
+            pitch: 0, bearing: 0,
+            transitionDuration: 900,
+            transitionInterpolator: new deck.FlyToInterpolator({ speed: 1.5 }),
+          },
+        });
+      } catch {}
+    }
+
+    async function flyToLocationName(name) {
+      try {
+        const res = await fetch(`/api/suggest-location?q=${encodeURIComponent(name)}`);
+        const { docs } = await res.json();
+        if (docs?.length) await flyToLocationById(docs[0].id);
+      } catch {}
+    }
+
+    // Autocomplete wiring
+    let locDebounce = null;
+
+    document.getElementById('location-input').addEventListener('input', e => {
+      clearTimeout(locDebounce);
+      const q = e.target.value.trim();
+      if (q.length < 2) { closeLocDropdown(); return; }
+      locDebounce = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/suggest-location?q=${encodeURIComponent(q)}`);
+          const { docs } = await res.json();
+          renderLocDropdown(docs || []);
+        } catch {}
+      }, 200);
+    });
+
+    document.getElementById('location-input').addEventListener('keydown', e => {
+      if (e.key === 'Escape') { closeLocDropdown(); e.target.blur(); }
+    });
+
+    document.addEventListener('click', e => {
+      if (!document.getElementById('location-search').contains(e.target)) closeLocDropdown();
+    });
+
+    function renderLocDropdown(docs) {
+      const dd = document.getElementById('location-dropdown');
+      if (!docs.length) { closeLocDropdown(); return; }
+      dd.innerHTML = docs.map(d => `
+        <div class="loc-item" data-id="${esc(d.id)}" data-name="${esc(d.weergavenaam)}">
+          <span>${esc(d.weergavenaam)}</span>
+          <span class="loc-type">${esc(d.type)}</span>
+        </div>`).join('');
+      dd.classList.add('open');
+      dd.querySelectorAll('.loc-item').forEach(el => {
+        el.addEventListener('click', async () => {
+          document.getElementById('location-input').value = el.dataset.name;
+          closeLocDropdown();
+          await flyToLocationById(el.dataset.id);
+        });
+      });
+    }
+
+    function closeLocDropdown() {
+      const dd = document.getElementById('location-dropdown');
+      dd.innerHTML = '';
+      dd.classList.remove('open');
+    }
+
+    // ─────────────────────────────────────────────────────────────────
     // Core workflow
     // ─────────────────────────────────────────────────────────────────
 
@@ -972,6 +1091,12 @@
 
         // Show AI analysis card
         appendAiCard(aiData);
+
+        // Auto-fly to location if AI extracted one from the question
+        if (aiData.location) {
+          flyToLocationName(aiData.location);
+          document.getElementById('location-input').value = aiData.location;
+        }
 
         // Show "draw your area" prompt and activate draw mode
         setStep(2);

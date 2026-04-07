@@ -41,6 +41,7 @@ Current examples:
 - `schiedam-bos/` — Forest accessibility analysis around Schiedam (Deck.gl, H3)
 - `som-viewer/` — Self-organizing map / spatial intelligence viewer for Zuid-Holland with story overlay (Deck.gl, H3)
 - `gebiedsviewer/` — Zuid-Holland Gebiedsviewer: WMS layer browser for 6 thematic categories (Grenzen, Landelijk Gebied, Bodem, Klimaat, Water, Milieu) sourced from geoservices.zuid-holland.nl (Deck.gl, no H3)
+- `pdok-viewer/` — AI-powered natural language interface for Dutch geodata (CBS/BAG/NGR). 3-step flow: ask question → AI picks WFS dataset → user draws bbox → data fetched and visualized as H3 res-9 hexagons (~174m). Uses Gemini to interpret questions. (Deck.gl, H3 res 9)
 - `blog-h3-examples/` — Static article page ("From Hexagons to Foresight"), not a map app
 
 ### Shared Utilities (`/shared/`)
@@ -48,10 +49,14 @@ Current examples:
 - `duckdb-loader.js` — DuckDB WASM integration for in-browser data loading
 
 ### Backend (`/api/`)
-Vercel serverless functions used as CORS proxies:
+Vercel serverless functions used as CORS proxies and AI endpoints:
 - `proxy.js` — Generic proxy for external WMS/geospatial services
 - `agro-proxy.js` — Agricultural data cube proxy
 - `search-ngr.js` — Dutch National Geo Register (NGR) search
+- `ask-wfs.js` — POST `{ question }` → calls Gemini 2.5 Flash to select the right PDOK WFS source and metric column; returns full query params for the frontend (used by pdok-viewer)
+- `wfs-proxy.js` — GET proxy for PDOK WFS requests; supports pagination via `startIndex`; caps at 1000 features per page and sets `X-Truncated: 1` header when truncated (used by pdok-viewer)
+- `search-wms.js` — Searches NGR for WMS layers by keyword; used by pdok-viewer to suggest related layers after a WFS result
+- `suggest-location.js` — Proxies to PDOK Locatieserver autocomplete (`/suggest`) for Dutch municipality/neighbourhood geocoding; returns gemeente, wijk, buurt, woonplaats results
 
 ### Routing (`vercel.json`)
 Clean URL rewrites map `/example-name` → `/example-name/index.html`. CORS headers (`X-Frame-Options: ALLOWALL`, `Access-Control-Allow-Origin: *`) enable iframe embedding in Substack posts.
@@ -74,7 +79,7 @@ Large CSV/Parquet files with Netherlands geospatial data (H3 hexagons, populatio
 ## Key Patterns
 
 - **Basemaps**: Light and voyager use Carto (no API key needed). Dark basemap uses ArcGIS World Dark Gray as a custom `TileLayer` (not Carto `dark-matter`). Satellite uses ESRI World Imagery.
-- **H3 hexagons**: Most aggregations use H3 resolution 7–8 via `h3.js` loaded from CDN
+- **H3 hexagons**: Most aggregations use H3 resolution 7–8 via `h3.js` loaded from CDN. Exception: pdok-viewer hardcodes resolution 9 (~174m hexagons) for CBS 100m grid data.
 - **Deck.gl layers**: Prefer `H3HexagonLayer`, `ScatterplotLayer`, `BitmapLayer` for raster imagery
 - **Two rendering approaches**: Kepler.gl examples embed a full React/Redux stack (loaded from CDN) inside a `<div id="app">` and drive it with a JSON config exported from the Kepler.gl UI. Deck.gl examples use bare canvas rendering with no React — they instantiate `new Deck({...})` directly. Don't mix the two in one file.
 - **WMS tile cache-busting**: When toggling sublayers, include the active sublayer IDs in the deck.gl layer `id` (e.g. `${key}::${layerIds}`) so deck.gl invalidates the tile cache on change.

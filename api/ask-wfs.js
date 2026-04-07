@@ -130,6 +130,7 @@ RULES:
    - "green-red"   — where low=good, high=bad (energy use, pollution)
    - "blue-green"  — nature / greenery
 9. ngr_keywords: 2–3 short Dutch nouns to discover related WMS layers on nationaalgeoregister.nl
+10. location: Dutch municipality or city name explicitly mentioned in the question (official Dutch gemeente name, e.g. "Amsterdam", "Rotterdam", "Den Haag"). Set to null if no specific place is mentioned.
 
 Return ONLY valid JSON with exactly these fields:
 {
@@ -144,7 +145,8 @@ Return ONLY valid JSON with exactly these fields:
   "title_nl": "Dutch title (max 60 chars)",
   "title_en": "English title (max 60 chars)",
   "color_scale": "sequential",
-  "ngr_keywords": ["keyword1", "keyword2"]
+  "ngr_keywords": ["keyword1", "keyword2"],
+  "location": null
 }
 `;
 
