@@ -63,7 +63,7 @@
 
       <div class="filter-bar">
         <i class="fa fa-search filter-icon"></i>
-        <input type="text" id="layer-search" class="filter-input" placeholder="Zoek kaartlagen (bijv. bodem, natuur)...">
+        <input type="text" id="layer-search" class="filter-input" placeholder="Zoek kaartlagen (bijv. bodem, natuur)..." aria-label="Zoek kaartlagen">
       </div>
       <div id="search-results"></div>
       
@@ -132,7 +132,7 @@
     <div id="address-search-container" class="address-search-wrapper">
         <div class="search-pill-box">
             <i class="fa fa-location-dot search-pill-icon"></i>
-            <input type="text" id="address-input" placeholder="Zoek adres of plaats..." autocomplete="off">
+            <input type="text" id="address-input" placeholder="Zoek adres of plaats..." autocomplete="off" aria-label="Zoek adres of plaats">
             <i class="fa fa-times search-pill-close" onclick="closeAddressSearch()"></i>
         </div>
         <div id="address-results" class="address-results-dropdown"></div>
@@ -147,7 +147,7 @@
         <div class="gradient-bar"></div>
         <div class="legend-labels"><span>Laag</span><span>Hoog</span></div>
     </div>
-    <div id="loading">Kaartdata laden...</div>
+    <div id="loading"><div class="mca-spinner"></div>Kaartdata laden...</div>
     <div id="container" style="width:100%; height:100%;"></div>
   </div>
 

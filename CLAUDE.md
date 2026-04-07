@@ -140,49 +140,31 @@ Deep audit completed 2026-04-07. Items marked ✅ are done. When editing any app
 - `URL.createObjectURL()` blob URL revoked after worker load in duckdb-loader.js
 - Debounce raised 500ms → 800ms in multi-criteria-analysis catalog search
 - `role="dialog" aria-modal="true" aria-labelledby="..."` added to agro-viewer API key modal and pdok-viewer welcome modal
-- `aria-label` added to gebiedsviewer layer search input and pdok-viewer question input + submit button
-- CSS spinner added to population-3d and groundheight loading states
-- Empty state message added to population-3d (shown when filters return 0 results)
-- Friendly HTML error messages in population-3d and groundheight (replace raw `error.message`)
+- `aria-label` added to gebiedsviewer + multi-criteria-analysis layer search inputs, pdok-viewer question input + submit button
+- CSS spinner added to population-3d, groundheight, explorer-3d, geluid-groen-viewer, multi-criteria-analysis loading states
+- Empty state message added to population-3d and explorer-3d (shown when filters return 0 results)
+- Friendly HTML error messages in population-3d, groundheight, geluid-groen-viewer, multi-criteria-analysis
 - Year filter max now derived dynamically from data in population-3d and explorer-3d (no longer hardcoded to 2023)
+- WMS GetCapabilities cached in-memory in agro-viewer and multi-criteria-analysis
+- Colorblind ⚠/✓ icons added to geluid-groen-viewer stat cards
+- Units added to explorer-3d column labels (€, m³, kWh, km, m NAP, dB)
 
 ---
 
 ### P0 — Critical (user-facing, high impact)
 
-**Empty states missing** — affects population-3d, explorer-3d, multi-criteria-analysis, geluid-groen-viewer
-- When filters return 0 results the map goes blank with no message. Add: "Geen data gevonden voor deze selectie. Pas de filters aan."
-
-**Error states too generic** — affects all apps
-- All apps show raw `error.message` text. Replace with friendly messages + a retry button where applicable.
-
-**Hardcoded year 2023** — affects population-3d (config.js:27), explorer-3d (config.js:116)
-- Use `Math.max(...data.map(d => d.year_int))` instead so it doesn't go stale.
-
-**Loading spinner missing** — affects population-3d, groundheight, explorer-3d
-- Plain "Loading data..." text only. Replace with a CSS spinner or animated bar.
+**Error states too generic** — affects agro-viewer, vraag-de-kaart, pdok-viewer, schiedam-bos, som-viewer, gebiedsviewer
+- Some apps still show raw `error.message` text or no error at all. Replace with friendly messages + a retry button where applicable.
 
 ---
 
 ### P1 — High (UX polish, noticeable to users)
 
-**Missing `aria-label` on interactive elements** — affects multi-criteria-analysis, gebiedsviewer, pdok-viewer, vraag-de-kaart
-- Layer search inputs, toggle switches, icon-only buttons have no accessible name. Add `aria-label` attributes.
+**Missing `aria-label` on interactive elements** — affects gebiedsviewer icon-only buttons, pdok-viewer, vraag-de-kaart
+- Icon-only buttons (zoom, measure) in gebiedsviewer have no accessible name. Add `aria-label` attributes.
 
-**Missing `role="dialog"` on modals** — affects agro-viewer (API key modal), pdok-viewer (welcome modal)
-- Screen readers don't know these are dialogs. Add `role="dialog" aria-modal="true" aria-labelledby="..."`.
-
-**Color-only information** — affects geluid-groen-viewer (stat cards use red/green only)
-- Add icons or text labels alongside color coding so colorblind users aren't excluded.
-
-**Legend ranges not shown** — affects population-3d, geluid-groen-viewer, multi-criteria-analysis
-- Legend says "hoog / laag" but doesn't show actual min/max values. Compute and display them from the loaded data.
-
-**Units missing from numeric labels** — affects explorer-3d, groundheight, population-3d
-- "Population", "Distance", "Height" shown without units. Add "(count)", "(km)", "(m NAP)" etc. to column labels and tooltips.
-
-**Debounce too short in catalog search** — multi-criteria-analysis/js/app.js:51
-- 500ms debounce fires too many requests on slow typing. Raise to 800ms.
+**Legend ranges not shown** — affects population-3d, multi-criteria-analysis
+- Legend says "hoog / laag" but doesn't show actual min/max values. Compute and display them from the loaded data. (geluid-groen-viewer already has real values.)
 
 ---
 
@@ -191,17 +173,11 @@ Deep audit completed 2026-04-07. Items marked ✅ are done. When editing any app
 **WMS layer creation duplicated** — exists in multi-criteria-analysis/js/wms-layer.js AND a separate implementation in gebiedsviewer/js/app.js
 - Consolidate into `/shared/wms-layer.js` so bug fixes apply everywhere.
 
-**WMS GetCapabilities not cached** — agro-viewer, multi-criteria-analysis
-- Every `addWmsLayer()` call re-fetches capabilities. Cache by URL (in-memory Map is enough).
-
 **Large monolithic app.js** — multi-criteria-analysis/js/app.js (~600 lines), gebiedsviewer/js/app.js (~1900 lines)
 - Multi-criteria-analysis should split into: wms.js, search.js, mca.js. Gebiedsviewer is already complex enough to warrant a refactor plan before touching.
 
 **MCA_CRITERIA duplicated** — defined in gebiedsviewer/js/app.js AND multi-criteria-analysis/config.js
 - One shared source of truth.
-
-**`URL.createObjectURL()` in duckdb-loader never revoked** — shared/duckdb-loader.js:40
-- Call `URL.revokeObjectURL(workerUrl)` after `db.instantiate()` to avoid a memory leak.
 
 **Tooltip HTML built as string in deckgl-utils.js** — shared/deckgl-utils.js createTooltip()
 - Low risk (internal data), but sanitize or use DOM construction to prevent future XSS if external data is ever fed in.

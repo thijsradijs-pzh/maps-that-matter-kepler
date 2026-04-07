@@ -591,7 +591,10 @@ async function init() {
 
     renderLayers();
     updateScaleBar(VIZ_CONFIG.initialView);
-  } catch (e) { console.error(e); document.getElementById('loading').textContent = "Kan data niet laden."; }
+  } catch (e) {
+    console.error(e);
+    document.getElementById('loading').innerHTML = '<div style="font-size:18px;margin-bottom:8px;">⚠️ Data kon niet worden geladen</div><div style="font-size:13px;color:#888;line-height:1.5;font-weight:normal;">Ververs de pagina om opnieuw te proberen.</div>';
+  }
 }
 
 init();

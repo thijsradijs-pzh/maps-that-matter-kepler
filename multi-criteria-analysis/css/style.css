@@ -485,18 +485,30 @@ input[type=range]::-webkit-slider-thumb {
     font-weight: 600; 
 }
 
-#loading { 
-    position: absolute; 
-    top: 50%; 
-    left: 50%; 
-    transform: translate(-50%, -50%); 
-    background: white; 
-    padding: 20px; 
-    border-radius: 8px; 
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2); 
-    font-weight: bold; 
-    z-index: 200; 
+#loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 24px 32px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    font-weight: bold;
+    z-index: 200;
+    text-align: center;
+    min-width: 200px;
 }
+
+.mca-spinner {
+    width: 28px; height: 28px;
+    border: 3px solid rgba(0,0,0,0.1);
+    border-top-color: var(--esri-blue, #007ac2);
+    border-radius: 50%;
+    animation: mca-spin 0.8s linear infinite;
+    margin: 0 auto 12px;
+}
+@keyframes mca-spin { to { transform: rotate(360deg); } }
 
 /* Welcome Content */
 #welcome-content { 

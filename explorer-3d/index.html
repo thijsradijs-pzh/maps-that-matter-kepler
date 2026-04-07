@@ -158,11 +158,38 @@
       text-align: center;
       min-width: 300px;
     }
-    
+
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: #7BCCC4;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
     #loading-progress {
       margin-top: 15px;
       font-size: 14px;
       color: #7BCCC4;
+    }
+
+    #empty-state {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.85);
+      color: #ccc;
+      padding: 24px 36px;
+      border-radius: 8px;
+      font-size: 14px;
+      text-align: center;
+      line-height: 1.6;
+      z-index: 2;
+      pointer-events: none;
     }
 
     #map-overlay {
@@ -285,9 +312,12 @@
   <div id="container"></div>
 
   <div id="loading">
+    <div class="spinner"></div>
     <div>🦆 Loading data with DuckDB...</div>
     <div id="loading-progress">Initializing...</div>
   </div>
+
+  <div id="empty-state">No data for this selection.<br>Adjust the year or column filters.</div>
   
   <div id="controls" style="display:none;"></div>
 
@@ -631,12 +661,15 @@
     function getLayers() {
       const filteredData = filterData();
       updateStats(filteredData);
-      
+
+      const emptyEl = document.getElementById('empty-state');
+      if (emptyEl) emptyEl.style.display = filteredData.length === 0 ? 'block' : 'none';
+
       const layers = [createBasemap(VIZ_CONFIG.basemap)];
-      
+
       const layerConfig = VIZ_CONFIG.createLayer(filteredData, currentFilters, currentHeightColumn, currentColorColumn);
       layers.push(createH3Layer(layerConfig));
-      
+
       return layers;
     }
 

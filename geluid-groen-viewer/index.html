@@ -180,8 +180,19 @@
       position: absolute; top: 50%; left: 50%;
       transform: translate(-50%, -50%);
       background: rgba(0,0,0,0.85); color: #ccc;
-      padding: 20px 36px; border-radius: 8px; font-size: 14px; z-index: 20;
+      padding: 24px 36px; border-radius: 8px; font-size: 14px; z-index: 20;
+      text-align: center; min-width: 200px;
     }
+
+    .ggv-spinner {
+      width: 28px; height: 28px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: #43A2CA;
+      border-radius: 50%;
+      animation: ggv-spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes ggv-spin { to { transform: rotate(360deg); } }
 
     /* ── Mobile ── */
     .mobile-handle {
@@ -216,7 +227,7 @@
 <body>
   <a href="/" style="position:fixed;top:12px;left:12px;z-index:9999;background:rgba(13,17,23,0.85);color:#58a6ff;font-size:11px;font-weight:600;padding:6px 10px;border-radius:6px;border:1px solid #30363d;text-decoration:none;backdrop-filter:blur(4px);">← Maps That Matter</a>
   <div id="container"></div>
-  <div id="loading">Data laden...</div>
+  <div id="loading"><div class="ggv-spinner"></div>Data laden...</div>
 
   <div id="panel">
     <div class="panel-header">
@@ -529,7 +540,7 @@
         });
       } catch (err) {
         console.error(err);
-        document.getElementById('loading').textContent = 'Fout bij laden: ' + err.message;
+        document.getElementById('loading').innerHTML = '<div style="font-size:18px;margin-bottom:8px;">⚠️ Data kon niet worden geladen</div><div style="font-size:12px;color:#aaa;line-height:1.5;">Ververs de pagina om opnieuw te proberen.</div>';
       }
     }
 
