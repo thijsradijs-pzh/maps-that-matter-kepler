@@ -137,6 +137,14 @@ Deep audit completed 2026-04-07. Items marked ✅ are done. When editing any app
 - "← Maps That Matter" home link on all 12 apps
 - `console.log` removed from production code (population-3d, groundheight, explorer-3d)
 - DuckDB loader unified into `/shared/duckdb-loader.js`; inline duplicates removed from explorer-3d and vraag-de-kaart
+- `URL.createObjectURL()` blob URL revoked after worker load in duckdb-loader.js
+- Debounce raised 500ms → 800ms in multi-criteria-analysis catalog search
+- `role="dialog" aria-modal="true" aria-labelledby="..."` added to agro-viewer API key modal and pdok-viewer welcome modal
+- `aria-label` added to gebiedsviewer layer search input and pdok-viewer question input + submit button
+- CSS spinner added to population-3d and groundheight loading states
+- Empty state message added to population-3d (shown when filters return 0 results)
+- Friendly HTML error messages in population-3d and groundheight (replace raw `error.message`)
+- Year filter max now derived dynamically from data in population-3d and explorer-3d (no longer hardcoded to 2023)
 
 ---
 

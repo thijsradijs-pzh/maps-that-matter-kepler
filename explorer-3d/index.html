@@ -752,8 +752,18 @@
         
         updateLoadingProgress('Reading data...');
         allData = await duckDBLoader.getAllData();
-        
-        
+
+        // Set year filter max dynamically from data
+        const yearFilter = VIZ_CONFIG.filters[0];
+        if (yearFilter && allData.length > 0) {
+          const years = allData.map(d => Math.round(d.year_int)).filter(y => !isNaN(y));
+          const maxYear = Math.max(...years);
+          yearFilter.max = maxYear;
+          yearFilter.default = maxYear;
+          currentFilters.year = maxYear;
+          VIZ_CONFIG.defaults.year = maxYear;
+        }
+
         document.getElementById('controls').innerHTML = buildControls();
         document.getElementById('controls').style.display = 'block';
         setupControls();

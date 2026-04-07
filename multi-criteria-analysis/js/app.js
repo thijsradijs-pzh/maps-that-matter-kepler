@@ -48,7 +48,7 @@ function initSearch() {
         geonetworkResults.forEach(item => { if (item.hasWms) combinedMap.set(item.name, {...item, source: 'geonetwork'}); });
         
         displayResults(Array.from(combinedMap.values()));
-    }, 500);
+    }, 800);
 
     function displayResults(results) {
         resultsContainer.innerHTML = '';

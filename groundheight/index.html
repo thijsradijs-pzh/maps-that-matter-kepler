@@ -254,11 +254,21 @@
       transform: translate(-50%, -50%);
       background: rgba(0,0,0,0.8);
       color: white;
-      padding: 20px 40px;
+      padding: 24px 40px;
       border-radius: 8px;
       font-size: 16px;
       z-index: 2;
+      text-align: center;
     }
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: #43A2CA;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
     
     /* Fullscreen button */
     #fullscreen-btn {
@@ -321,7 +331,7 @@
     <!-- Re-activate hint (shows briefly when user scrolls on inactive map) -->
     <div id="reactivate-hint">Click to activate map</div>
     
-    <div id="loading">Loading data...</div>
+    <div id="loading"><div class="spinner"></div>Loading data...</div>
     <div id="controls" style="display:none;"></div>
   </div>
 
@@ -700,7 +710,7 @@
         document.getElementById('loading').style.display = 'none';
       } catch (error) {
         console.error('❌ Error:', error);
-        document.getElementById('loading').textContent = 'Error: ' + error.message;
+        document.getElementById('loading').innerHTML = `<div style="font-size:18px;margin-bottom:10px;">⚠️ Kon data niet laden</div><div style="font-size:13px;color:#aaa;max-width:280px;line-height:1.5;">${error.message}</div><div style="font-size:11px;margin-top:12px;color:#777;">Ververs de pagina om opnieuw te proberen.</div>`;
       }
     }
 

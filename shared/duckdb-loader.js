@@ -42,6 +42,7 @@ class DuckDBLoader {
       const logger     = new window.duckdb.ConsoleLogger();
       this.db = new window.duckdb.AsyncDuckDB(logger, worker);
       await this.db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+      URL.revokeObjectURL(workerUrl); // free blob URL after worker is loaded
       this.conn = await this.db.connect();
     } catch (error) {
       console.error('DuckDB init failed:', error);

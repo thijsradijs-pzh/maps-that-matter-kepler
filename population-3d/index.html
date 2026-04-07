@@ -168,10 +168,36 @@
       transform: translate(-50%, -50%);
       background: rgba(0,0,0,0.8);
       color: white;
-      padding: 20px 40px;
+      padding: 24px 40px;
       border-radius: 8px;
       font-size: 16px;
       z-index: 2;
+      text-align: center;
+    }
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: #58a6ff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #empty-state {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.75);
+      color: #e6edf3;
+      padding: 16px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      text-align: center;
+      z-index: 5;
+      max-width: 280px;
+      pointer-events: none;
     }
 
     /* ========== CLICK TO ACTIVATE OVERLAY ========== */
@@ -296,7 +322,8 @@
   <!-- Wrapper for fullscreen functionality -->
   <div id="fullscreen-wrapper">
     <div id="container"></div>
-    <div id="loading">Loading data...</div>
+    <div id="loading"><div class="spinner"></div>Loading data...</div>
+    <div id="empty-state">Geen data voor deze selectie.<br>Pas de filters aan.</div>
     <div id="controls" style="display:none;"></div>
 
     <!-- Click to Activate Overlay -->
@@ -568,13 +595,16 @@
     function getLayers() {
       const filteredData = filterData();
       updateStats(filteredData);
-      
+
+      const emptyEl = document.getElementById('empty-state');
+      if (emptyEl) emptyEl.style.display = filteredData.length === 0 ? 'block' : 'none';
+
       const layers = [DeckGLUtils.createBasemap(VIZ_CONFIG.basemap || 'dark')];
-      
+
       // Create visualization layer
       const layerConfig = VIZ_CONFIG.createLayer(filteredData, currentFilters);
       layers.push(DeckGLUtils.createH3Layer(layerConfig));
-      
+
       return layers;
     }
 
@@ -702,10 +732,20 @@
         
         // Load data
         allData = await DeckGLUtils.loadCSV(VIZ_CONFIG.dataUrl);
-        
+
         // Verify H3 if needed
         if (VIZ_CONFIG.h3Field) {
           allData = allData.filter(d => d[VIZ_CONFIG.h3Field] && d[VIZ_CONFIG.h3Field].length > 0);
+        }
+
+        // Set year filter max dynamically from data
+        const yearFilter = VIZ_CONFIG.filters?.find(f => f.key === 'year');
+        if (yearFilter && allData.length > 0) {
+          const years = allData.map(d => Math.round(d.year_int)).filter(y => !isNaN(y));
+          const maxYear = Math.max(...years);
+          yearFilter.max = maxYear;
+          yearFilter.default = maxYear;
+          currentFilters.year = maxYear;
         }
         
         // Build and show controls
@@ -736,7 +776,7 @@
         document.getElementById('loading').style.display = 'none';
       } catch (error) {
         console.error('❌ Error:', error);
-        document.getElementById('loading').textContent = 'Error: ' + error.message;
+        document.getElementById('loading').innerHTML = `<div style="font-size:18px;margin-bottom:10px;">⚠️ Kon data niet laden</div><div style="font-size:13px;color:#aaa;max-width:280px;line-height:1.5;">${error.message}</div><div style="font-size:11px;margin-top:12px;color:#777;">Ververs de pagina om opnieuw te proberen.</div>`;
       }
     }
 

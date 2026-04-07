@@ -786,9 +786,9 @@
 
   <!-- Welcome splash -->
   <div id="welcome-overlay">
-    <div id="welcome-modal">
+    <div id="welcome-modal" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
       <div class="wm-header">
-        <h2>PDOK Verkenner</h2>
+        <h2 id="welcome-title">PDOK Verkenner</h2>
         <div class="wm-tagline">CBS · BAG · NGR — live geodata voor Nederland</div>
         <p>Stel een vraag in gewoon Nederlands. De AI kiest de juiste databron, jij tekent het gebied op de kaart — dan wordt de data live opgehaald als hexagonkaart.</p>
       </div>
@@ -892,8 +892,9 @@
     <div id="input-area">
       <div class="input-row">
         <input id="question-input" type="text"
-          placeholder="Teken eerst je studiegebied..." autocomplete="off" disabled />
-        <button id="submit-btn" title="Verstuur" disabled>→</button>
+          placeholder="Teken eerst je studiegebied..." autocomplete="off" disabled
+          aria-label="Stel een vraag over het geselecteerde gebied" />
+        <button id="submit-btn" title="Verstuur" aria-label="Verstuur vraag" disabled>→</button>
       </div>
     </div>
 
