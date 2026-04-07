@@ -125,3 +125,41 @@ Key files:
 - `agro-viewer/index.html` — entry point
 - `agro-viewer/app.js` — main application logic (560 lines): handles WMS layers, NGR search, satellite toggle, Deck.gl rendering
 - `agro-viewer/config.js` — layer/source configuration
+
+## Known Issues / Improvement Backlog
+
+Cross-cutting gaps found across all apps (audit: 2026-04-07). When editing any app, fix the relevant issues for that app too.
+
+### P0 — SEO & social (affects all 11 map apps; only `blog-h3-examples` has a meta description)
+- **Missing `<meta name="description">`** — all map apps lack this; hurts SEO and link previews
+- **Missing Open Graph tags** — all apps lack `og:title`, `og:description`, `og:image`; links shared on LinkedIn/WhatsApp/Substack show nothing
+- **Missing favicon** — use `/assets/favicon.svg` (already created for landing page)
+
+### P1 — Navigation & console noise
+- **No "back to homepage" link** — 11/12 apps have no way to navigate back to `/`; add a small home link in the UI (top-left corner or inside the info panel)
+- **`console.log` statements in production** — found in: `population-3d`, `groundheight`, `explorer-3d`; remove or gate behind a `DEBUG` flag
+
+### P2 — Code quality
+- **`/shared/duckdb-loader.js` is unused** — `explorer-3d` and `vraag-de-kaart` each inline their own DuckDB loader; consolidate to the shared utility
+- **Unguarded fetch chains in `gebiedsviewer/js/app.js`** — some `.then()` chains lack `.catch()` handlers; add error handling
+
+### P3 — Mobile
+- **`pdok-viewer`**: floating chat panel is 500px wide and may overflow on small screens
+- **`vraag-de-kaart`**: fixed right panel (360px) may overflow on mobile
+- **`som-viewer`**: story overlay responsiveness not verified
+
+### Template for new apps / when fixing existing ones
+When adding meta/OG tags to any app, use this pattern (swap in the app-specific values):
+```html
+<meta name="description" content="…one sentence description…" />
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://www.mapsthatmatter.io/APP-SLUG" />
+<meta property="og:title" content="APP TITLE — Maps That Matter" />
+<meta property="og:description" content="…one sentence description…" />
+<meta property="og:image" content="https://www.mapsthatmatter.io/assets/thijs.jpg" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="APP TITLE" />
+<meta name="twitter:description" content="…one sentence description…" />
+<meta name="twitter:image" content="https://www.mapsthatmatter.io/assets/thijs.jpg" />
+```
