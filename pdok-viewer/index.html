@@ -115,13 +115,15 @@
     #messages::-webkit-scrollbar-track { background: transparent; }
     #messages::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
 
-    /* Input bar */
+    /* Input bar — at bottom, hidden until question step */
     #input-area {
       flex-shrink: 0;
       padding: 12px 14px;
-      border-bottom: 1px solid #21262d;
+      border-top: 1px solid #21262d;
       background: #161b22;
+      display: none;
     }
+    #input-area.visible { display: block; }
     .input-row { display: flex; gap: 8px; align-items: center; }
     #question-input {
       flex: 1;
@@ -341,19 +343,24 @@
 
     /* Question step card (shown after bbox is drawn) */
     .card-question-step {
-      background: #21262d; border: 1px solid #30363d;
-      border-radius: 10px; overflow: hidden;
+      border: 2px solid #2ea043; border-radius: 12px; overflow: visible;
+      background: #0d1117;
+      animation: qs-glow 2.2s ease-in-out infinite;
+    }
+    @keyframes qs-glow {
+      0%, 100% { border-color: #2ea043; box-shadow: 0 0 0 0 rgba(46,160,67,0.4); }
+      50%       { border-color: #56d364; box-shadow: 0 0 0 8px rgba(46,160,67,0); }
     }
     .qs-header {
-      padding: 12px 16px 10px; border-bottom: 1px solid #21262d;
+      padding: 13px 16px 11px; border-bottom: 1px solid #21262d;
       display: flex; align-items: center; gap: 9px;
     }
     .qs-badge {
-      background: rgba(86,211,100,0.12); border: 1px solid rgba(86,211,100,0.3);
+      background: rgba(46,160,67,0.18); border: 1px solid #2ea043;
       border-radius: 20px; padding: 2px 10px;
       font-size: 10px; font-weight: 700; color: #56d364; flex-shrink: 0;
     }
-    .qs-title { font-size: 13px; font-weight: 600; color: #f0f6fc; }
+    .qs-title { font-size: 13px; font-weight: 700; color: #f0f6fc; }
     .qs-examples { padding: 10px 16px 14px; }
     .qs-examples-label {
       font-size: 10px; font-weight: 600; text-transform: uppercase;
@@ -726,31 +733,6 @@
     }
     #info-btn:hover { border-color: #58a6ff; color: #58a6ff; }
 
-    /* ─── Draw overlay ─── */
-    #draw-overlay {
-      position: absolute; top: 0; left: 0; bottom: 0; right: 0;
-      z-index: 5; display: none;
-      align-items: center; justify-content: center;
-      background: rgba(1,4,9,0.55);
-      pointer-events: none;
-    }
-    #draw-overlay.visible { display: flex; }
-    .draw-hint-box {
-      background: rgba(13,17,23,0.98);
-      border: 1px solid #388bfd;
-      border-radius: 14px; padding: 24px 30px;
-      text-align: center; max-width: 300px;
-      box-shadow: 0 8px 48px rgba(0,0,0,0.8), 0 0 0 6px rgba(56,139,253,0.07);
-    }
-    .draw-hint-icon { font-size: 36px; margin-bottom: 10px; line-height: 1; }
-    .draw-hint-title { font-size: 15px; font-weight: 700; color: #f0f6fc; margin-bottom: 7px; }
-    .draw-hint-desc  { font-size: 12px; color: #8b949e; line-height: 1.65; margin-bottom: 12px; }
-    .draw-hint-loc {
-      font-size: 11px; color: #388bfd; line-height: 1.5;
-      background: rgba(56,139,253,0.07); border: 1px solid rgba(56,139,253,0.22);
-      border-radius: 8px; padding: 8px 12px;
-    }
-
     /* ─── Year selector ─── */
     .year-selector {
       padding: 10px 14px 12px; border-top: 1px solid #21262d;
@@ -780,7 +762,6 @@
         border-radius: 14px 14px 0 0;
       }
       #panel.snapped { top: auto !important; }
-      #draw-overlay { bottom: 55vh; }
       #legend { left: 50%; transform: translateX(-50%); bottom: calc(55vh + 12px); }
       #reload-indicator { bottom: calc(55vh + 10px); }
       #wms-panel { right: 8px; bottom: calc(55vh + 10px); }
@@ -803,22 +784,22 @@
         <div class="wm-step">
           <div class="wm-step-num">1</div>
           <div>
-            <div class="wm-step-title">Stel je vraag</div>
-            <div class="wm-step-desc">AI kiest CBS Vierkantstatistieken, BAG of NGR en legt de keuze uit</div>
+            <div class="wm-step-title">Teken je studiegebied</div>
+            <div class="wm-step-desc">Zoek een gemeente of wijk, of klik twee keer op de kaart om een rechthoek te tekenen</div>
           </div>
         </div>
         <div class="wm-step">
           <div class="wm-step-num">2</div>
           <div>
-            <div class="wm-step-title">Teken je studiegebied</div>
-            <div class="wm-step-desc">Gebruik de zoekbalk om naar een gemeente te navigeren, klik dan en sleep op de kaart</div>
+            <div class="wm-step-title">Stel je vraag</div>
+            <div class="wm-step-desc">Typ in gewoon Nederlands wat je wilt weten — AI kiest automatisch de juiste databron</div>
           </div>
         </div>
         <div class="wm-step">
           <div class="wm-step-num">3</div>
           <div>
             <div class="wm-step-title">Analyseer de hexagonkaart</div>
-            <div class="wm-step-desc">Data per ~174m hexagoon. Wissel van jaar of vraag een ander kenmerk op voor hetzelfde gebied</div>
+            <div class="wm-step-desc">Data per ~174m hexagoon. Wissel van jaar of stel een andere vraag voor hetzelfde gebied</div>
           </div>
         </div>
       </div>
@@ -832,16 +813,6 @@
 
   <div id="container"></div>
   <div id="map-loading-bar"></div>
-
-  <!-- Draw mode overlay -->
-  <div id="draw-overlay">
-    <div class="draw-hint-box">
-      <div class="draw-hint-icon">⬚</div>
-      <div class="draw-hint-title">Teken je studiegebied</div>
-      <div class="draw-hint-desc">Klik en sleep op de kaart om een rechthoek te tekenen. Een wijk of stadsdeel (~2–5 km²) geeft de beste resultaten.</div>
-      <div class="draw-hint-loc">Tip: zoek eerst een gemeente of wijk in het zoekveld linksboven</div>
-    </div>
-  </div>
 
   <div id="map-tools">
     <button class="map-tool-btn" id="draw-btn" title="Teken studiegebied" onclick="toggleDrawMode()">⬚</button>
@@ -902,16 +873,16 @@
       </div>
     </div>
 
+    <div id="messages">
+      <!-- Populated by JS -->
+    </div>
+
     <div id="input-area">
       <div class="input-row">
         <input id="question-input" type="text"
           placeholder="Teken eerst je studiegebied..." autocomplete="off" disabled />
         <button id="submit-btn" title="Verstuur" disabled>→</button>
       </div>
-    </div>
-
-    <div id="messages">
-      <!-- Populated by JS -->
     </div>
 
   </div>
@@ -1164,43 +1135,40 @@
 
       const container = document.getElementById('container');
 
-      container.addEventListener('mousedown', e => {
+      // Two-click drawing: first click anchors start, second click finishes
+      container.addEventListener('click', e => {
         if (!drawMode) return;
         e.stopPropagation();
-        // Hide the overlay the moment the user starts drawing
-        document.getElementById('draw-overlay').classList.remove('visible');
-        drawStart   = pixelToLatLon(e.clientX, e.clientY);
-        drawPreview = { start: drawStart, end: drawStart };
-        deckInstance.setProps({ controller: false });
+        if (!drawStart) {
+          // First click: anchor the start corner
+          drawStart   = pixelToLatLon(e.clientX, e.clientY);
+          drawPreview = { start: drawStart, end: drawStart };
+          deckInstance.setProps({ controller: false });
+        } else {
+          // Second click: finish the bbox
+          const end = pixelToLatLon(e.clientX, e.clientY);
+          drawnBbox  = normBbox(drawStart, end);
+          drawStart  = null; drawPreview = null; drawMode = false;
+          deckInstance.setProps({ controller: true });
+          container.style.cursor = '';
+          document.getElementById('draw-btn').classList.remove('active', 'pulse');
+          document.getElementById('clear-btn').style.display = '';
+          updateAreaInfo();
+          updateMap();
+          if (drawCardEl) { drawCardEl.remove(); drawCardEl = null; }
+          if (currentQuery) {
+            fetchDataForBbox(drawnBbox);
+          } else {
+            setStep(2);
+            appendQuestionStepCard();
+          }
+        }
       });
 
       container.addEventListener('mousemove', e => {
         if (!drawMode || !drawStart) return;
         drawPreview = { start: drawStart, end: pixelToLatLon(e.clientX, e.clientY) };
         updateMap();
-      });
-
-      container.addEventListener('mouseup', e => {
-        if (!drawMode || !drawStart) return;
-        const end = pixelToLatLon(e.clientX, e.clientY);
-        drawnBbox  = normBbox(drawStart, end);
-        drawStart  = null; drawPreview = null; drawMode = false;
-        deckInstance.setProps({ controller: true });
-        container.style.cursor = '';
-        document.getElementById('draw-btn').classList.remove('active', 'pulse');
-        document.getElementById('clear-btn').style.display = '';
-        updateAreaInfo();
-        updateMap();
-        // Remove the draw step card
-        if (drawCardEl) { drawCardEl.remove(); drawCardEl = null; }
-        if (currentQuery) {
-          // keepArea flow: AI already responded, fetch immediately
-          fetchDataForBbox(drawnBbox);
-        } else {
-          // New flow: area drawn first — now ask the question
-          setStep(2);
-          appendQuestionStepCard();
-        }
       });
     }
 
@@ -1245,7 +1213,6 @@
       document.getElementById('draw-btn').classList.toggle('pulse', drawMode);
       if (!drawMode) {
         drawStart = null; drawPreview = null; updateMap();
-        document.getElementById('draw-overlay').classList.remove('visible');
       }
     }
     window.toggleDrawMode = toggleDrawMode;
@@ -1254,10 +1221,10 @@
       drawnBbox = null; drawPreview = null; drawStart = null;
       document.getElementById('clear-btn').style.display = 'none';
       document.getElementById('area-info').classList.remove('visible');
-      document.getElementById('draw-overlay').classList.remove('visible');
-      currentH3Data = null;
+      document.getElementById('panel').style.cssText = '';
+      document.getElementById('panel').classList.remove('snapped');
       updateMap();
-      document.getElementById('legend').classList.remove('visible');
+      initDrawStep();
     }
     window.clearDrawnArea = clearDrawnArea;
 
@@ -1421,7 +1388,7 @@
     // Step indicator
     // ─────────────────────────────────────────────────────────────────
     function setStep(n) {
-      // n = 1 (asking AI), 2 (draw area), 3 (data loaded)
+      // n = 1 (draw area), 2 (ask question), 3 (data loaded)
       ['step-1','step-2','step-3'].forEach((id, i) => {
         const el = document.getElementById(id);
         el.className = 'step-pill ' + (i + 1 < n ? 'done' : i + 1 === n ? 'active' : '');
@@ -1542,6 +1509,12 @@
     // ─────────────────────────────────────────────────────────────────
     function initDrawStep() {
       document.getElementById('messages').innerHTML = '';
+      document.getElementById('input-area').classList.remove('visible');
+      document.getElementById('question-input').disabled = true;
+      document.getElementById('submit-btn').disabled = true;
+      currentQuery = null; currentH3Data = null; currentBbox = null;
+      currentRawFeatures = []; currentMetric = null;
+      document.getElementById('legend').classList.remove('visible');
       setStep(1);
       drawCardEl = appendDrawPromptCard({ metric_column: null });
       activateDrawMode();
@@ -1843,7 +1816,7 @@
       el.className = 'card-draw-step';
       el.innerHTML = `
         <div class="draw-step-header">
-          <span class="draw-step-badge">Stap 2 van 3</span>
+          <span class="draw-step-badge">Stap 1 van 2</span>
           <span class="draw-step-title">Kies je studiegebied</span>
         </div>
         <div class="draw-step-search-wrap">
@@ -1856,7 +1829,7 @@
           <span class="draw-step-or-text">of teken direct op de kaart</span>
           <div class="draw-step-or-line"></div>
         </div>
-        <div class="draw-step-map-hint"><b>Klik en sleep</b> op de kaart links om een rechthoek te tekenen</div>
+        <div class="draw-step-map-hint"><b>Klik</b> voor de eerste hoek — beweeg je muis — <b>klik</b> opnieuw voor de tweede hoek</div>
         <div class="draw-step-note">${esc(note)}</div>`;
 
       document.getElementById('messages').appendChild(el);
@@ -1888,7 +1861,8 @@
         </div>`;
       document.getElementById('messages').appendChild(el);
       scrollToBottom();
-      // Enable question input now that area is chosen
+      // Show and enable question input now that area is chosen
+      document.getElementById('input-area').classList.add('visible');
       document.getElementById('question-input').disabled = false;
       document.getElementById('question-input').placeholder = 'Stel je vraag over dit gebied...';
       document.getElementById('submit-btn').disabled = false;
@@ -1901,7 +1875,6 @@
       drawMode = true;
       document.getElementById('container').style.cursor = 'crosshair';
       document.getElementById('draw-btn').classList.add('active', 'pulse');
-      document.getElementById('draw-overlay').classList.add('visible');
     }
 
     function appendResultCard(aiData, features, binResult, truncated) {
@@ -1943,7 +1916,7 @@
             <span class="stat-value">${kmW} × ${kmH} km</span>
           </div>
           <div class="stat-row">
-            <span class="stat-label">CBS-cellen opgehaald</span>
+            <span class="stat-label">Features opgehaald</span>
             <span class="stat-value">${featureCount.toLocaleString('nl-NL')}</span>
           </div>
           ${!isSuppressed ? `
@@ -2116,6 +2089,7 @@
       const panel = document.getElementById('panel');
       panel.style.cssText = '';
       panel.classList.remove('snapped');
+      setStep(2);
       appendQuestionStepCard();
     }
     window.newQuestionSameArea = newQuestionSameArea;
