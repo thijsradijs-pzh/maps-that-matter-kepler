@@ -535,6 +535,136 @@
     .legend-bar { height: 8px; border-radius: 4px; margin-bottom: 5px; }
     .legend-labels { display: flex; justify-content: space-between; font-size: 10px; color: #484f58; }
 
+    /* ─── Welcome overlay ─── */
+    #welcome-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(1,4,9,0.88);
+      backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+      transition: opacity 0.25s;
+    }
+    #welcome-overlay.hidden { display: none; }
+    #welcome-modal {
+      background: #161b22; border: 1px solid #30363d;
+      border-radius: 16px; width: 100%; max-width: 400px;
+      overflow: hidden;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.8);
+    }
+    .wm-header {
+      padding: 24px 24px 16px;
+      border-bottom: 1px solid #21262d;
+    }
+    .wm-header h2 {
+      font-size: 20px; font-weight: 800; color: #f0f6fc;
+      letter-spacing: -0.5px; margin-bottom: 6px;
+    }
+    .wm-tagline { font-size: 12px; color: #58a6ff; font-weight: 500; margin-bottom: 8px; }
+    .wm-header p { font-size: 12px; color: #7d8590; line-height: 1.65; }
+    .wm-steps {
+      padding: 16px 24px;
+      border-bottom: 1px solid #21262d;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .wm-step { display: flex; align-items: flex-start; gap: 13px; }
+    .wm-step-num {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: rgba(31,111,235,0.15); border: 1px solid #1f6feb;
+      font-size: 11px; font-weight: 700; color: #58a6ff;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 1px;
+    }
+    .wm-step-title { font-size: 13px; font-weight: 600; color: #f0f6fc; }
+    .wm-step-desc  { font-size: 11px; color: #7d8590; margin-top: 2px; line-height: 1.5; }
+    .wm-note {
+      margin: 12px 24px 0;
+      padding: 10px 13px;
+      background: rgba(210,153,34,0.08); border: 1px solid rgba(210,153,34,0.25);
+      border-radius: 8px; font-size: 11px; color: #e3b341; line-height: 1.6;
+    }
+    .wm-footer {
+      padding: 16px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px;
+    }
+    .wm-start-btn {
+      background: #1f6feb; border: none; border-radius: 9px;
+      color: #fff; font-size: 13px; font-weight: 700;
+      padding: 11px 26px; cursor: pointer;
+      font-family: inherit; transition: background 0.15s; white-space: nowrap;
+    }
+    .wm-start-btn:hover { background: #388bfd; }
+    .wm-remember {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 11px; color: #484f58; cursor: pointer; user-select: none;
+    }
+    .wm-remember input { accent-color: #388bfd; cursor: pointer; }
+
+    /* Info button in panel header */
+    #info-btn {
+      background: none; border: 1px solid #30363d; border-radius: 6px;
+      color: #484f58; font-size: 11px; font-weight: 700;
+      width: 22px; height: 22px; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    #info-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+
+    /* ─── Draw overlay ─── */
+    #draw-overlay {
+      position: absolute; top: 0; left: 0; bottom: 0; right: 380px;
+      z-index: 5; display: none;
+      align-items: center; justify-content: center;
+      background: rgba(1,4,9,0.55);
+      pointer-events: none;
+    }
+    #draw-overlay.visible { display: flex; }
+    .draw-hint-box {
+      background: rgba(13,17,23,0.98);
+      border: 1px solid #388bfd;
+      border-radius: 14px; padding: 24px 30px;
+      text-align: center; max-width: 300px;
+      box-shadow: 0 8px 48px rgba(0,0,0,0.8), 0 0 0 6px rgba(56,139,253,0.07);
+    }
+    .draw-hint-icon { font-size: 36px; margin-bottom: 10px; line-height: 1; }
+    .draw-hint-title { font-size: 15px; font-weight: 700; color: #f0f6fc; margin-bottom: 7px; }
+    .draw-hint-desc  { font-size: 12px; color: #8b949e; line-height: 1.65; margin-bottom: 12px; }
+    .draw-hint-loc {
+      font-size: 11px; color: #388bfd; line-height: 1.5;
+      background: rgba(56,139,253,0.07); border: 1px solid rgba(56,139,253,0.22);
+      border-radius: 8px; padding: 8px 12px;
+    }
+
+    /* Location input pulse while in draw mode */
+    #location-input.draw-active {
+      border-color: #388bfd;
+      animation: loc-draw-pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes loc-draw-pulse {
+      0%, 100% { box-shadow: 0 0 0 2px rgba(56,139,253,0.3), 0 2px 8px rgba(0,0,0,0.5); }
+      50%       { box-shadow: 0 0 0 5px rgba(56,139,253,0.06), 0 2px 8px rgba(0,0,0,0.5); }
+    }
+
+    /* ─── Year selector ─── */
+    .year-selector {
+      padding: 10px 14px 12px; border-top: 1px solid #21262d;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .year-label {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.5px; color: #484f58; flex-shrink: 0;
+    }
+    .year-btns { display: flex; gap: 4px; flex-wrap: wrap; }
+    .year-btn {
+      background: #0d1117; border: 1px solid #30363d;
+      border-radius: 5px; padding: 3px 9px;
+      font-size: 11px; color: #7d8590; cursor: pointer;
+      font-family: inherit; transition: all 0.15s;
+    }
+    .year-btn:hover:not(:disabled) { border-color: #58a6ff; color: #58a6ff; }
+    .year-btn.active { background: rgba(31,79,142,0.3); border-color: #388bfd; color: #79c0ff; font-weight: 600; }
+    .year-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
     /* Mobile */
     @media (max-width: 700px) {
       #panel { top: auto; left: 0; right: 0; bottom: 0; width: 100%; height: 52vh; border-left: none; border-top: 1px solid #21262d; }
@@ -544,13 +674,64 @@
       #wms-panel { right: 8px; bottom: calc(52vh + 10px); }
       #location-search { width: calc(100vw - 78px); }
       #area-info { top: 58px; left: 62px; }
+      #draw-overlay { right: 0; bottom: 52vh; }
+      #welcome-modal { max-width: 100%; border-radius: 12px; }
     }
   </style>
 </head>
 <body>
 
+  <!-- Welcome splash -->
+  <div id="welcome-overlay">
+    <div id="welcome-modal">
+      <div class="wm-header">
+        <h2>PDOK Verkenner</h2>
+        <div class="wm-tagline">CBS · BAG · NGR — live geodata voor Nederland</div>
+        <p>Stel een vraag in gewoon Nederlands. De AI kiest de juiste databron, jij tekent het gebied op de kaart — dan wordt de data live opgehaald als hexagonkaart.</p>
+      </div>
+      <div class="wm-steps">
+        <div class="wm-step">
+          <div class="wm-step-num">1</div>
+          <div>
+            <div class="wm-step-title">Stel je vraag</div>
+            <div class="wm-step-desc">AI kiest CBS Vierkantstatistieken, BAG of NGR en legt de keuze uit</div>
+          </div>
+        </div>
+        <div class="wm-step">
+          <div class="wm-step-num">2</div>
+          <div>
+            <div class="wm-step-title">Teken je studiegebied</div>
+            <div class="wm-step-desc">Gebruik de zoekbalk om naar een gemeente te navigeren, klik dan en sleep op de kaart</div>
+          </div>
+        </div>
+        <div class="wm-step">
+          <div class="wm-step-num">3</div>
+          <div>
+            <div class="wm-step-title">Analyseer de hexagonkaart</div>
+            <div class="wm-step-desc">Data per ~174m hexagoon. Wissel van jaar of vraag een ander kenmerk op voor hetzelfde gebied</div>
+          </div>
+        </div>
+      </div>
+      <div class="wm-note">⚠ WOZ-waarden, inkomen en energiedata worden door CBS onderdrukt in cellen met weinig bewoners. Werkt het niet? Gebruik de retry-knoppen voor een alternatief.</div>
+      <div class="wm-footer">
+        <label class="wm-remember"><input type="checkbox" id="wm-no-show"> Niet meer tonen</label>
+        <button class="wm-start-btn" onclick="dismissWelcome()">Begin →</button>
+      </div>
+    </div>
+  </div>
+
   <div id="container"></div>
   <div id="map-loading-bar"></div>
+
+  <!-- Draw mode overlay -->
+  <div id="draw-overlay">
+    <div class="draw-hint-box">
+      <div class="draw-hint-icon">⬚</div>
+      <div class="draw-hint-title">Teken je studiegebied</div>
+      <div class="draw-hint-desc">Klik en sleep op de kaart om een rechthoek te tekenen. Een wijk of stadsdeel (~2–5 km²) geeft de beste resultaten.</div>
+      <div class="draw-hint-loc">Tip: zoek eerst een gemeente of wijk in het zoekveld linksboven</div>
+    </div>
+  </div>
 
   <div id="map-tools">
     <button class="map-tool-btn" id="draw-btn" title="Teken studiegebied" onclick="toggleDrawMode()">⬚</button>
@@ -589,7 +770,10 @@
   <!-- Side panel -->
   <div id="panel">
     <div class="panel-header">
-      <h1>PDOK Verkenner</h1>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <h1>PDOK Verkenner</h1>
+        <button id="info-btn" onclick="showWelcome()" title="Uitleg tonen">?</button>
+      </div>
       <p>CBS · BAG · NGR — live geodata voor Nederland</p>
       <div class="steps-row">
         <div class="step-pill" id="step-1"></div>
@@ -809,6 +993,46 @@
     }
 
     // ─────────────────────────────────────────────────────────────────
+    // Metric display labels (CBS property → readable Dutch name)
+    // ─────────────────────────────────────────────────────────────────
+    const METRIC_LABELS = {
+      aantalInwoners:                               'Inwoners per 100m²',
+      aantalMannen:                                 'Mannen',
+      aantalVrouwen:                                'Vrouwen',
+      aantalWoningen:                               'Woningen per 100m²',
+      aantalNietBewoondeWoningen:                   'Leegstaande woningen',
+      aantalHuurwoningenInBezitWoningcorporaties:   'Sociale huurwoningen',
+      aantalMeergezinsWoningen:                     'Meergezinswoningen',
+      percentageKoopwoningen:                       '% koopwoningen',
+      percentageHuurwoningen:                       '% huurwoningen',
+      gemiddeldeWozWaardeWoning:                    'Gem. WOZ-waarde (€)',
+      gemiddeldGasverbruikWoning:                   'Gasverbruik (m³/jaar)',
+      gemiddeldElektriciteitsverbruikWoning:        'Elektriciteitsverbruik (kWh/jaar)',
+      aantalEenpersoonshuishoudens:                 'Eenpersoonshuishoudens',
+      aantalPartHuishoudens:                        'Huishoudens totaal',
+      aantalMeerpersoonshuishoudensZonderKind:      'Huishoudens zonder kinderen',
+      aantalEenouderhuishoudens:                    'Eenouderhuishoudens',
+      aantalTweeouderhuishoudens:                   'Tweeouderhuishoudens',
+      gemiddeldeHuishoudensgrootte:                 'Gem. huishoudensgrootte',
+      aantalPersonenMetUitkeringOnderAowlft:        'Uitkeringsgerechtigden',
+      aantalWoningenBouwjaarVoor1945:               'Woningen vóór 1945',
+      aantalWoningenBouwjaar45Tot65:                'Woningen 1945–1965',
+      aantalWoningenBouwjaar65Tot75:                'Woningen 1965–1975',
+      aantalWoningenBouwjaar75Tot85:                'Woningen 1975–1985',
+      aantalWoningenBouwjaar85Tot95:                'Woningen 1985–1995',
+      aantalWoningenBouwjaar95Tot05:                'Woningen 1995–2005',
+      aantalWoningenBouwjaar05Tot15:                'Woningen 2005–2015',
+      aantalWoningenBouwjaar15EnLater:              'Woningen 2015+',
+      dichtstbijzijndeGroteSupermarktAfstandInKm:   'Afstand grote supermarkt (km)',
+      dichtstbijzijndeTreinstationAfstandInKm:      'Afstand treinstation (km)',
+      dichtstbijzijndeHuisartsenpraktijkAfstandInKm:'Afstand huisarts (km)',
+      dichtstbijzijndeZiekenhExclBuitenpoliAfstInKm:'Afstand ziekenhuis (km)',
+      dichtstbijzijndeBasisonderwijsAfstandInKm:    'Afstand basisschool (km)',
+    };
+
+    const CBS_YEARS = ['2003', '2008', '2019', '2021', '2023', '2024'];
+
+    // ─────────────────────────────────────────────────────────────────
     // CBS suppression metadata
     // ─────────────────────────────────────────────────────────────────
     const SUPPRESSION_PRONE = new Set([
@@ -869,9 +1093,10 @@
         onViewStateChange: ({ viewState }) => { currentViewState = viewState; },
         getTooltip: ({ object }) => {
           if (!object) return null;
+          const label = METRIC_LABELS[currentMetric] || currentMetric || '';
           return {
-            html: `<div style="font-size:12px;padding:4px 8px;">${formatValue(object.value)} <span style="color:#7d8590">${esc(currentMetric || '')}</span></div>`,
-            style: { background: 'rgba(13,17,23,0.95)', border: '1px solid #30363d', borderRadius: '6px', color: '#e6edf3' },
+            html: `<div style="font-size:13px;font-weight:600;padding:6px 10px 2px">${formatValue(object.value)}</div><div style="font-size:10px;color:#7d8590;padding:0 10px 7px;max-width:180px;line-height:1.4">${esc(label)}</div>`,
+            style: { background: 'rgba(13,17,23,0.97)', border: '1px solid #30363d', borderRadius: '8px', color: '#e6edf3', padding: '0' },
           };
         },
       });
@@ -881,6 +1106,9 @@
       container.addEventListener('mousedown', e => {
         if (!drawMode) return;
         e.stopPropagation();
+        // Hide the overlay the moment the user starts drawing
+        document.getElementById('draw-overlay').classList.remove('visible');
+        document.getElementById('location-input').classList.remove('draw-active');
         drawStart   = pixelToLatLon(e.clientX, e.clientY);
         drawPreview = { start: drawStart, end: drawStart };
         deckInstance.setProps({ controller: false });
@@ -947,10 +1175,13 @@
     function toggleDrawMode() {
       drawMode = !drawMode;
       document.getElementById('container').style.cursor = drawMode ? 'crosshair' : '';
-      const btn = document.getElementById('draw-btn');
-      btn.classList.toggle('active', drawMode);
-      btn.classList.toggle('pulse', drawMode);
-      if (!drawMode) { drawStart = null; drawPreview = null; updateMap(); }
+      document.getElementById('draw-btn').classList.toggle('active', drawMode);
+      document.getElementById('draw-btn').classList.toggle('pulse', drawMode);
+      if (!drawMode) {
+        drawStart = null; drawPreview = null; updateMap();
+        document.getElementById('draw-overlay').classList.remove('visible');
+        document.getElementById('location-input').classList.remove('draw-active');
+      }
     }
     window.toggleDrawMode = toggleDrawMode;
 
@@ -958,6 +1189,8 @@
       drawnBbox = null; drawPreview = null; drawStart = null;
       document.getElementById('clear-btn').style.display = 'none';
       document.getElementById('area-info').classList.remove('visible');
+      document.getElementById('draw-overlay').classList.remove('visible');
+      document.getElementById('location-input').classList.remove('draw-active');
       currentH3Data = null;
       updateMap();
       document.getElementById('legend').classList.remove('visible');
@@ -1130,6 +1363,40 @@
         el.className = 'step-pill ' + (i + 1 < n ? 'done' : i + 1 === n ? 'active' : '');
       });
     }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Welcome overlay
+    // ─────────────────────────────────────────────────────────────────
+    function showWelcome() {
+      document.getElementById('welcome-overlay').classList.remove('hidden');
+    }
+
+    function dismissWelcome() {
+      const overlay = document.getElementById('welcome-overlay');
+      overlay.classList.add('hidden');
+      if (document.getElementById('wm-no-show').checked) {
+        try { localStorage.setItem('pdok-welcome-seen', '1'); } catch {}
+      }
+    }
+    window.dismissWelcome = dismissWelcome;
+    window.showWelcome    = showWelcome;
+
+    // Also dismiss on backdrop click
+    document.getElementById('welcome-overlay').addEventListener('click', e => {
+      if (e.target === document.getElementById('welcome-overlay')) dismissWelcome();
+    });
+
+    // ─────────────────────────────────────────────────────────────────
+    // Year switcher (CBS vierkantstatistieken only)
+    // ─────────────────────────────────────────────────────────────────
+    async function switchYear(year) {
+      if (!currentQuery?.wfsUrl || !drawnBbox) return;
+      document.querySelectorAll('.year-btn').forEach(b => { b.disabled = true; });
+      currentQuery = { ...currentQuery, wfsUrl: currentQuery.wfsUrl.replace(/\/\d{4}\//, `/${year}/`) };
+      if (activeCardEl) { activeCardEl.remove(); activeCardEl = null; }
+      await fetchDataForBbox(drawnBbox);
+    }
+    window.switchYear = switchYear;
 
     // ─────────────────────────────────────────────────────────────────
     // Location search + fly-to
@@ -1450,8 +1717,9 @@
       if (drawMode) return;
       drawMode = true;
       document.getElementById('container').style.cursor = 'crosshair';
-      const btn = document.getElementById('draw-btn');
-      btn.classList.add('active', 'pulse');
+      document.getElementById('draw-btn').classList.add('active', 'pulse');
+      document.getElementById('draw-overlay').classList.add('visible');
+      document.getElementById('location-input').classList.add('draw-active');
     }
 
     function appendResultCard(aiData, features, binResult, truncated) {
@@ -1466,6 +1734,15 @@
       const kmH = Math.round(Math.abs(n - s) * 110.574);
 
       const isSuppressed = featureCount > 0 && hexCount === 0;
+      const isCBS    = aiData.wfsUrl.includes('vierkantstatistieken');
+      const yearNow  = (aiData.wfsUrl.match(/\/(\d{4})\//) || [])[1] || '';
+      const yearHtml = isCBS ? `
+        <div class="year-selector">
+          <span class="year-label">Jaar</span>
+          <div class="year-btns">
+            ${CBS_YEARS.map(y => `<button class="year-btn${y === yearNow ? ' active' : ''}" onclick="switchYear(${y})">${y}</button>`).join('')}
+          </div>
+        </div>` : '';
       const alts = SUPPRESSION_ALTS[aiData.metric_column] || DEFAULT_ALTS;
       const retryBtns = alts.map(a =>
         `<button class="retry-btn" onclick="retryWithMetric('${esc(a.m)}','${esc(a.l)}')">${esc(a.l)}</button>`
@@ -1498,6 +1775,7 @@
             <span class="stat-value">${formatValue(binResult.min)} – ${formatValue(binResult.max)}</span>
           </div>` : ''}
         </div>
+        ${yearHtml}
         ${isSuppressed ? `
         <div class="card-result-warning" style="border-color:rgba(248,81,73,0.3);background:rgba(248,81,73,0.08);color:#f85149;">
           CBS heeft <b>${esc(aiData.metric_column)}</b> voor alle ${featureCount} cellen onderdrukt — dit kenmerk vereist een hogere bevolkingsdichtheid.
@@ -1694,6 +1972,11 @@
     // ─────────────────────────────────────────────────────────────────
     // Init
     // ─────────────────────────────────────────────────────────────────
+    try {
+      if (localStorage.getItem('pdok-welcome-seen')) {
+        document.getElementById('welcome-overlay').classList.add('hidden');
+      }
+    } catch {}
     initDeck();
   </script>
 </body>
