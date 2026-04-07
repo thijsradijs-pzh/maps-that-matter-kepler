@@ -4,6 +4,17 @@
   <meta charset='utf-8' />
   <title>Ground Height Visualization – Maps That Matter</title>
   <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+  <meta name="description" content="Ground height visualization for the Netherlands using the AHN elevation model, aggregated to H3 hexagons." />
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://www.mapsthatmatter.io/groundheight" />
+  <meta property="og:title" content="Ground Height (AHN) — Maps That Matter" />
+  <meta property="og:description" content="Ground height visualization for the Netherlands using the AHN elevation model, aggregated to H3 hexagons." />
+  <meta property="og:image" content="https://www.mapsthatmatter.io/assets/thijs.jpg" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Ground Height (AHN)" />
+  <meta name="twitter:description" content="Ground height visualization for the Netherlands using the AHN elevation model, aggregated to H3 hexagons." />
+  <meta name="twitter:image" content="https://www.mapsthatmatter.io/assets/thijs.jpg" />
 
    <!-- Privacy-friendly analytics by Plausible -->
   <script async src="https://plausible.io/js/pa-unGG15m6r6ufvAQNAPz3f.js"></script>
@@ -14,7 +25,7 @@
     plausible.init = plausible.init || function (i) { plausible.o = i || {} };
     plausible.init();
   </script>
-  
+
   <!-- Dependencies -->
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
@@ -293,6 +304,7 @@
   </style>
 </head>
 <body>
+  <a href="/" style="position:fixed;top:12px;left:12px;z-index:9999;background:rgba(13,17,23,0.85);color:#58a6ff;font-size:11px;font-weight:600;padding:6px 10px;border-radius:6px;border:1px solid #30363d;text-decoration:none;backdrop-filter:blur(4px);">← Maps That Matter</a>
   <!-- Wrapper for fullscreen functionality -->
   <div id="fullscreen-wrapper">
     <div id="container"></div>
@@ -651,16 +663,13 @@
     // Load data and initialize
     async function init() {
       try {
-        console.log('🚀 Loading data...');
         
         // Load data
         allData = await DeckGLUtils.loadCSV(VIZ_CONFIG.dataUrl);
-        console.log(`✅ Loaded ${allData.length} rows`);
         
         // Verify H3 if needed
         if (VIZ_CONFIG.h3Field) {
           allData = allData.filter(d => d[VIZ_CONFIG.h3Field] && d[VIZ_CONFIG.h3Field].length > 0);
-          console.log(`✅ ${allData.length} valid H3 hexagons`);
         }
         
         // Build and show controls
@@ -689,7 +698,6 @@
         });
 
         document.getElementById('loading').style.display = 'none';
-        console.log('🎉 Visualization ready!');
       } catch (error) {
         console.error('❌ Error:', error);
         document.getElementById('loading').textContent = 'Error: ' + error.message;

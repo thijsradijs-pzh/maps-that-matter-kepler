@@ -4,7 +4,18 @@
   <meta charset='utf-8' />
   <title>Data Explorer (Parquet) – Maps That Matter</title>
   <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
-  
+  <meta name="description" content="Load and explore any H3 hexagon Parquet dataset in the browser using DuckDB WASM — no server needed." />
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://www.mapsthatmatter.io/explorer-3d" />
+  <meta property="og:title" content="Data Explorer (Parquet) — Maps That Matter" />
+  <meta property="og:description" content="Load and explore any H3 hexagon Parquet dataset in the browser using DuckDB WASM — no server needed." />
+  <meta property="og:image" content="https://www.mapsthatmatter.io/assets/thijs.jpg" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Data Explorer (Parquet)" />
+  <meta name="twitter:description" content="Load and explore any H3 hexagon Parquet dataset in the browser using DuckDB WASM — no server needed." />
+  <meta name="twitter:image" content="https://www.mapsthatmatter.io/assets/thijs.jpg" />
+
   <!-- DuckDB WASM via esm.sh — auto-resolves bare specifier deps (apache-arrow etc.) -->
   <script type="module">
     import * as duckdb from 'https://esm.sh/@duckdb/duckdb-wasm@1.28.0';
@@ -270,8 +281,9 @@
   </style>
 </head>
 <body>
+  <a href="/" style="position:fixed;top:12px;left:12px;z-index:9999;background:rgba(13,17,23,0.85);color:#58a6ff;font-size:11px;font-weight:600;padding:6px 10px;border-radius:6px;border:1px solid #30363d;text-decoration:none;backdrop-filter:blur(4px);">← Maps That Matter</a>
   <div id="container"></div>
-  
+
   <div id="loading">
     <div>🦆 Loading data with DuckDB...</div>
     <div id="loading-progress">Initializing...</div>
@@ -311,14 +323,12 @@
           await new Promise(resolve => setTimeout(resolve, 100));
         }
 
-        console.log('✅ DuckDB library loaded');
       }
 
       async initialize() {
         if (this.db) return;
 
         try {
-          console.log('🦆 Initializing DuckDB-WASM...');
 
           await this.waitForDuckDB();
 
@@ -329,7 +339,6 @@
           };
           const bundle = await window.duckdb.selectBundle(bundles);
 
-          console.log('📦 Selected bundle:', bundle.mainModule.split('/').pop());
 
           // Workers must be same-origin — fetch cross-origin script and wrap in blob URL
           const workerCode = await fetch(bundle.mainWorker).then(r => r.text());
@@ -342,7 +351,6 @@
           
           this.conn = await this.db.connect();
           
-          console.log('✅ DuckDB-WASM initialized successfully');
         } catch (error) {
           console.error('❌ Failed to initialize DuckDB:', error);
           throw new Error(`DuckDB initialization failed: ${error.message}`);
@@ -353,7 +361,6 @@
         await this.initialize();
 
         try {
-          console.log(`🦆 Loading Parquet file: ${url}`);
           
           const response = await fetch(url);
           if (!response.ok) {
@@ -363,11 +370,9 @@
           const arrayBuffer = await response.arrayBuffer();
           const uint8Array = new Uint8Array(arrayBuffer);
           
-          console.log(`📦 Downloaded ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(2)} MB`);
           
           await this.db.registerFileBuffer('data.parquet', uint8Array);
           
-          console.log('📊 Parsing Parquet file...');
           
           await this.conn.query(`
             CREATE OR REPLACE TABLE ${tableName} AS 
@@ -377,7 +382,6 @@
           const countResult = await this.conn.query(`SELECT COUNT(*) as count FROM ${tableName}`);
           const rowCount = countResult.toArray()[0].count;
           
-          console.log(`✅ Loaded ${rowCount.toLocaleString()} rows into table '${tableName}'`);
           
           return rowCount;
         } catch (error) {
@@ -387,7 +391,6 @@
       }
 
       async getAllData(tableName = 'data') {
-        console.log(`📖 Reading all data from table '${tableName}'...`);
         const result = await this.conn.query(`SELECT * FROM ${tableName}`);
         return result.toArray();
       }
@@ -401,7 +404,6 @@
           await this.db.terminate();
           this.db = null;
         }
-        console.log('🦆 DuckDB connection closed');
       }
     }
 
@@ -842,7 +844,6 @@
 
     async function init() {
       try {
-        console.log('🚀 Starting Data Explorer with DuckDB + Parquet...');
         
         updateLoadingProgress('Initializing DuckDB...');
         duckDBLoader = new DuckDBLoader();
@@ -854,8 +855,6 @@
         updateLoadingProgress('Reading data...');
         allData = await duckDBLoader.getAllData();
         
-        console.log(`✅ Loaded ${allData.length.toLocaleString()} rows`);
-        console.log(`✅ ${new Set(allData.map(d => d.h3_id)).size.toLocaleString()} unique H3 hexagons`);
         
         document.getElementById('controls').innerHTML = buildControls();
         document.getElementById('controls').style.display = 'block';
@@ -879,7 +878,6 @@
         });
 
         document.getElementById('loading').style.display = 'none';
-        console.log('🎉 Visualization ready!');
       } catch (error) {
         console.error('❌ Error:', error);
         document.getElementById('loading').innerHTML = `
