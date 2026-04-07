@@ -74,6 +74,21 @@
       flex-shrink: 0;
     }
 
+    .author-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .author-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #30363d;
+      flex-shrink: 0;
+    }
+
     .author-tag {
       font-size: 12px;
       color: #484f58;
@@ -307,7 +322,10 @@
           <p>Interactive geospatial tools for the Netherlands — built with H3 hexagons, Deck.gl, and AI. Live CBS statistics, BAG buildings, and spatial analysis at your fingertips.</p>
         </div>
         <div class="header-meta">
-          <span class="author-tag">by <a href="https://github.com/thijsradijs-pzh" target="_blank">Thijs Radijs</a></span>
+          <div class="author-row">
+            <img src="/data/Untitled.jpg" alt="Thijs Radijs" class="author-avatar" />
+            <span class="author-tag">by <a href="https://github.com/thijsradijs-pzh" target="_blank">Thijs Radijs</a></span>
+          </div>
           <div class="tech-tags">
             <span class="tech-tag">Deck.gl</span>
             <span class="tech-tag">H3</span>
