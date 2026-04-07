@@ -41,7 +41,8 @@ Current examples:
 - `schiedam-bos/` — Forest accessibility analysis around Schiedam (Deck.gl, H3)
 - `som-viewer/` — Self-organizing map / spatial intelligence viewer for Zuid-Holland with story overlay (Deck.gl, H3)
 - `gebiedsviewer/` — Zuid-Holland Gebiedsviewer: WMS layer browser for 6 thematic categories (Grenzen, Landelijk Gebied, Bodem, Klimaat, Water, Milieu) sourced from geoservices.zuid-holland.nl (Deck.gl, no H3)
-- `pdok-viewer/` — AI-powered natural language interface for Dutch geodata (CBS/BAG/NGR). 3-step flow: ask question → AI picks WFS dataset → user draws bbox → data fetched and visualized as H3 res-9 hexagons (~174m). Uses Gemini to interpret questions. (Deck.gl, H3 res 9)
+- `pdok-viewer/` — AI-powered natural language interface for Dutch geodata (CBS/BAG/NGR). 2-step flow: draw bbox → ask question. AI picks WFS dataset → data fetched live as H3 res-9 hexagons (~174m). Two-click bbox drawing. Panel is a floating draggable/resizable chat window that snaps right after results load. (Deck.gl, H3 res 9)
+- `vraag-de-kaart/` — AI-powered natural language queries over a pre-built H3 datacube (225,684 hexagons, CBS + LGN, 2018–2023). Uses DuckDB WASM to query a 11MB Parquet file in-browser. NL & EN. (Deck.gl, H3, DuckDB WASM)
 - `blog-h3-examples/` — Static article page ("From Hexagons to Foresight"), not a map app
 
 ### Shared Utilities (`/shared/`)
@@ -56,12 +57,18 @@ Vercel serverless functions used as CORS proxies and AI endpoints:
 - `ask-wfs.js` — POST `{ question }` → calls Gemini 2.5 Flash to select the right PDOK WFS source and metric column; returns full query params for the frontend (used by pdok-viewer)
 - `wfs-proxy.js` — GET proxy for PDOK WFS requests; supports pagination via `startIndex`; caps at 1000 features per page and sets `X-Truncated: 1` header when truncated (used by pdok-viewer)
 - `search-wms.js` — Searches NGR for WMS layers by keyword; used by pdok-viewer to suggest related layers after a WFS result
-- `suggest-location.js` — Proxies to PDOK Locatieserver autocomplete (`/suggest`) for Dutch municipality/neighbourhood geocoding; returns gemeente, wijk, buurt, woonplaats results
+- `suggest-location.js` — Proxies to PDOK Locatieserver; supports two modes:
+  - `GET ?q=...` → autocomplete suggestions (gemeente, wijk, buurt, woonplaats)
+  - `GET ?id=<locatieserver_id>` → lookup returning `{ doc: { weergavenaam, type, gemeentenaam, centroide_ll } }` where `centroide_ll` is WKT `POINT(lon lat)` in WGS84
+- `ask-map.js` — AI endpoint used by vraag-de-kaart (separate from ask-wfs.js)
+
+### Landing page (`/index.html`)
+Root `index.html` serves as the homepage at mapsthatmatter.io — lists all projects with descriptions and tech tags. Dark GitHub-style design. The `/` rewrite in `vercel.json` points here.
 
 ### Routing (`vercel.json`)
-Clean URL rewrites map `/example-name` → `/example-name/index.html`. CORS headers (`X-Frame-Options: ALLOWALL`, `Access-Control-Allow-Origin: *`) enable iframe embedding in Substack posts.
+Clean URL rewrites map `/example-name` → `/example-name/index.html`. CORS headers (`X-Frame-Options: ALLOWALL`, `Access-Control-Allow-Origin: *`) enable iframe embedding in Substack posts. Root `/` serves `index.html` (landing page).
 
-When adding a new example, a rewrite rule must also be added to `vercel.json`:
+When adding a new example, add a rewrite rule to `vercel.json` AND add the project to `index.html`:
 ```json
 { "source": "/my-example", "destination": "/my-example/index.html" }
 ```
@@ -79,7 +86,7 @@ Large CSV/Parquet files with Netherlands geospatial data (H3 hexagons, populatio
 ## Key Patterns
 
 - **Basemaps**: Light and voyager use Carto (no API key needed). Dark basemap uses ArcGIS World Dark Gray as a custom `TileLayer` (not Carto `dark-matter`). Satellite uses ESRI World Imagery.
-- **H3 hexagons**: Most aggregations use H3 resolution 7–8 via `h3.js` loaded from CDN. Exception: pdok-viewer hardcodes resolution 9 (~174m hexagons) for CBS 100m grid data.
+- **H3 hexagons**: Most aggregations use H3 resolution 7–8 via `h3.js` loaded from CDN. Exceptions: pdok-viewer and vraag-de-kaart use resolution 9 (~174m hexagons) for CBS 100m grid data.
 - **Deck.gl layers**: Prefer `H3HexagonLayer`, `ScatterplotLayer`, `BitmapLayer` for raster imagery
 - **Two rendering approaches**: Kepler.gl examples embed a full React/Redux stack (loaded from CDN) inside a `<div id="app">` and drive it with a JSON config exported from the Kepler.gl UI. Deck.gl examples use bare canvas rendering with no React — they instantiate `new Deck({...})` directly. Don't mix the two in one file.
 - **WMS tile cache-busting**: When toggling sublayers, include the active sublayer IDs in the deck.gl layer `id` (e.g. `${key}::${layerIds}`) so deck.gl invalidates the tile cache on change.
@@ -91,6 +98,27 @@ The most complex example (1929 lines). Key files:
 - `gebiedsviewer/js/app.js` — main application logic: WMS layer management, measure tool, drag-to-reorder (SortableJS), theme-grouped active layers, permalink with sublayer+opacity state, print dialog, table view with row count, identify/popup with JSON copy, mobile sidebar, MCA tab
 - `gebiedsviewer/js/wms-layer.js` — `createWMSLayer()`: TileLayer wrapping WMS tiles via proxy, with `onTileLoad`/`onError` callbacks for loading/error card states
 - `gebiedsviewer/config.js` — `CATALOG`: 6 thematic categories (Grenzen, Landelijk Gebied, Bodem, Klimaat, Water, Milieu), each with services and layer IDs from geoservices.zuid-holland.nl
+
+## Example: PDOK Verkenner (`pdok-viewer/`)
+Key files:
+- `pdok-viewer/index.html` — single-file app (~2200 lines); all logic, CSS, and HTML inline
+
+UX flow:
+1. Welcome splash (skippable, "don't show again" in localStorage)
+2. **Step 1** — Draw bbox: floating chat panel shows draw card with municipality autocomplete. Two-click drawing (first click = anchor, mousemove = live preview, second click = finish). Panel glows blue.
+3. **Step 2** — Ask question: question card appears with example buttons, input bar slides in at the bottom of the panel. Panel glows green.
+4. **Step 3** — Results: AI card + result card shown, panel snaps to right side, map fills the screen. Year switcher for CBS data, retry buttons for suppressed metrics.
+
+Key JS patterns:
+- `initDrawStep()` — resets all state, clears messages, shows draw card, activates draw mode
+- `clearDrawnArea()` — calls `initDrawStep()` to fully reset (not just clear the bbox)
+- `askAI(question)` → `fetchDataForBbox(bbox)` — two-phase: AI picks dataset, then WFS data is fetched
+- `snapPanelRight()` — switches panel from centered floating to right-side fixed after results load
+- `wireLocationSearch(inputEl, dropdownEl)` — reusable PDOK Locatieserver autocomplete wiring
+- `CBS_SUPPRESSED = -9000` — values below this threshold are CBS-suppressed, filtered out
+- `SUPPRESSION_PRONE` set + `SUPPRESSION_ALTS` map — pre-warn users and offer retry alternatives
+- `switchYear(year)` — replaces year in WFS URL and re-fetches for same bbox
+- `pixelToLatLon(cx, cy)` — converts screen pixels to WGS84 using current viewport state
 
 ## Example: Agro Viewer
 Key files:
