@@ -78,7 +78,7 @@
     #input-area {
       flex-shrink: 0;
       padding: 12px 14px;
-      border-top: 1px solid #21262d;
+      border-bottom: 1px solid #21262d;
       background: #161b22;
     }
     .input-row { display: flex; gap: 8px; align-items: center; }
@@ -164,25 +164,63 @@
     .tag.blue { border-color: #1f4f8e; color: #79c0ff; background: rgba(31,79,142,0.15); }
     .tag.green { border-color: #196127; color: #56d364; background: rgba(25,97,39,0.15); }
 
-    /* Draw area prompt card */
-    .card-draw-prompt {
-      background: linear-gradient(160deg, #0f2643 0%, #091e36 100%);
-      border: 1px solid #1f4f8e; border-radius: 10px;
-      padding: 16px;
+    /* Draw step card — prominent wizard step */
+    .card-draw-step {
+      border: 2px solid #1f6feb; border-radius: 12px; overflow: visible;
+      background: #0d1117;
+      animation: draw-step-glow 2.2s ease-in-out infinite;
     }
-    .card-draw-prompt .dp-icon {
-      font-size: 22px; margin-bottom: 8px; line-height: 1;
+    @keyframes draw-step-glow {
+      0%, 100% { border-color: #1f6feb; box-shadow: 0 0 0 0 rgba(31,111,235,0.4); }
+      50%       { border-color: #58a6ff; box-shadow: 0 0 0 8px rgba(31,111,235,0); }
     }
-    .card-draw-prompt .dp-title {
-      font-size: 13px; font-weight: 700; color: #79c0ff; margin-bottom: 6px;
+    .draw-step-header {
+      padding: 13px 16px 11px;
+      border-bottom: 1px solid #21262d;
+      display: flex; align-items: center; gap: 10px;
     }
-    .card-draw-prompt .dp-desc {
-      font-size: 12px; color: #7d8590; line-height: 1.65; margin-bottom: 10px;
+    .draw-step-badge {
+      background: rgba(31,111,235,0.18); border: 1px solid #1f6feb;
+      border-radius: 20px; padding: 2px 10px;
+      font-size: 10px; font-weight: 700; color: #58a6ff;
+      letter-spacing: 0.3px; flex-shrink: 0;
     }
-    .card-draw-prompt .dp-hint {
-      font-size: 11px; color: #388bfd; line-height: 1.6;
-      background: rgba(56,139,253,0.08); border: 1px solid rgba(56,139,253,0.2);
-      border-radius: 6px; padding: 8px 10px;
+    .draw-step-title {
+      font-size: 13px; font-weight: 700; color: #f0f6fc;
+    }
+    .draw-step-search-wrap {
+      padding: 14px 16px 4px; position: relative;
+    }
+    .draw-step-search-label {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.5px; color: #484f58; margin-bottom: 7px;
+    }
+    .draw-step-search-input {
+      width: 100%; background: #161b22; border: 1px solid #30363d;
+      border-radius: 9px; padding: 11px 14px;
+      font-size: 13px; color: #e6edf3; outline: none;
+      font-family: inherit; transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .draw-step-search-input::placeholder { color: #484f58; }
+    .draw-step-search-input:focus {
+      border-color: #388bfd;
+      box-shadow: 0 0 0 3px rgba(56,139,253,0.15);
+    }
+    .draw-step-or {
+      padding: 10px 16px; display: flex; align-items: center; gap: 10px;
+    }
+    .draw-step-or-line { flex: 1; height: 1px; background: #21262d; }
+    .draw-step-or-text { font-size: 10px; color: #484f58; white-space: nowrap; }
+    .draw-step-map-hint {
+      margin: 0 16px 14px;
+      background: rgba(56,139,253,0.06); border: 1px solid rgba(56,139,253,0.18);
+      border-radius: 8px; padding: 10px 13px;
+      font-size: 12px; color: #58a6ff; line-height: 1.5;
+    }
+    .draw-step-map-hint b { color: #79c0ff; font-weight: 700; }
+    .draw-step-note {
+      margin: 0 16px 14px; margin-top: -4px;
+      font-size: 10px; color: #484f58; line-height: 1.5;
     }
 
     /* Result card */
@@ -429,19 +467,7 @@
       50% { box-shadow: 0 0 0 6px rgba(56,139,253,0), 0 2px 8px rgba(0,0,0,0.5); }
     }
 
-    /* Location search */
-    #location-search {
-      position: absolute; top: 16px; left: 62px; z-index: 10;
-      width: 210px;
-    }
-    #location-input {
-      width: 100%; background: rgba(22,27,34,0.96); border: 1px solid #30363d;
-      border-radius: 8px; padding: 8px 12px;
-      font-size: 12px; color: #e6edf3; outline: none; font-family: inherit;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.5); transition: border-color 0.15s;
-    }
-    #location-input::placeholder { color: #484f58; }
-    #location-input:focus { border-color: #388bfd; }
+    /* Shared autocomplete dropdown (used in draw card) */
     .loc-dropdown {
       margin-top: 4px; background: #161b22; border: 1px solid #30363d;
       border-radius: 8px; overflow: hidden;
@@ -450,18 +476,16 @@
     }
     .loc-dropdown.open { display: block; }
     .loc-item {
-      padding: 8px 12px; font-size: 12px; color: #e6edf3;
+      padding: 9px 13px; font-size: 12px; color: #e6edf3;
       display: flex; align-items: center; justify-content: space-between;
       cursor: pointer; transition: background 0.1s;
     }
     .loc-item:hover { background: #21262d; }
-    .loc-type {
-      font-size: 10px; color: #484f58; margin-left: 8px; flex-shrink: 0;
-    }
+    .loc-type { font-size: 10px; color: #484f58; margin-left: 8px; flex-shrink: 0; }
 
     /* Area info badge */
     #area-info {
-      position: absolute; top: 58px; left: 62px; z-index: 10;
+      position: absolute; top: 16px; left: 62px; z-index: 10;
       background: rgba(22,27,34,0.96); border: 1px solid #1f4f8e;
       border-radius: 8px; padding: 8px 14px;
       font-size: 12px; color: #79c0ff;
@@ -635,16 +659,6 @@
       border-radius: 8px; padding: 8px 12px;
     }
 
-    /* Location input pulse while in draw mode */
-    #location-input.draw-active {
-      border-color: #388bfd;
-      animation: loc-draw-pulse 1.8s ease-in-out infinite;
-    }
-    @keyframes loc-draw-pulse {
-      0%, 100% { box-shadow: 0 0 0 2px rgba(56,139,253,0.3), 0 2px 8px rgba(0,0,0,0.5); }
-      50%       { box-shadow: 0 0 0 5px rgba(56,139,253,0.06), 0 2px 8px rgba(0,0,0,0.5); }
-    }
-
     /* ─── Year selector ─── */
     .year-selector {
       padding: 10px 14px 12px; border-top: 1px solid #21262d;
@@ -672,8 +686,7 @@
       #legend { left: 50%; transform: translateX(-50%); bottom: calc(52vh + 12px); }
       #reload-indicator { bottom: calc(52vh + 10px); }
       #wms-panel { right: 8px; bottom: calc(52vh + 10px); }
-      #location-search { width: calc(100vw - 78px); }
-      #area-info { top: 58px; left: 62px; }
+      #area-info { top: 16px; left: 62px; }
       #draw-overlay { right: 0; bottom: 52vh; }
       #welcome-modal { max-width: 100%; border-radius: 12px; }
     }
@@ -738,11 +751,6 @@
     <button class="map-tool-btn" id="clear-btn" title="Verwijder selectie" onclick="clearDrawnArea()" style="display:none">✕</button>
   </div>
 
-  <div id="location-search">
-    <input id="location-input" type="text" placeholder="Zoek gemeente, wijk..." autocomplete="off" />
-    <div id="location-dropdown" class="loc-dropdown"></div>
-  </div>
-
   <div id="area-info">
     <span class="area-label">Gebied</span>
     <span id="area-desc">—</span>
@@ -779,6 +787,14 @@
         <div class="step-pill" id="step-1"></div>
         <div class="step-pill" id="step-2"></div>
         <div class="step-pill" id="step-3"></div>
+      </div>
+    </div>
+
+    <div id="input-area">
+      <div class="input-row">
+        <input id="question-input" type="text"
+          placeholder="Stel een vraag over Nederland..." autocomplete="off" />
+        <button id="submit-btn" title="Verstuur">→</button>
       </div>
     </div>
 
@@ -846,13 +862,6 @@
       </div>
     </div>
 
-    <div id="input-area">
-      <div class="input-row">
-        <input id="question-input" type="text"
-          placeholder="Stel een vraag over Nederland..." autocomplete="off" />
-        <button id="submit-btn" title="Verstuur">→</button>
-      </div>
-    </div>
   </div>
 
   <script>
@@ -1108,7 +1117,6 @@
         e.stopPropagation();
         // Hide the overlay the moment the user starts drawing
         document.getElementById('draw-overlay').classList.remove('visible');
-        document.getElementById('location-input').classList.remove('draw-active');
         drawStart   = pixelToLatLon(e.clientX, e.clientY);
         drawPreview = { start: drawStart, end: drawStart };
         deckInstance.setProps({ controller: false });
@@ -1180,7 +1188,6 @@
       if (!drawMode) {
         drawStart = null; drawPreview = null; updateMap();
         document.getElementById('draw-overlay').classList.remove('visible');
-        document.getElementById('location-input').classList.remove('draw-active');
       }
     }
     window.toggleDrawMode = toggleDrawMode;
@@ -1190,7 +1197,6 @@
       document.getElementById('clear-btn').style.display = 'none';
       document.getElementById('area-info').classList.remove('visible');
       document.getElementById('draw-overlay').classList.remove('visible');
-      document.getElementById('location-input').classList.remove('draw-active');
       currentH3Data = null;
       updateMap();
       document.getElementById('legend').classList.remove('visible');
@@ -1399,7 +1405,7 @@
     window.switchYear = switchYear;
 
     // ─────────────────────────────────────────────────────────────────
-    // Location search + fly-to
+    // Fly-to helpers (used by draw card search + AI auto-fly)
     // ─────────────────────────────────────────────────────────────────
     const ZOOM_FOR_TYPE = { gemeente: 11, woonplaats: 12, wijk: 13, buurt: 14 };
 
@@ -1431,52 +1437,49 @@
       } catch {}
     }
 
-    // Autocomplete wiring
-    let locDebounce = null;
+    // Wire municipality autocomplete to an input+dropdown pair inside a card
+    function wireLocationSearch(inputEl, dropdownEl) {
+      let debounce = null;
+      inputEl.addEventListener('input', e => {
+        clearTimeout(debounce);
+        const q = e.target.value.trim();
+        if (q.length < 2) { closeDropdown(dropdownEl); return; }
+        debounce = setTimeout(async () => {
+          try {
+            const res = await fetch(`/api/suggest-location?q=${encodeURIComponent(q)}`);
+            const { docs } = await res.json();
+            renderDropdown(docs || [], inputEl, dropdownEl);
+          } catch {}
+        }, 200);
+      });
+      inputEl.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { closeDropdown(dropdownEl); inputEl.blur(); }
+      });
+      document.addEventListener('click', e => {
+        if (!inputEl.contains(e.target) && !dropdownEl.contains(e.target)) closeDropdown(dropdownEl);
+      }, { passive: true });
+    }
 
-    document.getElementById('location-input').addEventListener('input', e => {
-      clearTimeout(locDebounce);
-      const q = e.target.value.trim();
-      if (q.length < 2) { closeLocDropdown(); return; }
-      locDebounce = setTimeout(async () => {
-        try {
-          const res = await fetch(`/api/suggest-location?q=${encodeURIComponent(q)}`);
-          const { docs } = await res.json();
-          renderLocDropdown(docs || []);
-        } catch {}
-      }, 200);
-    });
-
-    document.getElementById('location-input').addEventListener('keydown', e => {
-      if (e.key === 'Escape') { closeLocDropdown(); e.target.blur(); }
-    });
-
-    document.addEventListener('click', e => {
-      if (!document.getElementById('location-search').contains(e.target)) closeLocDropdown();
-    });
-
-    function renderLocDropdown(docs) {
-      const dd = document.getElementById('location-dropdown');
-      if (!docs.length) { closeLocDropdown(); return; }
-      dd.innerHTML = docs.map(d => `
+    function renderDropdown(docs, inputEl, dropdownEl) {
+      if (!docs.length) { closeDropdown(dropdownEl); return; }
+      dropdownEl.innerHTML = docs.map(d => `
         <div class="loc-item" data-id="${esc(d.id)}" data-name="${esc(d.weergavenaam)}">
           <span>${esc(d.weergavenaam)}</span>
           <span class="loc-type">${esc(d.type)}</span>
         </div>`).join('');
-      dd.classList.add('open');
-      dd.querySelectorAll('.loc-item').forEach(el => {
+      dropdownEl.classList.add('open');
+      dropdownEl.querySelectorAll('.loc-item').forEach(el => {
         el.addEventListener('click', async () => {
-          document.getElementById('location-input').value = el.dataset.name;
-          closeLocDropdown();
+          inputEl.value = el.dataset.name;
+          closeDropdown(dropdownEl);
           await flyToLocationById(el.dataset.id);
         });
       });
     }
 
-    function closeLocDropdown() {
-      const dd = document.getElementById('location-dropdown');
-      dd.innerHTML = '';
-      dd.classList.remove('open');
+    function closeDropdown(dropdownEl) {
+      dropdownEl.innerHTML = '';
+      dropdownEl.classList.remove('open');
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -1521,10 +1524,7 @@
         appendAiCard(aiData);
 
         // Auto-fly to location if AI extracted one from the question
-        if (aiData.location) {
-          flyToLocationName(aiData.location);
-          document.getElementById('location-input').value = aiData.location;
-        }
+        if (aiData.location) flyToLocationName(aiData.location);
 
         if (keepArea && drawnBbox) {
           // Re-use existing drawn area — skip draw step, fetch immediately
@@ -1697,19 +1697,39 @@
 
     function appendDrawPromptCard(aiData) {
       const isSuppProne = SUPPRESSION_PRONE.has(aiData.metric_column);
-      const hint = isSuppProne
-        ? 'Let op: teken een stedelijk gebied — dit kenmerk is alleen beschikbaar in dichtbebouwde cellen.'
-        : 'Tip: een wijk of deel van een stad (~2–5 km²) geeft de beste datadichtheid binnen de limiet van 1.000 features.';
+      const note = isSuppProne
+        ? 'Let op: dit kenmerk is alleen beschikbaar in dichtbebouwde gebieden — kies een stedelijk studiegebied.'
+        : 'Een wijk of stadsdeel (~2–5 km²) geeft de beste datadichtheid.';
 
       const el = document.createElement('div');
-      el.className = 'card-draw-prompt';
+      el.className = 'card-draw-step';
       el.innerHTML = `
-        <div class="dp-icon">⬚</div>
-        <div class="dp-title">Teken je studiegebied</div>
-        <div class="dp-desc">Klik en sleep op de kaart om het gebied te selecteren. PDOK geeft maximaal 1.000 features per aanvraag — kleiner is completer.</div>
-        <div class="dp-hint">${esc(hint)}</div>`;
+        <div class="draw-step-header">
+          <span class="draw-step-badge">Stap 2 van 3</span>
+          <span class="draw-step-title">Kies je studiegebied</span>
+        </div>
+        <div class="draw-step-search-wrap">
+          <div class="draw-step-search-label">Navigeer naar gemeente of wijk</div>
+          <input class="draw-step-search-input" type="text" placeholder="Zoek bijv. Amsterdam, Centrum..." autocomplete="off" />
+          <div class="loc-dropdown" style="position:relative;z-index:20"></div>
+        </div>
+        <div class="draw-step-or">
+          <div class="draw-step-or-line"></div>
+          <span class="draw-step-or-text">of teken direct op de kaart</span>
+          <div class="draw-step-or-line"></div>
+        </div>
+        <div class="draw-step-map-hint"><b>Klik en sleep</b> op de kaart links om een rechthoek te tekenen</div>
+        <div class="draw-step-note">${esc(note)}</div>`;
+
       document.getElementById('messages').appendChild(el);
       scrollToBottom();
+
+      // Wire autocomplete to the embedded search
+      const inputEl    = el.querySelector('.draw-step-search-input');
+      const dropdownEl = el.querySelector('.loc-dropdown');
+      wireLocationSearch(inputEl, dropdownEl);
+      setTimeout(() => inputEl.focus(), 50);
+
       return el;
     }
 
@@ -1719,7 +1739,6 @@
       document.getElementById('container').style.cursor = 'crosshair';
       document.getElementById('draw-btn').classList.add('active', 'pulse');
       document.getElementById('draw-overlay').classList.add('visible');
-      document.getElementById('location-input').classList.add('draw-active');
     }
 
     function appendResultCard(aiData, features, binResult, truncated) {
