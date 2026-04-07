@@ -291,14 +291,67 @@
     /* Welcome card */
     .card-welcome {
       background: #21262d; border: 1px solid #30363d;
-      border-radius: 10px; padding: 16px;
+      border-radius: 10px; overflow: hidden;
     }
-    .card-welcome h3 {
-      font-size: 13px; font-weight: 700; color: #f0f6fc; margin-bottom: 6px;
+    .welcome-hero {
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid #21262d;
     }
-    .card-welcome p {
-      font-size: 12px; color: #7d8590; line-height: 1.65; margin-bottom: 14px;
+    .welcome-hero h3 {
+      font-size: 14px; font-weight: 700; color: #f0f6fc; margin-bottom: 4px;
     }
+    .welcome-hero p {
+      font-size: 12px; color: #7d8590; line-height: 1.6;
+    }
+
+    /* 3-step workflow */
+    .welcome-steps {
+      padding: 12px 16px;
+      border-bottom: 1px solid #21262d;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .welcome-step {
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .step-num {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: #1f4f8e; border: 1px solid #388bfd;
+      font-size: 10px; font-weight: 700; color: #79c0ff;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 1px;
+    }
+    .step-text { font-size: 12px; color: #c9d1d9; line-height: 1.5; }
+    .step-text b { color: #f0f6fc; font-weight: 600; }
+    .step-sub { font-size: 11px; color: #484f58; }
+
+    /* Capabilities & limits */
+    .welcome-section {
+      padding: 10px 16px 12px;
+      border-bottom: 1px solid #21262d;
+    }
+    .welcome-section-label {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.5px; color: #484f58; margin-bottom: 7px;
+    }
+    .cap-grid {
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .cap-item {
+      display: flex; align-items: baseline; gap: 7px;
+      font-size: 11px; line-height: 1.5;
+    }
+    .cap-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      flex-shrink: 0; margin-top: 4px;
+    }
+    .cap-dot.green  { background: #56d364; }
+    .cap-dot.yellow { background: #e3b341; }
+    .cap-dot.red    { background: #f85149; }
+    .cap-name  { color: #c9d1d9; font-weight: 500; }
+    .cap-desc  { color: #7d8590; }
+
+    /* Examples */
+    .welcome-examples { padding: 12px 16px 14px; }
     .examples-label {
       font-size: 10px; font-weight: 600; text-transform: uppercase;
       letter-spacing: 0.6px; color: #484f58; margin-bottom: 8px;
@@ -547,14 +600,65 @@
 
     <div id="messages">
       <div class="card-welcome">
-        <h3>Verken Nederland in data</h3>
-        <p>Stel een vraag, de AI kiest de juiste databron. Je tekent daarna het studiegebied op de kaart — dan wordt de data voor precies dat gebied opgehaald.</p>
-        <div class="examples-label">Voorbeelden</div>
-        <button class="example-btn" onclick="useExample(this)">Waar wonen de meeste mensen per 100m²?</button>
-        <button class="example-btn" onclick="useExample(this)">Toon de gemiddelde WOZ-waarde van woningen</button>
-        <button class="example-btn" onclick="useExample(this)">Welke gebieden hebben veel sociale huurwoningen?</button>
-        <button class="example-btn" onclick="useExample(this)">Toon gebouwen gebouwd vóór 1945</button>
-        <button class="example-btn" onclick="useExample(this)">Afstand tot dichtstbijzijnde supermarkt</button>
+
+        <div class="welcome-hero">
+          <h3>PDOK Verkenner</h3>
+          <p>Stel een vraag in gewoon Nederlands. De AI kiest automatisch de juiste Nederlandse geodatabron, jij tekent het gebied — dan wordt de data live opgehaald als hexagonkaart.</p>
+        </div>
+
+        <div class="welcome-steps">
+          <div class="welcome-step">
+            <div class="step-num">1</div>
+            <div class="step-text">
+              <b>Stel je vraag</b><br>
+              <span class="step-sub">AI kiest CBS, BAG of NGR als databron en legt uit waarom</span>
+            </div>
+          </div>
+          <div class="welcome-step">
+            <div class="step-num">2</div>
+            <div class="step-text">
+              <b>Teken je studiegebied</b><br>
+              <span class="step-sub">Klik en sleep op de kaart — kleiner gebied = volledigere data</span>
+            </div>
+          </div>
+          <div class="welcome-step">
+            <div class="step-num">3</div>
+            <div class="step-text">
+              <b>Bekijk de hexagonkaart</b><br>
+              <span class="step-sub">Data geaggregeerd op ~174m hexagonen. Vraag daarna "Andere vraag, zelfde gebied" om snel te vergelijken</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="welcome-section">
+          <div class="welcome-section-label">Wat kan het?</div>
+          <div class="cap-grid">
+            <div class="cap-item"><div class="cap-dot green"></div><span class="cap-name">CBS 100m grid</span><span class="cap-desc">— bevolking, woningen, huishoudens, afstanden tot voorzieningen (2003–2024)</span></div>
+            <div class="cap-item"><div class="cap-dot green"></div><span class="cap-name">BAG gebouwen</span><span class="cap-desc">— bouwjaar, gebruiksdoel, woningdichtheid</span></div>
+            <div class="cap-item"><div class="cap-dot green"></div><span class="cap-name">NGR kaartlagen</span><span class="cap-desc">— aanvullende WMS-lagen via nationaalgeoregister.nl</span></div>
+            <div class="cap-item"><div class="cap-dot green"></div><span class="cap-name">Gemeente zoeken</span><span class="cap-desc">— zoekbalk linksboven navigeert naar elke gemeente of wijk</span></div>
+          </div>
+        </div>
+
+        <div class="welcome-section">
+          <div class="welcome-section-label">Beperkingen</div>
+          <div class="cap-grid">
+            <div class="cap-item"><div class="cap-dot yellow"></div><span class="cap-name">WOZ, inkomen &amp; energie</span><span class="cap-desc">— CBS onderdrukt deze waarden in cellen met weinig bewoners; werkt het niet, gebruik de retry-knoppen</span></div>
+            <div class="cap-item"><div class="cap-dot yellow"></div><span class="cap-name">Max 1.000 features per aanvraag</span><span class="cap-desc">— grote gebieden vereisen paginering via "Alle pagina's ophalen"</span></div>
+            <div class="cap-item"><div class="cap-dot red"></div><span class="cap-name">Alleen Nederland</span><span class="cap-desc">— PDOK-data dekt geen gebieden buiten NL</span></div>
+            <div class="cap-item"><div class="cap-dot red"></div><span class="cap-name">Geen realtime data</span><span class="cap-desc">— CBS is 2024, BAG is periodiek bijgewerkt</span></div>
+          </div>
+        </div>
+
+        <div class="welcome-examples">
+          <div class="examples-label">Probeer een voorbeeld</div>
+          <button class="example-btn" onclick="useExample(this)">Waar wonen de meeste mensen per 100m²?</button>
+          <button class="example-btn" onclick="useExample(this)">Welke gebieden hebben veel sociale huurwoningen?</button>
+          <button class="example-btn" onclick="useExample(this)">Toon gebouwen gebouwd vóór 1945</button>
+          <button class="example-btn" onclick="useExample(this)">Afstand tot dichtstbijzijnde supermarkt</button>
+          <button class="example-btn" onclick="useExample(this)">Vergelijk eenpersoonshuishoudens in Amsterdam</button>
+        </div>
+
       </div>
     </div>
 
