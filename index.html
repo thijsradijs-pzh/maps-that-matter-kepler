@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Maps That Matter — Geospatial tools for the Netherlands</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Interactive geospatial visualisations for the Netherlands — H3 hexagons, AI-powered geodata tools, CBS statistics, BAG buildings, and spatial analysis." />
+
+  <script async src="https://plausible.io/js/pa-unGG15m6r6ufvAQNAPz3f.js"></script>
+  <script>
+    window.plausible = window.plausible || function() { (plausible.q = plausible.q || []).push(arguments) };
+    plausible.init = plausible.init || function(i) { plausible.o = i || {} };
+    plausible.init();
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* ─── Layout ─── */
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ─── Header ─── */
+    header {
+      border-bottom: 1px solid #21262d;
+      padding: 48px 0 40px;
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .brand h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: #f0f6fc;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+
+    .brand-dot {
+      color: #388bfd;
+    }
+
+    .brand p {
+      font-size: 14px;
+      color: #7d8590;
+      max-width: 520px;
+      line-height: 1.65;
+    }
+
+    .header-meta {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .author-tag {
+      font-size: 12px;
+      color: #484f58;
+    }
+
+    .author-tag a {
+      color: #58a6ff;
+    }
+
+    .author-tag a:hover {
+      text-decoration: underline;
+    }
+
+    .tech-tags {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .tech-tag {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: 10px;
+      color: #7d8590;
+    }
+
+    /* ─── Section headers ─── */
+    .section {
+      padding: 40px 0 0;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #484f58;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #21262d;
+    }
+
+    /* ─── Project cards ─── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      cursor: pointer;
+    }
+
+    .card:hover {
+      border-color: #58a6ff;
+      box-shadow: 0 4px 24px rgba(56, 139, 253, 0.1);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .card-icon {
+      font-size: 22px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .card-arrow {
+      font-size: 14px;
+      color: #484f58;
+      transition: color 0.15s, transform 0.15s;
+      flex-shrink: 0;
+    }
+
+    .card:hover .card-arrow {
+      color: #58a6ff;
+      transform: translate(2px, -2px);
+    }
+
+    .card h3 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #f0f6fc;
+      line-height: 1.3;
+    }
+
+    .card p {
+      font-size: 12px;
+      color: #7d8590;
+      line-height: 1.65;
+      flex: 1;
+    }
+
+    .card-tags {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 10px;
+      color: #7d8590;
+    }
+
+    .tag.blue  { border-color: #1f4f8e; color: #79c0ff; background: rgba(31,79,142,0.12); }
+    .tag.green { border-color: #196127; color: #56d364; background: rgba(25,97,39,0.12); }
+    .tag.purple { border-color: #6e40c9; color: #bc8cff; background: rgba(110,64,201,0.12); }
+    .tag.orange { border-color: #9e6a03; color: #e3b341; background: rgba(158,106,3,0.12); }
+
+    /* ─── Featured (AI tools) ─── */
+    .card.featured {
+      border-color: #388bfd;
+      background: linear-gradient(135deg, #161b22, #0d1530);
+    }
+
+    .card.featured .card-icon-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ai-badge {
+      background: rgba(56,139,253,0.15);
+      border: 1px solid rgba(56,139,253,0.35);
+      border-radius: 20px;
+      padding: 2px 9px;
+      font-size: 9px;
+      font-weight: 700;
+      color: #79c0ff;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+
+    /* ─── Blog card ─── */
+    .card.blog {
+      background: linear-gradient(135deg, #161b22, #101418);
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .blog-icon {
+      font-size: 32px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .blog-content {
+      flex: 1;
+    }
+
+    .blog-content h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f0f6fc;
+      margin-bottom: 5px;
+    }
+
+    .blog-content p {
+      font-size: 12px;
+      color: #7d8590;
+      line-height: 1.65;
+      margin-bottom: 10px;
+    }
+
+    /* ─── Footer ─── */
+    footer {
+      margin-top: 60px;
+      padding: 28px 0;
+      border-top: 1px solid #21262d;
+    }
+
+    footer p {
+      font-size: 11px;
+      color: #484f58;
+      text-align: center;
+    }
+
+    footer a {
+      color: #58a6ff;
+    }
+
+    footer a:hover { text-decoration: underline; }
+
+    /* ─── Mobile ─── */
+    @media (max-width: 640px) {
+      header { padding: 32px 0 28px; }
+      .header-inner { flex-direction: column; }
+      .header-meta { align-items: flex-start; }
+      .tech-tags { justify-content: flex-start; }
+      .brand h1 { font-size: 22px; }
+      .cards-grid { grid-template-columns: 1fr; }
+      .card.blog { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="container">
+      <div class="header-inner">
+        <div class="brand">
+          <h1>Maps That Matter<span class="brand-dot">.</span></h1>
+          <p>Interactive geospatial tools for the Netherlands — built with H3 hexagons, Deck.gl, and AI. Live CBS statistics, BAG buildings, and spatial analysis at your fingertips.</p>
+        </div>
+        <div class="header-meta">
+          <span class="author-tag">by <a href="https://github.com/thijsradijs-pzh" target="_blank">Thijs Radijs</a></span>
+          <div class="tech-tags">
+            <span class="tech-tag">Deck.gl</span>
+            <span class="tech-tag">H3</span>
+            <span class="tech-tag">PDOK</span>
+            <span class="tech-tag">Gemini AI</span>
+            <span class="tech-tag">Vercel</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+
+      <!-- AI tools -->
+      <div class="section">
+        <div class="section-title">AI-powered tools</div>
+        <div class="cards-grid">
+
+          <a href="/pdok-viewer" class="card featured">
+            <div class="card-top">
+              <div class="card-icon-wrap">
+                <span class="card-icon">🤖</span>
+                <span class="ai-badge">Live WFS</span>
+              </div>
+              <span class="card-arrow">↗</span>
+            </div>
+            <h3>PDOK Verkenner</h3>
+            <p>Ask a question in plain Dutch — AI picks the right datasource (CBS, BAG, NGR), you draw a bounding box, and data is fetched live as H3 hexagons at 174 m resolution.</p>
+            <div class="card-tags">
+              <span class="tag blue">CBS Vierkantstatistieken</span>
+              <span class="tag blue">BAG</span>
+              <span class="tag green">Gemini 2.5</span>
+            </div>
+          </a>
+
+          <a href="/vraag-de-kaart" class="card featured">
+            <div class="card-top">
+              <div class="card-icon-wrap">
+                <span class="card-icon">💬</span>
+                <span class="ai-badge">Datacube</span>
+              </div>
+              <span class="card-arrow">↗</span>
+            </div>
+            <h3>Vraag de Kaart</h3>
+            <p>Natural language queries over a pre-built H3 datacube — 225,684 hexagons combining CBS statistics and land-use (LGN) data for 2018–2023. NL &amp; EN.</p>
+            <div class="card-tags">
+              <span class="tag blue">CBS + LGN</span>
+              <span class="tag blue">2018–2023</span>
+              <span class="tag green">Gemini AI</span>
+              <span class="tag">DuckDB WASM</span>
+            </div>
+          </a>
+
+        </div>
+      </div>
+
+      <!-- Map viewers -->
+      <div class="section">
+        <div class="section-title">Map viewers</div>
+        <div class="cards-grid">
+
+          <a href="/gebiedsviewer" class="card">
+            <div class="card-top">
+              <span class="card-icon">🗺</span>
+              <span class="card-arrow">↗</span>
+            </div>
+            <h3>Zuid-Holland Gebiedsviewer</h3>
+            <p>Browse 6 thematic WMS categories for Zuid-Holland — Grenzen, Landelijk Gebied, Bodem, Klimaat, Water, Milieu. Drag-to-reorder, opacity control, identify tool.</p>
+            <div class="card-tags">
+              <span class="tag blue">WMS</span>
+              <span class="tag">Zuid-Holland</span>
+            </div>
+          </a>
+
+          <a href="/agro-viewer" class="card">
+            <div class="card-top">
+              <span class="card-icon">🌾</span>
+              <span class="card-arrow">↗</span>
+            </div>
+            <h3>Agro &amp; Satelliet Viewer</h3>
+            <p>Agricultural WMS layers with NGR keyword search, satellite imagery toggle, and time-series data from the agricultural datacube.</p>
+            <div class="card-tags">
+              <span class="tag blue">WMS</span>
+              <span class="tag blue">NGR</span>
+              <span class="tag">Satellite</span>
+            </div>
+          </a>
+
+          <a href="/multi-criteria-analysis" class="card">
+            <div class="card-top">
+              <span class="card-icon">⚖️</span>
+              <span class="card-arrow">↗</span>
+            </div>
+            <h3>Multi-Criteria Analyse</h3>
+            <p>Weighted spatial analysis using CSW/WMS layers from the Dutch national geo register for the ZH-PLG planning framework.</p>
+            <div class="card-tags">
+              <span class="tag blue">CSW</span>
+              <span class="tag blue">WMS</span>
+              <span class="tag">Zuid-Holland</span>
+            </div>
+          </a>
+
+        </div>
+      </div>
+
+      <!-- Spatial analysis -->
+      <div class="section">
+        <div class="section-title">Spatial analysis</div>
+        <div class="cards-grid">
+
+          <a href="/population-3d" class="card">
+            <div class="card-top">
+              <span class="card-icon">📊</span>
+              <span class="card-arrow">↗</span>
+            </div>
+            <h3>Population vs Built-up Over Time</h3>
+            <p>3D H3 hexagon map comparing population growth against built-up area change across Dutch municipalities, 2018–2023. Built with Kepler.gl.</p>
+            <div class="card-tags">
+              <span class="tag blue">CBS</span>
+              <span class="tag">Kepler.gl</span>
+              <span class="tag">H3</span>
+            </div>
+          </a>
+
+          <a href="/geluid-groen-viewer" class="card">
+            <div class="card-top">
+              <span class="card-icon">🌿</span>
+              <span class="card-arrow">↗</span>
+            </div>
+            <h3>Geluid &amp; Groen</h3>
+            <p>Noise exposure versus green space access for Dutch municipalities — hexagon-level analysis of environmental quality trade-offs.</p>
+            <div class="card-tags">
+              <span class="tag blue">CBS</span>
+              <span class="tag">H3</span>
+              <span class="tag">Municipalities</span>
+            </div>
+          </a>
+
+          <a href="/som-viewer" class="card">
+            <div class="card-top">
+              <span class="card-icon">🧠</span>
+              <span class="card-arrow">↗</span>
+            </div>
+            <h3>Ruimtelijke Intelligentie</h3>
+            <p>Self-organizing map (SOM) visualization for Zuid-Holland — clusters H3 hexagons by spatial similarity across multiple indicators, with story overlay.</p>
+            <div class="card-tags">
+              <span class="tag purple">SOM</span>
+              <span class="tag">Zuid-Holland</span>
+              <span class="tag">H3</span>
+            </div>
+          </a>
+
+          <a href="/groundheight" class="card">
+            <div class="card-top">
+              <span class="card-icon">⛰️</span>
+              <span class="card-arrow">↗</span>
+            </div>
+            <h3>Ground Height (AHN)</h3>
+            <p>Ground height visualization for the Netherlands using the Actueel Hoogtebestand Nederland (AHN) elevation model, aggregated to H3 hexagons.</p>
+            <div class="card-tags">
+              <span class="tag blue">AHN</span>
+              <span class="tag">H3</span>
+              <span class="tag">Elevation</span>
+            </div>
+          </a>
+
+          <a href="/schiedam-bos" class="card">
+            <div class="card-top">
+              <span class="card-icon">🌲</span>
+              <span class="card-arrow">↗</span>
+            </div>
+            <h3>Bos rond Schiedam</h3>
+            <p>Forest accessibility analysis around Schiedam — isochrone-style hexagon map showing walking distance to green areas from residential zones.</p>
+            <div class="card-tags">
+              <span class="tag">Schiedam</span>
+              <span class="tag">H3</span>
+              <span class="tag">Accessibility</span>
+            </div>
+          </a>
+
+          <a href="/explorer-3d" class="card">
+            <div class="card-top">
+              <span class="card-icon">🔍</span>
+              <span class="card-arrow">↗</span>
+            </div>
+            <h3>Data Explorer (Parquet)</h3>
+            <p>Generic 3D Parquet file explorer — load any H3 hexagon dataset directly in the browser using DuckDB WASM, no server needed.</p>
+            <div class="card-tags">
+              <span class="tag">DuckDB WASM</span>
+              <span class="tag">Parquet</span>
+              <span class="tag">H3</span>
+            </div>
+          </a>
+
+        </div>
+      </div>
+
+      <!-- Reading -->
+      <div class="section" style="padding-bottom: 0">
+        <div class="section-title">Reading</div>
+        <a href="/blog-h3-examples" class="card blog">
+          <span class="blog-icon">📖</span>
+          <div class="blog-content">
+            <h3>From Hexagons to Foresight</h3>
+            <p>How H3 hexagons, a spatial datacube, and visualisations turn Dutch geo-data into insight, time travel, and foresight. A deep-dive into the tools and methods behind Maps That Matter.</p>
+            <div class="card-tags">
+              <span class="tag orange">Article</span>
+              <span class="tag">H3</span>
+              <span class="tag">Spatial data</span>
+              <span class="tag">Netherlands</span>
+            </div>
+          </div>
+          <span class="card-arrow" style="margin-top:4px">↗</span>
+        </a>
+      </div>
+
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>
+        Maps That Matter · Built with <a href="https://deck.gl" target="_blank">Deck.gl</a>, <a href="https://h3geo.org" target="_blank">H3</a> &amp; <a href="https://service.pdok.nl" target="_blank">PDOK</a> ·
+        <a href="https://github.com/thijsradijs-pzh/maps-that-matter-kepler" target="_blank">GitHub</a>
+      </p>
+    </div>
+  </footer>
+
+</body>
+</html>
