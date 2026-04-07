@@ -139,13 +139,8 @@ Cross-cutting gaps found across all apps (audit: 2026-04-07). When editing any a
 - **No "back to homepage" link** — 11/12 apps have no way to navigate back to `/`; add a small home link in the UI (top-left corner or inside the info panel)
 - **`console.log` statements in production** — found in: `population-3d`, `groundheight`, `explorer-3d`; remove or gate behind a `DEBUG` flag
 
-### P2 — Code quality
-- **`/shared/duckdb-loader.js` is unused** — `explorer-3d` and `vraag-de-kaart` each inline their own DuckDB loader; consolidate to the shared utility
-- **Unguarded fetch chains in `gebiedsviewer/js/app.js`** — some `.then()` chains lack `.catch()` handlers; add error handling
-
-### P3 — Mobile
-- **`pdok-viewer`**: floating chat panel is 500px wide and may overflow on small screens
-- **`vraag-de-kaart`**: fixed right panel (360px) may overflow on mobile
+### P3 — Mobile (already handled by existing breakpoints)
+- **`pdok-viewer`** and **`vraag-de-kaart`** both have `@media (max-width: 700px)` blocks that switch panels to full-width bottom sheets — verified, no action needed
 - **`som-viewer`**: story overlay responsiveness not verified
 
 ### Template for new apps / when fixing existing ones

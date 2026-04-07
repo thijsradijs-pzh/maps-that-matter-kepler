@@ -1,118 +1,95 @@
-// duckdb-loader.js - Simplified DuckDB WASM utility for loading Parquet files
+// shared/duckdb-loader.js — DuckDB WASM utility for loading Parquet files
+//
+// Usage:
+//   1. Load DuckDB via esm.sh module (sets window.duckdb):
+//      <script type="module">
+//        import * as duckdb from 'https://esm.sh/@duckdb/duckdb-wasm@1.28.0';
+//        window.duckdb = duckdb;
+//      </script>
+//   2. Load this script: <script src="/shared/duckdb-loader.js"></script>
+//   3. Use: const loader = new DuckDBLoader();
+//
+// loadParquetFile(url, tableName, onProgress) — onProgress(pct) called at 30/60/80/100
 
 class DuckDBLoader {
   constructor() {
-    this.db = null;
+    this.db   = null;
     this.conn = null;
   }
 
+  async waitForDuckDB(maxMs = 12000) {
+    const t0 = Date.now();
+    while (typeof window.duckdb === 'undefined') {
+      if (Date.now() - t0 > maxMs) throw new Error('DuckDB library load timeout');
+      await new Promise(r => setTimeout(r, 100));
+    }
+  }
+
   async initialize() {
-    if (this.db) return; // Already initialized
-
+    if (this.db) return;
     try {
-      console.log('🦆 Initializing DuckDB-WASM...');
-      
-      // Wait for DuckDB to be available
-      if (typeof duckdb === 'undefined') {
-        throw new Error('DuckDB library not loaded. Make sure duckdb-browser.js is loaded before this script.');
-      }
-
-      // Use the manual bundle configuration
-      const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
-      
-      // Select appropriate bundle for browser
-      const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
-      
-      // Create worker
-      const worker = new Worker(bundle.mainWorker);
-      
-      // Create logger (minimal logging)
-      const logger = new duckdb.ConsoleLogger();
-      
-      // Create database instance
-      this.db = new duckdb.AsyncDuckDB(logger, worker);
+      await this.waitForDuckDB();
+      const UNPKG = 'https://unpkg.com/@duckdb/duckdb-wasm@1.28.0/dist/';
+      const bundles = {
+        mvp: { mainModule: `${UNPKG}duckdb-mvp.wasm`, mainWorker: `${UNPKG}duckdb-browser-mvp.worker.js` },
+        eh:  { mainModule: `${UNPKG}duckdb-eh.wasm`,  mainWorker: `${UNPKG}duckdb-browser-eh.worker.js`  },
+      };
+      const bundle = await window.duckdb.selectBundle(bundles);
+      // Workers must be same-origin — fetch cross-origin script and wrap in a blob URL
+      const workerCode = await fetch(bundle.mainWorker).then(r => r.text());
+      const workerUrl  = URL.createObjectURL(new Blob([workerCode], { type: 'application/javascript' }));
+      const worker     = new Worker(workerUrl);
+      const logger     = new window.duckdb.ConsoleLogger();
+      this.db = new window.duckdb.AsyncDuckDB(logger, worker);
       await this.db.instantiate(bundle.mainModule, bundle.pthreadWorker);
-      
-      // Create connection
       this.conn = await this.db.connect();
-      
-      console.log('✅ DuckDB-WASM initialized');
     } catch (error) {
-      console.error('❌ Failed to initialize DuckDB:', error);
+      console.error('DuckDB init failed:', error);
       throw new Error(`DuckDB initialization failed: ${error.message}`);
     }
   }
 
-  async loadParquetFile(url, tableName = 'data') {
+  // onProgress(pct) is optional — called at 30 / 60 / 80 / 100 during loading
+  async loadParquetFile(url, tableName = 'data', onProgress) {
     await this.initialize();
-
-    try {
-      console.log(`🦆 Loading Parquet file: ${url}`);
-      
-      // Fetch the file
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const arrayBuffer = await response.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      
-      console.log(`📦 Downloaded ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(2)} MB`);
-      
-      // Register file with DuckDB
-      await this.db.registerFileBuffer('data.parquet', uint8Array);
-      
-      // Create table from Parquet
-      await this.conn.query(`
-        CREATE OR REPLACE TABLE ${tableName} AS 
-        SELECT * FROM read_parquet('data.parquet')
-      `);
-      
-      // Get row count
-      const countResult = await this.conn.query(`SELECT COUNT(*) as count FROM ${tableName}`);
-      const rowCount = countResult.toArray()[0].count;
-      
-      console.log(`✅ Loaded ${rowCount.toLocaleString()} rows into table '${tableName}'`);
-      
-      return rowCount;
-    } catch (error) {
-      console.error('❌ Failed to load Parquet file:', error);
-      throw new Error(`Parquet loading failed: ${error.message}`);
-    }
+    onProgress?.(30);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    onProgress?.(60);
+    const uint8Array = new Uint8Array(await response.arrayBuffer());
+    onProgress?.(80);
+    const filename = `${tableName}.parquet`;
+    await this.db.registerFileBuffer(filename, uint8Array);
+    await this.conn.query(
+      `CREATE OR REPLACE TABLE ${tableName} AS SELECT * FROM read_parquet('${filename}')`
+    );
+    const rowCount = (await this.conn.query(`SELECT COUNT(*) as count FROM ${tableName}`))
+      .toArray()[0].count;
+    onProgress?.(100);
+    return rowCount;
   }
 
   async query(sql) {
-    if (!this.conn) {
-      throw new Error('DuckDB not initialized. Call initialize() first.');
-    }
-
-    try {
-      const result = await this.conn.query(sql);
-      return result.toArray();
-    } catch (error) {
-      console.error('❌ Query failed:', error);
-      throw new Error(`Query failed: ${error.message}`);
-    }
+    if (!this.conn) throw new Error('DuckDB not initialized. Call initialize() first.');
+    const result = await this.conn.query(sql);
+    // DuckDB WASM returns BigInt for BIGINT columns — convert to Number for JSON compatibility
+    return result.toArray().map(row => {
+      const obj = {};
+      for (const [k, v] of Object.entries(row)) {
+        obj[k] = typeof v === 'bigint' ? Number(v) : v;
+      }
+      return obj;
+    });
   }
 
   async getAllData(tableName = 'data') {
-    const sql = `SELECT * FROM ${tableName}`;
-    return await this.query(sql);
+    return this.query(`SELECT * FROM ${tableName}`);
   }
 
   async close() {
-    if (this.conn) {
-      await this.conn.close();
-      this.conn = null;
-    }
-    if (this.db) {
-      await this.db.terminate();
-      this.db = null;
-    }
-    console.log('🦆 DuckDB connection closed');
+    if (this.conn) { await this.conn.close(); this.conn = null; }
+    if (this.db)   { await this.db.terminate(); this.db = null; }
   }
 }
 
-// Export for use in other scripts
 window.DuckDBLoader = DuckDBLoader;

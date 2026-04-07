@@ -31,6 +31,7 @@
   <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
   <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
   <script src="/shared/deckgl-utils.js"></script>
+  <script src="/shared/duckdb-loader.js"></script>
 
   <style>
     * { box-sizing: border-box; }
@@ -360,68 +361,6 @@
   </div>
 
   <script>
-    // ─────────────────────────────────────────────────────────────────
-    // DuckDB WASM loader (same pattern as explorer-3d)
-    // ─────────────────────────────────────────────────────────────────
-    class DuckDBLoader {
-      constructor() { this.db = null; this.conn = null; }
-
-      async waitForDuckDB(maxMs = 12000) {
-        const t0 = Date.now();
-        while (typeof window.duckdb === 'undefined') {
-          if (Date.now() - t0 > maxMs) throw new Error('DuckDB library load timeout');
-          await new Promise(r => setTimeout(r, 100));
-        }
-      }
-
-      async initialize() {
-        if (this.db) return;
-        await this.waitForDuckDB();
-        // Manual bundle config — unpkg serves .wasm and .worker.js with correct MIME types
-        const UNPKG = 'https://unpkg.com/@duckdb/duckdb-wasm@1.28.0/dist/';
-        const bundles = {
-          mvp: { mainModule: `${UNPKG}duckdb-mvp.wasm`, mainWorker: `${UNPKG}duckdb-browser-mvp.worker.js` },
-          eh:  { mainModule: `${UNPKG}duckdb-eh.wasm`,  mainWorker: `${UNPKG}duckdb-browser-eh.worker.js`  },
-        };
-        const bundle  = await window.duckdb.selectBundle(bundles);
-        // Workers must be same-origin — fetch cross-origin script and wrap in blob URL
-        const workerCode = await fetch(bundle.mainWorker).then(r => r.text());
-        const workerUrl  = URL.createObjectURL(new Blob([workerCode], { type: 'application/javascript' }));
-        const worker     = new Worker(workerUrl);
-        const logger     = new window.duckdb.ConsoleLogger();
-        this.db = new window.duckdb.AsyncDuckDB(logger, worker);
-        await this.db.instantiate(bundle.mainModule, bundle.pthreadWorker);
-        this.conn = await this.db.connect();
-      }
-
-      async loadParquet(url, tableName = 'datacube') {
-        await this.initialize();
-        setLoadingBar(30);
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status} fetching parquet`);
-        setLoadingBar(60);
-        const buf = await res.arrayBuffer();
-        setLoadingBar(80);
-        await this.db.registerFileBuffer('datacube.parquet', new Uint8Array(buf));
-        await this.conn.query(
-          `CREATE OR REPLACE TABLE ${tableName} AS SELECT * FROM read_parquet('datacube.parquet')`
-        );
-        setLoadingBar(100);
-      }
-
-      async query(sql) {
-        const result = await this.conn.query(sql);
-        return result.toArray().map(row => {
-          const obj = {};
-          for (const [k, v] of Object.entries(row)) {
-            // DuckDB WASM returns BigInt for BIGINT columns — convert for JSON
-            obj[k] = typeof v === 'bigint' ? Number(v) : v;
-          }
-          return obj;
-        });
-      }
-    }
-
     // ─────────────────────────────────────────────────────────────────
     // State
     // ─────────────────────────────────────────────────────────────────
@@ -939,7 +878,7 @@
       try {
         setLoadingBar(10);
         setLoadingSub('DuckDB initialiseren...');
-        await loader.loadParquet(PARQUET_URL, 'datacube');
+        await loader.loadParquetFile(PARQUET_URL, 'datacube', setLoadingBar);
 
         document.getElementById('loading').classList.add('hidden');
 
