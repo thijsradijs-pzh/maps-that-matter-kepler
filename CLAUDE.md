@@ -128,20 +128,101 @@ Key files:
 
 ## Known Issues / Improvement Backlog
 
-Cross-cutting gaps found across all apps (audit: 2026-04-07). When editing any app, fix the relevant issues for that app too.
+Deep audit completed 2026-04-07. Items marked ✅ are done. When editing any app, fix relevant issues for that app too.
 
-### P0 — SEO & social (affects all 11 map apps; only `blog-h3-examples` has a meta description)
-- **Missing `<meta name="description">`** — all map apps lack this; hurts SEO and link previews
-- **Missing Open Graph tags** — all apps lack `og:title`, `og:description`, `og:image`; links shared on LinkedIn/WhatsApp/Substack show nothing
-- **Missing favicon** — use `/assets/favicon.svg` (already created for landing page)
+---
 
-### P1 — Navigation & console noise
-- **No "back to homepage" link** — 11/12 apps have no way to navigate back to `/`; add a small home link in the UI (top-left corner or inside the info panel)
-- **`console.log` statements in production** — found in: `population-3d`, `groundheight`, `explorer-3d`; remove or gate behind a `DEBUG` flag
+### ✅ Done
+- Meta descriptions, Open Graph tags, favicon on all 12 apps
+- "← Maps That Matter" home link on all 12 apps
+- `console.log` removed from production code (population-3d, groundheight, explorer-3d)
+- DuckDB loader unified into `/shared/duckdb-loader.js`; inline duplicates removed from explorer-3d and vraag-de-kaart
 
-### P3 — Mobile (already handled by existing breakpoints)
-- **`pdok-viewer`** and **`vraag-de-kaart`** both have `@media (max-width: 700px)` blocks that switch panels to full-width bottom sheets — verified, no action needed
-- **`som-viewer`**: story overlay responsiveness not verified
+---
+
+### P0 — Critical (user-facing, high impact)
+
+**Empty states missing** — affects population-3d, explorer-3d, multi-criteria-analysis, geluid-groen-viewer
+- When filters return 0 results the map goes blank with no message. Add: "Geen data gevonden voor deze selectie. Pas de filters aan."
+
+**Error states too generic** — affects all apps
+- All apps show raw `error.message` text. Replace with friendly messages + a retry button where applicable.
+
+**Hardcoded year 2023** — affects population-3d (config.js:27), explorer-3d (config.js:116)
+- Use `Math.max(...data.map(d => d.year_int))` instead so it doesn't go stale.
+
+**Loading spinner missing** — affects population-3d, groundheight, explorer-3d
+- Plain "Loading data..." text only. Replace with a CSS spinner or animated bar.
+
+---
+
+### P1 — High (UX polish, noticeable to users)
+
+**Missing `aria-label` on interactive elements** — affects multi-criteria-analysis, gebiedsviewer, pdok-viewer, vraag-de-kaart
+- Layer search inputs, toggle switches, icon-only buttons have no accessible name. Add `aria-label` attributes.
+
+**Missing `role="dialog"` on modals** — affects agro-viewer (API key modal), pdok-viewer (welcome modal)
+- Screen readers don't know these are dialogs. Add `role="dialog" aria-modal="true" aria-labelledby="..."`.
+
+**Color-only information** — affects geluid-groen-viewer (stat cards use red/green only)
+- Add icons or text labels alongside color coding so colorblind users aren't excluded.
+
+**Legend ranges not shown** — affects population-3d, geluid-groen-viewer, multi-criteria-analysis
+- Legend says "hoog / laag" but doesn't show actual min/max values. Compute and display them from the loaded data.
+
+**Units missing from numeric labels** — affects explorer-3d, groundheight, population-3d
+- "Population", "Distance", "Height" shown without units. Add "(count)", "(km)", "(m NAP)" etc. to column labels and tooltips.
+
+**Debounce too short in catalog search** — multi-criteria-analysis/js/app.js:51
+- 500ms debounce fires too many requests on slow typing. Raise to 800ms.
+
+---
+
+### P2 — Medium (code quality, maintainability)
+
+**WMS layer creation duplicated** — exists in multi-criteria-analysis/js/wms-layer.js AND a separate implementation in gebiedsviewer/js/app.js
+- Consolidate into `/shared/wms-layer.js` so bug fixes apply everywhere.
+
+**WMS GetCapabilities not cached** — agro-viewer, multi-criteria-analysis
+- Every `addWmsLayer()` call re-fetches capabilities. Cache by URL (in-memory Map is enough).
+
+**Large monolithic app.js** — multi-criteria-analysis/js/app.js (~600 lines), gebiedsviewer/js/app.js (~1900 lines)
+- Multi-criteria-analysis should split into: wms.js, search.js, mca.js. Gebiedsviewer is already complex enough to warrant a refactor plan before touching.
+
+**MCA_CRITERIA duplicated** — defined in gebiedsviewer/js/app.js AND multi-criteria-analysis/config.js
+- One shared source of truth.
+
+**`URL.createObjectURL()` in duckdb-loader never revoked** — shared/duckdb-loader.js:40
+- Call `URL.revokeObjectURL(workerUrl)` after `db.instantiate()` to avoid a memory leak.
+
+**Tooltip HTML built as string in deckgl-utils.js** — shared/deckgl-utils.js createTooltip()
+- Low risk (internal data), but sanitize or use DOM construction to prevent future XSS if external data is ever fed in.
+
+---
+
+### P3 — Low (nice-to-have, low urgency)
+
+**URL state not persisted** — gebiedsviewer, multi-criteria-analysis
+- Tab switches, active layers, filter values lost on page refresh. Store in URL hash (`#layers=...`).
+
+**Example queries missing** — pdok-viewer, vraag-de-kaart
+- pdok-viewer has example buttons ✅ but they're not prominent. vraag-de-kaart has them in the welcome card ✅. Both are fine.
+
+**Colorblind-friendly palettes** — all apps using color scales
+- Current blue/orange/red/green palettes not validated for protanopia/deuteranopia. Test with Color Oracle.
+
+**DuckDB progress bar granularity** — shared/duckdb-loader.js
+- onProgress fires at fixed 30/60/80/100. For large files user sees 30% for a long time. Consider streaming progress from the fetch response if Content-Length header is available.
+
+**"Click to Activate" pattern** — only in population-3d and groundheight, not other apps
+- Either remove it from those two apps (simplifies code) or add it consistently. The pattern is confusing because most apps don't use it.
+
+**Stale hardcoded satellite dates** — agro-viewer sidebar
+- "2024 - Mei", "2023 - Zomer" are hardcoded. Should query NSO capabilities or make dates configurable.
+
+**som-viewer mobile responsiveness** — not verified; story overlay may not stack well on small screens.
+
+---
 
 ### Template for new apps / when fixing existing ones
 When adding meta/OG tags to any app, use this pattern (swap in the app-specific values):
