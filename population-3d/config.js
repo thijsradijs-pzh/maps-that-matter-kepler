@@ -35,13 +35,13 @@ const VIZ_CONFIG = {
   // Legend configuration
   legend: [
     {
-      title: 'Color: Population (relative)',
+      title: 'Color: Population (inwoners/hexagoon)',
       items: [
-        { color: '#EFF6FF', label: 'Very low' },
-        { color: '#DEEBF7', label: 'Low' },
-        { color: '#C6DBEF', label: 'Medium' },
-        { color: '#6BAED6', label: 'High' },
-        { color: '#2171B5', label: 'Very high' }
+        { color: '#EFF6FF', label: '< 5' },
+        { color: '#DEEBF7', label: '5 – 25' },
+        { color: '#C6DBEF', label: '25 – 55' },
+        { color: '#6BAED6', label: '55 – 165' },
+        { color: '#2171B5', label: '≥ 165' }
       ]
     },
     {

@@ -897,8 +897,7 @@
 
       } catch (err) {
         console.error(err);
-        document.getElementById('loading-title').textContent = 'Fout bij laden';
-        document.getElementById('loading-sub').textContent = err.message;
+        document.getElementById('loading').innerHTML = '<div style="font-size:18px;margin-bottom:8px;">⚠️ Data kon niet worden geladen</div><div style="font-size:12px;color:#aaa;line-height:1.5;">Ververs de pagina om opnieuw te proberen.</div>';
       }
     }
 

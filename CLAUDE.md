@@ -148,23 +148,28 @@ Deep audit completed 2026-04-07. Items marked ✅ are done. When editing any app
 - WMS GetCapabilities cached in-memory in agro-viewer and multi-criteria-analysis
 - Colorblind ⚠/✓ icons added to geluid-groen-viewer stat cards
 - Units added to explorer-3d column labels (€, m³, kWh, km, m NAP, dB)
+- CSS spinner added to schiedam-bos and som-viewer loading states
+- Friendly HTML error messages in schiedam-bos, som-viewer, vraag-de-kaart, agro-viewer
+- `alert()` replaced with inline error display in agro-viewer WMS layer add flow
+- `aria-label` added to gebiedsviewer zoom/basemap buttons
+- Legend ranges updated in population-3d (actual thresholds: <5, 5–25, 25–55, 55–165, ≥165 inwoners)
 
 ---
 
 ### P0 — Critical (user-facing, high impact)
 
-**Error states too generic** — affects agro-viewer, vraag-de-kaart, pdok-viewer, schiedam-bos, som-viewer, gebiedsviewer
-- Some apps still show raw `error.message` text or no error at all. Replace with friendly messages + a retry button where applicable.
+**Error states too generic** — affects pdok-viewer, gebiedsviewer
+- pdok-viewer/gebiedsviewer show raw `error.message` in some edge cases. All other apps now have friendly error cards.
 
 ---
 
 ### P1 — High (UX polish, noticeable to users)
 
-**Missing `aria-label` on interactive elements** — affects gebiedsviewer icon-only buttons, pdok-viewer, vraag-de-kaart
-- Icon-only buttons (zoom, measure) in gebiedsviewer have no accessible name. Add `aria-label` attributes.
+**Missing `aria-label` on interactive elements** — affects pdok-viewer, vraag-de-kaart
+- Some icon-only interactive elements still lack accessible names.
 
-**Legend ranges not shown** — affects population-3d, multi-criteria-analysis
-- Legend says "hoog / laag" but doesn't show actual min/max values. Compute and display them from the loaded data. (geluid-groen-viewer already has real values.)
+**Legend ranges not shown** — affects multi-criteria-analysis
+- Heatmap legend says "Laag / Hoog" without actual score values. (population-3d now shows actual thresholds; geluid-groen-viewer has real values.)
 
 ---
 

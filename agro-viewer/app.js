@@ -189,7 +189,9 @@ async function addWmsLayer(item) {
         if (bbox) zoomToBbox(bbox);
     } catch (err) {
         console.error(err);
-        alert(`Kon laag niet toevoegen: ${err.message}`);
+        const resultsEl = document.getElementById('search-results');
+        resultsEl.innerHTML = `<div style="padding:10px;color:#c0392b;font-size:13px;">❌ Kon laag niet toevoegen.<br><small style="color:#888;">${err.message}</small></div>`;
+        resultsEl.style.display = 'block';
         if (resultItem) resultItem.style.opacity = '1';
     }
 }
@@ -432,7 +434,7 @@ async function fetchAgroData(token) {
         renderLayers();
     } catch (e) {
         console.error("Agro Fetch Error:", e);
-        statusDiv.innerHTML = `<span style="color:red">❌ Fout: ${e.message}</span>`;
+        statusDiv.innerHTML = `<span style="color:#c0392b;">❌ Kon data niet ophalen.<br><small style="color:#888;">${e.message}</small></span>`;
     }
 }
 
