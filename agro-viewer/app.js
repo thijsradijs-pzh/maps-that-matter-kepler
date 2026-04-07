@@ -1,11 +1,14 @@
 // --- GLOBAL STATE ---
 let deckInstance;
 let activeWmsLayers = [];
-let agroData = []; 
-let selectionPoly = null; 
+let agroData = [];
+let selectionPoly = null;
 let drawState = { active: false, start: null, end: null };
 let currentViewState = VIZ_CONFIG.initialView;
 let isSatellite = false;
+
+// Cache WMS GetCapabilities responses to avoid re-fetching the same service twice
+const _capabilitiesCache = new Map();
 
 // Credentials & NSO State
 let nsoCreds = null; 
@@ -111,8 +114,14 @@ async function addWmsLayer(item) {
         capUrl.searchParams.set('request', 'GetCapabilities');
 
         const proxyUrl = `/api/proxy?url=${encodeURIComponent(capUrl.toString())}`;
-        const resp = await fetch(proxyUrl);
-        const xmlText = await resp.text();
+        let xmlText;
+        if (_capabilitiesCache.has(proxyUrl)) {
+            xmlText = _capabilitiesCache.get(proxyUrl);
+        } else {
+            const resp = await fetch(proxyUrl);
+            xmlText = await resp.text();
+            _capabilitiesCache.set(proxyUrl, xmlText);
+        }
         const xmlDoc = new DOMParser().parseFromString(xmlText, "text/xml");
 
         const allLayers = Array.from(xmlDoc.querySelectorAll('Layer'));

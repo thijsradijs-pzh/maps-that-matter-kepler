@@ -49,15 +49,15 @@ const VIZ_CONFIG = {
         { value: 'aantal_eenpersoonshuishoudens_sum', label: 'Single Person Households' },
         { value: 'aantal_meergezins_woningen_sum', label: 'Multi-family Dwellings' },
         { value: 'aantal_huurwoningen_in_bezit_woningcorporaties_sum', label: 'Social Housing' },
-        { value: 'gemiddelde_woz_waarde_woning_area_weighted_average', label: 'Avg Property Value (WOZ)' },
-        { value: 'gemiddeld_gasverbruik_woning_area_weighted_average', label: 'Avg Gas Usage' },
-        { value: 'gemiddeld_elektriciteitsverbruik_woning_area_weighted_average', label: 'Avg Electricity Usage' }
+        { value: 'gemiddelde_woz_waarde_woning_area_weighted_average', label: 'Avg Property Value (WOZ) (€)' },
+        { value: 'gemiddeld_gasverbruik_woning_area_weighted_average', label: 'Avg Gas Usage (m³)' },
+        { value: 'gemiddeld_elektriciteitsverbruik_woning_area_weighted_average', label: 'Avg Electricity Usage (kWh)' }
       ]
     },
     demographics: {
       label: 'Demographics',
       columns: [
-        { value: 'mediaan_inkomen_huishouden_area_weighted_average', label: 'Median Income' },
+        { value: 'mediaan_inkomen_huishouden_area_weighted_average', label: 'Median Income (€)' },
         { value: 'percentage_nederlandse_achtergrond_area_weighted_average', label: '% Dutch Background' },
         { value: 'percentage_niet_westerse_migr_achtergr_area_weighted_average', label: '% Non-Western Background' },
         { value: 'percentage_westerse_migr_achtergr_area_weighted_average', label: '% Western Background' },
@@ -71,11 +71,11 @@ const VIZ_CONFIG = {
       columns: [
         { value: 'grote_supermarkt_aantal_binnen_1_km_max', label: 'Supermarkets <1km' },
         { value: 'grote_supermarkt_aantal_binnen_3_km_max', label: 'Supermarkets <3km' },
-        { value: 'dichtstbijzijnde_grote_supermarkt_afstand_in_km_min', label: 'Distance to Supermarket' },
-        { value: 'dichtstbijzijnde_huisartsenpraktijk_afstand_in_km_min', label: 'Distance to GP' },
-        { value: 'dichtstbijzijnde_basisonderwijs_afstand_in_km_min', label: 'Distance to Primary School' },
-        { value: 'dichtstbijzijnde_treinstation_afstand_in_km_min', label: 'Distance to Train Station' },
-        { value: 'dichtstbijzijnde_oprit_hoofdverkeersweg_afstand_in_km_min', label: 'Distance to Highway' },
+        { value: 'dichtstbijzijnde_grote_supermarkt_afstand_in_km_min', label: 'Distance to Supermarket (km)' },
+        { value: 'dichtstbijzijnde_huisartsenpraktijk_afstand_in_km_min', label: 'Distance to GP (km)' },
+        { value: 'dichtstbijzijnde_basisonderwijs_afstand_in_km_min', label: 'Distance to Primary School (km)' },
+        { value: 'dichtstbijzijnde_treinstation_afstand_in_km_min', label: 'Distance to Train Station (km)' },
+        { value: 'dichtstbijzijnde_oprit_hoofdverkeersweg_afstand_in_km_min', label: 'Distance to Highway (km)' },
         { value: 'cafe_aantal_binnen_1_km_max', label: 'Cafes <1km' },
         { value: 'restaurant_aantal_binnen_1_km_max', label: 'Restaurants <1km' }
       ]
@@ -96,8 +96,8 @@ const VIZ_CONFIG = {
     environment: {
       label: 'Environment',
       columns: [
-        { value: 'groundheight', label: 'Ground Height' },
-        { value: 'geluid_lden', label: 'Noise Level (LDEN)' },
+        { value: 'groundheight', label: 'Ground Height (m NAP)' },
+        { value: 'geluid_lden', label: 'Noise Level LDEN (dB)' },
         { value: 'groenklasse', label: 'Green Class' },
         { value: 'soortenrijkdomsklasse', label: 'Species Richness' },
         { value: 'hitte', label: 'Heat' },

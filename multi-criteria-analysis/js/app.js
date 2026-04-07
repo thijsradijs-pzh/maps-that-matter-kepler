@@ -12,6 +12,9 @@ let isMeasuring = false;
 let measurePoints = [];
 let activeWmsLayers = [];
 
+// Cache WMS GetCapabilities responses to avoid re-fetching the same service twice
+const _capabilitiesCache = new Map();
+
 // --- DEBOUNCE HELPER ---
 function debounce(func, wait) {
     let timeout;
@@ -107,16 +110,20 @@ async function addWmsLayer(item) {
     if(resultItem) resultItem.style.opacity = '0.5';
 
     try {
-        console.log(`[MCA] Fetching capabilities for: ${item.name}...`);
-        
-        // Always fetch capabilities to get BBOX and check layer name
+        // Fetch capabilities, using cache to avoid redundant requests
         const capUrl = new URL(item.url);
         capUrl.searchParams.set('service', 'WMS');
         capUrl.searchParams.set('request', 'GetCapabilities');
-        
+
         const proxyUrl = `/api/proxy?url=${encodeURIComponent(capUrl.toString())}`;
-        const resp = await fetch(proxyUrl);
-        const xmlText = await resp.text();
+        let xmlText;
+        if (_capabilitiesCache.has(proxyUrl)) {
+            xmlText = _capabilitiesCache.get(proxyUrl);
+        } else {
+            const resp = await fetch(proxyUrl);
+            xmlText = await resp.text();
+            _capabilitiesCache.set(proxyUrl, xmlText);
+        }
         
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlText, "text/xml");

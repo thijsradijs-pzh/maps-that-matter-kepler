@@ -93,7 +93,9 @@
     .stat-value { font-size: 18px; font-weight: 700; color: #4da6ff; }
     .stat-unit  { font-size: 10px; color: #444; }
     .stat-value.warn { color: #ff6b4a; }
+    .stat-value.warn::before { content: '⚠ '; font-size: 0.65em; vertical-align: middle; }
     .stat-value.ok   { color: #4caf7a; }
+    .stat-value.ok::before   { content: '✓ '; font-size: 0.65em; vertical-align: middle; }
 
     /* ── Legend ── */
     .legend-section {
