@@ -28,18 +28,59 @@
 
     #container { width: 100vw; height: 100vh; }
 
-    /* ─── Side panel ─── */
+    /* ─── Floating chat window ─── */
     #panel {
-      position: absolute; top: 0; right: 0; bottom: 0;
-      width: 380px;
+      position: fixed;
+      left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      width: 500px; max-height: 88vh;
+      min-width: 300px; min-height: 280px;
       background: #161b22;
-      border-left: 1px solid #21262d;
+      border: 1px solid #30363d;
+      border-radius: 16px;
       display: flex; flex-direction: column;
-      z-index: 10;
+      z-index: 30;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.04);
+      overflow: hidden;
+    }
+    /* Snapped to right after results */
+    #panel.snapped {
+      left: auto; right: 20px;
+      top: 20px; bottom: 20px;
+      transform: none;
+      width: 400px; max-height: none;
+    }
+
+    /* Drag handle bar */
+    .panel-drag-handle {
+      cursor: grab; flex-shrink: 0;
+      padding: 10px 16px 0;
+      display: flex; align-items: center; gap: 8px;
+      user-select: none;
+    }
+    .panel-drag-handle:active { cursor: grabbing; }
+    .drag-dots {
+      display: flex; gap: 3px; align-items: center; opacity: 0.35;
+    }
+    .drag-dot { width: 4px; height: 4px; background: #c9d1d9; border-radius: 50%; }
+
+    /* Resize corner handle */
+    #panel-resize {
+      position: absolute; bottom: 0; right: 0;
+      width: 18px; height: 18px; cursor: se-resize; z-index: 5;
+      opacity: 0.25; transition: opacity 0.15s;
+    }
+    #panel-resize:hover { opacity: 0.65; }
+    #panel-resize::after {
+      content: '';
+      position: absolute; bottom: 4px; right: 4px;
+      width: 8px; height: 8px;
+      border-right: 2px solid #c9d1d9;
+      border-bottom: 2px solid #c9d1d9;
     }
 
     .panel-header {
-      padding: 18px 20px 14px;
+      padding: 6px 16px 12px;
       border-bottom: 1px solid #21262d;
       flex-shrink: 0;
     }
@@ -266,6 +307,57 @@
     .card-result-status {
       padding: 0 14px 8px;
       font-size: 11px; color: #388bfd;
+    }
+
+    /* ─── Full-panel thinking overlay ─── */
+    #thinking-overlay {
+      position: absolute; inset: 0; z-index: 10;
+      background: rgba(22,27,34,0.97);
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center; gap: 18px;
+      border-radius: 16px;
+    }
+    #thinking-overlay.visible { display: flex; }
+    .think-ring {
+      width: 52px; height: 52px;
+      border: 3px solid #21262d; border-top-color: #388bfd;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    #think-title {
+      font-size: 15px; font-weight: 700; color: #f0f6fc;
+    }
+    #think-steps-list {
+      display: flex; flex-direction: column; align-items: center; gap: 7px;
+      font-size: 12px;
+    }
+    .think-step-line {
+      color: #484f58; display: flex; align-items: center; gap: 8px;
+    }
+    .think-step-line.active { color: #79c0ff; }
+    .think-step-line.done   { color: #56d364; }
+    .think-step-icon { width: 14px; text-align: center; }
+    .think-step-icon.spin-sm { animation: spin 0.8s linear infinite; display: inline-block; }
+
+    /* Question step card (shown after bbox is drawn) */
+    .card-question-step {
+      background: #21262d; border: 1px solid #30363d;
+      border-radius: 10px; overflow: hidden;
+    }
+    .qs-header {
+      padding: 12px 16px 10px; border-bottom: 1px solid #21262d;
+      display: flex; align-items: center; gap: 9px;
+    }
+    .qs-badge {
+      background: rgba(86,211,100,0.12); border: 1px solid rgba(86,211,100,0.3);
+      border-radius: 20px; padding: 2px 10px;
+      font-size: 10px; font-weight: 700; color: #56d364; flex-shrink: 0;
+    }
+    .qs-title { font-size: 13px; font-weight: 600; color: #f0f6fc; }
+    .qs-examples { padding: 10px 16px 14px; }
+    .qs-examples-label {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.5px; color: #484f58; margin-bottom: 8px;
     }
 
     /* Suppression warning inside AI card */
@@ -497,7 +589,7 @@
 
     /* Map loading bar */
     #map-loading-bar {
-      position: absolute; top: 0; left: 0; right: 380px; height: 2px; z-index: 20;
+      position: absolute; top: 0; left: 0; right: 0; height: 2px; z-index: 20;
       pointer-events: none; overflow: hidden;
     }
     #map-loading-bar.active::after {
@@ -527,7 +619,7 @@
 
     /* Active WMS chips */
     #wms-panel {
-      position: absolute; bottom: 20px; right: 396px; z-index: 10;
+      position: absolute; bottom: 20px; right: 20px; z-index: 10;
       display: flex; flex-direction: column; gap: 5px; align-items: flex-end;
     }
     .wms-chip {
@@ -636,7 +728,7 @@
 
     /* ─── Draw overlay ─── */
     #draw-overlay {
-      position: absolute; top: 0; left: 0; bottom: 0; right: 380px;
+      position: absolute; top: 0; left: 0; bottom: 0; right: 0;
       z-index: 5; display: none;
       align-items: center; justify-content: center;
       background: rgba(1,4,9,0.55);
@@ -681,13 +773,18 @@
 
     /* Mobile */
     @media (max-width: 700px) {
-      #panel { top: auto; left: 0; right: 0; bottom: 0; width: 100%; height: 52vh; border-left: none; border-top: 1px solid #21262d; }
-      #map-loading-bar { right: 0; }
-      #legend { left: 50%; transform: translateX(-50%); bottom: calc(52vh + 12px); }
-      #reload-indicator { bottom: calc(52vh + 10px); }
-      #wms-panel { right: 8px; bottom: calc(52vh + 10px); }
-      #area-info { top: 16px; left: 62px; }
-      #draw-overlay { right: 0; bottom: 52vh; }
+      #panel {
+        left: 0 !important; right: 0 !important; bottom: 0 !important;
+        top: auto !important; transform: none !important;
+        width: 100% !important; height: 55vh !important; max-height: 55vh !important;
+        border-radius: 14px 14px 0 0;
+      }
+      #panel.snapped { top: auto !important; }
+      #draw-overlay { bottom: 55vh; }
+      #legend { left: 50%; transform: translateX(-50%); bottom: calc(55vh + 12px); }
+      #reload-indicator { bottom: calc(55vh + 10px); }
+      #wms-panel { right: 8px; bottom: calc(55vh + 10px); }
+      #panel-resize { display: none; }
       #welcome-modal { max-width: 100%; border-radius: 12px; }
     }
   </style>
@@ -775,12 +872,27 @@
     </div>
   </div>
 
-  <!-- Side panel -->
+  <!-- Floating chat window -->
   <div id="panel">
+    <div id="thinking-overlay">
+      <div class="think-ring"></div>
+      <div id="think-title">Even geduld...</div>
+      <div id="think-steps-list"></div>
+    </div>
+    <div id="panel-resize"></div>
+
+    <div class="panel-drag-handle" id="drag-handle">
+      <div class="drag-dots">
+        <div class="drag-dot"></div><div class="drag-dot"></div><div class="drag-dot"></div>
+        <div class="drag-dot"></div><div class="drag-dot"></div><div class="drag-dot"></div>
+      </div>
+      <div style="flex:1"></div>
+      <button id="info-btn" onclick="showWelcome()" title="Uitleg tonen">?</button>
+    </div>
+
     <div class="panel-header">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
         <h1>PDOK Verkenner</h1>
-        <button id="info-btn" onclick="showWelcome()" title="Uitleg tonen">?</button>
       </div>
       <p>CBS · BAG · NGR — live geodata voor Nederland</p>
       <div class="steps-row">
@@ -793,73 +905,13 @@
     <div id="input-area">
       <div class="input-row">
         <input id="question-input" type="text"
-          placeholder="Stel een vraag over Nederland..." autocomplete="off" />
-        <button id="submit-btn" title="Verstuur">→</button>
+          placeholder="Teken eerst je studiegebied..." autocomplete="off" disabled />
+        <button id="submit-btn" title="Verstuur" disabled>→</button>
       </div>
     </div>
 
     <div id="messages">
-      <div class="card-welcome">
-
-        <div class="welcome-hero">
-          <h3>PDOK Verkenner</h3>
-          <p>Stel een vraag in gewoon Nederlands. De AI kiest automatisch de juiste Nederlandse geodatabron, jij tekent het gebied — dan wordt de data live opgehaald als hexagonkaart.</p>
-        </div>
-
-        <div class="welcome-steps">
-          <div class="welcome-step">
-            <div class="step-num">1</div>
-            <div class="step-text">
-              <b>Stel je vraag</b><br>
-              <span class="step-sub">AI kiest CBS, BAG of NGR als databron en legt uit waarom</span>
-            </div>
-          </div>
-          <div class="welcome-step">
-            <div class="step-num">2</div>
-            <div class="step-text">
-              <b>Teken je studiegebied</b><br>
-              <span class="step-sub">Klik en sleep op de kaart — kleiner gebied = volledigere data</span>
-            </div>
-          </div>
-          <div class="welcome-step">
-            <div class="step-num">3</div>
-            <div class="step-text">
-              <b>Bekijk de hexagonkaart</b><br>
-              <span class="step-sub">Data geaggregeerd op ~174m hexagonen. Vraag daarna "Andere vraag, zelfde gebied" om snel te vergelijken</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="welcome-section">
-          <div class="welcome-section-label">Wat kan het?</div>
-          <div class="cap-grid">
-            <div class="cap-item"><div class="cap-dot green"></div><span class="cap-name">CBS 100m grid</span><span class="cap-desc">— bevolking, woningen, huishoudens, afstanden tot voorzieningen (2003–2024)</span></div>
-            <div class="cap-item"><div class="cap-dot green"></div><span class="cap-name">BAG gebouwen</span><span class="cap-desc">— bouwjaar, gebruiksdoel, woningdichtheid</span></div>
-            <div class="cap-item"><div class="cap-dot green"></div><span class="cap-name">NGR kaartlagen</span><span class="cap-desc">— aanvullende WMS-lagen via nationaalgeoregister.nl</span></div>
-            <div class="cap-item"><div class="cap-dot green"></div><span class="cap-name">Gemeente zoeken</span><span class="cap-desc">— zoekbalk linksboven navigeert naar elke gemeente of wijk</span></div>
-          </div>
-        </div>
-
-        <div class="welcome-section">
-          <div class="welcome-section-label">Beperkingen</div>
-          <div class="cap-grid">
-            <div class="cap-item"><div class="cap-dot yellow"></div><span class="cap-name">WOZ, inkomen &amp; energie</span><span class="cap-desc">— CBS onderdrukt deze waarden in cellen met weinig bewoners; werkt het niet, gebruik de retry-knoppen</span></div>
-            <div class="cap-item"><div class="cap-dot yellow"></div><span class="cap-name">Max 1.000 features per aanvraag</span><span class="cap-desc">— grote gebieden vereisen paginering via "Alle pagina's ophalen"</span></div>
-            <div class="cap-item"><div class="cap-dot red"></div><span class="cap-name">Alleen Nederland</span><span class="cap-desc">— PDOK-data dekt geen gebieden buiten NL</span></div>
-            <div class="cap-item"><div class="cap-dot red"></div><span class="cap-name">Geen realtime data</span><span class="cap-desc">— CBS is 2024, BAG is periodiek bijgewerkt</span></div>
-          </div>
-        </div>
-
-        <div class="welcome-examples">
-          <div class="examples-label">Probeer een voorbeeld</div>
-          <button class="example-btn" onclick="useExample(this)">Waar wonen de meeste mensen per 100m²?</button>
-          <button class="example-btn" onclick="useExample(this)">Welke gebieden hebben veel sociale huurwoningen?</button>
-          <button class="example-btn" onclick="useExample(this)">Toon gebouwen gebouwd vóór 1945</button>
-          <button class="example-btn" onclick="useExample(this)">Afstand tot dichtstbijzijnde supermarkt</button>
-          <button class="example-btn" onclick="useExample(this)">Vergelijk eenpersoonshuishoudens in Amsterdam</button>
-        </div>
-
-      </div>
+      <!-- Populated by JS -->
     </div>
 
   </div>
@@ -1139,10 +1191,16 @@
         document.getElementById('clear-btn').style.display = '';
         updateAreaInfo();
         updateMap();
-        // Remove the "draw your area" prompt card if present
+        // Remove the draw step card
         if (drawCardEl) { drawCardEl.remove(); drawCardEl = null; }
-        // If AI already responded, fetch data now
-        if (currentQuery) fetchDataForBbox(drawnBbox);
+        if (currentQuery) {
+          // keepArea flow: AI already responded, fetch immediately
+          fetchDataForBbox(drawnBbox);
+        } else {
+          // New flow: area drawn first — now ask the question
+          setStep(2);
+          appendQuestionStepCard();
+        }
       });
     }
 
@@ -1371,6 +1429,94 @@
     }
 
     // ─────────────────────────────────────────────────────────────────
+    // Draggable + resizable chat window
+    // ─────────────────────────────────────────────────────────────────
+    (function initChatWindow() {
+      const panel  = document.getElementById('panel');
+      const handle = document.getElementById('drag-handle');
+      const resizeEl = document.getElementById('panel-resize');
+
+      let dragState = null;
+      let resizeState = null;
+
+      function toFixed() {
+        // Switch from transform-center to explicit left/top
+        const rect = panel.getBoundingClientRect();
+        panel.style.left      = rect.left + 'px';
+        panel.style.top       = rect.top  + 'px';
+        panel.style.transform = 'none';
+        panel.style.right     = 'auto';
+        panel.style.bottom    = 'auto';
+        panel.classList.remove('snapped');
+      }
+
+      handle.addEventListener('mousedown', e => {
+        if (e.button !== 0) return;
+        toFixed();
+        const rect = panel.getBoundingClientRect();
+        dragState = { startX: e.clientX, startY: e.clientY, origL: rect.left, origT: rect.top };
+        document.body.style.cursor = 'grabbing';
+        e.preventDefault();
+      });
+
+      resizeEl.addEventListener('mousedown', e => {
+        if (e.button !== 0) return;
+        const rect = panel.getBoundingClientRect();
+        resizeState = { startX: e.clientX, startY: e.clientY, origW: rect.width, origH: rect.height };
+        document.body.style.cursor = 'se-resize';
+        e.preventDefault();
+      });
+
+      document.addEventListener('mousemove', e => {
+        if (dragState) {
+          const dx = e.clientX - dragState.startX;
+          const dy = e.clientY - dragState.startY;
+          panel.style.left = Math.max(0, dragState.origL + dx) + 'px';
+          panel.style.top  = Math.max(0, dragState.origT + dy) + 'px';
+        }
+        if (resizeState) {
+          const nw = Math.max(300, resizeState.origW + (e.clientX - resizeState.startX));
+          const nh = Math.max(280, resizeState.origH + (e.clientY - resizeState.startY));
+          panel.style.width     = nw + 'px';
+          panel.style.maxHeight = nh + 'px';
+        }
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (dragState || resizeState) document.body.style.cursor = '';
+        dragState = resizeState = null;
+      });
+    })();
+
+    function snapPanelRight() {
+      const panel = document.getElementById('panel');
+      panel.style.cssText = ''; // clear inline styles
+      panel.classList.add('snapped');
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Thinking overlay (full-panel, replaces card-thinking in feed)
+    // ─────────────────────────────────────────────────────────────────
+    function showThinking(stepText) {
+      document.getElementById('think-title').textContent = stepText || 'Even geduld...';
+      document.getElementById('think-steps-list').innerHTML = '';
+      document.getElementById('thinking-overlay').classList.add('visible');
+    }
+
+    function addThinkStep(text, done = false) {
+      const el = document.createElement('div');
+      el.className = 'think-step-line' + (done ? ' done' : ' active');
+      el.innerHTML = done
+        ? `<span class="think-step-icon">✓</span><span>${esc(text)}</span>`
+        : `<span class="think-step-icon spin-sm">↻</span><span>${esc(text)}</span>`;
+      document.getElementById('think-steps-list').appendChild(el);
+    }
+
+    function hideThinking() {
+      document.getElementById('thinking-overlay').classList.remove('visible');
+    }
+
+    // ─────────────────────────────────────────────────────────────────
     // Welcome overlay
     // ─────────────────────────────────────────────────────────────────
     function showWelcome() {
@@ -1378,19 +1524,28 @@
     }
 
     function dismissWelcome() {
-      const overlay = document.getElementById('welcome-overlay');
-      overlay.classList.add('hidden');
+      document.getElementById('welcome-overlay').classList.add('hidden');
       if (document.getElementById('wm-no-show').checked) {
         try { localStorage.setItem('pdok-welcome-seen', '1'); } catch {}
       }
+      initDrawStep();
     }
     window.dismissWelcome = dismissWelcome;
     window.showWelcome    = showWelcome;
 
-    // Also dismiss on backdrop click
     document.getElementById('welcome-overlay').addEventListener('click', e => {
       if (e.target === document.getElementById('welcome-overlay')) dismissWelcome();
     });
+
+    // ─────────────────────────────────────────────────────────────────
+    // Step 1: draw area (shown on init / after welcome)
+    // ─────────────────────────────────────────────────────────────────
+    function initDrawStep() {
+      document.getElementById('messages').innerHTML = '';
+      setStep(1);
+      drawCardEl = appendDrawPromptCard({ metric_column: null });
+      activateDrawMode();
+    }
 
     // ─────────────────────────────────────────────────────────────────
     // Year switcher (CBS vierkantstatistieken only)
@@ -1490,17 +1645,12 @@
     async function askAI(question, keepArea = false) {
       if (busy) return;
       busy = true; setBusy(true);
-      setStep(1);
 
       appendMsg('user', question);
-
-      // Show thinking card
-      const thinkEl = createThinkCard();
-      const think = thinkEl._ctrl;
+      showThinking('AI analyseert je vraag...');
+      addThinkStep('Vraag interpreteren en databron kiezen');
 
       try {
-        think.step('AI analyseert vraag en kiest databron...');
-
         const aiRes = await fetch('/api/ask-wfs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1513,35 +1663,22 @@
         aiData.h3Resolution = 9;
         if (aiData.wfsUrl.includes('vierkantstatistieken')) aiData.aggregation = 'avg';
 
-        think.done();
-        thinkEl.remove();
+        hideThinking();
 
         currentQuery      = aiData;
         currentMetric     = aiData.metric_column;
         currentColorScale = aiData.color_scale || 'sequential';
 
-        // Show AI analysis card
         appendAiCard(aiData);
-
-        // Auto-fly to location if AI extracted one from the question
         if (aiData.location) flyToLocationName(aiData.location);
 
-        if (keepArea && drawnBbox) {
-          // Re-use existing drawn area — skip draw step, fetch immediately
-          setStep(3);
-          await fetchDataForBbox(drawnBbox);
-        } else {
-          // Show "draw your area" prompt and activate draw mode
-          setStep(2);
-          drawCardEl = appendDrawPromptCard(aiData);
-          activateDrawMode();
-        }
+        // In new flow drawnBbox always exists when question is asked
+        setStep(3);
+        await fetchDataForBbox(drawnBbox);
 
       } catch (err) {
-        think.done();
-        thinkEl.remove();
+        hideThinking();
         appendMsg('error', `Fout: ${esc(err.message)}`);
-        setStep(0);
       } finally {
         busy = false; setBusy(false);
       }
@@ -1577,6 +1714,7 @@
         activeCardEl = appendResultCard(currentQuery, features, currentH3Data, truncated);
 
         if (currentQuery.ngr_keywords?.length) searchAndSuggestLayers(currentQuery.ngr_keywords);
+        snapPanelRight();
 
       } catch (err) {
         appendMsg('error', `Fout: ${esc(err.message)}`);
@@ -1730,6 +1868,31 @@
       wireLocationSearch(inputEl, dropdownEl);
       setTimeout(() => inputEl.focus(), 50);
 
+      return el;
+    }
+
+    function appendQuestionStepCard() {
+      const el = document.createElement('div');
+      el.className = 'card-question-step';
+      el.innerHTML = `
+        <div class="qs-header">
+          <span class="qs-badge">Stap 2 van 2</span>
+          <span class="qs-title">Wat wil je weten over dit gebied?</span>
+        </div>
+        <div class="qs-examples">
+          <div class="qs-examples-label">Voorbeelden — klik om te gebruiken</div>
+          <button class="example-btn" onclick="useExample(this)">Waar wonen de meeste mensen?</button>
+          <button class="example-btn" onclick="useExample(this)">Welke gebieden hebben veel sociale huurwoningen?</button>
+          <button class="example-btn" onclick="useExample(this)">Toon gebouwen gebouwd vóór 1945</button>
+          <button class="example-btn" onclick="useExample(this)">Afstand tot dichtstbijzijnde supermarkt</button>
+        </div>`;
+      document.getElementById('messages').appendChild(el);
+      scrollToBottom();
+      // Enable question input now that area is chosen
+      document.getElementById('question-input').disabled = false;
+      document.getElementById('question-input').placeholder = 'Stel je vraag over dit gebied...';
+      document.getElementById('submit-btn').disabled = false;
+      setTimeout(() => document.getElementById('question-input').focus(), 80);
       return el;
     }
 
@@ -1943,13 +2106,17 @@
     }
     window.retryWithMetric = retryWithMetric;
 
-    // Keep the drawn bbox but ask a new AI question
+    // Keep drawn bbox, ask a new question
     function newQuestionSameArea() {
       currentQuery = null; currentH3Data = null; currentBbox = null;
       currentRawFeatures = [];
       document.getElementById('legend').classList.remove('visible');
       updateMap();
-      document.getElementById('question-input').focus();
+      // Un-snap: go back to centered window
+      const panel = document.getElementById('panel');
+      panel.style.cssText = '';
+      panel.classList.remove('snapped');
+      appendQuestionStepCard();
     }
     window.newQuestionSameArea = newQuestionSameArea;
 
@@ -1959,22 +2126,13 @@
     function submitQuestion() {
       const input = document.getElementById('question-input');
       const q = input.value.trim();
-      if (!q) return;
+      if (!q || !drawnBbox) return;
       input.value = '';
-      const keepArea = !!drawnBbox;
-      // Always reset AI state; only reset bbox when there isn't one to reuse
       currentQuery = null; currentH3Data = null; currentBbox = null;
       currentRawFeatures = [];
       document.getElementById('legend').classList.remove('visible');
-      if (!keepArea) {
-        drawMode = false;
-        document.getElementById('draw-btn').classList.remove('active', 'pulse');
-        document.getElementById('clear-btn').style.display = 'none';
-        document.getElementById('area-info').classList.remove('visible');
-        document.getElementById('container').style.cursor = '';
-      }
       updateMap();
-      askAI(q, keepArea);
+      askAI(q, true); // always keepArea — bbox was drawn first
     }
 
     function useExample(btn) {
@@ -1994,6 +2152,7 @@
     try {
       if (localStorage.getItem('pdok-welcome-seen')) {
         document.getElementById('welcome-overlay').classList.add('hidden');
+        initDrawStep();
       }
     } catch {}
     initDeck();
