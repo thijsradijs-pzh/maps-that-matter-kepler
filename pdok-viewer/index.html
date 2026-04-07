@@ -230,6 +230,44 @@
       font-size: 11px; color: #388bfd;
     }
 
+    /* Suppression warning inside AI card */
+    .card-ai-suppress {
+      margin: 0 14px 12px;
+      background: rgba(210,153,34,0.08); border: 1px solid rgba(210,153,34,0.25);
+      border-radius: 6px; padding: 8px 11px;
+      font-size: 11px; color: #e3b341; line-height: 1.6;
+    }
+
+    /* Retry buttons after suppression */
+    .retry-section {
+      padding: 10px 14px 12px; border-top: 1px solid #21262d;
+    }
+    .retry-label {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.5px; color: #484f58; margin-bottom: 7px;
+    }
+    .retry-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+    .retry-btn {
+      background: #161b22; border: 1px solid #30363d;
+      border-radius: 6px; padding: 5px 11px;
+      font-size: 11px; color: #58a6ff; cursor: pointer;
+      font-family: inherit; transition: border-color 0.15s, background 0.15s;
+    }
+    .retry-btn:hover { background: #21262d; border-color: #58a6ff; }
+
+    /* Action row at bottom of result card */
+    .card-action-row {
+      padding: 10px 14px 12px; border-top: 1px solid #21262d;
+      display: flex; gap: 6px; flex-wrap: wrap;
+    }
+    .action-btn {
+      background: #161b22; border: 1px solid #30363d;
+      border-radius: 6px; padding: 5px 11px;
+      font-size: 11px; color: #7d8590; cursor: pointer;
+      font-family: inherit; transition: border-color 0.15s, color 0.15s;
+    }
+    .action-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+
     /* Collapsible WFS details */
     .wfs-toggle {
       display: flex; align-items: center; gap: 6px;
@@ -667,6 +705,25 @@
     }
 
     // ─────────────────────────────────────────────────────────────────
+    // CBS suppression metadata
+    // ─────────────────────────────────────────────────────────────────
+    const SUPPRESSION_PRONE = new Set([
+      'gemiddeldeWozWaardeWoning',
+      'gemiddeldGasverbruikWoning',
+      'gemiddeldElektriciteitsverbruikWoning',
+      'aantalPersonenMetUitkeringOnderAowlft',
+    ]);
+
+    // Fallback alternatives when a metric turns out suppressed
+    const SUPPRESSION_ALTS = {
+      gemiddeldeWozWaardeWoning:             [{ m: 'percentageKoopwoningen', l: '% koopwoningen' }, { m: 'aantalWoningen', l: 'Aantal woningen' }, { m: 'aantalInwoners', l: 'Inwoners' }],
+      gemiddeldGasverbruikWoning:            [{ m: 'aantalWoningen', l: 'Aantal woningen' }, { m: 'gemiddeldElektriciteitsverbruikWoning', l: 'Elektriciteitsverbruik' }, { m: 'aantalInwoners', l: 'Inwoners' }],
+      gemiddeldElektriciteitsverbruikWoning: [{ m: 'aantalWoningen', l: 'Aantal woningen' }, { m: 'gemiddeldGasverbruikWoning', l: 'Gasverbruik' }, { m: 'aantalInwoners', l: 'Inwoners' }],
+      aantalPersonenMetUitkeringOnderAowlft: [{ m: 'aantalInwoners', l: 'Inwoners' }, { m: 'aantalEenpersoonshuishoudens', l: 'Eenpersoonshuish.' }, { m: 'aantalWoningen', l: 'Aantal woningen' }],
+    };
+    const DEFAULT_ALTS = [{ m: 'aantalInwoners', l: 'Inwoners' }, { m: 'aantalWoningen', l: 'Woningen' }, { m: 'percentageKoopwoningen', l: '% koopwoningen' }];
+
+    // ─────────────────────────────────────────────────────────────────
     // App state
     // ─────────────────────────────────────────────────────────────────
     const PAGE_SIZE = 1000;
@@ -1056,7 +1113,7 @@
     // ─────────────────────────────────────────────────────────────────
 
     // Phase 1: send question to AI, get dataset selection
-    async function askAI(question) {
+    async function askAI(question, keepArea = false) {
       if (busy) return;
       busy = true; setBusy(true);
       setStep(1);
@@ -1098,10 +1155,16 @@
           document.getElementById('location-input').value = aiData.location;
         }
 
-        // Show "draw your area" prompt and activate draw mode
-        setStep(2);
-        drawCardEl = appendDrawPromptCard(aiData);
-        activateDrawMode();
+        if (keepArea && drawnBbox) {
+          // Re-use existing drawn area — skip draw step, fetch immediately
+          setStep(3);
+          await fetchDataForBbox(drawnBbox);
+        } else {
+          // Show "draw your area" prompt and activate draw mode
+          setStep(2);
+          drawCardEl = appendDrawPromptCard(aiData);
+          activateDrawMode();
+        }
 
       } catch (err) {
         think.done();
@@ -1236,10 +1299,11 @@
     }
 
     function appendAiCard(aiData) {
-      const source = aiData.wfsUrl.includes('vierkantstatistieken') ? 'CBS Vierkantstatistieken 100m' :
-                     aiData.wfsUrl.includes('bag') ? 'BAG Gebouwen' : 'PDOK WFS';
-      const year   = (aiData.wfsUrl.match(/\/(\d{4})\//) || [])[1] || '';
-      const title  = aiData.title_nl || aiData.title_en || '';
+      const source      = aiData.wfsUrl.includes('vierkantstatistieken') ? 'CBS Vierkantstatistieken 100m' :
+                          aiData.wfsUrl.includes('bag') ? 'BAG Gebouwen' : 'PDOK WFS';
+      const year        = (aiData.wfsUrl.match(/\/(\d{4})\//) || [])[1] || '';
+      const title       = aiData.title_nl || aiData.title_en || '';
+      const isSuppProne = SUPPRESSION_PRONE.has(aiData.metric_column);
 
       const el = document.createElement('div');
       el.className = 'card-ai';
@@ -1253,20 +1317,26 @@
           <span class="tag">${esc(aiData.metric_column)}</span>
           <span class="tag">${esc(aiData.aggregation)}</span>
           ${aiData.cqlFilter ? `<span class="tag">filter: ${esc(aiData.cqlFilter)}</span>` : ''}
-        </div>`;
+        </div>
+        ${isSuppProne ? `<div class="card-ai-suppress">⚠ CBS onderdrukt dit kenmerk in cellen met weinig bewoners. Werkt alleen goed in dichtbebouwde gebieden.</div>` : ''}`;
       document.getElementById('messages').appendChild(el);
       scrollToBottom();
       return el;
     }
 
     function appendDrawPromptCard(aiData) {
+      const isSuppProne = SUPPRESSION_PRONE.has(aiData.metric_column);
+      const hint = isSuppProne
+        ? 'Let op: teken een stedelijk gebied — dit kenmerk is alleen beschikbaar in dichtbebouwde cellen.'
+        : 'Tip: een wijk of deel van een stad (~2–5 km²) geeft de beste datadichtheid binnen de limiet van 1.000 features.';
+
       const el = document.createElement('div');
       el.className = 'card-draw-prompt';
       el.innerHTML = `
         <div class="dp-icon">⬚</div>
-        <div class="dp-title">Teken nu je studiegebied</div>
-        <div class="dp-desc">Klik en sleep op de kaart om het gebied te selecteren waarvoor je data wilt ophalen. PDOK geeft maximaal 1.000 features per aanvraag — een kleiner gebied geeft een vollediger beeld.</div>
-        <div class="dp-hint">Tip: zoom in op je gewenste gebied vóórdat je tekent voor de beste datadichtheid.</div>`;
+        <div class="dp-title">Teken je studiegebied</div>
+        <div class="dp-desc">Klik en sleep op de kaart om het gebied te selecteren. PDOK geeft maximaal 1.000 features per aanvraag — kleiner is completer.</div>
+        <div class="dp-hint">${esc(hint)}</div>`;
       document.getElementById('messages').appendChild(el);
       scrollToBottom();
       return el;
@@ -1292,6 +1362,10 @@
       const kmH = Math.round(Math.abs(n - s) * 110.574);
 
       const isSuppressed = featureCount > 0 && hexCount === 0;
+      const alts = SUPPRESSION_ALTS[aiData.metric_column] || DEFAULT_ALTS;
+      const retryBtns = alts.map(a =>
+        `<button class="retry-btn" onclick="retryWithMetric('${esc(a.m)}','${esc(a.l)}')">${esc(a.l)}</button>`
+      ).join('');
 
       const el = document.createElement('div');
       el.className = 'card-result';
@@ -1309,10 +1383,11 @@
             <span class="stat-label">CBS-cellen opgehaald</span>
             <span class="stat-value">${featureCount.toLocaleString('nl-NL')}</span>
           </div>
+          ${!isSuppressed ? `
           <div class="stat-row">
             <span class="stat-label">Hexagonen met data</span>
             <span class="stat-value">${hexCount.toLocaleString('nl-NL')} (~174 m)</span>
-          </div>
+          </div>` : ''}
           ${hexCount > 0 && binResult.min != null && !isNaN(binResult.min) ? `
           <div class="stat-row">
             <span class="stat-label">Bereik (${esc(aiData.metric_column)})</span>
@@ -1321,16 +1396,22 @@
         </div>
         ${isSuppressed ? `
         <div class="card-result-warning" style="border-color:rgba(248,81,73,0.3);background:rgba(248,81,73,0.08);color:#f85149;">
-          ✕ CBS heeft <b>${esc(aiData.metric_column)}</b> voor alle ${featureCount} cellen in dit gebied onderdrukt.<br><br>
-          CBS publiceert gevoelige waarden (WOZ, gas, energie, inkomen) alleen als een cel voldoende bewoners heeft — anders krijg je code <b>−99995</b> tot <b>−99999</b>.<br><br>
-          Probeer een ander kenmerk zoals <b>aantalInwoners</b>, <b>aantalWoningen</b> of <b>percentageKoopwoningen</b>, of kies een dichter bebouwd gebied.
+          CBS heeft <b>${esc(aiData.metric_column)}</b> voor alle ${featureCount} cellen onderdrukt — dit kenmerk vereist een hogere bevolkingsdichtheid.
+        </div>
+        <div class="retry-section">
+          <div class="retry-label">Probeer in hetzelfde gebied</div>
+          <div class="retry-btns">${retryBtns}</div>
         </div>` : ''}
         ${truncated && !isSuppressed ? `
         <div class="card-result-warning">
-          ⚠ PDOK heeft de respons afgekapt op ${featureCount.toLocaleString('nl-NL')} features — het beeld is mogelijk onvolledig.
+          ⚠ Afgekapt op ${featureCount.toLocaleString('nl-NL')} features — het beeld is mogelijk onvolledig.
           <br><button class="load-all-btn" onclick="loadAllPages()">Alle pagina's ophalen</button>
         </div>` : ''}
         <div class="card-result-status"></div>
+        ${!isSuppressed ? `
+        <div class="card-action-row">
+          <button class="action-btn" onclick="newQuestionSameArea()">Andere vraag, zelfde gebied</button>
+        </div>` : ''}
         <div class="wfs-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
           <span class="wfs-arrow">▶</span>
           <span>WFS query details</span>
@@ -1440,6 +1521,38 @@
     }
 
     // ─────────────────────────────────────────────────────────────────
+    // Retry / re-use area actions
+    // ─────────────────────────────────────────────────────────────────
+
+    // Swap to a different metric for the same drawn bbox — no redraw needed
+    async function retryWithMetric(metric, label) {
+      if (!currentQuery || !drawnBbox) return;
+      currentQuery = {
+        ...currentQuery,
+        metric_column: metric,
+        cqlFilter: `${metric} > 0`,
+        title_nl: label,
+        title_en: label,
+        color_scale: 'sequential',
+      };
+      currentMetric = metric;
+      currentColorScale = 'sequential';
+      if (activeCardEl) { activeCardEl.remove(); activeCardEl = null; }
+      await fetchDataForBbox(drawnBbox);
+    }
+    window.retryWithMetric = retryWithMetric;
+
+    // Keep the drawn bbox but ask a new AI question
+    function newQuestionSameArea() {
+      currentQuery = null; currentH3Data = null; currentBbox = null;
+      currentRawFeatures = [];
+      document.getElementById('legend').classList.remove('visible');
+      updateMap();
+      document.getElementById('question-input').focus();
+    }
+    window.newQuestionSameArea = newQuestionSameArea;
+
+    // ─────────────────────────────────────────────────────────────────
     // Input wiring
     // ─────────────────────────────────────────────────────────────────
     function submitQuestion() {
@@ -1447,17 +1560,20 @@
       const q = input.value.trim();
       if (!q) return;
       input.value = '';
-      // Reset for a new question
+      const keepArea = !!drawnBbox;
+      // Always reset AI state; only reset bbox when there isn't one to reuse
       currentQuery = null; currentH3Data = null; currentBbox = null;
       currentRawFeatures = [];
-      drawnBbox = null; drawMode = false;
-      document.getElementById('draw-btn').classList.remove('active', 'pulse');
-      document.getElementById('clear-btn').style.display = 'none';
-      document.getElementById('area-info').classList.remove('visible');
       document.getElementById('legend').classList.remove('visible');
-      document.getElementById('container').style.cursor = '';
+      if (!keepArea) {
+        drawMode = false;
+        document.getElementById('draw-btn').classList.remove('active', 'pulse');
+        document.getElementById('clear-btn').style.display = 'none';
+        document.getElementById('area-info').classList.remove('visible');
+        document.getElementById('container').style.cursor = '';
+      }
       updateMap();
-      askAI(q);
+      askAI(q, keepArea);
     }
 
     function useExample(btn) {
