@@ -1751,6 +1751,8 @@
         updateMap();
         updateCardStatus(allFeatures.length, currentH3Data.hexCount, false);
 
+      } catch (err) {
+        appendMsg('error', `Fout bij ophalen pagina's: ${esc(err.message)}`);
       } finally {
         paging = false;
         setMapLoading(false);
