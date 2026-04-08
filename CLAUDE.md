@@ -173,6 +173,7 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 - `agro-viewer/app.js`: verified no `alert()` calls remain in WMS layer flow (was already using inline modal error from prior session)
 - `population-3d`: play button now shows current/max year during animation (e.g. "⏸ 2022 / 2023")
 - `shared/duckdb-loader.js`: streaming progress using response.body reader when Content-Length available (10→80% during download instead of jumping at fixed points)
+- `shared/mca-criteria.js` created; `gebiedsviewer/js/app.js` and `multi-criteria-analysis/config.js` now reference it instead of defining their own copies
 
 - `shared/deckgl-utils.js` createTooltip(): HTML-escapes all interpolated values; tooltip is XSS-safe (verified 2026-04-07)
 
@@ -183,8 +184,6 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 **WMS layer creation duplicated** — `multi-criteria-analysis/js/wms-layer.js` AND inline in `gebiedsviewer/js/app.js`
 - Consolidate into `/shared/wms-layer.js`. Bug fixes currently must be made in two places.
 
-**MCA_CRITERIA defined in two places** — `gebiedsviewer/js/app.js` AND `multi-criteria-analysis/config.js`
-- Create `/shared/mca-criteria.js` as single source of truth.
 
 **ask-wfs.js: question validation** — `api/ask-wfs.js:163` — already trims and checks ✅
 
