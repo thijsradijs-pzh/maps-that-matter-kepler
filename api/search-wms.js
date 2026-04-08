@@ -43,6 +43,13 @@ export default async function handler(req, res) {
     const text = await upstream.text();
     const layers = [];
 
+    // Extract text content from an XML snippet, handling CDATA sections
+    function xmlText(str) {
+      const cdata = str.match(/<!\[CDATA\[([\s\S]*?)\]\]>/);
+      if (cdata) return cdata[1].trim();
+      return str.replace(/<[^>]+>/g, '').trim();
+    }
+
     // Split on record boundaries (handles both csw:Record and dc:Record)
     const recordRe = /<(?:csw:)?Record>([\s\S]*?)<\/(?:csw:)?Record>/g;
     let m;
@@ -52,12 +59,12 @@ export default async function handler(req, res) {
       // Title
       const titleM = rec.match(/<dc:title[^>]*>([\s\S]*?)<\/dc:title>/);
       if (!titleM) continue;
-      const title = titleM[1].replace(/<[^>]+>/g, '').trim();
+      const title = xmlText(titleM[1]);
       if (!title) continue;
 
       // Abstract (first 140 chars)
       const absM = rec.match(/<dct:abstract[^>]*>([\s\S]*?)<\/dct:abstract>/i);
-      const abstract = absM ? absM[1].replace(/<[^>]+>/g, '').trim().slice(0, 140) : '';
+      const abstract = absM ? xmlText(absM[1]).slice(0, 140) : '';
 
       // Find dct:URI elements with protocol OGC:WMS
       const uriRe = /<dct:URI([^>]*)>([\s\S]*?)<\/dct:URI>/g;

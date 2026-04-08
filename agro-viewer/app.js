@@ -52,7 +52,7 @@ function initSearch() {
     let debounceTimer;
     input.addEventListener('input', (e) => {
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => performSearch(e.target.value), 500);
+        debounceTimer = setTimeout(() => performSearch(e.target.value), 800);
     });
 
     async function performSearch(term) {
@@ -96,7 +96,11 @@ function initSearch() {
                 </div>
                 <i class="fa fa-plus-circle" style="color:#ccc; margin-left:8px;"></i>
             `;
+            div.setAttribute('role', 'button');
+            div.setAttribute('tabindex', '0');
+            div.setAttribute('aria-label', `Voeg laag toe: ${item.name || item.title}`);
             div.onclick = () => addWmsLayer(item);
+            div.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addWmsLayer(item); } });
             resultsContainer.appendChild(div);
         });
     }
@@ -113,14 +117,15 @@ async function addWmsLayer(item) {
         capUrl.searchParams.set('service', 'WMS');
         capUrl.searchParams.set('request', 'GetCapabilities');
 
+        const cacheKey = capUrl.origin + capUrl.pathname; // stable key: base URL without query params
         const proxyUrl = `/api/proxy?url=${encodeURIComponent(capUrl.toString())}`;
         let xmlText;
-        if (_capabilitiesCache.has(proxyUrl)) {
-            xmlText = _capabilitiesCache.get(proxyUrl);
+        if (_capabilitiesCache.has(cacheKey)) {
+            xmlText = _capabilitiesCache.get(cacheKey);
         } else {
             const resp = await fetch(proxyUrl);
             xmlText = await resp.text();
-            _capabilitiesCache.set(proxyUrl, xmlText);
+            _capabilitiesCache.set(cacheKey, xmlText);
         }
         const xmlDoc = new DOMParser().parseFromString(xmlText, "text/xml");
 

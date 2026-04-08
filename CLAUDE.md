@@ -155,6 +155,11 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 - `shared/duckdb-loader.js`: table name sanitized before SQL interpolation; re-init edge case fixed (`this.db && this.conn`)
 - `agro-viewer`: NSO credentials persisted to `sessionStorage` (survive tab refresh, cleared on tab close); `alert()` in credential modal replaced with inline error; `modal-error` paragraph added to modal HTML
 - `som-viewer`: story overlay now closable with Escape key and arrow key navigation; cards scroll on small/short screens
+- `api/search-wms.js`: CDATA sections now handled correctly in XML text extraction
+- `agro-viewer`: WMS capabilities cache keyed on base service URL (not full proxy URL); search results keyboard accessible (`role=button`, `tabindex=0`, Enter/Space handler); debounce raised to 800ms
+- `pdok-viewer`: panel drag now clamped to viewport bounds (can't drag off right/bottom edge)
+- `population-3d` + `groundheight`: fullscreen button hidden on browsers without Fullscreen API (iOS Safari)
+- `geluid-groen-viewer`: `aria-label` added to warn stat cards for screen readers
 
 ---
 
@@ -170,20 +175,8 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 
 ### P1 — High (noticeable UX issues)
 
-**pdok-viewer panel can be dragged/resized to unusable state** — `pdok-viewer/index.html`
-- Panel is draggable and resizable but has no bounds checking. If dragged off-screen or resized to <100px, user cannot interact. Add min-width/min-height constraints and a "reset panel" button.
-
-**schiedam-bos story panel doesn't trap focus** — `schiedam-bos/index.html`
-- No info panel or overlay requiring focus trap. But if a modal is added in future, add focus trap at that point.
-
 **Multi-criteria-analysis heatmap legend missing real values** — `multi-criteria-analysis/index.html`
 - "Laag / Hoog" legend shows no actual score range. Compute and display min/max MCA score from loaded data after `init()` completes.
-
-**agro-viewer search results not keyboard accessible** — `agro-viewer/app.js` result rendering
-- Search result items are `<div onclick>`, not focusable. Add `role="button" tabindex="0"` and `keydown Enter/Space` handler so keyboard users can add WMS layers.
-
-**geluid-groen-viewer colorblind icons lack accessible text** — `geluid-groen-viewer/index.html`
-- `::before` pseudo-elements with ⚠/✓ are CSS-only and invisible to screen readers. Add `aria-label="Boven WHO-norm"` / `aria-label="Onder WHO-norm"` to the `.warn` / `.ok` elements.
 
 **Tooltip HTML built via string concatenation** — `shared/deckgl-utils.js` createTooltip()
 - Low risk today (internal data only), but if external place names or WFS attribute values are ever fed in, this is an XSS vector. Switch to DOM construction or sanitize with a whitelist function.
@@ -195,23 +188,11 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 
 ### P2 — Medium (code quality / maintainability)
 
-**agro-viewer search results not keyboard accessible** — `agro-viewer/app.js` result rendering
-- Search result items are `<div onclick>`, not focusable. Add `role="button" tabindex="0"` and `keydown Enter/Space` handler so keyboard users can add WMS layers.
-
 **WMS layer creation duplicated** — `multi-criteria-analysis/js/wms-layer.js` AND inline in `gebiedsviewer/js/app.js`
 - Consolidate into `/shared/wms-layer.js`. Bug fixes currently must be made in two places.
 
 **MCA_CRITERIA defined in two places** — `gebiedsviewer/js/app.js` AND `multi-criteria-analysis/config.js`
 - Create `/shared/mca-criteria.js` as single source of truth.
-
-**agro-viewer: WMS capabilities cache key is full proxy URL** — `agro-viewer/app.js`
-- Cache key includes the full `?url=...` parameter. If the same WMS service is requested with slightly different query params, it misses the cache. Key should be the underlying service URL only.
-
-**search-wms.js uses regex to parse XML** — `api/search-wms.js:47-91`
-- Fragile regex-based CSW XML parsing. Nested tags or CDATA sections will silently produce wrong results. Use `DOMParser` (already used elsewhere).
-
-**suggest-location.js swallows upstream errors** — `api/suggest-location.js`
-- Returns HTTP 200 with empty array when upstream PDOK Locatieserver fails. Frontend cannot distinguish "no results" from "server error". Return 5xx with structured error on upstream failures.
 
 **ask-wfs.js: question validation** — `api/ask-wfs.js:163` — already trims and checks ✅
 
@@ -248,12 +229,6 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 
 **blog-h3-examples social share links not accessible** — `blog-h3-examples/index.html`
 - `<a>` share buttons have no `aria-label`. Add `aria-label="Deel op Twitter"` etc.
-
-**Fullscreen API not supported on iOS Safari** — `population-3d`, `groundheight`
-- Fullscreen button is visible but silently does nothing on iOS. Add feature detection and hide button if `document.fullscreenEnabled` is false.
-
-**DuckDB re-init edge case** — `shared/duckdb-loader.js:30`
-- `if (this.db) return` early-exits on re-init, but `this.conn` may be null if a previous init failed halfway. Add check: `if (this.db && this.conn) return`.
 
 **pdok-viewer welcome modal "don't show again" has no reset** — `pdok-viewer/index.html`
 - Once dismissed via localStorage, never re-shown. Add a small "?" button in panel header to re-open the welcome card.

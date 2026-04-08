@@ -1451,8 +1451,10 @@
         if (dragState) {
           const dx = e.clientX - dragState.startX;
           const dy = e.clientY - dragState.startY;
-          panel.style.left = Math.max(0, dragState.origL + dx) + 'px';
-          panel.style.top  = Math.max(0, dragState.origT + dy) + 'px';
+          const maxL = window.innerWidth  - 120; // keep at least 120px visible
+          const maxT = window.innerHeight -  48; // keep drag handle reachable
+          panel.style.left = Math.max(0, Math.min(maxL, dragState.origL + dx)) + 'px';
+          panel.style.top  = Math.max(0, Math.min(maxT, dragState.origT + dy)) + 'px';
         }
         if (resizeState) {
           const nw = Math.max(300, resizeState.origW + (e.clientX - resizeState.startX));

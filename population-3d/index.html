@@ -693,7 +693,12 @@
       // Fullscreen button
       const fullscreenBtn = document.getElementById('fullscreen-btn');
       if (fullscreenBtn) {
-        fullscreenBtn.addEventListener('click', toggleFullscreen);
+        // Hide on browsers that don't support the Fullscreen API (e.g. iOS Safari)
+        if (!document.fullscreenEnabled && !document.webkitFullscreenEnabled) {
+          fullscreenBtn.style.display = 'none';
+        } else {
+          fullscreenBtn.addEventListener('click', toggleFullscreen);
+        }
       }
 
       // Year play/pause behaviour
