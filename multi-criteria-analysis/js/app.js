@@ -324,10 +324,27 @@ window.zoomToWmsLayer = function(id) {
     if (layer && layer.bbox) zoomToBbox(layer.bbox);
 };
 
+// --- HEATMAP LEGEND ---
+function updateHeatmapLegend() {
+    if (!showHeatmap || !showMainLayer || allData.length === 0) return;
+    const scores = allData.map(d => {
+        let s = 0;
+        VIZ_CONFIG.criteria.forEach(c => { s += (Number(d[c.key]) || 0) * (currentWeights[c.weightKey] || 0); });
+        return s;
+    }).filter(s => s > 0);
+    if (scores.length === 0) return;
+    const min = Math.min(...scores);
+    const max = Math.max(...scores);
+    const labels = document.querySelectorAll('#heatmap-legend .legend-labels span');
+    if (labels[0]) labels[0].textContent = min.toFixed(1);
+    if (labels[1]) labels[1].textContent = max.toFixed(1);
+}
+
 // --- MAIN RENDER ---
 function renderLayers() {
     const layers = [];
     document.getElementById('heatmap-legend').style.display = showHeatmap && showMainLayer ? 'flex' : 'none';
+    if (showHeatmap && showMainLayer) updateHeatmapLegend();
 
     // 1. Basemap
     if (isSatellite) {

@@ -1,4 +1,15 @@
 // config.js - Population Over Time (3D)
+
+// Single source of truth for color thresholds — used by both legend and getFillColor
+const COLOR_THRESHOLDS = [
+  { max: 5,        rgb: [239, 246, 255], hex: '#EFF6FF', label: '< 5' },
+  { max: 25,       rgb: [222, 235, 247], hex: '#DEEBF7', label: '5 – 25' },
+  { max: 55,       rgb: [198, 219, 239], hex: '#C6DBEF', label: '25 – 55' },
+  { max: 100,      rgb: [158, 202, 225], hex: '#9ECAE1', label: '55 – 100' },
+  { max: 165,      rgb: [107, 174, 214], hex: '#6BAED6', label: '100 – 165' },
+  { max: Infinity, rgb: [33,  113, 181], hex: '#2171B5', label: '≥ 165' },
+];
+
 const VIZ_CONFIG = {
   
   // Basic info
@@ -36,13 +47,7 @@ const VIZ_CONFIG = {
   legend: [
     {
       title: 'Color: Population (inwoners/hexagoon)',
-      items: [
-        { color: '#EFF6FF', label: '< 5' },
-        { color: '#DEEBF7', label: '5 – 25' },
-        { color: '#C6DBEF', label: '25 – 55' },
-        { color: '#6BAED6', label: '55 – 165' },
-        { color: '#2171B5', label: '≥ 165' }
-      ]
+      items: COLOR_THRESHOLDS.map(t => ({ color: t.hex, label: t.label }))
     },
     {
       title: 'Height: Building Fraction',
@@ -94,15 +99,10 @@ const VIZ_CONFIG = {
       // If both values 0 → fully transparent
       // Use subtle blue ramp tuned for Positron
       getFillColor: d => {
-        if (!hasAnyValue(d)) return [0, 0, 0, 0];  // rgba, alpha = 0
-        const pop = d.aantal_inwoners_sum || 0;
-        const v = Math.max(0, Math.min(255, pop)); // clamp 0–255
-        if (v < 5)   return [239, 246, 255];  // very very light
-        if (v < 25)   return [222, 235, 247];
-        if (v < 55)   return [198, 219, 239];
-        if (v < 100)  return [158, 202, 225];
-        if (v < 165)  return [107, 174, 214];
-        return [33, 113, 181];                 // darkest, still not screaming
+        if (!hasAnyValue(d)) return [0, 0, 0, 0];
+        const v = Math.max(0, d.aantal_inwoners_sum || 0);
+        const t = COLOR_THRESHOLDS.find(t => v < t.max);
+        return t ? t.rgb : COLOR_THRESHOLDS[COLOR_THRESHOLDS.length - 1].rgb;
       },
       // If both 0 → flat
       getElevation: d => {

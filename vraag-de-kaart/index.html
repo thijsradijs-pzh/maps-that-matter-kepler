@@ -676,7 +676,7 @@
         <div class="msg-card">
           <div class="msg-title">${title}</div>
           <div class="msg-results">${rowsHtml}${moreHtml}</div>
-          <div class="msg-count">${rows.length.toLocaleString('nl')} hexagonen · klik op de kaart voor details</div>
+          <div class="msg-count">${rows.length.toLocaleString('nl')} hexagonen${rows.length >= 100 ? ' · mogelijk niet volledig' : ''} · klik op de kaart voor details</div>
           <div class="sql-toggle" onclick="toggleSql(this)">
             <span class="arrow">&#9658;</span>
             <span>SQL-query</span>
