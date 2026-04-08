@@ -48,7 +48,7 @@ function createWMSLayer(layerConfig) {
                 const blob = await response.blob();
                 return await createImageBitmap(blob);
             } catch (error) {
-                console.warn(`Error loading tile for ${layerConfig.title}:`, error);
+                if (layerConfig.onError) layerConfig.onError();
                 return null;
             }
         },

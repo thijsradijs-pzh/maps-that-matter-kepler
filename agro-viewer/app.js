@@ -237,9 +237,10 @@ function updateActiveLayersUI() {
         container.style.display = 'block';
         activeWmsLayers.forEach(l => {
             const div = document.createElement('div');
-            div.style.cssText = 'padding:8px 10px; border-bottom:1px solid #eee; display:flex; flex-direction:column; gap:4px;';
+            div.style.cssText = `padding:8px 10px; border-bottom:1px solid #eee; display:flex; flex-direction:column; gap:4px;${l.hasError ? ' border-left:2px solid #e74c3c;' : ''}`;
 
             const pubBadge = `<span style="font-size:9px; color:#999; border:1px solid #ddd; border-radius:3px; padding:0 3px; margin-left:6px;">${l.publisher}</span>`;
+            const errBadge = l.hasError ? `<span style="font-size:9px; color:#e74c3c; margin-left:6px;" title="Laad fout">⚠ fout</span>` : '';
 
             // Header row
             const header = document.createElement('div');
@@ -248,7 +249,7 @@ function updateActiveLayersUI() {
                 <div style="display:flex; align-items:center;">
                     <i class="fa fa-check-square" style="color:#007ac2; margin-right:5px;"></i>
                     <span style="font-size:12px;">${l.title}</span>
-                    ${pubBadge}
+                    ${pubBadge}${errBadge}
                 </div>
                 <i class="fa fa-trash" style="cursor:pointer; color:#999; font-size:11px;" onclick="window.removeLayer('${l.id}')"></i>
             `;
@@ -546,7 +547,14 @@ function renderLayers() {
 
     // 5. Active WMS Layers
     activeWmsLayers.forEach(l => {
-        if (typeof createWMSLayer === 'function') layers.push(createWMSLayer(l));
+        if (typeof createWMSLayer === 'function') layers.push(createWMSLayer({
+            ...l,
+            onError: () => {
+                if (l.hasError) return;
+                l.hasError = true;
+                updateActiveLayersUI();
+            }
+        }));
     });
 
     deckInstance.setProps({ layers: layers });

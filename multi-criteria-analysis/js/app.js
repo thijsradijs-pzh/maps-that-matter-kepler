@@ -201,8 +201,8 @@ async function addWmsLayer(item) {
         if(bbox) zoomToBbox(bbox);
 
     } catch (err) {
-        console.error(err);
-        alert(`Kon laag niet toevoegen: ${err.message}`);
+        const errEl = document.getElementById('add-layer-error');
+        if (errEl) { errEl.textContent = `Kon laag niet toevoegen: ${err.message}`; errEl.style.display = 'block'; setTimeout(() => { errEl.style.display = 'none'; }, 5000); }
         if(resultItem) resultItem.style.opacity = '1';
     }
 }
@@ -256,10 +256,12 @@ function updateActiveLayersUI() {
         container.style.display = 'block';
         activeWmsLayers.forEach(l => {
             const div = document.createElement('div');
+            div.id = `wms-item-${l.id}`;
             div.className = 'active-wms-item';
             div.style.flexDirection = 'column';
             div.style.alignItems = 'flex-start';
-            
+            if (l.hasError) div.style.borderColor = '#e74c3c';
+
             // Header
             const header = document.createElement('div');
             header.style.display = 'flex';
@@ -269,12 +271,13 @@ function updateActiveLayersUI() {
 
             // Gebruik de publisher in de UI (bijv. [RWS])
             const pubBadge = `<span style="font-size:9px; color:#999; border:1px solid #ddd; border-radius:3px; padding:0 3px; margin-left:6px;">${l.publisher}</span>`;
+            const errBadge = l.hasError ? `<span style="font-size:9px; color:#e74c3c; margin-left:6px;" title="Laad fout">⚠ fout</span>` : '';
 
             header.innerHTML = `
                 <div style="display:flex; align-items:center;">
-                    <i class="fa fa-check-square" style="color:#007ac2; margin-right:5px;"></i> 
+                    <i class="fa fa-check-square" style="color:#007ac2; margin-right:5px;"></i>
                     <span>${l.title}</span>
-                    ${pubBadge}
+                    ${pubBadge}${errBadge}
                 </div>
                 <i class="fa fa-trash" style="cursor:pointer; color:#999;" onclick="removeWmsLayer(${l.id})"></i>
             `;
@@ -362,7 +365,14 @@ function renderLayers() {
     }
 
     // 2. Active WMS Layers
-    activeWmsLayers.forEach(l => layers.push(createWMSLayer(l)));
+    activeWmsLayers.forEach(l => layers.push(createWMSLayer({
+        ...l,
+        onError: () => {
+            if (l.hasError) return;
+            l.hasError = true;
+            updateActiveLayersUI();
+        }
+    })));
 
     // 3. Data Layers
     if (showMainLayer && allData.length > 0) {
