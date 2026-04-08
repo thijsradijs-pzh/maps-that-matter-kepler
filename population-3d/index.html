@@ -200,87 +200,6 @@
       pointer-events: none;
     }
 
-    /* ========== CLICK TO ACTIVATE OVERLAY ========== */
-    #map-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(3px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 999;
-      cursor: pointer;
-      transition: opacity 0.3s ease;
-    }
-
-    #map-overlay.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    #map-overlay-content {
-      background: white;
-      padding: 30px 40px;
-      border-radius: 12px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.3);
-      text-align: center;
-      max-width: 400px;
-    }
-
-    #map-overlay h2 {
-      margin: 0 0 10px 0;
-      font-size: 24px;
-      color: #333;
-    }
-
-    #map-overlay p {
-      margin: 0 0 20px 0;
-      color: #666;
-      font-size: 14px;
-    }
-
-    #activate-btn {
-      background: #43A2CA;
-      color: white;
-      border: none;
-      padding: 12px 32px;
-      border-radius: 6px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    #activate-btn:hover {
-      background: #357CA0;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(67, 162, 202, 0.3);
-    }
-
-    #reactivate-hint {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0, 0, 0, 0.7);
-      color: white;
-      padding: 12px 20px;
-      border-radius: 6px;
-      font-size: 14px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s ease;
-      z-index: 998;
-    }
-
-    #reactivate-hint.show {
-      opacity: 1;
-    }
-
     /* ========== FULLSCREEN BUTTON ========== */
     #fullscreen-btn {
       padding: 4px 8px;
@@ -326,17 +245,6 @@
     <div id="empty-state">Geen data voor deze selectie.<br>Pas de filters aan.</div>
     <div id="controls" style="display:none;"></div>
 
-    <!-- Click to Activate Overlay -->
-    <div id="map-overlay">
-      <div id="map-overlay-content">
-        <h2>🗺️ Interactive Map</h2>
-        <p>Click to activate the map and start exploring</p>
-        <button id="activate-btn">Activate Map</button>
-      </div>
-    </div>
-
-    <!-- Re-activate hint -->
-    <div id="reactivate-hint">Click to activate map</div>
   </div>
 
   <script>
@@ -349,7 +257,6 @@
     let viewState = null;
     let rotationFrameId = null;
     let yearPlayInterval = null;
-    let mapActive = false;
     let isFullscreen = false;
 
     // Initialize filters from config
@@ -357,35 +264,6 @@
       VIZ_CONFIG.filters.forEach(filter => {
         currentFilters[filter.key] = filter.default;
       });
-    }
-
-    // ========== MAP ACTIVATION FUNCTIONS ==========
-    function activateMap() {
-      mapActive = true;
-      const overlay = document.getElementById('map-overlay');
-      overlay.classList.add('hidden');
-      
-      if (deckInstance) {
-        deckInstance.setProps({ controller: true });
-      }
-    }
-
-    function deactivateMap() {
-      mapActive = false;
-      const overlay = document.getElementById('map-overlay');
-      overlay.classList.remove('hidden');
-      
-      if (deckInstance) {
-        deckInstance.setProps({ controller: false });
-      }
-    }
-
-    function showReactivateHint() {
-      const hint = document.getElementById('reactivate-hint');
-      hint.classList.add('show');
-      setTimeout(() => {
-        hint.classList.remove('show');
-      }, 2000);
     }
 
     // ========== FULLSCREEN FUNCTIONS ==========
@@ -439,39 +317,6 @@
       }
       
       document.body.classList.toggle('fullscreen', isFullscreen);
-    }
-
-    function setupOverlay() {
-      const activateBtn = document.getElementById('activate-btn');
-      const overlay = document.getElementById('map-overlay');
-      
-      activateBtn.addEventListener('click', activateMap);
-      
-      overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) {
-          activateMap();
-        }
-      });
-      
-      const container = document.getElementById('container');
-      container.addEventListener('wheel', (e) => {
-        if (!mapActive) {
-          e.preventDefault();
-          showReactivateHint();
-        }
-      }, { passive: false });
-      
-      container.addEventListener('mousedown', (e) => {
-        if (!mapActive && !e.target.closest('#controls')) {
-          showReactivateHint();
-        }
-      });
-      
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && mapActive && !isFullscreen) {
-          deactivateMap();
-        }
-      });
     }
 
     // Build controls HTML from config
@@ -761,8 +606,7 @@
         document.getElementById('controls').innerHTML = buildControls();
         document.getElementById('controls').style.display = 'block';
         setupControls();
-        setupOverlay();
-        
+
         // Initialize deck.gl
         viewState = {...VIZ_CONFIG.initialView};
 
@@ -770,7 +614,7 @@
           container: 'container',
           initialViewState: VIZ_CONFIG.initialView,
           viewState,
-          controller: false,  // Start disabled, activated by user
+          controller: true,
           layers: getLayers(),
           onViewStateChange: ({viewState: vs}) => {
             viewState = vs;
