@@ -172,14 +172,7 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 - `multi-criteria-analysis/js/app.js`: `alert()` replaced with inline auto-hiding error div for addWmsLayer failures
 - `agro-viewer/app.js`: verified no `alert()` calls remain in WMS layer flow (was already using inline modal error from prior session)
 
----
-
----
-
-### P1 — High (noticeable UX issues)
-
-**Tooltip HTML built via string concatenation** — `shared/deckgl-utils.js` createTooltip()
-- Low risk today (internal data only), but if external place names or WFS attribute values are ever fed in, this is an XSS vector. Switch to DOM construction or sanitize with a whitelist function.
+- `shared/deckgl-utils.js` createTooltip(): HTML-escapes all interpolated values; tooltip is XSS-safe (verified 2026-04-07)
 
 ---
 

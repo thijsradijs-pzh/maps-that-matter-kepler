@@ -50,14 +50,35 @@ class DuckDBLoader {
     }
   }
 
-  // onProgress(pct) is optional — called at 30 / 60 / 80 / 100 during loading
+  // onProgress(pct) is optional — called progressively during download (0–80), then 100 on complete
   async loadParquetFile(url, tableName = 'data', onProgress) {
     await this.initialize();
-    onProgress?.(30);
+    onProgress?.(10);
     const response = await fetch(url);
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    onProgress?.(60);
-    const uint8Array = new Uint8Array(await response.arrayBuffer());
+
+    // Stream download for granular progress if Content-Length is available
+    let uint8Array;
+    const contentLength = response.headers.get('Content-Length');
+    if (response.body && contentLength) {
+      const total = parseInt(contentLength, 10);
+      const reader = response.body.getReader();
+      const chunks = [];
+      let received = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        onProgress?.(10 + Math.floor((received / total) * 70)); // 10→80
+      }
+      uint8Array = new Uint8Array(received);
+      let offset = 0;
+      for (const chunk of chunks) { uint8Array.set(chunk, offset); offset += chunk.length; }
+    } else {
+      onProgress?.(50);
+      uint8Array = new Uint8Array(await response.arrayBuffer());
+    }
     onProgress?.(80);
     const safeName = tableName.replace(/[^a-zA-Z0-9_]/g, '_');
     const filename = `${safeName}.parquet`;

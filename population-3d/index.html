@@ -720,12 +720,16 @@
 
           playBtn.textContent = '⏸ Pause';
 
+          const updatePlayBtn = () => {
+            playBtn.textContent = `⏸ ${current} / ${yearFilter.max}`;
+          };
+          updatePlayBtn();
+
           yearPlayInterval = setInterval(() => {
             current = current + yearFilter.step;
-            if (current > yearFilter.max) {
-              current = yearFilter.min;
-            }
+            if (current > yearFilter.max) current = yearFilter.min;
             setYearFilter(current);
+            updatePlayBtn();
           }, 600); // speed in ms
         });
       }
