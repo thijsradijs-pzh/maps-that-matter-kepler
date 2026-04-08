@@ -160,13 +160,16 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 - `pdok-viewer`: panel drag now clamped to viewport bounds (can't drag off right/bottom edge)
 - `population-3d` + `groundheight`: fullscreen button hidden on browsers without Fullscreen API (iOS Safari)
 - `geluid-groen-viewer`: `aria-label` added to warn stat cards for screen readers
+- `population-3d`: `COLOR_THRESHOLDS` extracted as single source of truth; legend now accurate (was missing 55–100 bucket, mislabeling 55–165)
+- `multi-criteria-analysis`: heatmap legend now shows real min/max weighted score computed from loaded data
+- `vraag-de-kaart`: "mogelijk niet volledig" hint shown in result count when result set hits 100-row default cap
+- `shared/deckgl-utils.js`: tooltip `createTooltip()` now HTML-escapes all interpolated values (label, color, displayValue)
+- `pdok-viewer`: "?" button added to panel header to re-open welcome modal (previously once dismissed via localStorage it was gone forever)
+- `blog-h3-examples`: verified `aria-label` already present on all share buttons (no change needed)
 
 ---
 
 ### P0 — Critical (breaks user flow)
-
-**MCA heatmap may render NaN colors** — `multi-criteria-analysis/js/app.js` createLayer/createHeatmapLayer
-- If all weight sliders are set to 0, total weight is 0 → division by zero → NaN color per hexagon, some browsers render black or invisible. Add guard: `if (totalWeight === 0) return defaultColor`.
 
 **Unhandled promise rejections across apps**
 - Several fetch() chains lack `.catch()`. Silent failures with no user feedback. Affects: pdok-viewer WFS load, gebiedsviewer metadata lookup, explorer-3d parquet load edge cases.
@@ -175,14 +178,8 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 
 ### P1 — High (noticeable UX issues)
 
-**Multi-criteria-analysis heatmap legend missing real values** — `multi-criteria-analysis/index.html`
-- "Laag / Hoog" legend shows no actual score range. Compute and display min/max MCA score from loaded data after `init()` completes.
-
 **Tooltip HTML built via string concatenation** — `shared/deckgl-utils.js` createTooltip()
 - Low risk today (internal data only), but if external place names or WFS attribute values are ever fed in, this is an XSS vector. Switch to DOM construction or sanitize with a whitelist function.
-
-**vraag-de-kaart query result cap not communicated** — `api/ask-map.js`
-- Queries are capped at 100 rows by default. User asking "top 500 gemeenten" gets only 100 with no indication. Show count in result card: "Toont 100 van 345 resultaten".
 
 ---
 
@@ -198,9 +195,6 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 
 **ask-map.js: SQL safety check bypassable** — `api/ask-map.js:167-170`
 - Only checks that query starts with `select` or `with`. A crafted `select 1; DROP TABLE` would pass the server check. Frontend must independently validate the returned SQL before passing to DuckDB.
-
-**population-3d: color thresholds defined in two places** — `population-3d/config.js`
-- Legend items (lines 39-44) and `getFillColor` thresholds (lines 100-105) are separate. If one is updated, the other goes stale. Extract to a single `COLOR_THRESHOLDS` constant.
 
 **Large monolithic files** — `multi-criteria-analysis/js/app.js` (~600 lines), `gebiedsviewer/js/app.js` (~1900 lines)
 - Gebiedsviewer warrants a refactor plan before touching. Multi-criteria-analysis could split into wms.js, search.js, mca.js.
@@ -226,12 +220,6 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 
 **population-3d year play button has no loop indicator** — `population-3d/index.html`
 - Animation loops 2018→2023→2018 with no visual counter. Add "2021 / 2023" or progress indicator.
-
-**blog-h3-examples social share links not accessible** — `blog-h3-examples/index.html`
-- `<a>` share buttons have no `aria-label`. Add `aria-label="Deel op Twitter"` etc.
-
-**pdok-viewer welcome modal "don't show again" has no reset** — `pdok-viewer/index.html`
-- Once dismissed via localStorage, never re-shown. Add a small "?" button in panel header to re-open the welcome card.
 
 **WMS tile errors not surfaced** — `agro-viewer`, `gebiedsviewer`, `multi-criteria-analysis`
 - TileLayers created without `onTileError` callback. Failed tiles show as blank with no indicator. Add error callback that updates layer card status.

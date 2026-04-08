@@ -143,14 +143,15 @@ const DeckGLUtils = {
 
   // Create standard tooltip HTML
   createTooltip(object, fields) {
+    const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     let html = '<div style="font-family: sans-serif;">';
-    
+
     fields.forEach(field => {
       const value = object[field.key];
       if (value !== undefined && value !== null) {
         const displayValue = field.format ? field.format(value) : value;
         const color = field.color || 'white';
-        html += `<strong style="color: ${color};">${field.label}:</strong> ${displayValue}<br/>`;
+        html += `<strong style="color: ${esc(color)};">${esc(field.label)}:</strong> ${esc(displayValue)}<br/>`;
       }
     });
     
