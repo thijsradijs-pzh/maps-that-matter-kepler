@@ -166,13 +166,10 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 - `shared/deckgl-utils.js`: tooltip `createTooltip()` now HTML-escapes all interpolated values (label, color, displayValue)
 - `pdok-viewer`: "?" button added to panel header to re-open welcome modal (previously once dismissed via localStorage it was gone forever)
 - `blog-h3-examples`: verified `aria-label` already present on all share buttons (no change needed)
+- `pdok-viewer`: `loadAllPages()` now has `catch` block — shows user-friendly message instead of unhandled promise rejection
+- Audited all async functions for unhandled rejections: gebiedsviewer, vraag-de-kaart, pdok-viewer all have proper try/catch (verified 2026-04-07)
 
 ---
-
-### P0 — Critical (breaks user flow)
-
-**Unhandled promise rejections across apps**
-- Several fetch() chains lack `.catch()`. Silent failures with no user feedback. Affects: pdok-viewer WFS load, gebiedsviewer metadata lookup, explorer-3d parquet load edge cases.
 
 ---
 
