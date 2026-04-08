@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     const headers = { 'User-Agent': 'MapsThatMatter-Proxy/1.0' };
     if (authHeader) headers['Authorization'] = authHeader;
 
-    const response = await fetch(url, { headers });
+    const response = await fetch(url, { headers, signal: AbortSignal.timeout(20000) });
     if (!response.ok) return res.status(response.status).send(await response.text());
 
     const contentType = response.headers.get('content-type');
@@ -24,6 +24,7 @@ export default async function handler(req, res) {
     const buffer = await response.arrayBuffer();
     res.send(Buffer.from(buffer));
   } catch (err) {
-    res.status(500).send(err.message);
+    if (err.name === 'TimeoutError') return res.status(504).send('Upstream request timed out');
+    res.status(500).send('Proxy error');
   }
 }

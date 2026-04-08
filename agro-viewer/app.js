@@ -10,8 +10,8 @@ let isSatellite = false;
 // Cache WMS GetCapabilities responses to avoid re-fetching the same service twice
 const _capabilitiesCache = new Map();
 
-// Credentials & NSO State
-let nsoCreds = null; 
+// Credentials & NSO State — persisted for the browser session (cleared on tab close)
+let nsoCreds = sessionStorage.getItem('nso-creds') || null;
 let nsoActive = false;
 
 // --- GLOBAL UI FUNCTIONS ---
@@ -363,9 +363,14 @@ function askForAgroToken() {
 
 function askForNSOCreds() {
     setupModal('NSO Login', '<code>gebruiker:wachtwoord</code>', 'user:pass', 'text', (val) => {
-        if (!val || !val.includes(':')) { alert("Gebruik formaat: gebruiker:pass"); return; }
-        nsoCreds = val; 
-        window.closeModal(); 
+        if (!val || !val.includes(':')) {
+            const errEl = document.getElementById('modal-error');
+            if (errEl) { errEl.textContent = 'Gebruik formaat: gebruiker:wachtwoord'; errEl.style.display = 'block'; }
+            return;
+        }
+        nsoCreds = val;
+        sessionStorage.setItem('nso-creds', val);
+        window.closeModal();
         renderLayers();
     });
 }
@@ -373,9 +378,11 @@ function askForNSOCreds() {
 function setupModal(title, desc, place, type, cb) {
     document.getElementById('modal-title').innerText = title;
     document.getElementById('modal-desc').innerHTML = desc;
+    const errEl = document.getElementById('modal-error');
+    if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
     const inp = document.getElementById('user-api-key');
-    inp.placeholder = place; 
-    inp.type = type; 
+    inp.placeholder = place;
+    inp.type = type;
     inp.value = '';
     document.getElementById('modal-confirm-btn').onclick = () => { if(inp.value) cb(inp.value); };
     window.openModal();

@@ -26,7 +26,7 @@ class DuckDBLoader {
   }
 
   async initialize() {
-    if (this.db) return;
+    if (this.db && this.conn) return;
     try {
       await this.waitForDuckDB();
       const UNPKG = 'https://unpkg.com/@duckdb/duckdb-wasm@1.28.0/dist/';
@@ -59,12 +59,13 @@ class DuckDBLoader {
     onProgress?.(60);
     const uint8Array = new Uint8Array(await response.arrayBuffer());
     onProgress?.(80);
-    const filename = `${tableName}.parquet`;
+    const safeName = tableName.replace(/[^a-zA-Z0-9_]/g, '_');
+    const filename = `${safeName}.parquet`;
     await this.db.registerFileBuffer(filename, uint8Array);
     await this.conn.query(
-      `CREATE OR REPLACE TABLE ${tableName} AS SELECT * FROM read_parquet('${filename}')`
+      `CREATE OR REPLACE TABLE ${safeName} AS SELECT * FROM read_parquet('${filename}')`
     );
-    const rowCount = (await this.conn.query(`SELECT COUNT(*) as count FROM ${tableName}`))
+    const rowCount = (await this.conn.query(`SELECT COUNT(*) as count FROM ${safeName}`))
       .toArray()[0].count;
     onProgress?.(100);
     return rowCount;
@@ -84,7 +85,8 @@ class DuckDBLoader {
   }
 
   async getAllData(tableName = 'data') {
-    return this.query(`SELECT * FROM ${tableName}`);
+    const safeName = tableName.replace(/[^a-zA-Z0-9_]/g, '_');
+    return this.query(`SELECT * FROM ${safeName}`);
   }
 
   async close() {

@@ -151,6 +151,10 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 - Colorblind ⚠/✓ icons added to geluid-groen-viewer stat cards
 - Units added to explorer-3d column labels (€, m³, kWh, km, m NAP, dB)
 - Legend ranges updated in population-3d (actual thresholds: <5, 5–25, 25–55, 55–165, ≥165 inwoners)
+- `api/proxy.js`: added `AbortSignal.timeout(20000)`; error response no longer leaks raw JS error
+- `shared/duckdb-loader.js`: table name sanitized before SQL interpolation; re-init edge case fixed (`this.db && this.conn`)
+- `agro-viewer`: NSO credentials persisted to `sessionStorage` (survive tab refresh, cleared on tab close); `alert()` in credential modal replaced with inline error; `modal-error` paragraph added to modal HTML
+- `som-viewer`: story overlay now closable with Escape key and arrow key navigation; cards scroll on small/short screens
 
 ---
 
@@ -158,12 +162,6 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 
 **MCA heatmap may render NaN colors** — `multi-criteria-analysis/js/app.js` createLayer/createHeatmapLayer
 - If all weight sliders are set to 0, total weight is 0 → division by zero → NaN color per hexagon, some browsers render black or invisible. Add guard: `if (totalWeight === 0) return defaultColor`.
-
-**API proxy has no request timeout** — `api/proxy.js:17`
-- `fetch(url)` with no timeout. If upstream WMS server hangs, Vercel function times out at 30s returning a 504. Add `signal: AbortSignal.timeout(20000)`.
-
-**WFS proxy has no request timeout** — `api/wfs-proxy.js`
-- Same: `fetch(fullUrl)` with no timeout. Add `signal: AbortSignal.timeout(15000)`.
 
 **Unhandled promise rejections across apps**
 - Several fetch() chains lack `.catch()`. Silent failures with no user feedback. Affects: pdok-viewer WFS load, gebiedsviewer metadata lookup, explorer-3d parquet load edge cases.
@@ -175,14 +173,8 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 **pdok-viewer panel can be dragged/resized to unusable state** — `pdok-viewer/index.html`
 - Panel is draggable and resizable but has no bounds checking. If dragged off-screen or resized to <100px, user cannot interact. Add min-width/min-height constraints and a "reset panel" button.
 
-**NSO credentials lost on page refresh** — `agro-viewer/app.js:14`
-- `let nsoCreds = null` is session-only. After every refresh, user must re-enter satellite imagery credentials. Store in `sessionStorage` (not localStorage, to avoid persisting credentials).
-
-**schiedam-bos / som-viewer story overlay doesn't trap focus** — both `index.html`
-- While overlay is open, user can Tab behind it to map controls. Add focus trap: `keydown` with Tab intercepted, or set `inert` attribute on background elements. Also add `Escape` key to close.
-
-**som-viewer story overlay clips on mobile** — `som-viewer/index.html`
-- Fixed-height overlay with story text can overflow on 360px-wide screens. Make `#story-overlay` scrollable: add `overflow-y: auto` to story text container.
+**schiedam-bos story panel doesn't trap focus** — `schiedam-bos/index.html`
+- No info panel or overlay requiring focus trap. But if a modal is added in future, add focus trap at that point.
 
 **Multi-criteria-analysis heatmap legend missing real values** — `multi-criteria-analysis/index.html`
 - "Laag / Hoog" legend shows no actual score range. Compute and display min/max MCA score from loaded data after `init()` completes.
@@ -203,17 +195,14 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 
 ### P2 — Medium (code quality / maintainability)
 
-**SQL injection risk in duckdb-loader.js** — `shared/duckdb-loader.js:65`
-- Table name is interpolated directly into SQL: `` `CREATE OR REPLACE TABLE ${tableName}` ``. Sanitize `tableName` to alphanumeric + underscore only before use.
+**agro-viewer search results not keyboard accessible** — `agro-viewer/app.js` result rendering
+- Search result items are `<div onclick>`, not focusable. Add `role="button" tabindex="0"` and `keydown Enter/Space` handler so keyboard users can add WMS layers.
 
 **WMS layer creation duplicated** — `multi-criteria-analysis/js/wms-layer.js` AND inline in `gebiedsviewer/js/app.js`
 - Consolidate into `/shared/wms-layer.js`. Bug fixes currently must be made in two places.
 
 **MCA_CRITERIA defined in two places** — `gebiedsviewer/js/app.js` AND `multi-criteria-analysis/config.js`
 - Create `/shared/mca-criteria.js` as single source of truth.
-
-**agro-viewer: stale console.log left in** — `agro-viewer/app.js:155`
-- `console.log('[MCA] Selected Layer: ...')` remains in production. Remove.
 
 **agro-viewer: WMS capabilities cache key is full proxy URL** — `agro-viewer/app.js`
 - Cache key includes the full `?url=...` parameter. If the same WMS service is requested with slightly different query params, it misses the cache. Key should be the underlying service URL only.
@@ -224,8 +213,7 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 **suggest-location.js swallows upstream errors** — `api/suggest-location.js`
 - Returns HTTP 200 with empty array when upstream PDOK Locatieserver fails. Frontend cannot distinguish "no results" from "server error". Return 5xx with structured error on upstream failures.
 
-**ask-wfs.js: question validation too lenient** — `api/ask-wfs.js:163`
-- Only checks `question.length < 3`. A 3-space string passes. Add `.trim()` before length check.
+**ask-wfs.js: question validation** — `api/ask-wfs.js:163` — already trims and checks ✅
 
 **ask-map.js: SQL safety check bypassable** — `api/ask-map.js:167-170`
 - Only checks that query starts with `select` or `with`. A crafted `select 1; DROP TABLE` would pass the server check. Frontend must independently validate the returned SQL before passing to DuckDB.
