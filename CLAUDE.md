@@ -174,21 +174,15 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 - `population-3d`: play button now shows current/max year during animation (e.g. "⏸ 2022 / 2023")
 - `shared/duckdb-loader.js`: streaming progress using response.body reader when Content-Length available (10→80% during download instead of jumping at fixed points)
 - `shared/mca-criteria.js` created; `gebiedsviewer/js/app.js` and `multi-criteria-analysis/config.js` now reference it instead of defining their own copies
-
 - `shared/deckgl-utils.js` createTooltip(): HTML-escapes all interpolated values; tooltip is XSS-safe (verified 2026-04-07)
+- `ask-map.js` SQL safety: frontend (`vraag-de-kaart/index.html` lines 784–791) independently validates SQL before DuckDB execution; risk acceptable in WASM sandbox context
 
 ---
 
 ### P2 — Medium (code quality / maintainability)
 
-**WMS layer creation duplicated** — `multi-criteria-analysis/js/wms-layer.js` AND inline in `gebiedsviewer/js/app.js`
-- Consolidate into `/shared/wms-layer.js`. Bug fixes currently must be made in two places.
-
-
-**ask-wfs.js: question validation** — `api/ask-wfs.js:163` — already trims and checks ✅
-
-**ask-map.js: SQL safety check bypassable** — `api/ask-map.js:167-170`
-- Only checks that query starts with `select` or `with`. A crafted `select 1; DROP TABLE` would pass the server check. Frontend must independently validate the returned SQL before passing to DuckDB.
+**WMS layer creation duplicated** — `multi-criteria-analysis/js/wms-layer.js` vs `gebiedsviewer/js/wms-layer.js`
+- The two implementations differ (standard WMS vs ArcGIS MapServer export endpoint). Partial consolidation possible but not a true dedup. Note: agro-viewer already loads MCA's wms-layer.js directly.
 
 **Large monolithic files** — `multi-criteria-analysis/js/app.js` (~600 lines), `gebiedsviewer/js/app.js` (~1900 lines)
 - Gebiedsviewer warrants a refactor plan before touching. Multi-criteria-analysis could split into wms.js, search.js, mca.js.
@@ -206,11 +200,8 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 **Stale satellite dates** — `agro-viewer` sidebar
 - "2024 - Mei", "2023 - Zomer" hardcoded. Query NSO capabilities or make configurable via config.js.
 
-
 **Colorblind palettes not validated** — all apps
 - Blue/orange/red/green color scales not tested for protanopia/deuteranopia. Test with Color Oracle tool.
-
-
 
 ---
 

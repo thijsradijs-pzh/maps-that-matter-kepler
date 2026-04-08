@@ -585,6 +585,17 @@ function init() {
         }
     });
     
+    // Populate NSO layer select from config
+    const nsoSelect = document.getElementById('nso-layer-select');
+    if (nsoSelect && VIZ_CONFIG.nsoLayers) {
+        VIZ_CONFIG.nsoLayers.forEach(l => {
+            const opt = document.createElement('option');
+            opt.value = l.value;
+            opt.textContent = l.label;
+            nsoSelect.appendChild(opt);
+        });
+    }
+
     initSearch();
     renderLayers();
 }
