@@ -128,7 +128,7 @@ Key files:
 
 ## Known Issues / Improvement Backlog
 
-Deep audit completed 2026-04-07. Items marked ✅ are done. When editing any app, fix relevant issues for that app too.
+Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app, fix relevant issues for that app too.
 
 ---
 
@@ -141,75 +141,137 @@ Deep audit completed 2026-04-07. Items marked ✅ are done. When editing any app
 - Debounce raised 500ms → 800ms in multi-criteria-analysis catalog search
 - `role="dialog" aria-modal="true" aria-labelledby="..."` added to agro-viewer API key modal and pdok-viewer welcome modal
 - `aria-label` added to gebiedsviewer + multi-criteria-analysis layer search inputs, pdok-viewer question input + submit button
-- CSS spinner added to population-3d, groundheight, explorer-3d, geluid-groen-viewer, multi-criteria-analysis loading states
+- `aria-label` added to gebiedsviewer zoom/basemap icon buttons
+- CSS spinner added to all loading states: population-3d, groundheight, explorer-3d, geluid-groen-viewer, multi-criteria-analysis, schiedam-bos, som-viewer
 - Empty state message added to population-3d and explorer-3d (shown when filters return 0 results)
-- Friendly HTML error messages in population-3d, groundheight, geluid-groen-viewer, multi-criteria-analysis
-- Year filter max now derived dynamically from data in population-3d and explorer-3d (no longer hardcoded to 2023)
+- Friendly HTML error messages across all apps (population-3d, groundheight, geluid-groen-viewer, multi-criteria-analysis, schiedam-bos, som-viewer, vraag-de-kaart, agro-viewer)
+- `alert()` replaced with inline error card in agro-viewer WMS layer add flow
+- Year filter max derived dynamically from data in population-3d and explorer-3d (no longer hardcoded to 2023)
 - WMS GetCapabilities cached in-memory in agro-viewer and multi-criteria-analysis
 - Colorblind ⚠/✓ icons added to geluid-groen-viewer stat cards
 - Units added to explorer-3d column labels (€, m³, kWh, km, m NAP, dB)
-- CSS spinner added to schiedam-bos and som-viewer loading states
-- Friendly HTML error messages in schiedam-bos, som-viewer, vraag-de-kaart, agro-viewer
-- `alert()` replaced with inline error display in agro-viewer WMS layer add flow
-- `aria-label` added to gebiedsviewer zoom/basemap buttons
 - Legend ranges updated in population-3d (actual thresholds: <5, 5–25, 25–55, 55–165, ≥165 inwoners)
 
 ---
 
-### P0 — Critical (user-facing, high impact)
+### P0 — Critical (breaks user flow)
 
-**Error states too generic** — affects pdok-viewer, gebiedsviewer
-- pdok-viewer/gebiedsviewer show raw `error.message` in some edge cases. All other apps now have friendly error cards.
+**MCA heatmap may render NaN colors** — `multi-criteria-analysis/js/app.js` createLayer/createHeatmapLayer
+- If all weight sliders are set to 0, total weight is 0 → division by zero → NaN color per hexagon, some browsers render black or invisible. Add guard: `if (totalWeight === 0) return defaultColor`.
 
----
+**API proxy has no request timeout** — `api/proxy.js:17`
+- `fetch(url)` with no timeout. If upstream WMS server hangs, Vercel function times out at 30s returning a 504. Add `signal: AbortSignal.timeout(20000)`.
 
-### P1 — High (UX polish, noticeable to users)
+**WFS proxy has no request timeout** — `api/wfs-proxy.js`
+- Same: `fetch(fullUrl)` with no timeout. Add `signal: AbortSignal.timeout(15000)`.
 
-**Missing `aria-label` on interactive elements** — affects pdok-viewer, vraag-de-kaart
-- Some icon-only interactive elements still lack accessible names.
-
-**Legend ranges not shown** — affects multi-criteria-analysis
-- Heatmap legend says "Laag / Hoog" without actual score values. (population-3d now shows actual thresholds; geluid-groen-viewer has real values.)
-
----
-
-### P2 — Medium (code quality, maintainability)
-
-**WMS layer creation duplicated** — exists in multi-criteria-analysis/js/wms-layer.js AND a separate implementation in gebiedsviewer/js/app.js
-- Consolidate into `/shared/wms-layer.js` so bug fixes apply everywhere.
-
-**Large monolithic app.js** — multi-criteria-analysis/js/app.js (~600 lines), gebiedsviewer/js/app.js (~1900 lines)
-- Multi-criteria-analysis should split into: wms.js, search.js, mca.js. Gebiedsviewer is already complex enough to warrant a refactor plan before touching.
-
-**MCA_CRITERIA duplicated** — defined in gebiedsviewer/js/app.js AND multi-criteria-analysis/config.js
-- One shared source of truth.
-
-**Tooltip HTML built as string in deckgl-utils.js** — shared/deckgl-utils.js createTooltip()
-- Low risk (internal data), but sanitize or use DOM construction to prevent future XSS if external data is ever fed in.
+**Unhandled promise rejections across apps**
+- Several fetch() chains lack `.catch()`. Silent failures with no user feedback. Affects: pdok-viewer WFS load, gebiedsviewer metadata lookup, explorer-3d parquet load edge cases.
 
 ---
 
-### P3 — Low (nice-to-have, low urgency)
+### P1 — High (noticeable UX issues)
 
-**URL state not persisted** — gebiedsviewer, multi-criteria-analysis
-- Tab switches, active layers, filter values lost on page refresh. Store in URL hash (`#layers=...`).
+**pdok-viewer panel can be dragged/resized to unusable state** — `pdok-viewer/index.html`
+- Panel is draggable and resizable but has no bounds checking. If dragged off-screen or resized to <100px, user cannot interact. Add min-width/min-height constraints and a "reset panel" button.
 
-**Example queries missing** — pdok-viewer, vraag-de-kaart
-- pdok-viewer has example buttons ✅ but they're not prominent. vraag-de-kaart has them in the welcome card ✅. Both are fine.
+**NSO credentials lost on page refresh** — `agro-viewer/app.js:14`
+- `let nsoCreds = null` is session-only. After every refresh, user must re-enter satellite imagery credentials. Store in `sessionStorage` (not localStorage, to avoid persisting credentials).
 
-**Colorblind-friendly palettes** — all apps using color scales
-- Current blue/orange/red/green palettes not validated for protanopia/deuteranopia. Test with Color Oracle.
+**schiedam-bos / som-viewer story overlay doesn't trap focus** — both `index.html`
+- While overlay is open, user can Tab behind it to map controls. Add focus trap: `keydown` with Tab intercepted, or set `inert` attribute on background elements. Also add `Escape` key to close.
 
-**DuckDB progress bar granularity** — shared/duckdb-loader.js
-- onProgress fires at fixed 30/60/80/100. For large files user sees 30% for a long time. Consider streaming progress from the fetch response if Content-Length header is available.
+**som-viewer story overlay clips on mobile** — `som-viewer/index.html`
+- Fixed-height overlay with story text can overflow on 360px-wide screens. Make `#story-overlay` scrollable: add `overflow-y: auto` to story text container.
 
-**"Click to Activate" pattern** — only in population-3d and groundheight, not other apps
-- Either remove it from those two apps (simplifies code) or add it consistently. The pattern is confusing because most apps don't use it.
+**Multi-criteria-analysis heatmap legend missing real values** — `multi-criteria-analysis/index.html`
+- "Laag / Hoog" legend shows no actual score range. Compute and display min/max MCA score from loaded data after `init()` completes.
 
-**Stale hardcoded satellite dates** — agro-viewer sidebar
-- "2024 - Mei", "2023 - Zomer" are hardcoded. Should query NSO capabilities or make dates configurable.
+**agro-viewer search results not keyboard accessible** — `agro-viewer/app.js` result rendering
+- Search result items are `<div onclick>`, not focusable. Add `role="button" tabindex="0"` and `keydown Enter/Space` handler so keyboard users can add WMS layers.
 
-**som-viewer mobile responsiveness** — not verified; story overlay may not stack well on small screens.
+**geluid-groen-viewer colorblind icons lack accessible text** — `geluid-groen-viewer/index.html`
+- `::before` pseudo-elements with ⚠/✓ are CSS-only and invisible to screen readers. Add `aria-label="Boven WHO-norm"` / `aria-label="Onder WHO-norm"` to the `.warn` / `.ok` elements.
+
+**Tooltip HTML built via string concatenation** — `shared/deckgl-utils.js` createTooltip()
+- Low risk today (internal data only), but if external place names or WFS attribute values are ever fed in, this is an XSS vector. Switch to DOM construction or sanitize with a whitelist function.
+
+**vraag-de-kaart query result cap not communicated** — `api/ask-map.js`
+- Queries are capped at 100 rows by default. User asking "top 500 gemeenten" gets only 100 with no indication. Show count in result card: "Toont 100 van 345 resultaten".
+
+---
+
+### P2 — Medium (code quality / maintainability)
+
+**SQL injection risk in duckdb-loader.js** — `shared/duckdb-loader.js:65`
+- Table name is interpolated directly into SQL: `` `CREATE OR REPLACE TABLE ${tableName}` ``. Sanitize `tableName` to alphanumeric + underscore only before use.
+
+**WMS layer creation duplicated** — `multi-criteria-analysis/js/wms-layer.js` AND inline in `gebiedsviewer/js/app.js`
+- Consolidate into `/shared/wms-layer.js`. Bug fixes currently must be made in two places.
+
+**MCA_CRITERIA defined in two places** — `gebiedsviewer/js/app.js` AND `multi-criteria-analysis/config.js`
+- Create `/shared/mca-criteria.js` as single source of truth.
+
+**agro-viewer: stale console.log left in** — `agro-viewer/app.js:155`
+- `console.log('[MCA] Selected Layer: ...')` remains in production. Remove.
+
+**agro-viewer: WMS capabilities cache key is full proxy URL** — `agro-viewer/app.js`
+- Cache key includes the full `?url=...` parameter. If the same WMS service is requested with slightly different query params, it misses the cache. Key should be the underlying service URL only.
+
+**search-wms.js uses regex to parse XML** — `api/search-wms.js:47-91`
+- Fragile regex-based CSW XML parsing. Nested tags or CDATA sections will silently produce wrong results. Use `DOMParser` (already used elsewhere).
+
+**suggest-location.js swallows upstream errors** — `api/suggest-location.js`
+- Returns HTTP 200 with empty array when upstream PDOK Locatieserver fails. Frontend cannot distinguish "no results" from "server error". Return 5xx with structured error on upstream failures.
+
+**ask-wfs.js: question validation too lenient** — `api/ask-wfs.js:163`
+- Only checks `question.length < 3`. A 3-space string passes. Add `.trim()` before length check.
+
+**ask-map.js: SQL safety check bypassable** — `api/ask-map.js:167-170`
+- Only checks that query starts with `select` or `with`. A crafted `select 1; DROP TABLE` would pass the server check. Frontend must independently validate the returned SQL before passing to DuckDB.
+
+**population-3d: color thresholds defined in two places** — `population-3d/config.js`
+- Legend items (lines 39-44) and `getFillColor` thresholds (lines 100-105) are separate. If one is updated, the other goes stale. Extract to a single `COLOR_THRESHOLDS` constant.
+
+**Large monolithic files** — `multi-criteria-analysis/js/app.js` (~600 lines), `gebiedsviewer/js/app.js` (~1900 lines)
+- Gebiedsviewer warrants a refactor plan before touching. Multi-criteria-analysis could split into wms.js, search.js, mca.js.
+
+---
+
+### P3 — Low (nice-to-have)
+
+**URL state not persisted** — `gebiedsviewer`, `multi-criteria-analysis`
+- Tab switches, weights, active WMS layers lost on page refresh. Store in URL hash. (gebiedsviewer already stores map position + layer list; missing: active tab, MCA weights.)
+
+**"Click to Activate" pattern inconsistent** — `population-3d`, `groundheight` only
+- Either remove (simplifies code) or apply consistently across all apps. Currently confuses new visitors.
+
+**Stale satellite dates** — `agro-viewer` sidebar
+- "2024 - Mei", "2023 - Zomer" hardcoded. Query NSO capabilities or make configurable via config.js.
+
+**DuckDB progress granularity** — `shared/duckdb-loader.js`
+- `onProgress` fires at fixed 30/60/80/100%. For large files, user sees "30%" for 5+ seconds. Implement streaming byte-count progress using `response.body` reader if `Content-Length` header available.
+
+**Colorblind palettes not validated** — all apps
+- Blue/orange/red/green color scales not tested for protanopia/deuteranopia. Test with Color Oracle tool.
+
+**population-3d year play button has no loop indicator** — `population-3d/index.html`
+- Animation loops 2018→2023→2018 with no visual counter. Add "2021 / 2023" or progress indicator.
+
+**blog-h3-examples social share links not accessible** — `blog-h3-examples/index.html`
+- `<a>` share buttons have no `aria-label`. Add `aria-label="Deel op Twitter"` etc.
+
+**Fullscreen API not supported on iOS Safari** — `population-3d`, `groundheight`
+- Fullscreen button is visible but silently does nothing on iOS. Add feature detection and hide button if `document.fullscreenEnabled` is false.
+
+**DuckDB re-init edge case** — `shared/duckdb-loader.js:30`
+- `if (this.db) return` early-exits on re-init, but `this.conn` may be null if a previous init failed halfway. Add check: `if (this.db && this.conn) return`.
+
+**pdok-viewer welcome modal "don't show again" has no reset** — `pdok-viewer/index.html`
+- Once dismissed via localStorage, never re-shown. Add a small "?" button in panel header to re-open the welcome card.
+
+**WMS tile errors not surfaced** — `agro-viewer`, `gebiedsviewer`, `multi-criteria-analysis`
+- TileLayers created without `onTileError` callback. Failed tiles show as blank with no indicator. Add error callback that updates layer card status.
 
 ---
 
