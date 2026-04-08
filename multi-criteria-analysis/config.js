@@ -9,13 +9,7 @@ const VIZ_CONFIG = {
     longitude: 4.48, latitude: 51.90, zoom: 9.5, pitch: 45, bearing: 0
   },
 
-  criteria: [
-    { key: 'verzilting', label: 'Verzilting', color: [0, 150, 136], weightKey: 'w_verzilting' },
-    { key: 'bodemdaling', label: 'Bodemdaling', color: [239, 83, 80], weightKey: 'w_bodemdaling' },
-    { key: 'wateroverlast', label: 'Wateroverlast', color: [30, 136, 229], weightKey: 'w_wateroverlast' },
-    { key: 'boerenlandvogels', label: 'Boerenlandvogels', color: [255, 179, 0], weightKey: 'w_boerenlandvogels' },
-    { key: 'peilgebieden', label: 'Peilgebieden', color: [142, 68, 173], weightKey: 'w_peilgebieden' }
-  ],
+  criteria: MCA_CRITERIA, // defined in /shared/mca-criteria.js
   
   filters: [
     { key: 'w_verzilting', label: 'Verzilting Weight', min: 0, max: 10, step: 1, default: 2 },
