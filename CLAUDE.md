@@ -168,6 +168,9 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 - `blog-h3-examples`: verified `aria-label` already present on all share buttons (no change needed)
 - `pdok-viewer`: `loadAllPages()` now has `catch` block — shows user-friendly message instead of unhandled promise rejection
 - Audited all async functions for unhandled rejections: gebiedsviewer, vraag-de-kaart, pdok-viewer all have proper try/catch (verified 2026-04-07)
+- `multi-criteria-analysis/js/wms-layer.js` + `agro-viewer/app.js`: WMS tile errors now surface as ⚠ badge + red border on layer card
+- `multi-criteria-analysis/js/app.js`: `alert()` replaced with inline auto-hiding error div for addWmsLayer failures
+- `agro-viewer/app.js`: verified no `alert()` calls remain in WMS layer flow (was already using inline modal error from prior session)
 
 ---
 
@@ -218,8 +221,6 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 **population-3d year play button has no loop indicator** — `population-3d/index.html`
 - Animation loops 2018→2023→2018 with no visual counter. Add "2021 / 2023" or progress indicator.
 
-**WMS tile errors not surfaced** — `agro-viewer`, `gebiedsviewer`, `multi-criteria-analysis`
-- TileLayers created without `onTileError` callback. Failed tiles show as blank with no indicator. Add error callback that updates layer card status.
 
 ---
 
