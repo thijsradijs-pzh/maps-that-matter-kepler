@@ -171,6 +171,8 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 - `multi-criteria-analysis/js/wms-layer.js` + `agro-viewer/app.js`: WMS tile errors now surface as ⚠ badge + red border on layer card
 - `multi-criteria-analysis/js/app.js`: `alert()` replaced with inline auto-hiding error div for addWmsLayer failures
 - `agro-viewer/app.js`: verified no `alert()` calls remain in WMS layer flow (was already using inline modal error from prior session)
+- `population-3d`: play button now shows current/max year during animation (e.g. "⏸ 2022 / 2023")
+- `shared/duckdb-loader.js`: streaming progress using response.body reader when Content-Length available (10→80% during download instead of jumping at fixed points)
 
 - `shared/deckgl-utils.js` createTooltip(): HTML-escapes all interpolated values; tooltip is XSS-safe (verified 2026-04-07)
 
@@ -205,14 +207,10 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 **Stale satellite dates** — `agro-viewer` sidebar
 - "2024 - Mei", "2023 - Zomer" hardcoded. Query NSO capabilities or make configurable via config.js.
 
-**DuckDB progress granularity** — `shared/duckdb-loader.js`
-- `onProgress` fires at fixed 30/60/80/100%. For large files, user sees "30%" for 5+ seconds. Implement streaming byte-count progress using `response.body` reader if `Content-Length` header available.
 
 **Colorblind palettes not validated** — all apps
 - Blue/orange/red/green color scales not tested for protanopia/deuteranopia. Test with Color Oracle tool.
 
-**population-3d year play button has no loop indicator** — `population-3d/index.html`
-- Animation loops 2018→2023→2018 with no visual counter. Add "2021 / 2023" or progress indicator.
 
 
 ---
