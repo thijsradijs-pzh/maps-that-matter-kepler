@@ -176,6 +176,7 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 - `shared/mca-criteria.js` created; `gebiedsviewer/js/app.js` and `multi-criteria-analysis/config.js` now reference it instead of defining their own copies
 - `shared/deckgl-utils.js` createTooltip(): HTML-escapes all interpolated values; tooltip is XSS-safe (verified 2026-04-07)
 - `ask-map.js` SQL safety: frontend (`vraag-de-kaart/index.html` lines 784–791) independently validates SQL before DuckDB execution; risk acceptable in WASM sandbox context
+- `agro-viewer`: NSO satellite layers moved to `VIZ_CONFIG.nsoLayers` in config.js; `<select>` populated dynamically at init — no more hardcoded HTML options
 
 ---
 
@@ -197,8 +198,6 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 **"Click to Activate" pattern inconsistent** — `population-3d`, `groundheight` only
 - Either remove (simplifies code) or apply consistently across all apps. Currently confuses new visitors.
 
-**Stale satellite dates** — `agro-viewer` sidebar
-- "2024 - Mei", "2023 - Zomer" hardcoded. Query NSO capabilities or make configurable via config.js.
 
 **Colorblind palettes not validated** — all apps
 - Blue/orange/red/green color scales not tested for protanopia/deuteranopia. Test with Color Oracle tool.
