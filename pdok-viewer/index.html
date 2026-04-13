@@ -23,7 +23,6 @@
     plausible.init();
   </script>
 
-  <!-- MapLibre CSS (link can stay in head) -->
   <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet" />
 
   <style>
@@ -31,602 +30,575 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
-      background: #0d1117;
-      color: #e6edf3;
+      background: #f5f5f0;
+      color: #1a1a1a;
       overflow: hidden;
     }
 
     #map { width: 100vw; height: 100vh; }
 
-    /* ─── Side panel ─── */
-    #panel {
+    /* ── Loading bar ── */
+    #loading-bar {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: 2px; background: #f0a500;
+      transform: scaleX(0); transform-origin: left;
+      transition: transform 0.3s ease;
+      z-index: 100;
+    }
+    #loading-bar.active { animation: loading 1.2s ease-in-out infinite; }
+    @keyframes loading {
+      0%   { transform: scaleX(0); transform-origin: left; }
+      50%  { transform: scaleX(1); transform-origin: left; }
+      51%  { transform: scaleX(1); transform-origin: right; }
+      100% { transform: scaleX(0); transform-origin: right; }
+    }
+
+    /* ── WFS top-right panel ── */
+    #wfs-panel {
       position: fixed;
-      top: 0; right: 0; bottom: 0;
-      width: 340px;
-      background: #161b22;
-      border-left: 1px solid #30363d;
-      display: flex; flex-direction: column;
-      z-index: 30;
-      overflow-y: auto;
+      top: 12px; right: 12px;
+      width: 300px;
+      background: rgba(255,255,255,0.96);
+      backdrop-filter: blur(10px);
+      border: 1px solid #e0ddd8;
+      border-radius: 10px;
+      z-index: 40;
+      overflow: hidden;
     }
 
-    #panel::-webkit-scrollbar { width: 4px; }
-    #panel::-webkit-scrollbar-track { background: transparent; }
-    #panel::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
-
-    .panel-header {
-      padding: 18px 18px 14px;
-      border-bottom: 1px solid #21262d;
-      flex-shrink: 0;
+    #wfs-toggle {
+      width: 100%;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px;
+      background: none; border: none;
+      color: #1a1a1a; font-size: 12px; font-weight: 600;
+      cursor: pointer; text-align: left;
     }
-    .panel-header h1 { font-size: 14px; font-weight: 700; color: #f0f6fc; }
-    .panel-header p  { font-size: 11px; color: #7d8590; margin-top: 3px; line-height: 1.5; }
+    #wfs-toggle:hover { background: rgba(255,255,255,0.04); }
+    #wfs-toggle .arrow { font-size: 10px; color: #484f58; transition: transform 0.2s; }
+    #wfs-toggle.open .arrow { transform: rotate(180deg); }
 
-    .section {
-      padding: 16px 18px;
-      border-bottom: 1px solid #21262d;
+    #wfs-body {
+      display: none;
+      padding: 0 14px 14px;
+      border-top: 1px solid #e0ddd8;
     }
+    #wfs-body.open { display: block; }
 
-    .section-label {
-      font-size: 10px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.5px; color: #484f58; margin-bottom: 12px;
-    }
-
-    /* ─── Year display ─── */
-    #year-display {
-      font-size: 36px; font-weight: 800; color: #f0f6fc;
-      line-height: 1; margin-bottom: 4px;
-      font-variant-numeric: tabular-nums;
+    .field-label {
+      font-size: 10px; color: #9a9590; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      margin: 10px 0 4px;
     }
 
-    #season-badge {
-      display: inline-block;
-      font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
-      padding: 2px 8px; border-radius: 20px; margin-bottom: 14px;
-    }
-    .badge-zomer { background: rgba(240,165,0,0.14); color: #e3b341; border: 1px solid rgba(240,165,0,0.3); }
-    .badge-winter { background: rgba(100,180,255,0.10); color: #79c0ff; border: 1px solid rgba(100,180,255,0.25); }
+    .field-row { display: flex; gap: 6px; }
 
-    /* ─── Slider ─── */
-    .slider-wrap { position: relative; margin-bottom: 4px; }
-
-    input[type=range] {
-      -webkit-appearance: none; appearance: none;
-      width: 100%; height: 3px;
-      background: #30363d; border-radius: 2px;
-      outline: none; cursor: pointer;
-    }
-    input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 16px; height: 16px; border-radius: 50%;
-      background: #e3b341; border: 2px solid #0d1117;
-      cursor: pointer; transition: transform 0.1s;
-    }
-    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
-
-    .year-ticks {
-      display: flex; justify-content: space-between;
-      margin-top: 6px;
-    }
-    .year-ticks span { font-size: 9px; color: #484f58; user-select: none; }
-
-    /* ─── Season toggle ─── */
-    .toggle-row { display: flex; gap: 6px; }
-
-    .toggle-btn {
-      flex: 1; padding: 7px 0;
-      border: 1px solid #30363d;
-      background: transparent; color: #484f58;
-      border-radius: 6px; font-family: inherit;
-      font-size: 10px; letter-spacing: 0.05em;
-      cursor: pointer; transition: all 0.15s;
-    }
-    .toggle-btn.active {
-      background: #e3b341; border-color: #e3b341;
-      color: #000; font-weight: 700;
-    }
-    .toggle-btn:not(.active):hover { border-color: #58a6ff; color: #58a6ff; }
-
-    #res-note { font-size: 10px; color: #484f58; margin-top: 10px; line-height: 1.5; }
-
-    /* ─── Opacity ─── */
-    #opacity-val { float: right; color: #e3b341; font-size: 11px; }
-
-    /* ─── WFS section ─── */
-    .input-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
-    .input-group label { font-size: 10px; color: #484f58; letter-spacing: 0.05em; }
-
-    .input-group input[type=text],
-    .input-group select {
-      background: #0d1117; border: 1px solid #30363d;
-      border-radius: 6px; color: #e6edf3;
-      font-family: inherit; font-size: 11px;
-      padding: 7px 10px; width: 100%; outline: none;
+    input[type=text], select {
+      background: #f5f5f0; border: 1px solid #e0ddd8;
+      border-radius: 6px; color: #1a1a1a;
+      font-size: 11px; padding: 6px 9px;
+      width: 100%; outline: none;
       transition: border-color 0.15s;
+      font-family: inherit;
     }
-    .input-group input[type=text]:focus,
-    .input-group select:focus { border-color: #388bfd; }
+    input[type=text]:focus, select:focus { border-color: #f0a500; }
 
-    .btn-primary {
-      width: 100%; padding: 9px;
-      background: #1f6feb; border: none; border-radius: 6px;
-      color: #fff; font-family: inherit;
-      font-size: 12px; font-weight: 700;
-      cursor: pointer; transition: background 0.15s;
+    .example-chips {
+      display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;
     }
-    .btn-primary:hover:not(:disabled) { background: #388bfd; }
-    .btn-primary:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+    .chip {
+      font-size: 9px; padding: 2px 7px; border-radius: 20px;
+      background: rgba(240,165,0,0.1); color: #e3b341;
+      border: 1px solid rgba(240,165,0,0.25);
+      cursor: pointer; transition: background 0.12s;
+    }
+    .chip:hover { background: rgba(240,165,0,0.2); }
+
+    .btn-load {
+      width: 100%; margin-top: 10px;
+      padding: 8px; border: none; border-radius: 6px;
+      background: #f0a500; color: #000;
+      font-size: 12px; font-weight: 700; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-load:hover { background: #d4900a; }
+    .btn-load:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
 
     #data-status {
-      font-size: 10px; color: #7d8590; margin-top: 8px; min-height: 14px; line-height: 1.5;
+      font-size: 10px; margin-top: 7px; min-height: 14px; color: #484f58;
     }
+    #data-status.ok    { color: #3fb950; }
     #data-status.error { color: #f85149; }
-    #data-status.ok    { color: #56d364; }
 
-    /* ─── Quick examples ─── */
-    .example-label {
-      font-size: 10px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.5px; color: #484f58; margin-bottom: 8px;
-    }
-    .example-chip {
-      display: inline-block; margin: 0 4px 4px 0;
-      background: #0d1117; border: 1px solid #30363d;
-      border-radius: 5px; padding: 4px 9px;
-      font-size: 10px; color: #58a6ff; cursor: pointer;
-      transition: border-color 0.15s, background 0.15s;
-    }
-    .example-chip:hover { background: #21262d; border-color: #58a6ff; }
+    #legend-wrap { margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0ddd8; }
+    #legend-info { font-size: 11px; color: #7d8590; }
+    #legend-info span { color: #f0f6fc; font-weight: 600; }
 
-    /* ─── Legend / data info ─── */
-    #legend-wrap { display: none; }
-    #legend-info {
-      font-size: 11px; color: #c9d1d9; line-height: 1.6;
-    }
-    #legend-info span { color: #58a6ff; font-weight: 600; }
-
-    /* ─── Loading bar ─── */
-    #loading-bar {
-      position: fixed; top: 0; left: 0; right: 340px; height: 2px; z-index: 40;
-      pointer-events: none; overflow: hidden;
-    }
-    #loading-bar.active::after {
-      content: '';
-      position: absolute; top: 0; height: 100%; width: 45%;
-      background: linear-gradient(90deg, transparent, #388bfd, transparent);
-      animation: shimmer 1.2s ease-in-out infinite;
-    }
-    @keyframes shimmer { from { left: -45%; } to { left: 100%; } }
-
-    /* ─── Popup ─── */
+    /* popup */
     .maplibregl-popup-content {
-      background: rgba(13,17,23,0.97) !important;
-      border: 1px solid #30363d !important;
-      border-radius: 8px !important;
-      color: #e6edf3 !important;
-      font-family: inherit !important;
-      padding: 0 !important;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.6) !important;
+      background: rgba(255,255,255,0.97); border: 1px solid #e0ddd8;
+      border-radius: 8px; padding: 10px 12px; font-size: 11px;
     }
-    .maplibregl-popup-tip { display: none !important; }
-    .popup-inner { padding: 10px 13px; font-size: 11px; line-height: 1.7; max-height: 280px; overflow-y: auto; }
-    .popup-inner b { color: #79c0ff; margin-right: 5px; }
+    .popup-inner { max-height: 200px; overflow-y: auto; line-height: 1.7; }
+    .popup-inner b { color: #9a9590; margin-right: 4px; }
 
-    /* ─── Mobile ─── */
-    @media (max-width: 700px) {
-      #panel {
-        top: auto; right: 0; left: 0; bottom: 0;
-        width: 100%; height: 52vh;
-        border-left: none; border-top: 1px solid #30363d;
-      }
-      #loading-bar { right: 0; }
+    /* ── TIMELINE BAR ── */
+    #timeline {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 104px;
+      background: rgba(255,255,255,0.97);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid #dedad5;
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.08);
+      z-index: 40;
+      display: flex;
+      flex-direction: column;
+      padding: 0 20px;
     }
+    #tl-top {
+      display: flex; align-items: center; gap: 16px;
+      padding: 10px 0 5px; flex-shrink: 0;
+    }
+    #tl-label { display: flex; flex-direction: column; min-width: 96px; }
+    #tl-current-year {
+      font-size: 22px; font-weight: 800; line-height: 1;
+      color: #1a1a1a; font-variant-numeric: tabular-nums; letter-spacing: -0.5px;
+    }
+    #tl-current-type { font-size: 10px; color: #9a9590; margin-top: 2px; font-weight: 500; }
+    #tl-legend { display: flex; gap: 14px; }
+    .leg-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #6b6560; font-weight: 500; }
+    .leg-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .leg-dot.zomer  { background: #f5a623; }
+    .leg-dot.winter { background: #4a9eff; }
+    #tl-opacity-wrap {
+      margin-left: auto; display: flex; align-items: center; gap: 8px;
+      font-size: 11px; color: #9a9590; font-weight: 500;
+    }
+    #tl-opacity-wrap input[type=range] {
+      width: 90px; height: 4px;
+      -webkit-appearance: none; appearance: none;
+      background: #e0ddd8; border-radius: 2px; cursor: pointer;
+    }
+    #tl-opacity-wrap input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #fff; border: 2px solid #ccc;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.18); cursor: grab;
+    }
+    #tl-opacity-val { color: #1a1a1a; min-width: 30px; text-align: right; font-weight: 600; }
+    #tl-track-wrap { flex: 1; display: flex; align-items: center; padding-bottom: 12px; }
+    #tl-track { position: relative; width: 100%; height: 52px; }
+    #tl-rail {
+      position: absolute; top: 50%; left: 0; right: 0;
+      height: 4px; background: #ebe8e3;
+      transform: translateY(-50%); border-radius: 2px;
+    }
+    #tl-rail-fill {
+      position: absolute; top: 50%; left: 0;
+      height: 4px; background: linear-gradient(90deg, #f5a623, #4a9eff);
+      transform: translateY(-50%); border-radius: 2px;
+      pointer-events: none; z-index: 1; transition: width 0.12s ease;
+    }
+    .tl-entry {
+      position: absolute; top: 50%;
+      transform: translate(-50%, -50%);
+      display: flex; flex-direction: column; align-items: center;
+      cursor: pointer; z-index: 2;
+    }
+    .tl-pip {
+      width: 13px; height: 13px; border-radius: 50%;
+      border: 2.5px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      transition: transform 0.12s, box-shadow 0.12s; flex-shrink: 0;
+    }
+    .tl-entry.zomer .tl-pip  { background: #f5a623; }
+    .tl-entry.winter .tl-pip { background: #4a9eff; }
+    .tl-entry:hover .tl-pip  { transform: scale(1.4); box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+    .tl-entry.active .tl-pip { transform: scale(1.7); box-shadow: 0 0 0 4px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.2); }
+    .tl-tick-label {
+      position: absolute; top: calc(50% + 11px);
+      font-size: 9px; font-weight: 600; color: #c5c0ba;
+      white-space: nowrap; pointer-events: none;
+      transform: translateX(-50%); letter-spacing: 0.03em;
+    }
+    .tl-entry.active .tl-tick-label  { color: #1a1a1a; }
+    .tl-entry.zomer.active  .tl-tick-label { color: #b07000; }
+    .tl-entry.winter.active .tl-tick-label { color: #1a6fc4; }
+    .tl-year-label {
+      position: absolute; top: calc(50% - 24px);
+      font-size: 10px; font-weight: 700; color: #c5c0ba;
+      transform: translateX(-50%); pointer-events: none;
+      white-space: nowrap; letter-spacing: 0.03em;
+    }
+    #tl-needle {
+      position: absolute; top: 4px; bottom: 4px; width: 3px;
+      background: #1a1a1a; border-radius: 2px;
+      transform: translateX(-50%); pointer-events: none;
+      z-index: 4; transition: left 0.12s ease;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.2);
+    }
+    #tl-needle-head {
+      position: absolute; top: -6px; left: 50%;
+      width: 15px; height: 15px;
+      background: #1a1a1a; border-radius: 50%;
+      transform: translateX(-50%);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+    #tl-needle::after {
+      content: ''; position: absolute; bottom: -6px; left: 50%;
+      width: 15px; height: 15px; background: #1a1a1a; border-radius: 50%;
+      transform: translateX(-50%); box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+    #tl-drag { position: absolute; inset: -10px 0; cursor: ew-resize; z-index: 5; }
+    .maplibregl-ctrl-bottom-right { bottom: 112px !important; }
+    .maplibregl-ctrl-bottom-left  { bottom: 112px !important; }
+
   </style>
 </head>
 <body>
 
-  <a href="/" style="position:fixed;top:12px;left:12px;z-index:9999;background:rgba(13,17,23,0.85);color:#58a6ff;font-size:11px;font-weight:600;padding:6px 10px;border-radius:6px;border:1px solid #30363d;text-decoration:none;backdrop-filter:blur(4px);">← Maps That Matter</a>
+<div id="loading-bar"></div>
+<div id="map"></div>
 
-  <div id="loading-bar"></div>
-  <div id="map"></div>
+<!-- WFS panel top-right -->
+<div id="wfs-panel">
+  <button id="wfs-toggle">
+    <span>Data laag (WFS)</span>
+    <span class="arrow">▼</span>
+  </button>
+  <div id="wfs-body">
+    <div class="field-label">Service URL</div>
+    <input type="text" id="wfs-url" placeholder="https://service.pdok.nl/…/wfs/v1_0" />
 
-  <!-- ══════════════ PANEL ══════════════ -->
-  <div id="panel">
+    <div class="field-label">Laagnaam</div>
+    <input type="text" id="wfs-layer" placeholder="bijv. bag:pand" />
 
-    <div class="panel-header">
-      <h1>PDOK Verkenner</h1>
-      <p>Luchtfoto per jaar · Open geodata</p>
+    <div class="field-label">Voorbeelden</div>
+    <div class="example-chips">
+      <span class="chip" onclick="fillExample('bag')">BAG panden</span>
+      <span class="chip" onclick="fillExample('cbs')">CBS buurten</span>
+      <span class="chip" onclick="fillExample('natuur')">Natura 2000</span>
+      <span class="chip" onclick="fillExample('bp')">Bestemmingsplan</span>
     </div>
 
-    <!-- ── Luchtfoto jaargang ── -->
-    <div class="section">
-      <div class="section-label">Luchtfoto Jaargang</div>
+    <div class="field-label">Max. features</div>
+    <select id="wfs-max">
+      <option value="500">500</option>
+      <option value="1000" selected>1000</option>
+      <option value="2500">2500</option>
+      <option value="5000">5000</option>
+    </select>
 
-      <div id="year-display">2024</div>
-      <div id="season-badge" class="badge-zomer">Zomer · 25 cm</div>
-
-      <div class="slider-wrap">
-        <input type="range" id="year-slider" min="0" max="7" value="7" step="1" />
-        <div class="year-ticks">
-          <span>2016</span>
-          <span>2019</span>
-          <span>2022</span>
-          <span>2024</span>
-        </div>
-      </div>
-
-      <div class="toggle-row" style="margin-top:14px">
-        <button class="toggle-btn active" id="btn-zomer">☀ Zomer 25cm</button>
-        <button class="toggle-btn" id="btn-winter">❄ Winter 8cm</button>
-      </div>
-
-      <p id="res-note">Zomeropname · resolutie 25 cm · CC BY Kadaster / PDOK</p>
-    </div>
-
-    <!-- ── Opacity ── -->
-    <div class="section">
-      <div class="section-label">
-        Luchtfoto Dekking
-        <span id="opacity-val">100%</span>
-      </div>
-      <input type="range" id="opacity-slider" min="0" max="100" value="100" step="1" />
-    </div>
-
-    <!-- ── WFS data laag ── -->
-    <div class="section">
-      <div class="section-label">Data Laag (WFS)</div>
-
-      <div class="example-label">Voorbeelden</div>
-      <div style="margin-bottom:12px">
-        <span class="example-chip" onclick="fillExample('bag')">BAG Panden</span>
-        <span class="example-chip" onclick="fillExample('cbs')">CBS Buurten</span>
-        <span class="example-chip" onclick="fillExample('natuur')">Natura 2000</span>
-        <span class="example-chip" onclick="fillExample('bestemmingsplan')">Bestemmingsplan</span>
-      </div>
-
-      <div class="input-group">
-        <label>WFS Service URL</label>
-        <input type="text" id="wfs-url" placeholder="https://service.pdok.nl/…/wfs/v1_0" />
-      </div>
-
-      <div class="input-group">
-        <label>Laagnaam (TypeName)</label>
-        <input type="text" id="wfs-layer" placeholder="bijv. bag:pand" />
-      </div>
-
-      <div class="input-group">
-        <label>Max. features (huidige kaartextent)</label>
-        <select id="wfs-max">
-          <option value="500">500</option>
-          <option value="1000" selected>1000</option>
-          <option value="2500">2500</option>
-          <option value="5000">5000</option>
-        </select>
-      </div>
-
-      <button class="btn-primary" id="btn-load">Ophalen &amp; Tonen</button>
-      <div id="data-status"></div>
-    </div>
-
-    <!-- ── Data info (shown after load) ── -->
-    <div class="section" id="legend-wrap">
-      <div class="section-label">Geladen Laag</div>
+    <button class="btn-load" id="btn-load">Ophalen &amp; Tonen</button>
+    <div id="data-status"></div>
+    <div id="legend-wrap" style="display:none">
+      <div class="field-label">Geladen laag</div>
       <div id="legend-info"></div>
     </div>
+  </div>
+</div>
 
-  </div><!-- /panel -->
+<!-- Timeline bar -->
+<div id="timeline">
+  <div id="tl-top">
+    <div id="tl-label">
+      <span id="tl-current-year">2025</span>
+      <span id="tl-current-type">Zomer · 25 cm</span>
+    </div>
+    <div id="tl-legend">
+      <span class="leg-item"><span class="leg-dot zomer"></span>Zomer 25cm</span>
+      <span class="leg-item"><span class="leg-dot winter"></span>Winter 8cm</span>
+    </div>
+    <div id="tl-opacity-wrap">
+      <span>Dekking</span>
+      <input type="range" id="opacity-slider" min="0" max="100" value="100" />
+      <span id="tl-opacity-val">100%</span>
+    </div>
+  </div>
+  <div id="tl-track-wrap">
+    <div id="tl-track">
+      <div id="tl-rail"></div>
+      <div id="tl-rail-fill"></div>
+      <div id="tl-entries"></div>
+      <div id="tl-needle"><div id="tl-needle-head"></div></div>
+      <div id="tl-drag"></div>
+    </div>
+  </div>
+</div>
 
-  <!-- MapLibre GL — must load before inline script -->
-  <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
-  <script>
-    // ─────────────────────────────────────────────────────────────
-    // Luchtfoto year config
-    // 2021 ontbreekt (PDOK heeft geen landsdekkend mozaïek voor dat jaar)
-    // ─────────────────────────────────────────────────────────────
-    const ZOMER_YEARS  = [2016,2017,2018,2019,2020,2022,2023,2024,2025];
-    const WINTER_YEARS = [2016,2017,2018,2019,2020,2022,2023,2024,2025];
+<script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
+<script>
+  // ── All confirmed available images, chronological ─────────────────────────
+  // ortho25 = zomer (summer) 25cm | orthoHR = winter/voorjaar 8cm (open from 2021)
+  // 2021 zomer (ortho25) does NOT exist per PDOK
+  const IMAGES = [
+    { year:2016, season:'zomer',  layer:'2016_ortho25', res:'25cm' },
+    { year:2017, season:'zomer',  layer:'2017_ortho25', res:'25cm' },
+    { year:2018, season:'zomer',  layer:'2018_ortho25', res:'25cm' },
+    { year:2019, season:'zomer',  layer:'2019_ortho25', res:'25cm' },
+    { year:2020, season:'zomer',  layer:'2020_ortho25', res:'25cm' },
+    { year:2021, season:'winter', layer:'2021_orthoHR', res:'8cm'  },
+    { year:2022, season:'zomer',  layer:'2022_ortho25', res:'25cm' },
+    { year:2022, season:'winter', layer:'2022_orthoHR', res:'8cm'  },
+    { year:2023, season:'zomer',  layer:'2023_ortho25', res:'25cm' },
+    { year:2023, season:'winter', layer:'2023_orthoHR', res:'8cm'  },
+    { year:2024, season:'zomer',  layer:'2024_ortho25', res:'25cm' },
+    { year:2024, season:'winter', layer:'2024_orthoHR', res:'8cm'  },
+    { year:2025, season:'zomer',  layer:'2025_ortho25', res:'25cm' },
+    { year:2025, season:'winter', layer:'2025_orthoHR', res:'8cm'  },
+  ];
 
-    let season    = 'zomer';
-    let yearIndex = 8;  // index into current year array (2025)
+  const N = IMAGES.length;
+  function pct(i) { return (i / (N - 1)) * 100; }
 
-    function currentYears() { return season === 'zomer' ? ZOMER_YEARS : WINTER_YEARS; }
+  let activeIdx = 12; // 2025 zomer
 
-    function wmtsTileUrl(year, s) {
-      // PDOK WMTS REST style. 8cm layer name is {year}_orthoHR (not ortho8).
-      // Format is JPEG. TileMatrixSet is EPSG:3857.
-      // REST template: /{layer}/EPSG:3857/{z}/{y}/{x}.jpeg
-      const layer = s === 'zomer' ? year + '_ortho25' : year + '_orthoHR';
-      return 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/'
-           + layer + '/EPSG:3857/{z}/{y}/{x}.jpeg';
-    }
+  function wmtsTileUrl(layer) {
+    return 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0?'
+         + 'SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0'
+         + '&LAYER=' + layer
+         + '&STYLE=default&FORMAT=image%2Fjpeg'
+         + '&TILEMATRIXSET=OGC:1.0:GoogleMapsCompatible'
+         + '&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}';
+  }
 
-    // ─────────────────────────────────────────────────────────────
-    // MapLibre
-    // ─────────────────────────────────────────────────────────────
-    const map = new maplibregl.Map({
-      container: 'map',
-      style: {
-        version: 8,
-        sources: {
-          'carto': {
-            type: 'raster',
-            tiles: ['https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'],
-            tileSize: 256,
-            attribution: '© OpenStreetMap contributors · © CARTO'
-          }
-        },
-        layers: [{ id: 'carto-bg', type: 'raster', source: 'carto' }]
-      },
-      center: [4.5, 52.15],
-      zoom: 9,
-      attributionControl: false
-    });
-
-    map.addControl(new maplibregl.NavigationControl(), 'top-left');
-    map.addControl(new maplibregl.AttributionControl({
-      customAttribution: 'Kadaster / PDOK – CC BY 4.0'
-    }), 'bottom-left');
-
-    // ─────────────────────────────────────────────────────────────
-    // Luchtfoto layer
-    // ─────────────────────────────────────────────────────────────
-    function updateLuchtfoto() {
-      const years = currentYears();
-      yearIndex = Math.min(yearIndex, years.length - 1);
-      const year  = years[yearIndex];
-      const url   = wmtsTileUrl(year, season);
-      const opacity = parseInt(document.getElementById('opacity-slider').value) / 100;
-
-      // Update UI labels
-      document.getElementById('year-display').textContent = year;
-      const badge = document.getElementById('season-badge');
-      const note  = document.getElementById('res-note');
-      if (season === 'zomer') {
-        badge.textContent = 'Zomer · 25 cm';
-        badge.className   = 'badge-zomer';
-        note.textContent  = 'Zomeropname · resolutie 25 cm · CC BY Kadaster / PDOK';
-      } else {
-        badge.textContent = 'Winter · 8 cm';
-        badge.className   = 'badge-winter';
-        note.textContent  = 'Winteropname · resolutie 8 cm · CC BY Kadaster / PDOK';
-      }
-
-      // Sync slider
-      const slider = document.getElementById('year-slider');
-      slider.max   = years.length - 1;
-      slider.value = yearIndex;
-
-      setLoading(true);
-
-      if (map.getLayer('luchtfoto')) map.removeLayer('luchtfoto');
-      if (map.getSource('luchtfoto')) map.removeSource('luchtfoto');
-
-      // Find first data layer to insert luchtfoto beneath it
-      const dataLayers = ['wfs-fill','wfs-line','wfs-circle'];
-      const beforeId   = dataLayers.find(id => map.getLayer(id));
-
-      map.addSource('luchtfoto', {
+  // ── MapLibre ──────────────────────────────────────────────────────────────
+  const map = new maplibregl.Map({
+    container: 'map',
+    style: {
+      version: 8,
+      sources: { carto: {
         type: 'raster',
-        tiles: [url],
+        tiles: ['https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'],
         tileSize: 256,
-        attribution: 'Kadaster / PDOK – CC BY 4.0'
-      });
+        attribution: '© OpenStreetMap contributors · © CARTO'
+      }},
+      layers: [{ id:'carto-bg', type:'raster', source:'carto' }]
+    },
+    center: [4.5, 52.15], zoom: 9,
+    attributionControl: false
+  });
 
-      map.addLayer({
-        id: 'luchtfoto',
-        type: 'raster',
-        source: 'luchtfoto',
-        paint: { 'raster-opacity': opacity }
-      }, beforeId);
+  map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+  map.addControl(new maplibregl.AttributionControl({
+    customAttribution: 'Kadaster / PDOK – CC BY 4.0'
+  }), 'bottom-left');
 
-      map.once('idle', () => setLoading(false));
-      setTimeout(() => setLoading(false), 8000);
-    }
+  // ── Load image ────────────────────────────────────────────────────────────
+  function loadImage(idx) {
+    activeIdx = idx;
+    const img     = IMAGES[idx];
+    const opacity = parseInt(document.getElementById('opacity-slider').value) / 100;
 
-    map.on('load', updateLuchtfoto);
+    setLoading(true);
+    if (map.getLayer('luchtfoto')) map.removeLayer('luchtfoto');
+    if (map.getSource('luchtfoto')) map.removeSource('luchtfoto');
 
-    // ─────────────────────────────────────────────────────────────
-    // Slider
-    // ─────────────────────────────────────────────────────────────
-    document.getElementById('year-slider').addEventListener('input', e => {
-      yearIndex = parseInt(e.target.value);
-      updateLuchtfoto();
+    const before = ['wfs-fill','wfs-line','wfs-circle'].find(id => map.getLayer(id));
+    map.addSource('luchtfoto', {
+      type:'raster', tiles:[wmtsTileUrl(img.layer)], tileSize:256,
+      attribution:'Kadaster / PDOK – CC BY 4.0'
+    });
+    map.addLayer({ id:'luchtfoto', type:'raster', source:'luchtfoto',
+      paint:{'raster-opacity':opacity}
+    }, before);
+
+    map.once('idle', () => setLoading(false));
+    setTimeout(() => setLoading(false), 8000);
+    updateUI();
+  }
+
+  function updateUI() {
+    const img = IMAGES[activeIdx];
+    document.getElementById('tl-current-year').textContent = img.year;
+    document.getElementById('tl-current-type').textContent =
+      (img.season === 'zomer' ? 'Zomer' : 'Winter') + ' · ' + img.res;
+
+    document.querySelectorAll('.tl-entry').forEach((el, i) => {
+      el.classList.toggle('active', i === activeIdx);
+    });
+    document.getElementById('tl-needle').style.left = pct(activeIdx) + '%';
+    // Fill rail up to needle
+    document.getElementById('tl-rail-fill').style.width = pct(activeIdx) + '%';
+  }
+
+  map.on('load', () => loadImage(activeIdx));
+
+  // ── Build timeline ────────────────────────────────────────────────────────
+  function buildTimeline() {
+    const trackEl   = document.getElementById('tl-track');
+    const entriesEl = document.getElementById('tl-entries');
+
+    // Year labels — one per unique year, centred on that year's entries
+    const years = [...new Set(IMAGES.map(im => im.year))];
+    years.forEach(y => {
+      const indices = IMAGES.map((im,i) => im.year === y ? i : -1).filter(i => i >= 0);
+      const mid = (indices[0] + indices[indices.length-1]) / 2;
+      const el = document.createElement('div');
+      el.className = 'tl-year-label';
+      el.textContent = y;
+      el.style.left = pct(mid) + '%';
+      trackEl.appendChild(el);
     });
 
-    // ─────────────────────────────────────────────────────────────
-    // Season toggle
-    // ─────────────────────────────────────────────────────────────
-    document.getElementById('btn-zomer').addEventListener('click', () => {
-      if (season === 'zomer') return;
-      season = 'zomer';
-      document.getElementById('btn-zomer').classList.add('active');
-      document.getElementById('btn-winter').classList.remove('active');
-      yearIndex = Math.min(yearIndex, ZOMER_YEARS.length - 1);
-      updateLuchtfoto();
+    // Pips
+    IMAGES.forEach((img, i) => {
+      const entry = document.createElement('div');
+      entry.className = 'tl-entry ' + img.season;
+      entry.style.left = pct(i) + '%';
+      entry.title = img.year + ' ' + (img.season === 'zomer' ? 'Zomer 25cm' : 'Winter 8cm');
+
+      const pip = document.createElement('div');
+      pip.className = 'tl-pip';
+
+      const lbl = document.createElement('div');
+      lbl.className = 'tl-tick-label';
+      lbl.textContent = img.season === 'zomer' ? 'Z' : 'W';
+
+      entry.appendChild(pip);
+      entry.appendChild(lbl);
+      entry.addEventListener('click', () => loadImage(i));
+      entriesEl.appendChild(entry);
     });
 
-    document.getElementById('btn-winter').addEventListener('click', () => {
-      if (season === 'winter') return;
-      season = 'winter';
-      document.getElementById('btn-winter').classList.add('active');
-      document.getElementById('btn-zomer').classList.remove('active');
-      yearIndex = Math.min(yearIndex, WINTER_YEARS.length - 1);
-      updateLuchtfoto();
-    });
+    document.getElementById('tl-needle').style.left = pct(activeIdx) + '%';
 
-    // ─────────────────────────────────────────────────────────────
-    // Opacity
-    // ─────────────────────────────────────────────────────────────
-    document.getElementById('opacity-slider').addEventListener('input', e => {
-      const v = parseInt(e.target.value) / 100;
-      document.getElementById('opacity-val').textContent = e.target.value + '%';
-      if (map.getLayer('luchtfoto')) {
-        map.setPaintProperty('luchtfoto', 'raster-opacity', v);
-      }
-    });
+    const drag = document.getElementById('tl-drag');
+    drag.addEventListener('mousedown', startDrag);
+    drag.addEventListener('touchstart', startDrag, {passive:true});
+  }
 
-    // ─────────────────────────────────────────────────────────────
-    // WFS examples
-    // ─────────────────────────────────────────────────────────────
-    const EXAMPLES = {
-      bag:             { url: 'https://service.pdok.nl/lv/bag/wfs/v2_0',                               layer: 'bag:pand' },
-      cbs:             { url: 'https://service.pdok.nl/cbs/wijkenbuurten/2023/wfs/v1_0',               layer: 'cbs_buurten_2023:cbs_buurten_2023' },
-      natuur:          { url: 'https://service.pdok.nl/minlnv/natura2000/wfs/v1_0',                    layer: 'natura2000:natura2000' },
-      bestemmingsplan: { url: 'https://service.pdok.nl/kadaster/bestemmingsplannen/wfs/v1_0',          layer: 'bestemmingsplannen:bestemmingsvlak' },
-    };
+  // ── Drag ──────────────────────────────────────────────────────────────────
+  let dragging = false;
 
-    function fillExample(key) {
-      const ex = EXAMPLES[key];
-      if (!ex) return;
-      document.getElementById('wfs-url').value   = ex.url;
-      document.getElementById('wfs-layer').value = ex.layer;
+  function startDrag(e) {
+    dragging = true; moveDrag(e);
+    window.addEventListener('mousemove', moveDrag);
+    window.addEventListener('mouseup', endDrag);
+    window.addEventListener('touchmove', moveDrag, {passive:true});
+    window.addEventListener('touchend', endDrag);
+  }
+
+  function moveDrag(e) {
+    if (!dragging) return;
+    const rect = document.getElementById('tl-track').getBoundingClientRect();
+    const cx   = e.touches ? e.touches[0].clientX : e.clientX;
+    const frac = Math.max(0, Math.min(1, (cx - rect.left) / rect.width));
+    const snapped = Math.round(frac * (N - 1));
+
+    // Smooth needle follows finger/mouse
+    document.getElementById('tl-needle').style.transition = 'none';
+    document.getElementById('tl-needle').style.left = (frac * 100) + '%';
+    document.getElementById('tl-rail-fill').style.transition = 'none';
+    document.getElementById('tl-rail-fill').style.width = (frac * 100) + '%';
+
+    if (snapped !== activeIdx) loadImage(snapped);
+  }
+
+  function endDrag() {
+    dragging = false;
+    document.getElementById('tl-needle').style.transition = 'left 0.12s ease';
+    document.getElementById('tl-needle').style.left = pct(activeIdx) + '%';
+    document.getElementById('tl-rail-fill').style.transition = 'width 0.12s ease';
+    document.getElementById('tl-rail-fill').style.width = pct(activeIdx) + '%';
+    window.removeEventListener('mousemove', moveDrag);
+    window.removeEventListener('mouseup', endDrag);
+    window.removeEventListener('touchmove', moveDrag);
+    window.removeEventListener('touchend', endDrag);
+  }
+
+  // ── Opacity ───────────────────────────────────────────────────────────────
+  document.getElementById('opacity-slider').addEventListener('input', e => {
+    document.getElementById('tl-opacity-val').textContent = e.target.value + '%';
+    if (map.getLayer('luchtfoto'))
+      map.setPaintProperty('luchtfoto', 'raster-opacity', parseInt(e.target.value) / 100);
+  });
+
+  // ── WFS panel ─────────────────────────────────────────────────────────────
+  document.getElementById('wfs-toggle').addEventListener('click', () => {
+    document.getElementById('wfs-toggle').classList.toggle('open');
+    document.getElementById('wfs-body').classList.toggle('open');
+  });
+
+  const EXAMPLES = {
+    bag:    { url:'https://service.pdok.nl/lv/bag/wfs/v2_0',                      layer:'bag:pand' },
+    cbs:    { url:'https://service.pdok.nl/cbs/wijkenbuurten/2023/wfs/v1_0',      layer:'cbs_buurten_2023:cbs_buurten_2023' },
+    natuur: { url:'https://service.pdok.nl/minlnv/natura2000/wfs/v1_0',           layer:'natura2000:natura2000' },
+    bp:     { url:'https://service.pdok.nl/kadaster/bestemmingsplannen/wfs/v1_0', layer:'bestemmingsplannen:bestemmingsvlak' },
+  };
+  window.fillExample = k => {
+    const ex = EXAMPLES[k]; if (!ex) return;
+    document.getElementById('wfs-url').value   = ex.url;
+    document.getElementById('wfs-layer').value = ex.layer;
+  };
+
+  document.getElementById('btn-load').addEventListener('click', async () => {
+    const baseUrl  = document.getElementById('wfs-url').value.trim();
+    const typeName = document.getElementById('wfs-layer').value.trim();
+    const maxFeat  = document.getElementById('wfs-max').value;
+    const statusEl = document.getElementById('data-status');
+    if (!baseUrl || !typeName) { statusEl.textContent='Vul URL en laagnaam in.'; statusEl.className='error'; return; }
+
+    const b   = map.getBounds();
+    const bbox = b.getWest()+','+b.getSouth()+','+b.getEast()+','+b.getNorth()+',EPSG:4326';
+    const sep  = baseUrl.includes('?') ? '&' : '?';
+    const url  = baseUrl+sep+'SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature'
+               + '&TYPENAMES='+encodeURIComponent(typeName)
+               + '&BBOX='+encodeURIComponent(bbox)
+               + '&COUNT='+maxFeat+'&OUTPUTFORMAT=application%2Fjson';
+
+    statusEl.textContent='Ophalen…'; statusEl.className='';
+    document.getElementById('btn-load').disabled=true;
+    setLoading(true);
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error('HTTP '+resp.status);
+      const gj = await resp.json();
+      if (!gj.features?.length) { statusEl.textContent='Geen features gevonden.'; statusEl.className='error'; return; }
+      renderWFS(gj, typeName);
+      statusEl.textContent='✓ '+gj.features.length.toLocaleString('nl-NL')+' features'; statusEl.className='ok';
+    } catch(err) { statusEl.textContent='Fout: '+err.message; statusEl.className='error'; }
+    finally { document.getElementById('btn-load').disabled=false; setLoading(false); }
+  });
+
+  function renderWFS(gj, typeName) {
+    ['wfs-fill','wfs-line','wfs-circle'].forEach(id => { if(map.getLayer(id)) map.removeLayer(id); });
+    if (map.getSource('wfs')) map.removeSource('wfs');
+    map.addSource('wfs',{type:'geojson',data:gj});
+    const t = gj.features[0]?.geometry?.type||''; let cl;
+    if (t.includes('Polygon')) {
+      map.addLayer({id:'wfs-fill',type:'fill',source:'wfs',paint:{'fill-color':'#1f6feb','fill-opacity':0.22}});
+      map.addLayer({id:'wfs-line',type:'line',source:'wfs',paint:{'line-color':'#388bfd','line-width':1}});
+      cl='wfs-fill';
+    } else if (t.includes('Line')) {
+      map.addLayer({id:'wfs-line',type:'line',source:'wfs',paint:{'line-color':'#388bfd','line-width':2}});
+      cl='wfs-line';
+    } else {
+      map.addLayer({id:'wfs-circle',type:'circle',source:'wfs',
+        paint:{'circle-radius':4,'circle-color':'#388bfd','circle-stroke-width':1,'circle-stroke-color':'#0d1117'}});
+      cl='wfs-circle';
     }
-    window.fillExample = fillExample;
+    document.getElementById('legend-wrap').style.display='block';
+    document.getElementById('legend-info').innerHTML='<span>'+gj.features.length.toLocaleString('nl-NL')+'</span> features · '+esc(typeName.split(':').pop());
+    ['wfs-fill','wfs-line','wfs-circle'].forEach(id=>map.off('click',id,onFeat));
+    map.on('click',cl,onFeat);
+    map.on('mouseenter',cl,()=>{map.getCanvas().style.cursor='pointer';});
+    map.on('mouseleave',cl,()=>{map.getCanvas().style.cursor='';});
+  }
 
-    // ─────────────────────────────────────────────────────────────
-    // WFS loading
-    // ─────────────────────────────────────────────────────────────
-    document.getElementById('btn-load').addEventListener('click', loadWFS);
+  function onFeat(e) {
+    const p=e.features[0].properties;
+    const rows=Object.entries(p).filter(([,v])=>v!==null&&v!=='').slice(0,16)
+      .map(([k,v])=>'<div><b>'+esc(k)+'</b>'+esc(String(v))+'</div>').join('');
+    new maplibregl.Popup({maxWidth:'300px'}).setLngLat(e.lngLat)
+      .setHTML('<div class="popup-inner">'+rows+'</div>').addTo(map);
+  }
 
-    async function loadWFS() {
-      const baseUrl  = document.getElementById('wfs-url').value.trim();
-      const typeName = document.getElementById('wfs-layer').value.trim();
-      const maxFeat  = document.getElementById('wfs-max').value;
-      const statusEl = document.getElementById('data-status');
+  function setLoading(on) { document.getElementById('loading-bar').classList.toggle('active',on); }
+  function esc(s) { return String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
 
-      if (!baseUrl || !typeName) {
-        statusEl.textContent = 'Vul een WFS URL en laagnaam in.';
-        statusEl.className   = 'error';
-        return;
-      }
-
-      const b    = map.getBounds();
-      const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()},EPSG:4326`;
-      const sep  = baseUrl.includes('?') ? '&' : '?';
-      const url  = `${baseUrl}${sep}SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature`
-                 + `&TYPENAMES=${encodeURIComponent(typeName)}`
-                 + `&BBOX=${encodeURIComponent(bbox)}`
-                 + `&COUNT=${maxFeat}`
-                 + `&OUTPUTFORMAT=application%2Fjson`;
-
-      statusEl.textContent = 'Ophalen…';
-      statusEl.className   = '';
-      document.getElementById('btn-load').disabled = true;
-      setLoading(true);
-
-      try {
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status} – ${resp.statusText}`);
-        const geojson = await resp.json();
-
-        if (!geojson.features?.length) {
-          statusEl.textContent = 'Geen features gevonden in dit kaartgebied. Zoom in of pan naar het juiste gebied.';
-          statusEl.className   = 'error';
-          return;
-        }
-
-        renderWFS(geojson, typeName);
-        statusEl.textContent = `✓ ${geojson.features.length.toLocaleString('nl-NL')} features geladen`;
-        statusEl.className   = 'ok';
-
-      } catch (err) {
-        statusEl.textContent = `Fout: ${err.message}`;
-        statusEl.className   = 'error';
-      } finally {
-        document.getElementById('btn-load').disabled = false;
-        setLoading(false);
-      }
-    }
-
-    // ─────────────────────────────────────────────────────────────
-    // Render WFS GeoJSON
-    // ─────────────────────────────────────────────────────────────
-    function renderWFS(geojson, typeName) {
-      ['wfs-fill','wfs-line','wfs-circle'].forEach(id => {
-        if (map.getLayer(id)) map.removeLayer(id);
-      });
-      if (map.getSource('wfs')) map.removeSource('wfs');
-
-      map.addSource('wfs', { type: 'geojson', data: geojson });
-
-      const geomType = inferGeomType(geojson);
-      let clickLayer;
-
-      if (geomType === 'polygon') {
-        map.addLayer({
-          id: 'wfs-fill', type: 'fill', source: 'wfs',
-          paint: { 'fill-color': '#1f6feb', 'fill-opacity': 0.22 }
-        });
-        map.addLayer({
-          id: 'wfs-line', type: 'line', source: 'wfs',
-          paint: { 'line-color': '#388bfd', 'line-width': 1 }
-        });
-        clickLayer = 'wfs-fill';
-      } else if (geomType === 'line') {
-        map.addLayer({
-          id: 'wfs-line', type: 'line', source: 'wfs',
-          paint: { 'line-color': '#388bfd', 'line-width': 2 }
-        });
-        clickLayer = 'wfs-line';
-      } else {
-        map.addLayer({
-          id: 'wfs-circle', type: 'circle', source: 'wfs',
-          paint: {
-            'circle-radius': 4,
-            'circle-color': '#388bfd',
-            'circle-stroke-width': 1,
-            'circle-stroke-color': '#0d1117'
-          }
-        });
-        clickLayer = 'wfs-circle';
-      }
-
-      // Info section
-      document.getElementById('legend-wrap').style.display = 'block';
-      const shortName = typeName.split(':').pop();
-      document.getElementById('legend-info').innerHTML =
-        `<span>${geojson.features.length.toLocaleString('nl-NL')}</span> features · ${esc(shortName)}`;
-
-      // Popups
-      map.off('click', 'wfs-fill',   onFeatureClick);
-      map.off('click', 'wfs-line',   onFeatureClick);
-      map.off('click', 'wfs-circle', onFeatureClick);
-      map.on('click', clickLayer, onFeatureClick);
-
-      map.on('mouseenter', clickLayer, () => { map.getCanvas().style.cursor = 'pointer'; });
-      map.on('mouseleave', clickLayer, () => { map.getCanvas().style.cursor = ''; });
-    }
-
-    function onFeatureClick(e) {
-      const props = e.features[0].properties;
-      const rows  = Object.entries(props)
-        .filter(([, v]) => v !== null && v !== '')
-        .slice(0, 16)
-        .map(([k, v]) => `<div><b>${esc(k)}</b>${esc(String(v))}</div>`)
-        .join('');
-      new maplibregl.Popup({ maxWidth: '300px', closeButton: true })
-        .setLngLat(e.lngLat)
-        .setHTML(`<div class="popup-inner">${rows}</div>`)
-        .addTo(map);
-    }
-
-    function inferGeomType(geojson) {
-      const t = geojson.features[0]?.geometry?.type || '';
-      if (t.includes('Polygon')) return 'polygon';
-      if (t.includes('Line'))    return 'line';
-      return 'point';
-    }
-
-    // ─────────────────────────────────────────────────────────────
-    // Utilities
-    // ─────────────────────────────────────────────────────────────
-    function setLoading(on) {
-      document.getElementById('loading-bar').classList.toggle('active', on);
-    }
-
-    function esc(s) {
-      return String(s).replace(/[<>&"]/g,
-        c => ({ '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;' }[c]));
-    }
-  </script>
+  buildTimeline();
+</script>
 </body>
 </html>
