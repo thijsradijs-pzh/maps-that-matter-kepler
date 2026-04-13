@@ -527,7 +527,7 @@
   });
 
   const EXAMPLES = {
-    gem:    { url:'https://service.pdok.nl/cbs/gebiedsindelingen/2026/wfs/v1_0',   layer:'gemeente_gegeneraliseerd' },
+    gem:    { url:'https://service.pdok.nl/cbs/gebiedsindelingen/2026/wfs/v1_0',   layer:'gebiedsindelingen:gemeente_gegeneraliseerd' },
     bag:    { url:'https://service.pdok.nl/lv/bag/wfs/v2_0',                      layer:'bag:pand' },
     cbs:    { url:'https://service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0',      layer:'cbs_buurten_2024:cbs_buurten_2024' },
     natuur: { url:'https://service.pdok.nl/minlnv/natura2000/wfs/v1_0',           layer:'natura2000:natura2000' },
@@ -547,11 +547,13 @@
     if (!baseUrl || !typeName) { statusEl.textContent='Vul URL en laagnaam in.'; statusEl.className='error'; return; }
 
     const b   = map.getBounds();
-    const bbox = b.getWest()+','+b.getSouth()+','+b.getEast()+','+b.getNorth()+',EPSG:4326';
+    // WFS 2.0 with EPSG:4326 expects lat,lon order (south,west,north,east)
+    // Some PDOK endpoints are strict about this
+    const bbox = b.getSouth()+','+b.getWest()+','+b.getNorth()+','+b.getEast();
     const sep  = baseUrl.includes('?') ? '&' : '?';
     const url  = baseUrl+sep+'SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature'
                + '&TYPENAMES='+encodeURIComponent(typeName)
-               + '&BBOX='+encodeURIComponent(bbox)
+               + '&BBOX='+encodeURIComponent(bbox)+',urn:ogc:def:crs:EPSG::4326'
                + '&COUNT='+maxFeat+'&OUTPUTFORMAT=application%2Fjson';
 
     statusEl.textContent='Ophalen…'; statusEl.className='';
