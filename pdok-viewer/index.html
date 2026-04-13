@@ -403,6 +403,7 @@
       }},
       layers: [{ id:'carto-bg', type:'raster', source:'carto' }]
     },
+    glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
     center: [4.5, 52.15], zoom: 9,
     attributionControl: false
   });
@@ -432,6 +433,7 @@
     }, before);
 
     // Keep gemeente layers above the aerial photo
+    if (map.getLayer('gem-rotterdam-fill')) map.moveLayer('gem-rotterdam-fill');
     if (map.getLayer('gem-fill'))   map.moveLayer('gem-fill');
     if (map.getLayer('gem-line'))   map.moveLayer('gem-line');
     if (map.getLayer('gem-labels')) map.moveLayer('gem-labels');
@@ -640,7 +642,7 @@
     const btn = document.getElementById('btn-gemeenten');
 
     if (gemeentenVisible) {
-      // Hide
+      if (map.getLayer('gem-rotterdam-fill')) map.removeLayer('gem-rotterdam-fill');
       if (map.getLayer('gem-fill'))   map.removeLayer('gem-fill');
       if (map.getLayer('gem-line'))   map.removeLayer('gem-line');
       if (map.getLayer('gem-labels')) map.removeLayer('gem-labels');
@@ -651,49 +653,55 @@
       return;
     }
 
-    // Load
     btn.classList.add('loading');
     btn.disabled = true;
 
     try {
-      // CQL filter: provincienaam = 'Zuid-Holland'
-      // Layer: bestuurlijkegebieden:gemeentegebied
-      const url = 'https://service.pdok.nl/kadaster/brk-bestuurlijke-gebieden/wfs/v1_0'
+      // CBS Wijken en Buurten 2024 — gemeenten layer, filtered to Zuid-Holland
+      const url = 'https://service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0'
                 + '?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature'
-                + '&TYPENAMES=bestuurlijkegebieden:gemeentegebied'
+                + '&TYPENAMES=cbs_gemeenten_2024:cbs_gemeenten_2024'
                 + '&CQL_FILTER=' + encodeURIComponent("provincienaam='Zuid-Holland'")
                 + '&OUTPUTFORMAT=application%2Fjson';
 
       const resp = await fetch(url);
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const gj = await resp.json();
-
       if (!gj.features?.length) throw new Error('Geen gemeenten gevonden');
 
       map.addSource('gemeenten', { type: 'geojson', data: gj });
 
-      // Subtle fill
+      // Rotterdam highlight fill
+      map.addLayer({
+        id: 'gem-rotterdam-fill', type: 'fill', source: 'gemeenten',
+        filter: ['==', ['get', 'gemeentenaam'], 'Rotterdam'],
+        paint: { 'fill-color': '#e85d26', 'fill-opacity': 0.10 }
+      });
+
+      // All ZH gemeenten — subtle fill
       map.addLayer({
         id: 'gem-fill', type: 'fill', source: 'gemeenten',
-        paint: {
-          'fill-color': '#1a6fc4',
-          'fill-opacity': 0.06
-        }
-      }, 'luchtfoto'); // below aerial if present, above basemap
+        filter: ['!=', ['get', 'gemeentenaam'], 'Rotterdam'],
+        paint: { 'fill-color': '#1a6fc4', 'fill-opacity': 0.06 }
+      });
 
-      // Crisp boundary line
+      // Boundary lines — all gemeenten
       map.addLayer({
         id: 'gem-line', type: 'line', source: 'gemeenten',
         paint: {
-          'line-color': '#1a6fc4',
-          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1, 13, 2],
-          'line-opacity': 0.8
+          'line-color': [
+            'case', ['==', ['get', 'gemeentenaam'], 'Rotterdam'],
+            '#e85d26', '#1a6fc4'
+          ],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1.2, 13, 2.5],
+          'line-opacity': 0.85
         }
       });
 
-      // Municipality name labels
+      // Labels — use glyphs now available in style
       map.addLayer({
         id: 'gem-labels', type: 'symbol', source: 'gemeenten',
+        minzoom: 9,
         layout: {
           'text-field': ['get', 'gemeentenaam'],
           'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
@@ -702,12 +710,35 @@
           'text-max-width': 8
         },
         paint: {
-          'text-color': '#1a4a8a',
-          'text-halo-color': 'rgba(255,255,255,0.85)',
+          'text-color': ['case', ['==', ['get', 'gemeentenaam'], 'Rotterdam'], '#a03010', '#1a4a8a'],
+          'text-halo-color': 'rgba(255,255,255,0.9)',
           'text-halo-width': 1.5
-        },
-        minzoom: 9
+        }
       });
+
+      // Hover tooltip
+      const tooltip = document.createElement('div');
+      tooltip.id = 'gem-tooltip';
+      tooltip.style.cssText = 'position:fixed;padding:5px 9px;background:#fff;border:1px solid #dedad5;border-radius:6px;font-size:11px;font-weight:600;color:#1a1a1a;pointer-events:none;display:none;box-shadow:0 2px 8px rgba(0,0,0,0.12);z-index:50';
+      document.body.appendChild(tooltip);
+
+      map.on('mousemove', 'gem-fill', e => {
+        map.getCanvas().style.cursor = 'pointer';
+        const name = e.features[0]?.properties?.gemeentenaam || '';
+        tooltip.textContent = name;
+        tooltip.style.display = 'block';
+        tooltip.style.left = (e.originalEvent.clientX + 12) + 'px';
+        tooltip.style.top  = (e.originalEvent.clientY - 28) + 'px';
+      });
+      map.on('mousemove', 'gem-rotterdam-fill', e => {
+        map.getCanvas().style.cursor = 'pointer';
+        tooltip.textContent = 'Rotterdam';
+        tooltip.style.display = 'block';
+        tooltip.style.left = (e.originalEvent.clientX + 12) + 'px';
+        tooltip.style.top  = (e.originalEvent.clientY - 28) + 'px';
+      });
+      map.on('mouseleave', 'gem-fill', () => { map.getCanvas().style.cursor = ''; tooltip.style.display = 'none'; });
+      map.on('mouseleave', 'gem-rotterdam-fill', () => { map.getCanvas().style.cursor = ''; tooltip.style.display = 'none'; });
 
       gemeentenVisible = true;
       gemeentenLoaded  = true;
