@@ -4,16 +4,16 @@
   <meta charset="utf-8" />
   <title>PDOK Verkenner — Maps That Matter</title>
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <meta name="description" content="Ask a question in plain Dutch — AI picks the right PDOK datasource (CBS, BAG, NGR) and shows results as H3 hexagons at 174m resolution." />
+  <meta name="description" content="Luchtfoto's per jaar en live PDOK geodata voor Nederland." />
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://www.mapsthatmatter.io/pdok-viewer" />
   <meta property="og:title" content="PDOK Verkenner — Maps That Matter" />
-  <meta property="og:description" content="Ask a question in plain Dutch — AI picks the right PDOK datasource (CBS, BAG, NGR) and shows results as H3 hexagons at 174m resolution." />
+  <meta property="og:description" content="Luchtfoto's per jaar en live PDOK geodata voor Nederland." />
   <meta property="og:image" content="https://www.mapsthatmatter.io/assets/thijs.jpg" />
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="PDOK Verkenner" />
-  <meta name="twitter:description" content="Ask a question in plain Dutch — AI picks the right PDOK datasource (CBS, BAG, NGR) and shows results as H3 hexagons at 174m resolution." />
+  <meta name="twitter:description" content="Luchtfoto's per jaar en live PDOK geodata voor Nederland." />
   <meta name="twitter:image" content="https://www.mapsthatmatter.io/assets/thijs.jpg" />
 
   <script async src="https://plausible.io/js/pa-unGG15m6r6ufvAQNAPz3f.js"></script>
@@ -23,9 +23,8 @@
     plausible.init();
   </script>
 
-  <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
-  <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
-  <script src="/shared/deckgl-utils.js"></script>
+  <!-- MapLibre CSS (link can stay in head) -->
+  <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet" />
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -37,580 +36,160 @@
       overflow: hidden;
     }
 
-    #container { width: 100vw; height: 100vh; }
+    #map { width: 100vw; height: 100vh; }
 
-    /* ─── Floating chat window ─── */
+    /* ─── Side panel ─── */
     #panel {
       position: fixed;
-      left: 50%; top: 50%;
-      transform: translate(-50%, -50%);
-      width: 500px; max-height: 88vh;
-      min-width: 300px; min-height: 280px;
+      top: 0; right: 0; bottom: 0;
+      width: 340px;
       background: #161b22;
-      border: 1px solid #30363d;
-      border-radius: 16px;
+      border-left: 1px solid #30363d;
       display: flex; flex-direction: column;
       z-index: 30;
-      box-shadow: 0 32px 80px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.04);
-      overflow: hidden;
-    }
-    /* Snapped to right after results */
-    #panel.snapped {
-      left: auto; right: 20px;
-      top: 20px; bottom: 20px;
-      transform: none;
-      width: 400px; max-height: none;
+      overflow-y: auto;
     }
 
-    /* Drag handle bar */
-    .panel-drag-handle {
-      cursor: grab; flex-shrink: 0;
-      padding: 10px 16px 0;
-      display: flex; align-items: center; gap: 8px;
-      user-select: none;
-    }
-    .panel-drag-handle:active { cursor: grabbing; }
-    .drag-dots {
-      display: flex; gap: 3px; align-items: center; opacity: 0.35;
-    }
-    .drag-dot { width: 4px; height: 4px; background: #c9d1d9; border-radius: 50%; }
-
-    /* Resize corner handle */
-    #panel-resize {
-      position: absolute; bottom: 0; right: 0;
-      width: 18px; height: 18px; cursor: se-resize; z-index: 5;
-      opacity: 0.25; transition: opacity 0.15s;
-    }
-    #panel-resize:hover { opacity: 0.65; }
-    #panel-resize::after {
-      content: '';
-      position: absolute; bottom: 4px; right: 4px;
-      width: 8px; height: 8px;
-      border-right: 2px solid #c9d1d9;
-      border-bottom: 2px solid #c9d1d9;
-    }
+    #panel::-webkit-scrollbar { width: 4px; }
+    #panel::-webkit-scrollbar-track { background: transparent; }
+    #panel::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
 
     .panel-header {
-      padding: 6px 16px 12px;
+      padding: 18px 18px 14px;
       border-bottom: 1px solid #21262d;
       flex-shrink: 0;
     }
-    .panel-header h1 {
-      font-size: 14px; font-weight: 700; color: #f0f6fc;
-      letter-spacing: -0.2px;
-    }
-    .panel-header p {
-      font-size: 11px; color: #7d8590; margin-top: 3px; line-height: 1.5;
-    }
+    .panel-header h1 { font-size: 14px; font-weight: 700; color: #f0f6fc; }
+    .panel-header p  { font-size: 11px; color: #7d8590; margin-top: 3px; line-height: 1.5; }
 
-    /* Step indicator */
-    .steps-row {
-      display: flex; gap: 4px; margin-top: 12px;
-    }
-    .step-pill {
-      flex: 1; height: 3px; border-radius: 2px;
-      background: #21262d; transition: background 0.4s;
-    }
-    .step-pill.done   { background: #1f6feb; }
-    .step-pill.active { background: #58a6ff; animation: step-pulse 1.2s ease-in-out infinite alternate; }
-    @keyframes step-pulse { to { opacity: 0.45; } }
-
-    /* Messages feed */
-    #messages {
-      flex: 1; overflow-y: auto;
-      padding: 14px 14px 8px;
-      display: flex; flex-direction: column; gap: 10px;
-      scroll-behavior: smooth;
-    }
-    #messages::-webkit-scrollbar { width: 4px; }
-    #messages::-webkit-scrollbar-track { background: transparent; }
-    #messages::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
-
-    /* Input bar — at bottom, hidden until question step */
-    #input-area {
-      flex-shrink: 0;
-      padding: 12px 14px;
-      border-top: 1px solid #21262d;
-      background: #161b22;
-      display: none;
-    }
-    #input-area.visible { display: block; }
-    .input-row { display: flex; gap: 8px; align-items: center; }
-    #question-input {
-      flex: 1;
-      background: #0d1117; border: 1px solid #30363d;
-      border-radius: 8px; padding: 9px 12px;
-      font-size: 13px; color: #e6edf3; outline: none;
-      font-family: inherit; transition: border-color 0.15s;
-    }
-    #question-input::placeholder { color: #484f58; }
-    #question-input:focus { border-color: #388bfd; }
-    #submit-btn {
-      background: #1f6feb; border: none; border-radius: 8px;
-      color: #fff; font-size: 16px; font-weight: 600;
-      width: 36px; height: 36px; flex-shrink: 0;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      transition: background 0.15s;
-    }
-    #submit-btn:hover:not(:disabled) { background: #388bfd; }
-    #submit-btn:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
-
-    /* ─── Message types ─── */
-
-    /* User bubble */
-    .msg-user {
-      align-self: flex-end;
-      background: #1f6feb; border-radius: 12px 12px 4px 12px;
-      padding: 9px 13px; font-size: 12px; color: #fff;
-      max-width: 86%; line-height: 1.5;
-    }
-
-    /* Error */
-    .msg-error {
-      background: rgba(248,81,73,0.08);
-      border: 1px solid rgba(248,81,73,0.25);
-      border-radius: 8px; padding: 10px 14px;
-      font-size: 12px; color: #f85149; line-height: 1.5;
-    }
-
-    /* Thinking card */
-    .card-thinking {
-      background: #21262d; border: 1px solid #30363d;
-      border-radius: 10px; padding: 12px 14px;
-      display: flex; flex-direction: column; gap: 6px;
-    }
-    .think-step {
-      display: flex; align-items: center; gap: 9px;
-      font-size: 12px; color: #484f58; line-height: 1.4;
-      transition: color 0.2s;
-    }
-    .think-step.active { color: #c9d1d9; }
-    .think-step.done   { color: #56d364; }
-    .think-icon { width: 14px; flex-shrink: 0; font-size: 12px; text-align: center; }
-    .think-icon.spin { animation: spin 0.8s linear infinite; display: inline-block; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* AI analysis card */
-    .card-ai {
-      background: #21262d; border: 1px solid #30363d;
-      border-radius: 10px; overflow: hidden;
-    }
-    .card-ai-header {
-      padding: 12px 14px 10px;
-    }
-    .card-ai-title {
-      font-size: 13px; font-weight: 600; color: #f0f6fc; margin-bottom: 5px;
-    }
-    .card-ai-reasoning {
-      font-size: 11px; color: #8b949e; line-height: 1.65;
-    }
-    .card-ai-tags {
-      padding: 8px 14px 12px;
-      border-top: 1px solid #21262d;
-      display: flex; flex-wrap: wrap; gap: 5px;
-    }
-    .tag {
-      background: #0d1117; border: 1px solid #30363d;
-      border-radius: 5px; padding: 3px 8px;
-      font-size: 10px; font-family: 'SF Mono', 'Fira Mono', monospace;
-      color: #7d8590;
-    }
-    .tag.blue { border-color: #1f4f8e; color: #79c0ff; background: rgba(31,79,142,0.15); }
-    .tag.green { border-color: #196127; color: #56d364; background: rgba(25,97,39,0.15); }
-
-    /* Draw step card — prominent wizard step */
-    .card-draw-step {
-      border: 2px solid #1f6feb; border-radius: 12px; overflow: visible;
-      background: #0d1117;
-      animation: draw-step-glow 2.2s ease-in-out infinite;
-    }
-    @keyframes draw-step-glow {
-      0%, 100% { border-color: #1f6feb; box-shadow: 0 0 0 0 rgba(31,111,235,0.4); }
-      50%       { border-color: #58a6ff; box-shadow: 0 0 0 8px rgba(31,111,235,0); }
-    }
-    .draw-step-header {
-      padding: 13px 16px 11px;
+    .section {
+      padding: 16px 18px;
       border-bottom: 1px solid #21262d;
-      display: flex; align-items: center; gap: 10px;
     }
-    .draw-step-badge {
-      background: rgba(31,111,235,0.18); border: 1px solid #1f6feb;
-      border-radius: 20px; padding: 2px 10px;
-      font-size: 10px; font-weight: 700; color: #58a6ff;
-      letter-spacing: 0.3px; flex-shrink: 0;
-    }
-    .draw-step-title {
-      font-size: 13px; font-weight: 700; color: #f0f6fc;
-    }
-    .draw-step-search-wrap {
-      padding: 14px 16px 4px; position: relative;
-    }
-    .draw-step-search-label {
+
+    .section-label {
       font-size: 10px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.5px; color: #484f58; margin-bottom: 7px;
-    }
-    .draw-step-search-input {
-      width: 100%; background: #161b22; border: 1px solid #30363d;
-      border-radius: 9px; padding: 11px 14px;
-      font-size: 13px; color: #e6edf3; outline: none;
-      font-family: inherit; transition: border-color 0.15s, box-shadow 0.15s;
-    }
-    .draw-step-search-input::placeholder { color: #484f58; }
-    .draw-step-search-input:focus {
-      border-color: #388bfd;
-      box-shadow: 0 0 0 3px rgba(56,139,253,0.15);
-    }
-    .draw-step-or {
-      padding: 10px 16px; display: flex; align-items: center; gap: 10px;
-    }
-    .draw-step-or-line { flex: 1; height: 1px; background: #21262d; }
-    .draw-step-or-text { font-size: 10px; color: #484f58; white-space: nowrap; }
-    .draw-step-map-hint {
-      margin: 0 16px 14px;
-      background: rgba(56,139,253,0.06); border: 1px solid rgba(56,139,253,0.18);
-      border-radius: 8px; padding: 10px 13px;
-      font-size: 12px; color: #58a6ff; line-height: 1.5;
-    }
-    .draw-step-map-hint b { color: #79c0ff; font-weight: 700; }
-    .draw-step-note {
-      margin: 0 16px 14px; margin-top: -4px;
-      font-size: 10px; color: #484f58; line-height: 1.5;
+      letter-spacing: 0.5px; color: #484f58; margin-bottom: 12px;
     }
 
-    /* Result card */
-    .card-result {
-      background: #21262d; border: 1px solid #30363d;
-      border-radius: 10px; overflow: hidden;
+    /* ─── Year display ─── */
+    #year-display {
+      font-size: 36px; font-weight: 800; color: #f0f6fc;
+      line-height: 1; margin-bottom: 4px;
+      font-variant-numeric: tabular-nums;
     }
-    .card-result-header {
-      padding: 12px 14px 10px;
+
+    #season-badge {
+      display: inline-block;
+      font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 20px; margin-bottom: 14px;
     }
-    .card-result-title {
-      font-size: 13px; font-weight: 600; color: #f0f6fc; margin-bottom: 4px;
+    .badge-zomer { background: rgba(240,165,0,0.14); color: #e3b341; border: 1px solid rgba(240,165,0,0.3); }
+    .badge-winter { background: rgba(100,180,255,0.10); color: #79c0ff; border: 1px solid rgba(100,180,255,0.25); }
+
+    /* ─── Slider ─── */
+    .slider-wrap { position: relative; margin-bottom: 4px; }
+
+    input[type=range] {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 3px;
+      background: #30363d; border-radius: 2px;
+      outline: none; cursor: pointer;
     }
-    .card-result-subtitle {
-      font-size: 11px; color: #7d8590;
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #e3b341; border: 2px solid #0d1117;
+      cursor: pointer; transition: transform 0.1s;
     }
-    .card-result-stats {
-      padding: 8px 14px 10px;
-      border-top: 1px solid #21262d;
-      display: flex; flex-direction: column; gap: 5px;
-    }
-    .stat-row {
+    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
+
+    .year-ticks {
       display: flex; justify-content: space-between;
-      font-size: 11px;
+      margin-top: 6px;
     }
-    .stat-label { color: #7d8590; }
-    .stat-value { color: #e6edf3; font-weight: 500; font-family: 'SF Mono', 'Fira Mono', monospace; }
-    .card-result-warning {
-      margin: 0 14px 10px;
-      background: rgba(210,153,34,0.08); border: 1px solid rgba(210,153,34,0.25);
-      border-radius: 6px; padding: 9px 12px;
-      font-size: 11px; color: #e3b341; line-height: 1.6;
-    }
-    .load-all-btn {
-      display: inline-block; margin-top: 7px;
-      background: #21262d; border: 1px solid #30363d;
-      border-radius: 6px; padding: 5px 12px;
-      font-size: 11px; color: #c9d1d9; cursor: pointer;
-      font-family: inherit; transition: border-color 0.15s, color 0.15s;
-    }
-    .load-all-btn:hover:not(:disabled) { border-color: #58a6ff; color: #58a6ff; }
-    .load-all-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .card-result-status {
-      padding: 0 14px 8px;
-      font-size: 11px; color: #388bfd;
-    }
+    .year-ticks span { font-size: 9px; color: #484f58; user-select: none; }
 
-    /* ─── Full-panel thinking overlay ─── */
-    #thinking-overlay {
-      position: absolute; inset: 0; z-index: 10;
-      background: rgba(22,27,34,0.97);
-      display: none; flex-direction: column;
-      align-items: center; justify-content: center; gap: 18px;
-      border-radius: 16px;
-    }
-    #thinking-overlay.visible { display: flex; }
-    .think-ring {
-      width: 52px; height: 52px;
-      border: 3px solid #21262d; border-top-color: #388bfd;
-      border-radius: 50%;
-      animation: spin 0.75s linear infinite;
-    }
-    #think-title {
-      font-size: 15px; font-weight: 700; color: #f0f6fc;
-    }
-    #think-steps-list {
-      display: flex; flex-direction: column; align-items: center; gap: 7px;
-      font-size: 12px;
-    }
-    .think-step-line {
-      color: #484f58; display: flex; align-items: center; gap: 8px;
-    }
-    .think-step-line.active { color: #79c0ff; }
-    .think-step-line.done   { color: #56d364; }
-    .think-step-icon { width: 14px; text-align: center; }
-    .think-step-icon.spin-sm { animation: spin 0.8s linear infinite; display: inline-block; }
+    /* ─── Season toggle ─── */
+    .toggle-row { display: flex; gap: 6px; }
 
-    /* Question step card (shown after bbox is drawn) */
-    .card-question-step {
-      border: 2px solid #2ea043; border-radius: 12px; overflow: visible;
-      background: #0d1117;
-      animation: qs-glow 2.2s ease-in-out infinite;
+    .toggle-btn {
+      flex: 1; padding: 7px 0;
+      border: 1px solid #30363d;
+      background: transparent; color: #484f58;
+      border-radius: 6px; font-family: inherit;
+      font-size: 10px; letter-spacing: 0.05em;
+      cursor: pointer; transition: all 0.15s;
     }
-    @keyframes qs-glow {
-      0%, 100% { border-color: #2ea043; box-shadow: 0 0 0 0 rgba(46,160,67,0.4); }
-      50%       { border-color: #56d364; box-shadow: 0 0 0 8px rgba(46,160,67,0); }
+    .toggle-btn.active {
+      background: #e3b341; border-color: #e3b341;
+      color: #000; font-weight: 700;
     }
-    .qs-header {
-      padding: 13px 16px 11px; border-bottom: 1px solid #21262d;
-      display: flex; align-items: center; gap: 9px;
+    .toggle-btn:not(.active):hover { border-color: #58a6ff; color: #58a6ff; }
+
+    #res-note { font-size: 10px; color: #484f58; margin-top: 10px; line-height: 1.5; }
+
+    /* ─── Opacity ─── */
+    #opacity-val { float: right; color: #e3b341; font-size: 11px; }
+
+    /* ─── WFS section ─── */
+    .input-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+    .input-group label { font-size: 10px; color: #484f58; letter-spacing: 0.05em; }
+
+    .input-group input[type=text],
+    .input-group select {
+      background: #0d1117; border: 1px solid #30363d;
+      border-radius: 6px; color: #e6edf3;
+      font-family: inherit; font-size: 11px;
+      padding: 7px 10px; width: 100%; outline: none;
+      transition: border-color 0.15s;
     }
-    .qs-badge {
-      background: rgba(46,160,67,0.18); border: 1px solid #2ea043;
-      border-radius: 20px; padding: 2px 10px;
-      font-size: 10px; font-weight: 700; color: #56d364; flex-shrink: 0;
+    .input-group input[type=text]:focus,
+    .input-group select:focus { border-color: #388bfd; }
+
+    .btn-primary {
+      width: 100%; padding: 9px;
+      background: #1f6feb; border: none; border-radius: 6px;
+      color: #fff; font-family: inherit;
+      font-size: 12px; font-weight: 700;
+      cursor: pointer; transition: background 0.15s;
     }
-    .qs-title { font-size: 13px; font-weight: 700; color: #f0f6fc; }
-    .qs-examples { padding: 10px 16px 14px; }
-    .qs-examples-label {
+    .btn-primary:hover:not(:disabled) { background: #388bfd; }
+    .btn-primary:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+
+    #data-status {
+      font-size: 10px; color: #7d8590; margin-top: 8px; min-height: 14px; line-height: 1.5;
+    }
+    #data-status.error { color: #f85149; }
+    #data-status.ok    { color: #56d364; }
+
+    /* ─── Quick examples ─── */
+    .example-label {
       font-size: 10px; font-weight: 600; text-transform: uppercase;
       letter-spacing: 0.5px; color: #484f58; margin-bottom: 8px;
     }
-
-    /* Suppression warning inside AI card */
-    .card-ai-suppress {
-      margin: 0 14px 12px;
-      background: rgba(210,153,34,0.08); border: 1px solid rgba(210,153,34,0.25);
-      border-radius: 6px; padding: 8px 11px;
-      font-size: 11px; color: #e3b341; line-height: 1.6;
-    }
-
-    /* Retry buttons after suppression */
-    .retry-section {
-      padding: 10px 14px 12px; border-top: 1px solid #21262d;
-    }
-    .retry-label {
-      font-size: 10px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.5px; color: #484f58; margin-bottom: 7px;
-    }
-    .retry-btns { display: flex; flex-wrap: wrap; gap: 6px; }
-    .retry-btn {
-      background: #161b22; border: 1px solid #30363d;
-      border-radius: 6px; padding: 5px 11px;
-      font-size: 11px; color: #58a6ff; cursor: pointer;
-      font-family: inherit; transition: border-color 0.15s, background 0.15s;
-    }
-    .retry-btn:hover { background: #21262d; border-color: #58a6ff; }
-
-    /* Action row at bottom of result card */
-    .card-action-row {
-      padding: 10px 14px 12px; border-top: 1px solid #21262d;
-      display: flex; gap: 6px; flex-wrap: wrap;
-    }
-    .action-btn {
-      background: #161b22; border: 1px solid #30363d;
-      border-radius: 6px; padding: 5px 11px;
-      font-size: 11px; color: #7d8590; cursor: pointer;
-      font-family: inherit; transition: border-color 0.15s, color 0.15s;
-    }
-    .action-btn:hover { border-color: #58a6ff; color: #58a6ff; }
-
-    /* Collapsible WFS details */
-    .wfs-toggle {
-      display: flex; align-items: center; gap: 6px;
-      padding: 8px 14px; border-top: 1px solid #21262d;
-      font-size: 11px; color: #484f58;
-      cursor: pointer; user-select: none; transition: color 0.15s;
-    }
-    .wfs-toggle:hover { color: #7d8590; }
-    .wfs-arrow { font-size: 8px; transition: transform 0.15s; }
-    .wfs-toggle.open .wfs-arrow { transform: rotate(90deg); }
-    .wfs-body { display: none; padding: 0 14px 12px; }
-    .wfs-body.open { display: block; }
-    pre.wfs-pre {
-      background: #0d1117; border: 1px solid #21262d;
-      border-radius: 6px; padding: 10px;
-      font-size: 10px; color: #7d8590;
-      white-space: pre-wrap; word-break: break-all;
-      line-height: 1.6; overflow-x: auto;
-    }
-
-    /* Welcome card */
-    .card-welcome {
-      background: #21262d; border: 1px solid #30363d;
-      border-radius: 10px; overflow: hidden;
-    }
-    .welcome-hero {
-      padding: 16px 16px 12px;
-      border-bottom: 1px solid #21262d;
-    }
-    .welcome-hero h3 {
-      font-size: 14px; font-weight: 700; color: #f0f6fc; margin-bottom: 4px;
-    }
-    .welcome-hero p {
-      font-size: 12px; color: #7d8590; line-height: 1.6;
-    }
-
-    /* 3-step workflow */
-    .welcome-steps {
-      padding: 12px 16px;
-      border-bottom: 1px solid #21262d;
-      display: flex; flex-direction: column; gap: 8px;
-    }
-    .welcome-step {
-      display: flex; align-items: flex-start; gap: 10px;
-    }
-    .step-num {
-      width: 18px; height: 18px; border-radius: 50%;
-      background: #1f4f8e; border: 1px solid #388bfd;
-      font-size: 10px; font-weight: 700; color: #79c0ff;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; margin-top: 1px;
-    }
-    .step-text { font-size: 12px; color: #c9d1d9; line-height: 1.5; }
-    .step-text b { color: #f0f6fc; font-weight: 600; }
-    .step-sub { font-size: 11px; color: #484f58; }
-
-    /* Capabilities & limits */
-    .welcome-section {
-      padding: 10px 16px 12px;
-      border-bottom: 1px solid #21262d;
-    }
-    .welcome-section-label {
-      font-size: 10px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.5px; color: #484f58; margin-bottom: 7px;
-    }
-    .cap-grid {
-      display: flex; flex-direction: column; gap: 4px;
-    }
-    .cap-item {
-      display: flex; align-items: baseline; gap: 7px;
-      font-size: 11px; line-height: 1.5;
-    }
-    .cap-dot {
-      width: 5px; height: 5px; border-radius: 50%;
-      flex-shrink: 0; margin-top: 4px;
-    }
-    .cap-dot.green  { background: #56d364; }
-    .cap-dot.yellow { background: #e3b341; }
-    .cap-dot.red    { background: #f85149; }
-    .cap-name  { color: #c9d1d9; font-weight: 500; }
-    .cap-desc  { color: #7d8590; }
-
-    /* Examples */
-    .welcome-examples { padding: 12px 16px 14px; }
-    .examples-label {
-      font-size: 10px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.6px; color: #484f58; margin-bottom: 8px;
-    }
-    .example-btn {
-      display: block; width: 100%; text-align: left;
-      background: #161b22; border: 1px solid #30363d;
-      border-radius: 7px; padding: 8px 12px;
-      font-size: 12px; color: #58a6ff; cursor: pointer;
-      font-family: inherit; margin-bottom: 6px;
+    .example-chip {
+      display: inline-block; margin: 0 4px 4px 0;
+      background: #0d1117; border: 1px solid #30363d;
+      border-radius: 5px; padding: 4px 9px;
+      font-size: 10px; color: #58a6ff; cursor: pointer;
       transition: border-color 0.15s, background 0.15s;
-      line-height: 1.4;
     }
-    .example-btn:last-child { margin-bottom: 0; }
-    .example-btn:hover { background: #21262d; border-color: #58a6ff; }
+    .example-chip:hover { background: #21262d; border-color: #58a6ff; }
 
-    /* NGR layer card */
-    .card-layers {
-      background: #21262d; border: 1px solid #30363d;
-      border-radius: 10px; overflow: hidden;
+    /* ─── Legend / data info ─── */
+    #legend-wrap { display: none; }
+    #legend-info {
+      font-size: 11px; color: #c9d1d9; line-height: 1.6;
     }
-    .layers-header {
-      padding: 10px 14px; border-bottom: 1px solid #21262d;
-      display: flex; align-items: center; gap: 7px;
-      font-size: 12px; font-weight: 600; color: #f0f6fc;
-    }
-    .layers-source { margin-left: auto; font-size: 10px; color: #484f58; font-weight: 400; }
-    .layer-row {
-      padding: 9px 14px; border-bottom: 1px solid #21262d;
-      display: flex; align-items: flex-start; gap: 10px;
-    }
-    .layer-row:last-child { border-bottom: none; }
-    .layer-row-info { flex: 1; min-width: 0; }
-    .layer-row-title {
-      font-size: 12px; color: #e6edf3; white-space: nowrap;
-      overflow: hidden; text-overflow: ellipsis;
-    }
-    .layer-row-abstract {
-      font-size: 10px; color: #7d8590; margin-top: 2px; line-height: 1.5;
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-    }
-    .layer-add-btn {
-      flex-shrink: 0; background: #161b22; border: 1px solid #30363d;
-      border-radius: 6px; padding: 4px 11px;
-      font-size: 11px; color: #7d8590; cursor: pointer;
-      font-family: inherit; white-space: nowrap; transition: all 0.15s;
-    }
-    .layer-add-btn:hover { border-color: #58a6ff; color: #58a6ff; }
-    .layer-add-btn.active { background: #1f4f8e; border-color: #58a6ff; color: #79c0ff; }
+    #legend-info span { color: #58a6ff; font-weight: 600; }
 
-    /* ─── Map overlays ─── */
-
-    /* Draw tools */
-    #map-tools {
-      position: absolute; top: 16px; left: 16px; z-index: 10;
-      display: flex; flex-direction: column; gap: 6px;
-    }
-    .map-tool-btn {
-      width: 36px; height: 36px;
-      background: rgba(22,27,34,0.96); border: 1px solid #30363d;
-      border-radius: 8px; color: #7d8590; font-size: 17px;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-      transition: all 0.15s; user-select: none;
-    }
-    .map-tool-btn:hover { border-color: #58a6ff; color: #58a6ff; }
-    .map-tool-btn.active {
-      background: rgba(31,79,142,0.9); border-color: #388bfd; color: #79c0ff;
-    }
-    .map-tool-btn.pulse {
-      animation: btn-pulse 1.4s ease-in-out infinite;
-    }
-    @keyframes btn-pulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(56,139,253,0.6), 0 2px 8px rgba(0,0,0,0.5); }
-      50% { box-shadow: 0 0 0 6px rgba(56,139,253,0), 0 2px 8px rgba(0,0,0,0.5); }
-    }
-
-    /* Shared autocomplete dropdown (used in draw card) */
-    .loc-dropdown {
-      margin-top: 4px; background: #161b22; border: 1px solid #30363d;
-      border-radius: 8px; overflow: hidden;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-      display: none;
-    }
-    .loc-dropdown.open { display: block; }
-    .loc-item {
-      padding: 9px 13px; font-size: 12px; color: #e6edf3;
-      display: flex; align-items: center; justify-content: space-between;
-      cursor: pointer; transition: background 0.1s;
-    }
-    .loc-item:hover { background: #21262d; }
-    .loc-type { font-size: 10px; color: #484f58; margin-left: 8px; flex-shrink: 0; }
-
-    /* Area info badge */
-    #area-info {
-      position: absolute; top: 16px; left: 62px; z-index: 10;
-      background: rgba(22,27,34,0.96); border: 1px solid #1f4f8e;
-      border-radius: 8px; padding: 8px 14px;
-      font-size: 12px; color: #79c0ff;
-      display: none; align-items: center; gap: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-    }
-    #area-info.visible { display: flex; }
-    .area-label { color: #484f58; font-size: 11px; }
-
-    /* Map loading bar */
-    #map-loading-bar {
-      position: absolute; top: 0; left: 0; right: 0; height: 2px; z-index: 20;
+    /* ─── Loading bar ─── */
+    #loading-bar {
+      position: fixed; top: 0; left: 0; right: 340px; height: 2px; z-index: 40;
       pointer-events: none; overflow: hidden;
     }
-    #map-loading-bar.active::after {
+    #loading-bar.active::after {
       content: '';
       position: absolute; top: 0; height: 100%; width: 45%;
       background: linear-gradient(90deg, transparent, #388bfd, transparent);
@@ -618,1536 +197,436 @@
     }
     @keyframes shimmer { from { left: -45%; } to { left: 100%; } }
 
-    /* Data reload indicator */
-    #reload-indicator {
-      position: absolute; bottom: 20px; left: 16px; z-index: 10;
-      background: rgba(22,27,34,0.96); border: 1px solid #21262d;
-      border-radius: 8px; padding: 8px 14px;
-      font-size: 12px; color: #7d8590;
-      display: none; align-items: center; gap: 10px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    /* ─── Popup ─── */
+    .maplibregl-popup-content {
+      background: rgba(13,17,23,0.97) !important;
+      border: 1px solid #30363d !important;
+      border-radius: 8px !important;
+      color: #e6edf3 !important;
+      font-family: inherit !important;
+      padding: 0 !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6) !important;
     }
-    #reload-indicator.visible { display: flex; }
-    .reload-dot {
-      width: 7px; height: 7px; border-radius: 50%; background: #388bfd; flex-shrink: 0;
-      animation: blink 1s ease-in-out infinite;
-    }
-    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
-    #reload-sub { font-size: 10px; color: #484f58; display: block; margin-top: 1px; }
+    .maplibregl-popup-tip { display: none !important; }
+    .popup-inner { padding: 10px 13px; font-size: 11px; line-height: 1.7; max-height: 280px; overflow-y: auto; }
+    .popup-inner b { color: #79c0ff; margin-right: 5px; }
 
-    /* Active WMS chips */
-    #wms-panel {
-      position: absolute; bottom: 20px; right: 20px; z-index: 10;
-      display: flex; flex-direction: column; gap: 5px; align-items: flex-end;
-    }
-    .wms-chip {
-      background: rgba(22,27,34,0.96); border: 1px solid #21262d;
-      border-radius: 6px; padding: 5px 10px;
-      font-size: 11px; color: #7d8590;
-      display: flex; align-items: center; gap: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-    }
-    .wms-chip-title { color: #e6edf3; }
-    .wms-chip-remove {
-      background: none; border: none; color: #484f58;
-      font-size: 14px; line-height: 1; cursor: pointer; padding: 0;
-      transition: color 0.15s;
-    }
-    .wms-chip-remove:hover { color: #f85149; }
-
-    /* Legend */
-    #legend {
-      position: absolute; bottom: 20px;
-      left: calc(50% - 190px); /* centered in map area (full width - 380px panel) */
-      background: rgba(22,27,34,0.96); border: 1px solid #21262d;
-      border-radius: 8px; padding: 10px 16px; z-index: 10;
-      display: none; min-width: 200px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-    }
-    #legend.visible { display: block; }
-    .legend-title { font-size: 10px; color: #7d8590; margin-bottom: 6px; }
-    .legend-bar { height: 8px; border-radius: 4px; margin-bottom: 5px; }
-    .legend-labels { display: flex; justify-content: space-between; font-size: 10px; color: #484f58; }
-
-    /* ─── Welcome overlay ─── */
-    #welcome-overlay {
-      position: fixed; inset: 0; z-index: 200;
-      background: rgba(1,4,9,0.88);
-      backdrop-filter: blur(6px);
-      display: flex; align-items: center; justify-content: center;
-      padding: 20px;
-      transition: opacity 0.25s;
-    }
-    #welcome-overlay.hidden { display: none; }
-    #welcome-modal {
-      background: #161b22; border: 1px solid #30363d;
-      border-radius: 16px; width: 100%; max-width: 400px;
-      overflow: hidden;
-      box-shadow: 0 32px 80px rgba(0,0,0,0.8);
-    }
-    .wm-header {
-      padding: 24px 24px 16px;
-      border-bottom: 1px solid #21262d;
-    }
-    .wm-header h2 {
-      font-size: 20px; font-weight: 800; color: #f0f6fc;
-      letter-spacing: -0.5px; margin-bottom: 6px;
-    }
-    .wm-tagline { font-size: 12px; color: #58a6ff; font-weight: 500; margin-bottom: 8px; }
-    .wm-header p { font-size: 12px; color: #7d8590; line-height: 1.65; }
-    .wm-steps {
-      padding: 16px 24px;
-      border-bottom: 1px solid #21262d;
-      display: flex; flex-direction: column; gap: 12px;
-    }
-    .wm-step { display: flex; align-items: flex-start; gap: 13px; }
-    .wm-step-num {
-      width: 24px; height: 24px; border-radius: 50%;
-      background: rgba(31,111,235,0.15); border: 1px solid #1f6feb;
-      font-size: 11px; font-weight: 700; color: #58a6ff;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; margin-top: 1px;
-    }
-    .wm-step-title { font-size: 13px; font-weight: 600; color: #f0f6fc; }
-    .wm-step-desc  { font-size: 11px; color: #7d8590; margin-top: 2px; line-height: 1.5; }
-    .wm-note {
-      margin: 12px 24px 0;
-      padding: 10px 13px;
-      background: rgba(210,153,34,0.08); border: 1px solid rgba(210,153,34,0.25);
-      border-radius: 8px; font-size: 11px; color: #e3b341; line-height: 1.6;
-    }
-    .wm-footer {
-      padding: 16px 24px;
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 12px;
-    }
-    .wm-start-btn {
-      background: #1f6feb; border: none; border-radius: 9px;
-      color: #fff; font-size: 13px; font-weight: 700;
-      padding: 11px 26px; cursor: pointer;
-      font-family: inherit; transition: background 0.15s; white-space: nowrap;
-    }
-    .wm-start-btn:hover { background: #388bfd; }
-    .wm-remember {
-      display: flex; align-items: center; gap: 7px;
-      font-size: 11px; color: #484f58; cursor: pointer; user-select: none;
-    }
-    .wm-remember input { accent-color: #388bfd; cursor: pointer; }
-
-    /* Info button in panel header */
-    #info-btn {
-      background: none; border: 1px solid #30363d; border-radius: 6px;
-      color: #484f58; font-size: 11px; font-weight: 700;
-      width: 22px; height: 22px; cursor: pointer; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center;
-      transition: all 0.15s;
-    }
-    #info-btn:hover { border-color: #58a6ff; color: #58a6ff; }
-
-    /* ─── Year selector ─── */
-    .year-selector {
-      padding: 10px 14px 12px; border-top: 1px solid #21262d;
-      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-    }
-    .year-label {
-      font-size: 10px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.5px; color: #484f58; flex-shrink: 0;
-    }
-    .year-btns { display: flex; gap: 4px; flex-wrap: wrap; }
-    .year-btn {
-      background: #0d1117; border: 1px solid #30363d;
-      border-radius: 5px; padding: 3px 9px;
-      font-size: 11px; color: #7d8590; cursor: pointer;
-      font-family: inherit; transition: all 0.15s;
-    }
-    .year-btn:hover:not(:disabled) { border-color: #58a6ff; color: #58a6ff; }
-    .year-btn.active { background: rgba(31,79,142,0.3); border-color: #388bfd; color: #79c0ff; font-weight: 600; }
-    .year-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-
-    /* Mobile */
+    /* ─── Mobile ─── */
     @media (max-width: 700px) {
       #panel {
-        left: 0 !important; right: 0 !important; bottom: 0 !important;
-        top: auto !important; transform: none !important;
-        width: 100% !important; height: 55vh !important; max-height: 55vh !important;
-        border-radius: 14px 14px 0 0;
+        top: auto; right: 0; left: 0; bottom: 0;
+        width: 100%; height: 52vh;
+        border-left: none; border-top: 1px solid #30363d;
       }
-      #panel.snapped { top: auto !important; }
-      #legend { left: 50%; transform: translateX(-50%); bottom: calc(55vh + 12px); }
-      #reload-indicator { bottom: calc(55vh + 10px); }
-      #wms-panel { right: 8px; bottom: calc(55vh + 10px); }
-      #panel-resize { display: none; }
-      #welcome-modal { max-width: 100%; border-radius: 12px; }
+      #loading-bar { right: 0; }
     }
   </style>
 </head>
 <body>
+
   <a href="/" style="position:fixed;top:12px;left:12px;z-index:9999;background:rgba(13,17,23,0.85);color:#58a6ff;font-size:11px;font-weight:600;padding:6px 10px;border-radius:6px;border:1px solid #30363d;text-decoration:none;backdrop-filter:blur(4px);">← Maps That Matter</a>
 
-  <!-- Welcome splash -->
-  <div id="welcome-overlay">
-    <div id="welcome-modal" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
-      <div class="wm-header">
-        <h2 id="welcome-title">PDOK Verkenner</h2>
-        <div class="wm-tagline">CBS · BAG · NGR — live geodata voor Nederland</div>
-        <p>Stel een vraag in gewoon Nederlands. De AI kiest de juiste databron, jij tekent het gebied op de kaart — dan wordt de data live opgehaald als hexagonkaart.</p>
-      </div>
-      <div class="wm-steps">
-        <div class="wm-step">
-          <div class="wm-step-num">1</div>
-          <div>
-            <div class="wm-step-title">Teken je studiegebied</div>
-            <div class="wm-step-desc">Zoek een gemeente of wijk, of klik twee keer op de kaart om een rechthoek te tekenen</div>
-          </div>
-        </div>
-        <div class="wm-step">
-          <div class="wm-step-num">2</div>
-          <div>
-            <div class="wm-step-title">Stel je vraag</div>
-            <div class="wm-step-desc">Typ in gewoon Nederlands wat je wilt weten — AI kiest automatisch de juiste databron</div>
-          </div>
-        </div>
-        <div class="wm-step">
-          <div class="wm-step-num">3</div>
-          <div>
-            <div class="wm-step-title">Analyseer de hexagonkaart</div>
-            <div class="wm-step-desc">Data per ~174m hexagoon. Wissel van jaar of stel een andere vraag voor hetzelfde gebied</div>
-          </div>
-        </div>
-      </div>
-      <div class="wm-note">⚠ WOZ-waarden, inkomen en energiedata worden door CBS onderdrukt in cellen met weinig bewoners. Werkt het niet? Gebruik de retry-knoppen voor een alternatief.</div>
-      <div class="wm-footer">
-        <label class="wm-remember"><input type="checkbox" id="wm-no-show"> Niet meer tonen</label>
-        <button class="wm-start-btn" onclick="dismissWelcome()">Begin →</button>
-      </div>
-    </div>
-  </div>
+  <div id="loading-bar"></div>
+  <div id="map"></div>
 
-  <div id="container"></div>
-  <div id="map-loading-bar"></div>
-
-  <div id="map-tools">
-    <button class="map-tool-btn" id="draw-btn" title="Teken studiegebied" onclick="toggleDrawMode()">⬚</button>
-    <button class="map-tool-btn" id="clear-btn" title="Verwijder selectie" onclick="clearDrawnArea()" style="display:none">✕</button>
-  </div>
-
-  <div id="area-info">
-    <span class="area-label">Gebied</span>
-    <span id="area-desc">—</span>
-  </div>
-
-  <div id="reload-indicator">
-    <div class="reload-dot"></div>
-    <div>
-      <span id="reload-text">Data laden...</span>
-      <span id="reload-sub"></span>
-    </div>
-  </div>
-
-  <div id="wms-panel"></div>
-
-  <div id="legend">
-    <div class="legend-title" id="legend-title"></div>
-    <div class="legend-bar" id="legend-bar"></div>
-    <div class="legend-labels">
-      <span id="legend-min"></span>
-      <span id="legend-max"></span>
-    </div>
-  </div>
-
-  <!-- Floating chat window -->
+  <!-- ══════════════ PANEL ══════════════ -->
   <div id="panel">
-    <div id="thinking-overlay">
-      <div class="think-ring"></div>
-      <div id="think-title">Even geduld...</div>
-      <div id="think-steps-list"></div>
-    </div>
-    <div id="panel-resize"></div>
-
-    <div class="panel-drag-handle" id="drag-handle">
-      <div class="drag-dots">
-        <div class="drag-dot"></div><div class="drag-dot"></div><div class="drag-dot"></div>
-        <div class="drag-dot"></div><div class="drag-dot"></div><div class="drag-dot"></div>
-      </div>
-      <div style="flex:1"></div>
-      <button id="info-btn" onclick="showWelcome()" title="Uitleg tonen">?</button>
-    </div>
 
     <div class="panel-header">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-        <h1>PDOK Verkenner</h1>
-        <button id="info-btn" onclick="document.getElementById('welcome-overlay').classList.remove('hidden')" aria-label="Uitleg openen" title="Uitleg">?</button>
-      </div>
-      <p>CBS · BAG · NGR — live geodata voor Nederland</p>
-      <div class="steps-row">
-        <div class="step-pill" id="step-1"></div>
-        <div class="step-pill" id="step-2"></div>
-        <div class="step-pill" id="step-3"></div>
-      </div>
+      <h1>PDOK Verkenner</h1>
+      <p>Luchtfoto per jaar · Open geodata</p>
     </div>
 
-    <div id="messages">
-      <!-- Populated by JS -->
-    </div>
+    <!-- ── Luchtfoto jaargang ── -->
+    <div class="section">
+      <div class="section-label">Luchtfoto Jaargang</div>
 
-    <div id="input-area">
-      <div class="input-row">
-        <input id="question-input" type="text"
-          placeholder="Teken eerst je studiegebied..." autocomplete="off" disabled
-          aria-label="Stel een vraag over het geselecteerde gebied" />
-        <button id="submit-btn" title="Verstuur" aria-label="Verstuur vraag" disabled>→</button>
+      <div id="year-display">2024</div>
+      <div id="season-badge" class="badge-zomer">Zomer · 25 cm</div>
+
+      <div class="slider-wrap">
+        <input type="range" id="year-slider" min="0" max="7" value="7" step="1" />
+        <div class="year-ticks">
+          <span>2016</span>
+          <span>2019</span>
+          <span>2022</span>
+          <span>2024</span>
+        </div>
       </div>
+
+      <div class="toggle-row" style="margin-top:14px">
+        <button class="toggle-btn active" id="btn-zomer">☀ Zomer 25cm</button>
+        <button class="toggle-btn" id="btn-winter">❄ Winter 8cm</button>
+      </div>
+
+      <p id="res-note">Zomeropname · resolutie 25 cm · CC BY Kadaster / PDOK</p>
     </div>
 
-  </div>
+    <!-- ── Opacity ── -->
+    <div class="section">
+      <div class="section-label">
+        Luchtfoto Dekking
+        <span id="opacity-val">100%</span>
+      </div>
+      <input type="range" id="opacity-slider" min="0" max="100" value="100" step="1" />
+    </div>
 
+    <!-- ── WFS data laag ── -->
+    <div class="section">
+      <div class="section-label">Data Laag (WFS)</div>
+
+      <div class="example-label">Voorbeelden</div>
+      <div style="margin-bottom:12px">
+        <span class="example-chip" onclick="fillExample('bag')">BAG Panden</span>
+        <span class="example-chip" onclick="fillExample('cbs')">CBS Buurten</span>
+        <span class="example-chip" onclick="fillExample('natuur')">Natura 2000</span>
+        <span class="example-chip" onclick="fillExample('bestemmingsplan')">Bestemmingsplan</span>
+      </div>
+
+      <div class="input-group">
+        <label>WFS Service URL</label>
+        <input type="text" id="wfs-url" placeholder="https://service.pdok.nl/…/wfs/v1_0" />
+      </div>
+
+      <div class="input-group">
+        <label>Laagnaam (TypeName)</label>
+        <input type="text" id="wfs-layer" placeholder="bijv. bag:pand" />
+      </div>
+
+      <div class="input-group">
+        <label>Max. features (huidige kaartextent)</label>
+        <select id="wfs-max">
+          <option value="500">500</option>
+          <option value="1000" selected>1000</option>
+          <option value="2500">2500</option>
+          <option value="5000">5000</option>
+        </select>
+      </div>
+
+      <button class="btn-primary" id="btn-load">Ophalen &amp; Tonen</button>
+      <div id="data-status"></div>
+    </div>
+
+    <!-- ── Data info (shown after load) ── -->
+    <div class="section" id="legend-wrap">
+      <div class="section-label">Geladen Laag</div>
+      <div id="legend-info"></div>
+    </div>
+
+  </div><!-- /panel -->
+
+  <!-- MapLibre GL — must load before inline script -->
+  <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
   <script>
-    // ─────────────────────────────────────────────────────────────────
-    // Color scales
-    // ─────────────────────────────────────────────────────────────────
-    const SCALES = {
-      'blue-orange': [[26,107,189],[77,166,255],[255,224,102],[255,140,66],[217,48,48]],
-      'green-red':   [[0,180,80],[160,230,80],[255,224,102],[255,140,66],[200,40,40]],
-      'blue-green':  [[26,58,90],[26,107,130],[26,140,100],[80,180,80],[160,230,80]],
-      'sequential':  [[8,30,90],[26,107,189],[77,166,255],[160,210,255],[220,240,255]],
-    };
+    // ─────────────────────────────────────────────────────────────
+    // Luchtfoto year config
+    // 2021 ontbreekt (PDOK heeft geen landsdekkend mozaïek voor dat jaar)
+    // ─────────────────────────────────────────────────────────────
+    const ZOMER_YEARS  = [2016,2017,2018,2019,2020,2022,2023,2024,2025];
+    const WINTER_YEARS = [2016,2017,2018,2019,2020,2022,2023,2024,2025];
 
-    function interpolateColor(value, min, max, colors) {
-      if (value == null || isNaN(value)) return [40, 40, 60, 0];
-      const range = max > min ? max - min : 1;
-      const t  = Math.max(0, Math.min(1, (value - min) / range));
-      const n  = colors.length - 1;
-      const i  = Math.floor(t * n);
-      const f  = t * n - i;
-      const c0 = colors[Math.min(i, n)];
-      const c1 = colors[Math.min(i + 1, n)];
-      return [
-        Math.round(c0[0] + f * (c1[0] - c0[0])),
-        Math.round(c0[1] + f * (c1[1] - c0[1])),
-        Math.round(c0[2] + f * (c1[2] - c0[2])),
-        210,
-      ];
+    let season    = 'zomer';
+    let yearIndex = 8;  // index into current year array (2025)
+
+    function currentYears() { return season === 'zomer' ? ZOMER_YEARS : WINTER_YEARS; }
+
+    function wmtsTileUrl(year, s) {
+      // PDOK WMTS REST style. 8cm layer name is {year}_orthoHR (not ortho8).
+      // Format is JPEG. TileMatrixSet is EPSG:3857.
+      // REST template: /{layer}/EPSG:3857/{z}/{y}/{x}.jpeg
+      const layer = s === 'zomer' ? year + '_ortho25' : year + '_orthoHR';
+      return 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/'
+           + layer + '/EPSG:3857/{z}/{y}/{x}.jpeg';
     }
 
-    function gradientCss(colorScale) {
-      const stops = SCALES[colorScale] || SCALES['sequential'];
-      const pct = stops.map((c, i) => `rgb(${c.join(',')}) ${Math.round(i / (stops.length - 1) * 100)}%`);
-      return `linear-gradient(to right, ${pct.join(', ')})`;
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Coordinate conversion — RD New (EPSG:28992) → WGS84
-    // ─────────────────────────────────────────────────────────────────
-    function rdNewToWgs84(rdX, rdY) {
-      const p = (rdX - 155000) / 100000;
-      const q = (rdY - 463000) / 100000;
-      const dLat =  3235.65389 * q
-                  -   32.58297 * p * p
-                  -    0.24750 * q * q * q
-                  -    0.84978 * p * p * q
-                  -    0.06550 * q * q
-                  -    0.01709 * p * p * q * q
-                  -    0.00738 * p
-                  +    0.00530 * p * p * p * q
-                  -    0.00039 * p * q * q;
-      const dLon =  5260.52916 * p
-                  +  105.94684 * p * q
-                  +    2.45656 * q * q
-                  -    0.81885 * p * p * p
-                  +    0.05594 * p * q * q
-                  -    0.05607 * p * p * p * q
-                  +    0.01199 * q
-                  -    0.00256 * p * p * p * q * q
-                  +    0.00128 * p * q * q * q
-                  +    0.00022 * q * q
-                  -    0.00022 * p * p;
-      return { lat: 52.15517440 + dLat / 3600, lon: 5.38720621 + dLon / 3600 };
-    }
-
-    function toLatLon(x, y) {
-      if (Math.abs(x) > 100 || Math.abs(y) > 100) return rdNewToWgs84(x, y);
-      if (x >= 48 && x <= 56) return { lat: x, lon: y };   // EPSG:4326 lat/lon order
-      return { lat: y, lon: x };                             // GeoJSON [lon, lat]
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // H3 binning
-    // ─────────────────────────────────────────────────────────────────
-    function flattenFirstRing(geom) {
-      if (geom.type === 'Point')        return [geom.coordinates];
-      if (geom.type === 'MultiPoint')   return geom.coordinates;
-      if (geom.type === 'Polygon')      return geom.coordinates[0];
-      if (geom.type === 'MultiPolygon') return geom.coordinates[0][0];
-      if (geom.type === 'LineString')   return geom.coordinates;
-      return [];
-    }
-
-    function centroid(geom) {
-      const pts = flattenFirstRing(geom);
-      if (!pts.length) return null;
-      const x = pts.reduce((s, p) => s + p[0], 0) / pts.length;
-      const y = pts.reduce((s, p) => s + p[1], 0) / pts.length;
-      return toLatLon(x, y);
-    }
-
-    const CBS_SUPPRESSED = -9000; // CBS uses -99997/-99998/-99999 for missing/suppressed
-
-    function binFeaturesToH3(features, metricProp, aggregation, resolution) {
-      const cells = new Map();
-
-      for (const f of features) {
-        if (!f.geometry) continue;
-        const c = centroid(f.geometry);
-        if (!c) continue;
-
-        let h3id;
-        try { h3id = h3.geoToH3(c.lat, c.lon, resolution); } catch { continue; }
-
-        const raw = f.properties?.[metricProp];
-        const num = raw != null ? Number(raw) : NaN;
-        const val = (!isNaN(num) && num > CBS_SUPPRESSED) ? num : NaN;
-
-        if (!cells.has(h3id)) cells.set(h3id, { sum: 0, count: 0, max: -Infinity, validCount: 0 });
-        const cell = cells.get(h3id);
-        cell.count++;
-        if (!isNaN(val)) {
-          cell.sum  += val;
-          cell.max   = Math.max(cell.max, val);
-          cell.validCount++;
-        }
-      }
-
-      const data = [];
-      for (const [h3id, cell] of cells) {
-        let value;
-        if      (aggregation === 'count') value = cell.count;
-        else if (aggregation === 'sum')   value = cell.validCount > 0 ? cell.sum : NaN;
-        else if (aggregation === 'avg')   value = cell.validCount > 0 ? cell.sum / cell.validCount : NaN;
-        else if (aggregation === 'max')   value = cell.max === -Infinity ? NaN : cell.max;
-        else                              value = cell.validCount > 0 ? cell.sum / cell.validCount : NaN;
-        if (!isNaN(value)) data.push({ h3id, value });
-      }
-
-      const vals = data.map(d => d.value).filter(v => isFinite(v));
-      return {
-        data,
-        min: vals.length ? Math.min(...vals) : 0,
-        max: vals.length ? Math.max(...vals) : 0,
-        hexCount: data.length,
-        validValues: vals.length,
-      };
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Metric display labels (CBS property → readable Dutch name)
-    // ─────────────────────────────────────────────────────────────────
-    const METRIC_LABELS = {
-      aantalInwoners:                               'Inwoners per 100m²',
-      aantalMannen:                                 'Mannen',
-      aantalVrouwen:                                'Vrouwen',
-      aantalWoningen:                               'Woningen per 100m²',
-      aantalNietBewoondeWoningen:                   'Leegstaande woningen',
-      aantalHuurwoningenInBezitWoningcorporaties:   'Sociale huurwoningen',
-      aantalMeergezinsWoningen:                     'Meergezinswoningen',
-      percentageKoopwoningen:                       '% koopwoningen',
-      percentageHuurwoningen:                       '% huurwoningen',
-      gemiddeldeWozWaardeWoning:                    'Gem. WOZ-waarde (€)',
-      gemiddeldGasverbruikWoning:                   'Gasverbruik (m³/jaar)',
-      gemiddeldElektriciteitsverbruikWoning:        'Elektriciteitsverbruik (kWh/jaar)',
-      aantalEenpersoonshuishoudens:                 'Eenpersoonshuishoudens',
-      aantalPartHuishoudens:                        'Huishoudens totaal',
-      aantalMeerpersoonshuishoudensZonderKind:      'Huishoudens zonder kinderen',
-      aantalEenouderhuishoudens:                    'Eenouderhuishoudens',
-      aantalTweeouderhuishoudens:                   'Tweeouderhuishoudens',
-      gemiddeldeHuishoudensgrootte:                 'Gem. huishoudensgrootte',
-      aantalPersonenMetUitkeringOnderAowlft:        'Uitkeringsgerechtigden',
-      aantalWoningenBouwjaarVoor1945:               'Woningen vóór 1945',
-      aantalWoningenBouwjaar45Tot65:                'Woningen 1945–1965',
-      aantalWoningenBouwjaar65Tot75:                'Woningen 1965–1975',
-      aantalWoningenBouwjaar75Tot85:                'Woningen 1975–1985',
-      aantalWoningenBouwjaar85Tot95:                'Woningen 1985–1995',
-      aantalWoningenBouwjaar95Tot05:                'Woningen 1995–2005',
-      aantalWoningenBouwjaar05Tot15:                'Woningen 2005–2015',
-      aantalWoningenBouwjaar15EnLater:              'Woningen 2015+',
-      dichtstbijzijndeGroteSupermarktAfstandInKm:   'Afstand grote supermarkt (km)',
-      dichtstbijzijndeTreinstationAfstandInKm:      'Afstand treinstation (km)',
-      dichtstbijzijndeHuisartsenpraktijkAfstandInKm:'Afstand huisarts (km)',
-      dichtstbijzijndeZiekenhExclBuitenpoliAfstInKm:'Afstand ziekenhuis (km)',
-      dichtstbijzijndeBasisonderwijsAfstandInKm:    'Afstand basisschool (km)',
-    };
-
-    const CBS_YEARS = ['2003', '2008', '2019', '2021', '2023', '2024'];
-
-    // ─────────────────────────────────────────────────────────────────
-    // CBS suppression metadata
-    // ─────────────────────────────────────────────────────────────────
-    const SUPPRESSION_PRONE = new Set([
-      'gemiddeldeWozWaardeWoning',
-      'gemiddeldGasverbruikWoning',
-      'gemiddeldElektriciteitsverbruikWoning',
-      'aantalPersonenMetUitkeringOnderAowlft',
-    ]);
-
-    // Fallback alternatives when a metric turns out suppressed
-    const SUPPRESSION_ALTS = {
-      gemiddeldeWozWaardeWoning:             [{ m: 'percentageKoopwoningen', l: '% koopwoningen' }, { m: 'aantalWoningen', l: 'Aantal woningen' }, { m: 'aantalInwoners', l: 'Inwoners' }],
-      gemiddeldGasverbruikWoning:            [{ m: 'aantalWoningen', l: 'Aantal woningen' }, { m: 'gemiddeldElektriciteitsverbruikWoning', l: 'Elektriciteitsverbruik' }, { m: 'aantalInwoners', l: 'Inwoners' }],
-      gemiddeldElektriciteitsverbruikWoning: [{ m: 'aantalWoningen', l: 'Aantal woningen' }, { m: 'gemiddeldGasverbruikWoning', l: 'Gasverbruik' }, { m: 'aantalInwoners', l: 'Inwoners' }],
-      aantalPersonenMetUitkeringOnderAowlft: [{ m: 'aantalInwoners', l: 'Inwoners' }, { m: 'aantalEenpersoonshuishoudens', l: 'Eenpersoonshuish.' }, { m: 'aantalWoningen', l: 'Aantal woningen' }],
-    };
-    const DEFAULT_ALTS = [{ m: 'aantalInwoners', l: 'Inwoners' }, { m: 'aantalWoningen', l: 'Woningen' }, { m: 'percentageKoopwoningen', l: '% koopwoningen' }];
-
-    // ─────────────────────────────────────────────────────────────────
-    // App state
-    // ─────────────────────────────────────────────────────────────────
-    const PAGE_SIZE = 1000;
-
-    let deckInstance       = null;
-    let currentViewState   = null;
-    let currentQuery       = null;   // AI response; set after askAI succeeds
-    let currentH3Data      = null;
-    let currentMetric      = null;
-    let currentColorScale  = 'sequential';
-    let currentBbox        = null;
-    let currentRawFeatures = [];
-    let busy               = false;
-    let paging             = false;
-    let activeCardEl       = null;
-    let drawCardEl         = null;   // the "draw your area" prompt card
-
-    // Draw state
-    let drawMode    = false;
-    let drawStart   = null;
-    let drawnBbox   = null;
-    let drawPreview = null;
-
-    // WMS overlay
-    const wmsLayers = new Map();
-    const _ngrData  = {};
-
-    // ─────────────────────────────────────────────────────────────────
-    // Deck.gl setup
-    // ─────────────────────────────────────────────────────────────────
-    function initDeck() {
-      currentViewState = { longitude: 5.2, latitude: 52.2, zoom: 7, pitch: 0, bearing: 0 };
-
-      deckInstance = new deck.DeckGL({
-        container: 'container',
-        initialViewState: currentViewState,
-        layers: [DeckGLUtils.createBasemap('voyager')],
-        controller: true,
-        onViewStateChange: ({ viewState }) => { currentViewState = viewState; },
-        getTooltip: ({ object }) => {
-          if (!object) return null;
-          const label = METRIC_LABELS[currentMetric] || currentMetric || '';
-          return {
-            html: `<div style="font-size:13px;font-weight:600;padding:6px 10px 2px">${formatValue(object.value)}</div><div style="font-size:10px;color:#7d8590;padding:0 10px 7px;max-width:180px;line-height:1.4">${esc(label)}</div>`,
-            style: { background: 'rgba(13,17,23,0.97)', border: '1px solid #30363d', borderRadius: '8px', color: '#e6edf3', padding: '0' },
-          };
-        },
-      });
-
-      const container = document.getElementById('container');
-
-      // Two-click drawing: first click anchors start, second click finishes
-      container.addEventListener('click', e => {
-        if (!drawMode) return;
-        e.stopPropagation();
-        if (!drawStart) {
-          // First click: anchor the start corner
-          drawStart   = pixelToLatLon(e.clientX, e.clientY);
-          drawPreview = { start: drawStart, end: drawStart };
-          deckInstance.setProps({ controller: false });
-        } else {
-          // Second click: finish the bbox
-          const end = pixelToLatLon(e.clientX, e.clientY);
-          drawnBbox  = normBbox(drawStart, end);
-          drawStart  = null; drawPreview = null; drawMode = false;
-          deckInstance.setProps({ controller: true });
-          container.style.cursor = '';
-          document.getElementById('draw-btn').classList.remove('active', 'pulse');
-          document.getElementById('clear-btn').style.display = '';
-          updateAreaInfo();
-          updateMap();
-          if (drawCardEl) { drawCardEl.remove(); drawCardEl = null; }
-          if (currentQuery) {
-            fetchDataForBbox(drawnBbox);
-          } else {
-            setStep(2);
-            appendQuestionStepCard();
+    // ─────────────────────────────────────────────────────────────
+    // MapLibre
+    // ─────────────────────────────────────────────────────────────
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: {
+        version: 8,
+        sources: {
+          'carto': {
+            type: 'raster',
+            tiles: ['https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'],
+            tileSize: 256,
+            attribution: '© OpenStreetMap contributors · © CARTO'
           }
-        }
-      });
-
-      container.addEventListener('mousemove', e => {
-        if (!drawMode || !drawStart) return;
-        drawPreview = { start: drawStart, end: pixelToLatLon(e.clientX, e.clientY) };
-        updateMap();
-      });
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Coordinate helpers
-    // ─────────────────────────────────────────────────────────────────
-    function pixelToLatLon(cx, cy) {
-      if (!currentViewState) return { lat: 0, lon: 0 };
-      const { longitude, latitude, zoom } = currentViewState;
-      const metersPerPx = 156543.03392 * Math.cos(latitude * Math.PI / 180) / Math.pow(2, zoom);
-      const dx = (cx - window.innerWidth  / 2) * metersPerPx;
-      const dy = (cy - window.innerHeight / 2) * metersPerPx;
-      return {
-        lon: longitude + dx / (111319.9 * Math.cos(latitude * Math.PI / 180)),
-        lat: latitude  - dy / 110574,
-      };
-    }
-
-    function normBbox(a, b) {
-      return [
-        Math.min(a.lon, b.lon), Math.min(a.lat, b.lat),
-        Math.max(a.lon, b.lon), Math.max(a.lat, b.lat),
-      ];
-    }
-
-    function getViewportBbox() {
-      if (!currentViewState) return null;
-      const { longitude, latitude, zoom } = currentViewState;
-      const metersPerPx = 156543.03392 * Math.cos(latitude * Math.PI / 180) / Math.pow(2, zoom);
-      const dLon = (metersPerPx * (window.innerWidth - 380) / 2) / (111319.9 * Math.cos(latitude * Math.PI / 180));
-      const dLat = (metersPerPx * window.innerHeight / 2) / 110574;
-      return [longitude - dLon, latitude - dLat, longitude + dLon, latitude + dLat];
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Draw mode controls
-    // ─────────────────────────────────────────────────────────────────
-    function toggleDrawMode() {
-      drawMode = !drawMode;
-      document.getElementById('container').style.cursor = drawMode ? 'crosshair' : '';
-      document.getElementById('draw-btn').classList.toggle('active', drawMode);
-      document.getElementById('draw-btn').classList.toggle('pulse', drawMode);
-      if (!drawMode) {
-        drawStart = null; drawPreview = null; updateMap();
-      }
-    }
-    window.toggleDrawMode = toggleDrawMode;
-
-    function clearDrawnArea() {
-      drawnBbox = null; drawPreview = null; drawStart = null;
-      document.getElementById('clear-btn').style.display = 'none';
-      document.getElementById('area-info').classList.remove('visible');
-      document.getElementById('panel').style.cssText = '';
-      document.getElementById('panel').classList.remove('snapped');
-      updateMap();
-      initDrawStep();
-    }
-    window.clearDrawnArea = clearDrawnArea;
-
-    function updateAreaInfo() {
-      if (!drawnBbox) return;
-      const [w, s, e, n] = drawnBbox;
-      const kmW = Math.round(Math.abs(e - w) * 111.32 * Math.cos((s + n) / 2 * Math.PI / 180));
-      const kmH = Math.round(Math.abs(n - s) * 110.574);
-      document.getElementById('area-desc').textContent = `${kmW} × ${kmH} km`;
-      document.getElementById('area-info').classList.add('visible');
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Layer building
-    // ─────────────────────────────────────────────────────────────────
-    function buildH3Layer(h3data, colorScale, min, max) {
-      if (!h3data.length) return null;
-      const colors = SCALES[colorScale] || SCALES['sequential'];
-      // If all values equal, shift max by 1 so interpolation still assigns the top color
-      const effectiveMax = max > min ? max : min + 1;
-
-      updateLegend(colorScale, min, max);
-
-      return new deck.H3HexagonLayer({
-        id: 'h3-layer',
-        data: h3data,
-        getHexagon:   d => d.h3id,
-        getFillColor: d => interpolateColor(d.value, min, effectiveMax, colors),
-        getElevation: d => {
-          if (d.value == null || isNaN(d.value)) return 0;
-          return Math.max(0, (d.value - min) / (effectiveMax - min)) * 250;
         },
-        extruded: true, elevationScale: 1,
-        pickable: true,
-        updateTriggers: { getFillColor: [min, effectiveMax, colorScale] },
-      });
-    }
+        layers: [{ id: 'carto-bg', type: 'raster', source: 'carto' }]
+      },
+      center: [4.5, 52.15],
+      zoom: 9,
+      attributionControl: false
+    });
 
-    function buildDrawLayer() {
-      const bbox = drawPreview ? normBbox(drawPreview.start, drawPreview.end) : drawnBbox;
-      if (!bbox) return null;
-      const [w, s, e, n] = bbox;
-      const isDraft = !!drawPreview;
-      return new deck.PolygonLayer({
-        id: 'draw-layer',
-        data: [{ polygon: [[w, s], [w, n], [e, n], [e, s], [w, s]] }],
-        getPolygon:   d => d.polygon,
-        filled: true, stroked: true,
-        getFillColor:  [56, 139, 253, isDraft ? 18 : 28],
-        getLineColor:  [56, 139, 253, isDraft ? 160 : 220],
-        getLineWidth: 2, lineWidthMinPixels: 2,
-        pickable: false,
-      });
-    }
+    map.addControl(new maplibregl.NavigationControl(), 'top-left');
+    map.addControl(new maplibregl.AttributionControl({
+      customAttribution: 'Kadaster / PDOK – CC BY 4.0'
+    }), 'bottom-left');
 
-    function updateMap() {
-      if (!deckInstance) return;
-      const layers = [DeckGLUtils.createBasemap('voyager')];
-      if (currentH3Data?.data?.length) {
-        const l = buildH3Layer(currentH3Data.data, currentColorScale, currentH3Data.min, currentH3Data.max);
-        if (l) layers.push(l);
-      }
-      wmsLayers.forEach((info, id) => layers.push(createWmsTileLayer(id, info.wmsUrl, info.layerName)));
-      const drawLayer = buildDrawLayer();
-      if (drawLayer) layers.push(drawLayer);
-      deckInstance.setProps({ layers });
-    }
+    // ─────────────────────────────────────────────────────────────
+    // Luchtfoto layer
+    // ─────────────────────────────────────────────────────────────
+    function updateLuchtfoto() {
+      const years = currentYears();
+      yearIndex = Math.min(yearIndex, years.length - 1);
+      const year  = years[yearIndex];
+      const url   = wmtsTileUrl(year, season);
+      const opacity = parseInt(document.getElementById('opacity-slider').value) / 100;
 
-    // ─────────────────────────────────────────────────────────────────
-    // WMS tile layers
-    // ─────────────────────────────────────────────────────────────────
-    function tileBbox3857(x, y, z) {
-      const R = 20037508.342789244;
-      const n = Math.pow(2, z);
-      return {
-        west:  -R + (x / n) * 2 * R,       east:  -R + ((x + 1) / n) * 2 * R,
-        north:  R - (y / n) * 2 * R,        south:  R - ((y + 1) / n) * 2 * R,
-      };
-    }
-
-    function createWmsTileLayer(id, wmsUrl, layerName) {
-      return new deck.TileLayer({
-        id: `wms-${id}`, tileSize: 256, minZoom: 0, maxZoom: 19,
-        getTileData: async ({ x, y, z }) => {
-          const { west, south, east, north } = tileBbox3857(x, y, z);
-          const params = new URLSearchParams({
-            SERVICE: 'WMS', VERSION: '1.1.1', REQUEST: 'GetMap',
-            LAYERS: layerName, STYLES: '',
-            BBOX: `${west},${south},${east},${north}`,
-            WIDTH: '256', HEIGHT: '256',
-            SRS: 'EPSG:3857', FORMAT: 'image/png', TRANSPARENT: 'TRUE',
-          });
-          try {
-            const r = await fetch(`/api/proxy?url=${encodeURIComponent(wmsUrl + '?' + params)}`);
-            if (!r.ok) return null;
-            const ct = r.headers.get('content-type') || '';
-            if (!ct.startsWith('image/')) return null;
-            return createImageBitmap(await r.blob());
-          } catch { return null; }
-        },
-        renderSubLayers: props => {
-          if (!props.data) return null;
-          const { bbox: { west, south, east, north } } = props.tile;
-          return new deck.BitmapLayer(props, { data: null, image: props.data, bounds: [west, south, east, north] });
-        },
-        pickable: false,
-      });
-    }
-
-    function toggleNgrLayer(id) {
-      const info = _ngrData[id];
-      if (!info) return;
-      const btn = document.querySelector(`#row-${id} .layer-add-btn`);
-      if (wmsLayers.has(id)) {
-        wmsLayers.delete(id);
-        if (btn) { btn.textContent = 'Toon'; btn.classList.remove('active'); }
+      // Update UI labels
+      document.getElementById('year-display').textContent = year;
+      const badge = document.getElementById('season-badge');
+      const note  = document.getElementById('res-note');
+      if (season === 'zomer') {
+        badge.textContent = 'Zomer · 25 cm';
+        badge.className   = 'badge-zomer';
+        note.textContent  = 'Zomeropname · resolutie 25 cm · CC BY Kadaster / PDOK';
       } else {
-        wmsLayers.set(id, info);
-        if (btn) { btn.textContent = 'Verberg'; btn.classList.add('active'); }
+        badge.textContent = 'Winter · 8 cm';
+        badge.className   = 'badge-winter';
+        note.textContent  = 'Winteropname · resolutie 8 cm · CC BY Kadaster / PDOK';
       }
-      updateMap(); updateWmsPanel();
-    }
-    window.toggleNgrLayer = toggleNgrLayer;
 
-    function updateWmsPanel() {
-      document.getElementById('wms-panel').innerHTML = [...wmsLayers.entries()].map(([id, info]) => `
-        <div class="wms-chip">
-          <span class="wms-chip-title">${esc(info.title.slice(0, 36))}</span>
-          <button class="wms-chip-remove" onclick="removeNgrLayer('${id}')">×</button>
-        </div>`).join('');
-    }
-    function removeNgrLayer(id) {
-      wmsLayers.delete(id); updateMap(); updateWmsPanel();
-    }
-    window.removeNgrLayer = removeNgrLayer;
+      // Sync slider
+      const slider = document.getElementById('year-slider');
+      slider.max   = years.length - 1;
+      slider.value = yearIndex;
 
-    // ─────────────────────────────────────────────────────────────────
-    // Legend
-    // ─────────────────────────────────────────────────────────────────
-    function updateLegend(colorScale, min, max) {
-      document.getElementById('legend-bar').style.background = gradientCss(colorScale);
-      document.getElementById('legend-min').textContent = formatValue(min);
-      document.getElementById('legend-max').textContent = formatValue(max);
-      document.getElementById('legend-title').textContent = currentMetric || '';
-      document.getElementById('legend').classList.add('visible');
+      setLoading(true);
+
+      if (map.getLayer('luchtfoto')) map.removeLayer('luchtfoto');
+      if (map.getSource('luchtfoto')) map.removeSource('luchtfoto');
+
+      // Find first data layer to insert luchtfoto beneath it
+      const dataLayers = ['wfs-fill','wfs-line','wfs-circle'];
+      const beforeId   = dataLayers.find(id => map.getLayer(id));
+
+      map.addSource('luchtfoto', {
+        type: 'raster',
+        tiles: [url],
+        tileSize: 256,
+        attribution: 'Kadaster / PDOK – CC BY 4.0'
+      });
+
+      map.addLayer({
+        id: 'luchtfoto',
+        type: 'raster',
+        source: 'luchtfoto',
+        paint: { 'raster-opacity': opacity }
+      }, beforeId);
+
+      map.once('idle', () => setLoading(false));
+      setTimeout(() => setLoading(false), 8000);
     }
 
-    function formatValue(v) {
-      if (v == null || isNaN(v)) return '—';
-      if (Math.abs(v) >= 1e6) return (v / 1e6).toFixed(1) + 'M';
-      if (Math.abs(v) >= 1e3) return (v / 1e3).toFixed(1) + 'k';
-      if (Math.abs(v) < 10)   return v.toFixed(2);
-      return Math.round(v).toLocaleString('nl-NL');
+    map.on('load', updateLuchtfoto);
+
+    // ─────────────────────────────────────────────────────────────
+    // Slider
+    // ─────────────────────────────────────────────────────────────
+    document.getElementById('year-slider').addEventListener('input', e => {
+      yearIndex = parseInt(e.target.value);
+      updateLuchtfoto();
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    // Season toggle
+    // ─────────────────────────────────────────────────────────────
+    document.getElementById('btn-zomer').addEventListener('click', () => {
+      if (season === 'zomer') return;
+      season = 'zomer';
+      document.getElementById('btn-zomer').classList.add('active');
+      document.getElementById('btn-winter').classList.remove('active');
+      yearIndex = Math.min(yearIndex, ZOMER_YEARS.length - 1);
+      updateLuchtfoto();
+    });
+
+    document.getElementById('btn-winter').addEventListener('click', () => {
+      if (season === 'winter') return;
+      season = 'winter';
+      document.getElementById('btn-winter').classList.add('active');
+      document.getElementById('btn-zomer').classList.remove('active');
+      yearIndex = Math.min(yearIndex, WINTER_YEARS.length - 1);
+      updateLuchtfoto();
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    // Opacity
+    // ─────────────────────────────────────────────────────────────
+    document.getElementById('opacity-slider').addEventListener('input', e => {
+      const v = parseInt(e.target.value) / 100;
+      document.getElementById('opacity-val').textContent = e.target.value + '%';
+      if (map.getLayer('luchtfoto')) {
+        map.setPaintProperty('luchtfoto', 'raster-opacity', v);
+      }
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    // WFS examples
+    // ─────────────────────────────────────────────────────────────
+    const EXAMPLES = {
+      bag:             { url: 'https://service.pdok.nl/lv/bag/wfs/v2_0',                               layer: 'bag:pand' },
+      cbs:             { url: 'https://service.pdok.nl/cbs/wijkenbuurten/2023/wfs/v1_0',               layer: 'cbs_buurten_2023:cbs_buurten_2023' },
+      natuur:          { url: 'https://service.pdok.nl/minlnv/natura2000/wfs/v1_0',                    layer: 'natura2000:natura2000' },
+      bestemmingsplan: { url: 'https://service.pdok.nl/kadaster/bestemmingsplannen/wfs/v1_0',          layer: 'bestemmingsplannen:bestemmingsvlak' },
+    };
+
+    function fillExample(key) {
+      const ex = EXAMPLES[key];
+      if (!ex) return;
+      document.getElementById('wfs-url').value   = ex.url;
+      document.getElementById('wfs-layer').value = ex.layer;
+    }
+    window.fillExample = fillExample;
+
+    // ─────────────────────────────────────────────────────────────
+    // WFS loading
+    // ─────────────────────────────────────────────────────────────
+    document.getElementById('btn-load').addEventListener('click', loadWFS);
+
+    async function loadWFS() {
+      const baseUrl  = document.getElementById('wfs-url').value.trim();
+      const typeName = document.getElementById('wfs-layer').value.trim();
+      const maxFeat  = document.getElementById('wfs-max').value;
+      const statusEl = document.getElementById('data-status');
+
+      if (!baseUrl || !typeName) {
+        statusEl.textContent = 'Vul een WFS URL en laagnaam in.';
+        statusEl.className   = 'error';
+        return;
+      }
+
+      const b    = map.getBounds();
+      const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()},EPSG:4326`;
+      const sep  = baseUrl.includes('?') ? '&' : '?';
+      const url  = `${baseUrl}${sep}SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature`
+                 + `&TYPENAMES=${encodeURIComponent(typeName)}`
+                 + `&BBOX=${encodeURIComponent(bbox)}`
+                 + `&COUNT=${maxFeat}`
+                 + `&OUTPUTFORMAT=application%2Fjson`;
+
+      statusEl.textContent = 'Ophalen…';
+      statusEl.className   = '';
+      document.getElementById('btn-load').disabled = true;
+      setLoading(true);
+
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status} – ${resp.statusText}`);
+        const geojson = await resp.json();
+
+        if (!geojson.features?.length) {
+          statusEl.textContent = 'Geen features gevonden in dit kaartgebied. Zoom in of pan naar het juiste gebied.';
+          statusEl.className   = 'error';
+          return;
+        }
+
+        renderWFS(geojson, typeName);
+        statusEl.textContent = `✓ ${geojson.features.length.toLocaleString('nl-NL')} features geladen`;
+        statusEl.className   = 'ok';
+
+      } catch (err) {
+        statusEl.textContent = `Fout: ${err.message}`;
+        statusEl.className   = 'error';
+      } finally {
+        document.getElementById('btn-load').disabled = false;
+        setLoading(false);
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Render WFS GeoJSON
+    // ─────────────────────────────────────────────────────────────
+    function renderWFS(geojson, typeName) {
+      ['wfs-fill','wfs-line','wfs-circle'].forEach(id => {
+        if (map.getLayer(id)) map.removeLayer(id);
+      });
+      if (map.getSource('wfs')) map.removeSource('wfs');
+
+      map.addSource('wfs', { type: 'geojson', data: geojson });
+
+      const geomType = inferGeomType(geojson);
+      let clickLayer;
+
+      if (geomType === 'polygon') {
+        map.addLayer({
+          id: 'wfs-fill', type: 'fill', source: 'wfs',
+          paint: { 'fill-color': '#1f6feb', 'fill-opacity': 0.22 }
+        });
+        map.addLayer({
+          id: 'wfs-line', type: 'line', source: 'wfs',
+          paint: { 'line-color': '#388bfd', 'line-width': 1 }
+        });
+        clickLayer = 'wfs-fill';
+      } else if (geomType === 'line') {
+        map.addLayer({
+          id: 'wfs-line', type: 'line', source: 'wfs',
+          paint: { 'line-color': '#388bfd', 'line-width': 2 }
+        });
+        clickLayer = 'wfs-line';
+      } else {
+        map.addLayer({
+          id: 'wfs-circle', type: 'circle', source: 'wfs',
+          paint: {
+            'circle-radius': 4,
+            'circle-color': '#388bfd',
+            'circle-stroke-width': 1,
+            'circle-stroke-color': '#0d1117'
+          }
+        });
+        clickLayer = 'wfs-circle';
+      }
+
+      // Info section
+      document.getElementById('legend-wrap').style.display = 'block';
+      const shortName = typeName.split(':').pop();
+      document.getElementById('legend-info').innerHTML =
+        `<span>${geojson.features.length.toLocaleString('nl-NL')}</span> features · ${esc(shortName)}`;
+
+      // Popups
+      map.off('click', 'wfs-fill',   onFeatureClick);
+      map.off('click', 'wfs-line',   onFeatureClick);
+      map.off('click', 'wfs-circle', onFeatureClick);
+      map.on('click', clickLayer, onFeatureClick);
+
+      map.on('mouseenter', clickLayer, () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', clickLayer, () => { map.getCanvas().style.cursor = ''; });
+    }
+
+    function onFeatureClick(e) {
+      const props = e.features[0].properties;
+      const rows  = Object.entries(props)
+        .filter(([, v]) => v !== null && v !== '')
+        .slice(0, 16)
+        .map(([k, v]) => `<div><b>${esc(k)}</b>${esc(String(v))}</div>`)
+        .join('');
+      new maplibregl.Popup({ maxWidth: '300px', closeButton: true })
+        .setLngLat(e.lngLat)
+        .setHTML(`<div class="popup-inner">${rows}</div>`)
+        .addTo(map);
+    }
+
+    function inferGeomType(geojson) {
+      const t = geojson.features[0]?.geometry?.type || '';
+      if (t.includes('Polygon')) return 'polygon';
+      if (t.includes('Line'))    return 'line';
+      return 'point';
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Utilities
+    // ─────────────────────────────────────────────────────────────
+    function setLoading(on) {
+      document.getElementById('loading-bar').classList.toggle('active', on);
     }
 
     function esc(s) {
-      return String(s).replace(/[<>&"]/g, c => ({ '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;' }[c]));
+      return String(s).replace(/[<>&"]/g,
+        c => ({ '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;' }[c]));
     }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Step indicator
-    // ─────────────────────────────────────────────────────────────────
-    function setStep(n) {
-      // n = 1 (draw area), 2 (ask question), 3 (data loaded)
-      ['step-1','step-2','step-3'].forEach((id, i) => {
-        const el = document.getElementById(id);
-        el.className = 'step-pill ' + (i + 1 < n ? 'done' : i + 1 === n ? 'active' : '');
-      });
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Draggable + resizable chat window
-    // ─────────────────────────────────────────────────────────────────
-    (function initChatWindow() {
-      const panel  = document.getElementById('panel');
-      const handle = document.getElementById('drag-handle');
-      const resizeEl = document.getElementById('panel-resize');
-
-      let dragState = null;
-      let resizeState = null;
-
-      function toFixed() {
-        // Switch from transform-center to explicit left/top
-        const rect = panel.getBoundingClientRect();
-        panel.style.left      = rect.left + 'px';
-        panel.style.top       = rect.top  + 'px';
-        panel.style.transform = 'none';
-        panel.style.right     = 'auto';
-        panel.style.bottom    = 'auto';
-        panel.classList.remove('snapped');
-      }
-
-      handle.addEventListener('mousedown', e => {
-        if (e.button !== 0) return;
-        toFixed();
-        const rect = panel.getBoundingClientRect();
-        dragState = { startX: e.clientX, startY: e.clientY, origL: rect.left, origT: rect.top };
-        document.body.style.cursor = 'grabbing';
-        e.preventDefault();
-      });
-
-      resizeEl.addEventListener('mousedown', e => {
-        if (e.button !== 0) return;
-        const rect = panel.getBoundingClientRect();
-        resizeState = { startX: e.clientX, startY: e.clientY, origW: rect.width, origH: rect.height };
-        document.body.style.cursor = 'se-resize';
-        e.preventDefault();
-      });
-
-      document.addEventListener('mousemove', e => {
-        if (dragState) {
-          const dx = e.clientX - dragState.startX;
-          const dy = e.clientY - dragState.startY;
-          const maxL = window.innerWidth  - 120; // keep at least 120px visible
-          const maxT = window.innerHeight -  48; // keep drag handle reachable
-          panel.style.left = Math.max(0, Math.min(maxL, dragState.origL + dx)) + 'px';
-          panel.style.top  = Math.max(0, Math.min(maxT, dragState.origT + dy)) + 'px';
-        }
-        if (resizeState) {
-          const nw = Math.max(300, resizeState.origW + (e.clientX - resizeState.startX));
-          const nh = Math.max(280, resizeState.origH + (e.clientY - resizeState.startY));
-          panel.style.width     = nw + 'px';
-          panel.style.maxHeight = nh + 'px';
-        }
-      });
-
-      document.addEventListener('mouseup', () => {
-        if (dragState || resizeState) document.body.style.cursor = '';
-        dragState = resizeState = null;
-      });
-    })();
-
-    function snapPanelRight() {
-      const panel = document.getElementById('panel');
-      panel.style.cssText = ''; // clear inline styles
-      panel.classList.add('snapped');
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Thinking overlay (full-panel, replaces card-thinking in feed)
-    // ─────────────────────────────────────────────────────────────────
-    function showThinking(stepText) {
-      document.getElementById('think-title').textContent = stepText || 'Even geduld...';
-      document.getElementById('think-steps-list').innerHTML = '';
-      document.getElementById('thinking-overlay').classList.add('visible');
-    }
-
-    function addThinkStep(text, done = false) {
-      const el = document.createElement('div');
-      el.className = 'think-step-line' + (done ? ' done' : ' active');
-      el.innerHTML = done
-        ? `<span class="think-step-icon">✓</span><span>${esc(text)}</span>`
-        : `<span class="think-step-icon spin-sm">↻</span><span>${esc(text)}</span>`;
-      document.getElementById('think-steps-list').appendChild(el);
-    }
-
-    function hideThinking() {
-      document.getElementById('thinking-overlay').classList.remove('visible');
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Welcome overlay
-    // ─────────────────────────────────────────────────────────────────
-    function showWelcome() {
-      document.getElementById('welcome-overlay').classList.remove('hidden');
-    }
-
-    function dismissWelcome() {
-      document.getElementById('welcome-overlay').classList.add('hidden');
-      if (document.getElementById('wm-no-show').checked) {
-        try { localStorage.setItem('pdok-welcome-seen', '1'); } catch {}
-      }
-      initDrawStep();
-    }
-    window.dismissWelcome = dismissWelcome;
-    window.showWelcome    = showWelcome;
-
-    document.getElementById('welcome-overlay').addEventListener('click', e => {
-      if (e.target === document.getElementById('welcome-overlay')) dismissWelcome();
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // Step 1: draw area (shown on init / after welcome)
-    // ─────────────────────────────────────────────────────────────────
-    function initDrawStep() {
-      document.getElementById('messages').innerHTML = '';
-      document.getElementById('input-area').classList.remove('visible');
-      document.getElementById('question-input').disabled = true;
-      document.getElementById('submit-btn').disabled = true;
-      currentQuery = null; currentH3Data = null; currentBbox = null;
-      currentRawFeatures = []; currentMetric = null;
-      document.getElementById('legend').classList.remove('visible');
-      setStep(1);
-      drawCardEl = appendDrawPromptCard({ metric_column: null });
-      activateDrawMode();
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Year switcher (CBS vierkantstatistieken only)
-    // ─────────────────────────────────────────────────────────────────
-    async function switchYear(year) {
-      if (!currentQuery?.wfsUrl || !drawnBbox) return;
-      document.querySelectorAll('.year-btn').forEach(b => { b.disabled = true; });
-      currentQuery = { ...currentQuery, wfsUrl: currentQuery.wfsUrl.replace(/\/\d{4}\//, `/${year}/`) };
-      if (activeCardEl) { activeCardEl.remove(); activeCardEl = null; }
-      await fetchDataForBbox(drawnBbox);
-    }
-    window.switchYear = switchYear;
-
-    // ─────────────────────────────────────────────────────────────────
-    // Fly-to helpers (used by draw card search + AI auto-fly)
-    // ─────────────────────────────────────────────────────────────────
-    const ZOOM_FOR_TYPE = { gemeente: 11, woonplaats: 12, wijk: 13, buurt: 14 };
-
-    async function flyToLocationById(id) {
-      try {
-        const res = await fetch(`/api/suggest-location?id=${encodeURIComponent(id)}`);
-        const { doc } = await res.json();
-        if (!doc?.centroide_ll) return;
-        const m = doc.centroide_ll.match(/POINT\(([^ ]+) ([^)]+)\)/);
-        if (!m) return;
-        deckInstance.setProps({
-          initialViewState: {
-            longitude: parseFloat(m[1]),
-            latitude:  parseFloat(m[2]),
-            zoom:      ZOOM_FOR_TYPE[doc.type] || 11,
-            pitch: 0, bearing: 0,
-            transitionDuration: 900,
-            transitionInterpolator: new deck.FlyToInterpolator({ speed: 1.5 }),
-          },
-        });
-      } catch {}
-    }
-
-    async function flyToLocationName(name) {
-      try {
-        const res = await fetch(`/api/suggest-location?q=${encodeURIComponent(name)}`);
-        const { docs } = await res.json();
-        if (docs?.length) await flyToLocationById(docs[0].id);
-      } catch {}
-    }
-
-    // Wire municipality autocomplete to an input+dropdown pair inside a card
-    function wireLocationSearch(inputEl, dropdownEl) {
-      let debounce = null;
-      inputEl.addEventListener('input', e => {
-        clearTimeout(debounce);
-        const q = e.target.value.trim();
-        if (q.length < 2) { closeDropdown(dropdownEl); return; }
-        debounce = setTimeout(async () => {
-          try {
-            const res = await fetch(`/api/suggest-location?q=${encodeURIComponent(q)}`);
-            const { docs } = await res.json();
-            renderDropdown(docs || [], inputEl, dropdownEl);
-          } catch {}
-        }, 200);
-      });
-      inputEl.addEventListener('keydown', e => {
-        if (e.key === 'Escape') { closeDropdown(dropdownEl); inputEl.blur(); }
-      });
-      document.addEventListener('click', e => {
-        if (!inputEl.contains(e.target) && !dropdownEl.contains(e.target)) closeDropdown(dropdownEl);
-      }, { passive: true });
-    }
-
-    function renderDropdown(docs, inputEl, dropdownEl) {
-      if (!docs.length) { closeDropdown(dropdownEl); return; }
-      dropdownEl.innerHTML = docs.map(d => `
-        <div class="loc-item" data-id="${esc(d.id)}" data-name="${esc(d.weergavenaam)}">
-          <span>${esc(d.weergavenaam)}</span>
-          <span class="loc-type">${esc(d.type)}</span>
-        </div>`).join('');
-      dropdownEl.classList.add('open');
-      dropdownEl.querySelectorAll('.loc-item').forEach(el => {
-        el.addEventListener('click', async () => {
-          inputEl.value = el.dataset.name;
-          closeDropdown(dropdownEl);
-          await flyToLocationById(el.dataset.id);
-        });
-      });
-    }
-
-    function closeDropdown(dropdownEl) {
-      dropdownEl.innerHTML = '';
-      dropdownEl.classList.remove('open');
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Core workflow
-    // ─────────────────────────────────────────────────────────────────
-
-    // Phase 1: send question to AI, get dataset selection
-    async function askAI(question, keepArea = false) {
-      if (busy) return;
-      busy = true; setBusy(true);
-
-      appendMsg('user', question);
-      showThinking('AI analyseert je vraag...');
-      addThinkStep('Vraag interpreteren en databron kiezen');
-
-      try {
-        const aiRes = await fetch('/api/ask-wfs', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question }),
-        });
-        const aiData = await aiRes.json();
-        if (!aiRes.ok || aiData.error) throw new Error(aiData.error || 'AI fout');
-
-        // Force H3 res 9 and avg aggregation for CBS
-        aiData.h3Resolution = 9;
-        if (aiData.wfsUrl.includes('vierkantstatistieken')) aiData.aggregation = 'avg';
-
-        hideThinking();
-
-        currentQuery      = aiData;
-        currentMetric     = aiData.metric_column;
-        currentColorScale = aiData.color_scale || 'sequential';
-
-        appendAiCard(aiData);
-        if (aiData.location) flyToLocationName(aiData.location);
-
-        // In new flow drawnBbox always exists when question is asked
-        setStep(3);
-        await fetchDataForBbox(drawnBbox);
-
-      } catch (err) {
-        hideThinking();
-        appendMsg('error', `Fout: ${esc(err.message)}`);
-      } finally {
-        busy = false; setBusy(false);
-      }
-    }
-
-    // Phase 2: user drew a bbox → fetch WFS data
-    async function fetchDataForBbox(bbox) {
-      if (!currentQuery || paging) return;
-      setStep(3);
-      setMapLoading(true);
-      showReloadIndicator('Data ophalen via PDOK...');
-
-      const { wfsUrl, typeName, cqlFilter, metric_column, aggregation } = currentQuery;
-
-      try {
-        const params = new URLSearchParams({ wfsUrl, typeName, bbox: bbox.join(',') });
-        if (cqlFilter) params.set('cqlFilter', cqlFilter);
-
-        const res = await fetch(`/api/wfs-proxy?${params}`);
-        const data = await res.json();
-        if (!res.ok || data.error) throw new Error(data.error || `WFS fout ${res.status}`);
-
-        const features  = data.features || [];
-        const truncated = res.headers.get('X-Truncated') === '1' || features.length >= PAGE_SIZE;
-
-        currentBbox        = bbox;
-        currentRawFeatures = features;
-        currentH3Data      = binFeaturesToH3(features, metric_column, aggregation, 9);
-        updateMap();
-
-        // Replace or append result card
-        if (activeCardEl) { activeCardEl.remove(); activeCardEl = null; }
-        activeCardEl = appendResultCard(currentQuery, features, currentH3Data, truncated);
-
-        if (currentQuery.ngr_keywords?.length) searchAndSuggestLayers(currentQuery.ngr_keywords);
-        snapPanelRight();
-
-      } catch (err) {
-        appendMsg('error', `Fout: ${esc(err.message)}`);
-      } finally {
-        hideReloadIndicator();
-        setMapLoading(false);
-      }
-    }
-
-    // Paginate through all PDOK pages
-    async function loadAllPages() {
-      if (!currentQuery || paging) return;
-      paging = true;
-      const btn = document.querySelector('.load-all-btn');
-      if (btn) btn.disabled = true;
-
-      const { wfsUrl, typeName, cqlFilter, metric_column, aggregation } = currentQuery;
-      const bbox = currentBbox;
-
-      let allFeatures = [...currentRawFeatures];
-      let startIndex  = allFeatures.length;
-      let pageNum     = 2;
-      let hasMore     = true;
-
-      setMapLoading(true);
-
-      try {
-        while (hasMore) {
-          showReloadIndicator(`Pagina ${pageNum} laden...`, `${allFeatures.length.toLocaleString('nl-NL')} features geladen`);
-          const params = new URLSearchParams({ wfsUrl, typeName, bbox: bbox.join(','), startIndex });
-          if (cqlFilter) params.set('cqlFilter', cqlFilter);
-
-          const res = await fetch(`/api/wfs-proxy?${params}`);
-          const data = await res.json();
-          if (!res.ok || data.error) break;
-
-          const page = data.features || [];
-          allFeatures = [...allFeatures, ...page];
-          if (page.length < PAGE_SIZE) { hasMore = false; }
-          else { startIndex += PAGE_SIZE; pageNum++; }
-        }
-
-        currentRawFeatures = allFeatures;
-        currentH3Data      = binFeaturesToH3(allFeatures, metric_column, aggregation, 9);
-        updateMap();
-        updateCardStatus(allFeatures.length, currentH3Data.hexCount, false);
-
-      } catch (err) {
-        appendMsg('error', `Fout bij ophalen pagina's: ${esc(err.message)}`);
-      } finally {
-        paging = false;
-        setMapLoading(false);
-        hideReloadIndicator();
-      }
-    }
-    window.loadAllPages = loadAllPages;
-
-    // ─────────────────────────────────────────────────────────────────
-    // UI cards
-    // ─────────────────────────────────────────────────────────────────
-    function createThinkCard() {
-      const el = document.createElement('div');
-      el.className = 'card-thinking';
-      document.getElementById('messages').appendChild(el);
-      scrollToBottom();
-
-      let activeStep = null;
-
-      el._ctrl = {
-        step(text) {
-          if (activeStep) {
-            activeStep.className = 'think-step done';
-            activeStep.querySelector('.think-icon').className = 'think-icon';
-            activeStep.querySelector('.think-icon').textContent = '✓';
-          }
-          activeStep = document.createElement('div');
-          activeStep.className = 'think-step active';
-          activeStep.innerHTML = `<span class="think-icon spin">↻</span><span>${esc(text)}</span>`;
-          el.appendChild(activeStep);
-          scrollToBottom();
-        },
-        done() {
-          if (activeStep) {
-            activeStep.className = 'think-step done';
-            const icon = activeStep.querySelector('.think-icon');
-            icon.className = 'think-icon';
-            icon.textContent = '✓';
-          }
-        },
-        remove() { el.remove(); },
-      };
-      return el;
-    }
-
-    function appendAiCard(aiData) {
-      const source      = aiData.wfsUrl.includes('vierkantstatistieken') ? 'CBS Vierkantstatistieken 100m' :
-                          aiData.wfsUrl.includes('bag') ? 'BAG Gebouwen' : 'PDOK WFS';
-      const year        = (aiData.wfsUrl.match(/\/(\d{4})\//) || [])[1] || '';
-      const title       = aiData.title_nl || aiData.title_en || '';
-      const isSuppProne = SUPPRESSION_PRONE.has(aiData.metric_column);
-
-      const el = document.createElement('div');
-      el.className = 'card-ai';
-      el.innerHTML = `
-        <div class="card-ai-header">
-          <div class="card-ai-title">${esc(title)}</div>
-          ${aiData.reasoning ? `<div class="card-ai-reasoning">${esc(aiData.reasoning)}</div>` : ''}
-        </div>
-        <div class="card-ai-tags">
-          <span class="tag blue">${esc(source)}${year ? ' · ' + year : ''}</span>
-          <span class="tag">${esc(aiData.metric_column)}</span>
-          <span class="tag">${esc(aiData.aggregation)}</span>
-          ${aiData.cqlFilter ? `<span class="tag">filter: ${esc(aiData.cqlFilter)}</span>` : ''}
-        </div>
-        ${isSuppProne ? `<div class="card-ai-suppress">⚠ CBS onderdrukt dit kenmerk in cellen met weinig bewoners. Werkt alleen goed in dichtbebouwde gebieden.</div>` : ''}`;
-      document.getElementById('messages').appendChild(el);
-      scrollToBottom();
-      return el;
-    }
-
-    function appendDrawPromptCard(aiData) {
-      const isSuppProne = SUPPRESSION_PRONE.has(aiData.metric_column);
-      const note = isSuppProne
-        ? 'Let op: dit kenmerk is alleen beschikbaar in dichtbebouwde gebieden — kies een stedelijk studiegebied.'
-        : 'Een wijk of stadsdeel (~2–5 km²) geeft de beste datadichtheid.';
-
-      const el = document.createElement('div');
-      el.className = 'card-draw-step';
-      el.innerHTML = `
-        <div class="draw-step-header">
-          <span class="draw-step-badge">Stap 1 van 2</span>
-          <span class="draw-step-title">Kies je studiegebied</span>
-        </div>
-        <div class="draw-step-search-wrap">
-          <div class="draw-step-search-label">Navigeer naar gemeente of wijk</div>
-          <input class="draw-step-search-input" type="text" placeholder="Zoek bijv. Amsterdam, Centrum..." autocomplete="off" />
-          <div class="loc-dropdown" style="position:relative;z-index:20"></div>
-        </div>
-        <div class="draw-step-or">
-          <div class="draw-step-or-line"></div>
-          <span class="draw-step-or-text">of teken direct op de kaart</span>
-          <div class="draw-step-or-line"></div>
-        </div>
-        <div class="draw-step-map-hint"><b>Klik</b> voor de eerste hoek — beweeg je muis — <b>klik</b> opnieuw voor de tweede hoek</div>
-        <div class="draw-step-note">${esc(note)}</div>`;
-
-      document.getElementById('messages').appendChild(el);
-      scrollToBottom();
-
-      // Wire autocomplete to the embedded search
-      const inputEl    = el.querySelector('.draw-step-search-input');
-      const dropdownEl = el.querySelector('.loc-dropdown');
-      wireLocationSearch(inputEl, dropdownEl);
-      setTimeout(() => inputEl.focus(), 50);
-
-      return el;
-    }
-
-    function appendQuestionStepCard() {
-      const el = document.createElement('div');
-      el.className = 'card-question-step';
-      el.innerHTML = `
-        <div class="qs-header">
-          <span class="qs-badge">Stap 2 van 2</span>
-          <span class="qs-title">Wat wil je weten over dit gebied?</span>
-        </div>
-        <div class="qs-examples">
-          <div class="qs-examples-label">Voorbeelden — klik om te gebruiken</div>
-          <button class="example-btn" onclick="useExample(this)">Waar wonen de meeste mensen?</button>
-          <button class="example-btn" onclick="useExample(this)">Welke gebieden hebben veel sociale huurwoningen?</button>
-          <button class="example-btn" onclick="useExample(this)">Toon gebouwen gebouwd vóór 1945</button>
-          <button class="example-btn" onclick="useExample(this)">Afstand tot dichtstbijzijnde supermarkt</button>
-        </div>`;
-      document.getElementById('messages').appendChild(el);
-      scrollToBottom();
-      // Show and enable question input now that area is chosen
-      document.getElementById('input-area').classList.add('visible');
-      document.getElementById('question-input').disabled = false;
-      document.getElementById('question-input').placeholder = 'Stel je vraag over dit gebied...';
-      document.getElementById('submit-btn').disabled = false;
-      setTimeout(() => document.getElementById('question-input').focus(), 80);
-      return el;
-    }
-
-    function activateDrawMode() {
-      if (drawMode) return;
-      drawMode = true;
-      document.getElementById('container').style.cursor = 'crosshair';
-      document.getElementById('draw-btn').classList.add('active', 'pulse');
-    }
-
-    function appendResultCard(aiData, features, binResult, truncated) {
-      const title        = aiData.title_nl || aiData.title_en || '';
-      const source       = aiData.wfsUrl.includes('vierkantstatistieken') ? 'CBS Vierkantstatistieken 100m' :
-                           aiData.wfsUrl.includes('bag') ? 'BAG Gebouwen' : 'PDOK WFS';
-      const year         = (aiData.wfsUrl.match(/\/(\d{4})\//) || [])[1] || '';
-      const featureCount = features.length;
-      const hexCount     = binResult.hexCount;
-      const [w, s, e, n] = currentBbox || [0, 0, 0, 0];
-      const kmW = Math.round(Math.abs(e - w) * 111.32 * Math.cos((s + n) / 2 * Math.PI / 180));
-      const kmH = Math.round(Math.abs(n - s) * 110.574);
-
-      const isSuppressed = featureCount > 0 && hexCount === 0;
-      const isCBS    = aiData.wfsUrl.includes('vierkantstatistieken');
-      const yearNow  = (aiData.wfsUrl.match(/\/(\d{4})\//) || [])[1] || '';
-      const yearHtml = isCBS ? `
-        <div class="year-selector">
-          <span class="year-label">Jaar</span>
-          <div class="year-btns">
-            ${CBS_YEARS.map(y => `<button class="year-btn${y === yearNow ? ' active' : ''}" onclick="switchYear(${y})">${y}</button>`).join('')}
-          </div>
-        </div>` : '';
-      const alts = SUPPRESSION_ALTS[aiData.metric_column] || DEFAULT_ALTS;
-      const retryBtns = alts.map(a =>
-        `<button class="retry-btn" onclick="retryWithMetric('${esc(a.m)}','${esc(a.l)}')">${esc(a.l)}</button>`
-      ).join('');
-
-      const el = document.createElement('div');
-      el.className = 'card-result';
-      el.innerHTML = `
-        <div class="card-result-header">
-          <div class="card-result-title">${esc(title)}</div>
-          <div class="card-result-subtitle">${esc(source)}${year ? ' · ' + year : ''}</div>
-        </div>
-        <div class="card-result-stats">
-          <div class="stat-row">
-            <span class="stat-label">Studiegebied</span>
-            <span class="stat-value">${kmW} × ${kmH} km</span>
-          </div>
-          <div class="stat-row">
-            <span class="stat-label">Features opgehaald</span>
-            <span class="stat-value">${featureCount.toLocaleString('nl-NL')}</span>
-          </div>
-          ${!isSuppressed ? `
-          <div class="stat-row">
-            <span class="stat-label">Hexagonen met data</span>
-            <span class="stat-value">${hexCount.toLocaleString('nl-NL')} (~174 m)</span>
-          </div>` : ''}
-          ${hexCount > 0 && binResult.min != null && !isNaN(binResult.min) ? `
-          <div class="stat-row">
-            <span class="stat-label">Bereik (${esc(aiData.metric_column)})</span>
-            <span class="stat-value">${formatValue(binResult.min)} – ${formatValue(binResult.max)}</span>
-          </div>` : ''}
-        </div>
-        ${yearHtml}
-        ${isSuppressed ? `
-        <div class="card-result-warning" style="border-color:rgba(248,81,73,0.3);background:rgba(248,81,73,0.08);color:#f85149;">
-          CBS heeft <b>${esc(aiData.metric_column)}</b> voor alle ${featureCount} cellen onderdrukt — dit kenmerk vereist een hogere bevolkingsdichtheid.
-        </div>
-        <div class="retry-section">
-          <div class="retry-label">Probeer in hetzelfde gebied</div>
-          <div class="retry-btns">${retryBtns}</div>
-        </div>` : ''}
-        ${truncated && !isSuppressed ? `
-        <div class="card-result-warning">
-          ⚠ Afgekapt op ${featureCount.toLocaleString('nl-NL')} features — het beeld is mogelijk onvolledig.
-          <br><button class="load-all-btn" onclick="loadAllPages()">Alle pagina's ophalen</button>
-        </div>` : ''}
-        <div class="card-result-status"></div>
-        ${!isSuppressed ? `
-        <div class="card-action-row">
-          <button class="action-btn" onclick="newQuestionSameArea()">Andere vraag, zelfde gebied</button>
-        </div>` : ''}
-        <div class="wfs-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
-          <span class="wfs-arrow">▶</span>
-          <span>WFS query details</span>
-        </div>
-        <div class="wfs-body">
-          <pre class="wfs-pre">${esc(buildWfsQueryString(aiData))}</pre>
-        </div>`;
-
-      el._statusEl = el.querySelector('.card-result-status');
-      document.getElementById('messages').appendChild(el);
-      scrollToBottom();
-      return el;
-    }
-
-    function buildWfsQueryString(aiData) {
-      const params = new URLSearchParams({
-        wfsUrl: aiData.wfsUrl,
-        typeName: aiData.typeName,
-        bbox: currentBbox ? currentBbox.join(',') : '[bbox]',
-      });
-      if (aiData.cqlFilter) params.set('cqlFilter', aiData.cqlFilter);
-      return `/api/wfs-proxy?${params}`;
-    }
-
-    function updateCardStatus(featureCount, hexCount, truncated) {
-      if (!activeCardEl?._statusEl) return;
-      activeCardEl._statusEl.textContent =
-        `↻ ${featureCount.toLocaleString('nl-NL')} features → ${hexCount.toLocaleString('nl-NL')} hexagonen (alle pagina's geladen)`;
-      const warn = activeCardEl.querySelector('.card-result-warning');
-      if (warn) warn.style.display = truncated ? '' : 'none';
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // NGR layer suggestions
-    // ─────────────────────────────────────────────────────────────────
-    async function searchAndSuggestLayers(keywords) {
-      for (const kw of keywords.slice(0, 2)) {
-        try {
-          const res = await fetch(`/api/search-wms?q=${encodeURIComponent(kw)}`);
-          const { layers } = await res.json();
-          if (layers?.length) { appendLayerSuggestionsCard(kw, layers); return; }
-        } catch {}
-      }
-    }
-
-    function appendLayerSuggestionsCard(keyword, layers) {
-      const ts = Date.now();
-      const rowsHtml = layers.map((l, i) => {
-        const id = `ngr-${ts}-${i}`;
-        _ngrData[id] = l;
-        return `<div class="layer-row" id="row-${id}">
-          <div class="layer-row-info">
-            <div class="layer-row-title">${esc(l.title)}</div>
-            ${l.abstract ? `<div class="layer-row-abstract">${esc(l.abstract)}</div>` : ''}
-          </div>
-          <button class="layer-add-btn" onclick="toggleNgrLayer('${id}')">Toon</button>
-        </div>`;
-      }).join('');
-
-      const el = document.createElement('div');
-      el.className = 'card-layers';
-      el.innerHTML = `
-        <div class="layers-header">
-          <span>🗺</span>
-          <span>Gerelateerde kaartlagen</span>
-          <span class="layers-source">NGR · ${esc(keyword)}</span>
-        </div>
-        ${rowsHtml}`;
-      document.getElementById('messages').appendChild(el);
-      scrollToBottom();
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // DOM helpers
-    // ─────────────────────────────────────────────────────────────────
-    function appendMsg(type, text) {
-      const el = document.createElement('div');
-      el.className = type === 'user' ? 'msg-user' : 'msg-error';
-      el.textContent = text;
-      document.getElementById('messages').appendChild(el);
-      scrollToBottom();
-      return el;
-    }
-
-    function setBusy(val) {
-      document.getElementById('submit-btn').disabled = val;
-      document.getElementById('question-input').disabled = val;
-    }
-
-    function showReloadIndicator(text, sub) {
-      document.getElementById('reload-text').textContent = text;
-      document.getElementById('reload-sub').textContent  = sub || '';
-      document.getElementById('reload-indicator').classList.add('visible');
-    }
-
-    function hideReloadIndicator() {
-      document.getElementById('reload-indicator').classList.remove('visible');
-    }
-
-    function setMapLoading(on) {
-      document.getElementById('map-loading-bar').classList.toggle('active', on);
-    }
-
-    function scrollToBottom() {
-      const msgs = document.getElementById('messages');
-      msgs.scrollTop = msgs.scrollHeight;
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Retry / re-use area actions
-    // ─────────────────────────────────────────────────────────────────
-
-    // Swap to a different metric for the same drawn bbox — no redraw needed
-    async function retryWithMetric(metric, label) {
-      if (!currentQuery || !drawnBbox) return;
-      currentQuery = {
-        ...currentQuery,
-        metric_column: metric,
-        cqlFilter: `${metric} > 0`,
-        title_nl: label,
-        title_en: label,
-        color_scale: 'sequential',
-      };
-      currentMetric = metric;
-      currentColorScale = 'sequential';
-      if (activeCardEl) { activeCardEl.remove(); activeCardEl = null; }
-      await fetchDataForBbox(drawnBbox);
-    }
-    window.retryWithMetric = retryWithMetric;
-
-    // Keep drawn bbox, ask a new question
-    function newQuestionSameArea() {
-      currentQuery = null; currentH3Data = null; currentBbox = null;
-      currentRawFeatures = [];
-      document.getElementById('legend').classList.remove('visible');
-      updateMap();
-      // Un-snap: go back to centered window
-      const panel = document.getElementById('panel');
-      panel.style.cssText = '';
-      panel.classList.remove('snapped');
-      setStep(2);
-      appendQuestionStepCard();
-    }
-    window.newQuestionSameArea = newQuestionSameArea;
-
-    // ─────────────────────────────────────────────────────────────────
-    // Input wiring
-    // ─────────────────────────────────────────────────────────────────
-    function submitQuestion() {
-      const input = document.getElementById('question-input');
-      const q = input.value.trim();
-      if (!q || !drawnBbox) return;
-      input.value = '';
-      currentQuery = null; currentH3Data = null; currentBbox = null;
-      currentRawFeatures = [];
-      document.getElementById('legend').classList.remove('visible');
-      updateMap();
-      askAI(q, true); // always keepArea — bbox was drawn first
-    }
-
-    function useExample(btn) {
-      document.getElementById('question-input').value = btn.textContent.trim();
-      submitQuestion();
-    }
-    window.useExample = useExample;
-
-    document.getElementById('submit-btn').addEventListener('click', submitQuestion);
-    document.getElementById('question-input').addEventListener('keydown', e => {
-      if (e.key === 'Enter') submitQuestion();
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // Init
-    // ─────────────────────────────────────────────────────────────────
-    try {
-      if (localStorage.getItem('pdok-welcome-seen')) {
-        document.getElementById('welcome-overlay').classList.add('hidden');
-        initDrawStep();
-      }
-    } catch {}
-    initDeck();
   </script>
 </body>
 </html>
