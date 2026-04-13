@@ -433,10 +433,9 @@
     }, before);
 
     // Keep gemeente layers above the aerial photo
-    if (map.getLayer('gem-rotterdam-fill')) map.moveLayer('gem-rotterdam-fill');
-    if (map.getLayer('gem-fill'))   map.moveLayer('gem-fill');
-    if (map.getLayer('gem-line'))   map.moveLayer('gem-line');
-    if (map.getLayer('gem-labels')) map.moveLayer('gem-labels');
+    ['gem-zh-fill','gem-zh-line','gem-rdam-fill','gem-rdam-line'].forEach(id => {
+      if (map.getLayer(id)) map.moveLayer(id);
+    });
 
     map.once('idle', () => setLoading(false));
     setTimeout(() => setLoading(false), 8000);
@@ -638,17 +637,24 @@
 
   document.getElementById('btn-gemeenten').addEventListener('click', toggleGemeenten);
 
+  // ── Gemeente grenzen ────────────────────────────────────────────────────────
+  // Uses PDOK OGC API Features (Bestuurlijke Gebieden) — clean REST, no WFS/CQL needed
+  // Rotterdam gemeentecode: GM0599  |  Zuid-Holland provinciecode: PV28
+  let gemeentenVisible = false;
+
+  document.getElementById('btn-gemeenten').addEventListener('click', toggleGemeenten);
+
   async function toggleGemeenten() {
     const btn = document.getElementById('btn-gemeenten');
 
     if (gemeentenVisible) {
-      if (map.getLayer('gem-rotterdam-fill')) map.removeLayer('gem-rotterdam-fill');
-      if (map.getLayer('gem-fill'))   map.removeLayer('gem-fill');
-      if (map.getLayer('gem-line'))   map.removeLayer('gem-line');
-      if (map.getLayer('gem-labels')) map.removeLayer('gem-labels');
-      if (map.getSource('gemeenten')) map.removeSource('gemeenten');
+      ['gem-zh-fill','gem-zh-line','gem-rdam-fill','gem-rdam-line'].forEach(id => {
+        if (map.getLayer(id)) map.removeLayer(id);
+      });
+      ['gemeenten-zh','gemeente-rdam'].forEach(id => {
+        if (map.getSource(id)) map.removeSource(id);
+      });
       gemeentenVisible = false;
-      gemeentenLoaded  = false;
       btn.classList.remove('active');
       return;
     }
@@ -657,96 +663,77 @@
     btn.disabled = true;
 
     try {
-      // CBS Wijken en Buurten 2024 — gemeenten layer, filtered to Zuid-Holland
-      const url = 'https://service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0'
-                + '?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature'
-                + '&TYPENAMES=cbs_gemeenten_2024:cbs_gemeenten_2024'
-                + '&CQL_FILTER=' + encodeURIComponent("provincienaam='Zuid-Holland'")
-                + '&OUTPUTFORMAT=application%2Fjson';
+      // Fetch all ZH gemeenten + Rotterdam in parallel
+      // OGC API Features: filter by provincie attribute, limit 100 (ZH has 52)
+      const [zhResp, rdamResp] = await Promise.all([
+        fetch('https://api.pdok.nl/kadaster/bestuurlijkegebieden/ogc/v1/collections/gemeentegebied/items'
+            + '?f=json&limit=100&provincienaam=Zuid-Holland'),
+        fetch('https://api.pdok.nl/kadaster/bestuurlijkegebieden/ogc/v1/collections/gemeentegebied/items'
+            + '?f=json&limit=1&gemeentenaam=Rotterdam')
+      ]);
 
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const gj = await resp.json();
-      if (!gj.features?.length) throw new Error('Geen gemeenten gevonden');
+      if (!zhResp.ok)   throw new Error('ZH gemeenten: HTTP ' + zhResp.status);
+      if (!rdamResp.ok) throw new Error('Rotterdam: HTTP ' + rdamResp.status);
 
-      map.addSource('gemeenten', { type: 'geojson', data: gj });
+      const zhGj   = await zhResp.json();
+      const rdamGj = await rdamResp.json();
 
-      // Rotterdam highlight fill
+      if (!zhGj.features?.length)   throw new Error('Geen ZH gemeenten gevonden');
+      if (!rdamGj.features?.length) throw new Error('Rotterdam niet gevonden');
+
+      // ZH gemeenten (excl Rotterdam — shown separately)
+      const zhOnly = {
+        ...zhGj,
+        features: zhGj.features.filter(f =>
+          (f.properties.gemeentenaam || f.properties.naam) !== 'Rotterdam'
+        )
+      };
+
+      map.addSource('gemeenten-zh',   { type: 'geojson', data: zhOnly });
+      map.addSource('gemeente-rdam',  { type: 'geojson', data: rdamGj });
+
+      // ZH fill — very subtle blue
       map.addLayer({
-        id: 'gem-rotterdam-fill', type: 'fill', source: 'gemeenten',
-        filter: ['==', ['get', 'gemeentenaam'], 'Rotterdam'],
-        paint: { 'fill-color': '#e85d26', 'fill-opacity': 0.10 }
-      });
-
-      // All ZH gemeenten — subtle fill
-      map.addLayer({
-        id: 'gem-fill', type: 'fill', source: 'gemeenten',
-        filter: ['!=', ['get', 'gemeentenaam'], 'Rotterdam'],
+        id: 'gem-zh-fill', type: 'fill', source: 'gemeenten-zh',
         paint: { 'fill-color': '#1a6fc4', 'fill-opacity': 0.06 }
       });
-
-      // Boundary lines — all gemeenten
+      // ZH boundary
       map.addLayer({
-        id: 'gem-line', type: 'line', source: 'gemeenten',
+        id: 'gem-zh-line', type: 'line', source: 'gemeenten-zh',
         paint: {
-          'line-color': [
-            'case', ['==', ['get', 'gemeentenaam'], 'Rotterdam'],
-            '#e85d26', '#1a6fc4'
-          ],
-          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1.2, 13, 2.5],
-          'line-opacity': 0.85
+          'line-color': '#1a6fc4',
+          'line-width': ['interpolate',['linear'],['zoom'], 8,1, 13,2],
+          'line-opacity': 0.75
+        }
+      });
+      // Rotterdam fill — warm orange
+      map.addLayer({
+        id: 'gem-rdam-fill', type: 'fill', source: 'gemeente-rdam',
+        paint: { 'fill-color': '#e85d26', 'fill-opacity': 0.10 }
+      });
+      // Rotterdam boundary — thicker, solid
+      map.addLayer({
+        id: 'gem-rdam-line', type: 'line', source: 'gemeente-rdam',
+        paint: {
+          'line-color': '#e85d26',
+          'line-width': ['interpolate',['linear'],['zoom'], 8,2, 13,3.5],
+          'line-opacity': 0.95
         }
       });
 
-      // Labels — use glyphs now available in style
-      map.addLayer({
-        id: 'gem-labels', type: 'symbol', source: 'gemeenten',
-        minzoom: 9,
-        layout: {
-          'text-field': ['get', 'gemeentenaam'],
-          'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
-          'text-size': ['interpolate', ['linear'], ['zoom'], 9, 10, 13, 13],
-          'text-anchor': 'center',
-          'text-max-width': 8
-        },
-        paint: {
-          'text-color': ['case', ['==', ['get', 'gemeentenaam'], 'Rotterdam'], '#a03010', '#1a4a8a'],
-          'text-halo-color': 'rgba(255,255,255,0.9)',
-          'text-halo-width': 1.5
-        }
+      // Keep above luchtfoto
+      ['gem-zh-fill','gem-zh-line','gem-rdam-fill','gem-rdam-line'].forEach(id => {
+        if (map.getLayer(id)) map.moveLayer(id);
       });
-
-      // Hover tooltip
-      const tooltip = document.createElement('div');
-      tooltip.id = 'gem-tooltip';
-      tooltip.style.cssText = 'position:fixed;padding:5px 9px;background:#fff;border:1px solid #dedad5;border-radius:6px;font-size:11px;font-weight:600;color:#1a1a1a;pointer-events:none;display:none;box-shadow:0 2px 8px rgba(0,0,0,0.12);z-index:50';
-      document.body.appendChild(tooltip);
-
-      map.on('mousemove', 'gem-fill', e => {
-        map.getCanvas().style.cursor = 'pointer';
-        const name = e.features[0]?.properties?.gemeentenaam || '';
-        tooltip.textContent = name;
-        tooltip.style.display = 'block';
-        tooltip.style.left = (e.originalEvent.clientX + 12) + 'px';
-        tooltip.style.top  = (e.originalEvent.clientY - 28) + 'px';
-      });
-      map.on('mousemove', 'gem-rotterdam-fill', e => {
-        map.getCanvas().style.cursor = 'pointer';
-        tooltip.textContent = 'Rotterdam';
-        tooltip.style.display = 'block';
-        tooltip.style.left = (e.originalEvent.clientX + 12) + 'px';
-        tooltip.style.top  = (e.originalEvent.clientY - 28) + 'px';
-      });
-      map.on('mouseleave', 'gem-fill', () => { map.getCanvas().style.cursor = ''; tooltip.style.display = 'none'; });
-      map.on('mouseleave', 'gem-rotterdam-fill', () => { map.getCanvas().style.cursor = ''; tooltip.style.display = 'none'; });
 
       gemeentenVisible = true;
-      gemeentenLoaded  = true;
       btn.classList.add('active');
 
     } catch (err) {
       console.error('Gemeenten laden mislukt:', err);
-      alert('Kon gemeentegrenzen niet laden: ' + err.message);
+      // Friendly message in button area
+      btn.title = 'Fout: ' + err.message;
+      alert('Kon gemeentegrenzen niet laden:\n' + err.message);
     } finally {
       btn.classList.remove('loading');
       btn.disabled = false;
@@ -754,6 +741,7 @@
   }
 
   buildTimeline();
+
 </script>
 </body>
 </html>
