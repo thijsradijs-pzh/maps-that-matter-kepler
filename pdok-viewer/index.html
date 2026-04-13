@@ -632,8 +632,6 @@
   function esc(s) { return String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
 
   // ── Gemeente grenzen Zuid-Holland ─────────────────────────────────────────
-  let gemeentenLoaded = false;
-  let gemeentenVisible = false;
 
   document.getElementById('btn-gemeenten').addEventListener('click', toggleGemeenten);
 
