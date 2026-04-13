@@ -662,35 +662,26 @@
     btn.disabled = true;
 
     try {
-      // CBS gebiedsindelingen WFS — generalized municipality boundaries, WGS84
-      // This service has a 'provincie' attribute we can filter on client-side via statnaam
-      // Using geodata.nationaalgeoregister.nl which is stable and doesn't require CQL
-      const resp = await fetch(
-        'https://geodata.nationaalgeoregister.nl/cbsgebiedsindelingen/wfs'
-        + '?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature'
-        + '&typeName=cbs_gemeente_2024_gegeneraliseerd'
-        + '&srsName=EPSG:4326'
-        + '&outputFormat=application/json'
-      );
+      // PDOK CBS Gebiedsindelingen WFS (new URL, live since 2022)
+      // CQL filter server-side on provincienaam — only fetches ZH, small response
+      const base = 'https://service.pdok.nl/cbs/gebiedsindelingen/2026/wfs/v1_0'
+                 + '?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature'
+                 + '&TYPENAMES=cbs_gemeente_2026_gegeneraliseerd'
+                 + '&srsName=EPSG:4326'
+                 + '&outputFormat=application/json'
+                 + '&CQL_FILTER=';
+
+      const resp = await fetch(base + encodeURIComponent("provincienaam='Zuid-Holland'"));
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const allGemeenten = await resp.json();
+      const allZH = await resp.json();
 
-      // ZH gemeente statcodes (CBS 2024) — GM0599 = Rotterdam
-      const ZH_CODES = new Set([
-        'GM0484','GM0489','GM0501','GM0502','GM0503','GM0504','GM0505','GM0512',
-        'GM0513','GM0518','GM0523','GM0530','GM0531','GM0532','GM0542','GM0545',
-        'GM0546','GM0547','GM0553','GM0556','GM0559','GM0568','GM0569','GM0570',
-        'GM0575','GM0579','GM0580','GM0583','GM0585','GM0588','GM0589','GM0590',
-        'GM0597','GM0599','GM0600','GM0603','GM0606','GM0610','GM0611','GM0612',
-        'GM0613','GM0614','GM0617','GM0618','GM0622','GM0623','GM0624','GM0626',
-        'GM0627','GM0628','GM0629','GM0632'
-      ]);
+      if (!allZH.features?.length) throw new Error('Geen ZH gemeenten gevonden');
 
-      const zhFeatures   = allGemeenten.features.filter(f => ZH_CODES.has(f.properties.statcode) && f.properties.statcode !== 'GM0599');
-      const rdamFeatures = allGemeenten.features.filter(f => f.properties.statcode === 'GM0599');
+      // Split Rotterdam (GM0599) out for separate highlight
+      const zhFeatures   = allZH.features.filter(f => f.properties.statcode !== 'GM0599');
+      const rdamFeatures = allZH.features.filter(f => f.properties.statcode === 'GM0599');
 
-      if (!zhFeatures.length)   throw new Error('Geen ZH gemeenten gevonden');
-      if (!rdamFeatures.length) throw new Error('Rotterdam niet gevonden');
+      if (!rdamFeatures.length) throw new Error('Rotterdam niet gevonden in response');
 
       const zhGj   = { type:'FeatureCollection', features: zhFeatures };
       const rdamGj = { type:'FeatureCollection', features: rdamFeatures };
