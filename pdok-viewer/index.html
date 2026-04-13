@@ -636,8 +636,9 @@
   document.getElementById('btn-gemeenten').addEventListener('click', toggleGemeenten);
 
   // ── Gemeente grenzen ────────────────────────────────────────────────────────
-  // Uses PDOK OGC API Features (Bestuurlijke Gebieden) — clean REST, no WFS/CQL needed
-  // Rotterdam gemeentecode: GM0599  |  Zuid-Holland provinciecode: PV28
+  // Source: cartomap.github.io/nl — CBS gemeente boundaries, WGS84, no auth needed
+  // Filter client-side: statnaam property contains gemeente name, statcode for Rotterdam = GM0599
+  // Zuid-Holland gemeenten have provcode PV28
   let gemeentenVisible = false;
 
   document.getElementById('btn-gemeenten').addEventListener('click', toggleGemeenten);
@@ -661,61 +662,64 @@
     btn.disabled = true;
 
     try {
-      // Fetch all ZH gemeenten + Rotterdam in parallel
-      // OGC API Features: filter by provincie attribute, limit 100 (ZH has 52)
-      const [zhResp, rdamResp] = await Promise.all([
-        fetch('https://api.pdok.nl/kadaster/bestuurlijkegebieden/ogc/v1/collections/gemeentegebied/items'
-            + '?f=json&limit=100&provincienaam=Zuid-Holland'),
-        fetch('https://api.pdok.nl/kadaster/bestuurlijkegebieden/ogc/v1/collections/gemeentegebied/items'
-            + '?f=json&limit=1&gemeentenaam=Rotterdam')
+      // CBS gebiedsindelingen WFS — generalized municipality boundaries, WGS84
+      // This service has a 'provincie' attribute we can filter on client-side via statnaam
+      // Using geodata.nationaalgeoregister.nl which is stable and doesn't require CQL
+      const resp = await fetch(
+        'https://geodata.nationaalgeoregister.nl/cbsgebiedsindelingen/wfs'
+        + '?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature'
+        + '&typeName=cbs_gemeente_2024_gegeneraliseerd'
+        + '&srsName=EPSG:4326'
+        + '&outputFormat=application/json'
+      );
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const allGemeenten = await resp.json();
+
+      // ZH gemeente statcodes (CBS 2024) — GM0599 = Rotterdam
+      const ZH_CODES = new Set([
+        'GM0484','GM0489','GM0501','GM0502','GM0503','GM0504','GM0505','GM0512',
+        'GM0513','GM0518','GM0523','GM0530','GM0531','GM0532','GM0542','GM0545',
+        'GM0546','GM0547','GM0553','GM0556','GM0559','GM0568','GM0569','GM0570',
+        'GM0575','GM0579','GM0580','GM0583','GM0585','GM0588','GM0589','GM0590',
+        'GM0597','GM0599','GM0600','GM0603','GM0606','GM0610','GM0611','GM0612',
+        'GM0613','GM0614','GM0617','GM0618','GM0622','GM0623','GM0624','GM0626',
+        'GM0627','GM0628','GM0629','GM0632'
       ]);
 
-      if (!zhResp.ok)   throw new Error('ZH gemeenten: HTTP ' + zhResp.status);
-      if (!rdamResp.ok) throw new Error('Rotterdam: HTTP ' + rdamResp.status);
+      const zhFeatures   = allGemeenten.features.filter(f => ZH_CODES.has(f.properties.statcode) && f.properties.statcode !== 'GM0599');
+      const rdamFeatures = allGemeenten.features.filter(f => f.properties.statcode === 'GM0599');
 
-      const zhGj   = await zhResp.json();
-      const rdamGj = await rdamResp.json();
+      if (!zhFeatures.length)   throw new Error('Geen ZH gemeenten gevonden');
+      if (!rdamFeatures.length) throw new Error('Rotterdam niet gevonden');
 
-      if (!zhGj.features?.length)   throw new Error('Geen ZH gemeenten gevonden');
-      if (!rdamGj.features?.length) throw new Error('Rotterdam niet gevonden');
+      const zhGj   = { type:'FeatureCollection', features: zhFeatures };
+      const rdamGj = { type:'FeatureCollection', features: rdamFeatures };
 
-      // ZH gemeenten (excl Rotterdam — shown separately)
-      const zhOnly = {
-        ...zhGj,
-        features: zhGj.features.filter(f =>
-          (f.properties.gemeentenaam || f.properties.naam) !== 'Rotterdam'
-        )
-      };
+      map.addSource('gemeenten-zh',  { type:'geojson', data: zhGj });
+      map.addSource('gemeente-rdam', { type:'geojson', data: rdamGj });
 
-      map.addSource('gemeenten-zh',   { type: 'geojson', data: zhOnly });
-      map.addSource('gemeente-rdam',  { type: 'geojson', data: rdamGj });
-
-      // ZH fill — very subtle blue
-      map.addLayer({
-        id: 'gem-zh-fill', type: 'fill', source: 'gemeenten-zh',
-        paint: { 'fill-color': '#1a6fc4', 'fill-opacity': 0.06 }
+      // ZH — subtle blue fill
+      map.addLayer({ id:'gem-zh-fill', type:'fill', source:'gemeenten-zh',
+        paint:{ 'fill-color':'#1a6fc4', 'fill-opacity':0.06 }
       });
-      // ZH boundary
-      map.addLayer({
-        id: 'gem-zh-line', type: 'line', source: 'gemeenten-zh',
-        paint: {
-          'line-color': '#1a6fc4',
-          'line-width': ['interpolate',['linear'],['zoom'], 8,1, 13,2],
-          'line-opacity': 0.75
+      // ZH — boundary line
+      map.addLayer({ id:'gem-zh-line', type:'line', source:'gemeenten-zh',
+        paint:{
+          'line-color':'#1a6fc4',
+          'line-width':['interpolate',['linear'],['zoom'], 8,1, 13,2],
+          'line-opacity':0.75
         }
       });
-      // Rotterdam fill — warm orange
-      map.addLayer({
-        id: 'gem-rdam-fill', type: 'fill', source: 'gemeente-rdam',
-        paint: { 'fill-color': '#e85d26', 'fill-opacity': 0.10 }
+      // Rotterdam — orange fill
+      map.addLayer({ id:'gem-rdam-fill', type:'fill', source:'gemeente-rdam',
+        paint:{ 'fill-color':'#e85d26', 'fill-opacity':0.10 }
       });
-      // Rotterdam boundary — thicker, solid
-      map.addLayer({
-        id: 'gem-rdam-line', type: 'line', source: 'gemeente-rdam',
-        paint: {
-          'line-color': '#e85d26',
-          'line-width': ['interpolate',['linear'],['zoom'], 8,2, 13,3.5],
-          'line-opacity': 0.95
+      // Rotterdam — thicker orange line
+      map.addLayer({ id:'gem-rdam-line', type:'line', source:'gemeente-rdam',
+        paint:{
+          'line-color':'#e85d26',
+          'line-width':['interpolate',['linear'],['zoom'], 8,2, 13,3.5],
+          'line-opacity':0.95
         }
       });
 
@@ -729,8 +733,6 @@
 
     } catch (err) {
       console.error('Gemeenten laden mislukt:', err);
-      // Friendly message in button area
-      btn.title = 'Fout: ' + err.message;
       alert('Kon gemeentegrenzen niet laden:\n' + err.message);
     } finally {
       btn.classList.remove('loading');
@@ -739,6 +741,7 @@
   }
 
   buildTimeline();
+
 
 </script>
 </body>
