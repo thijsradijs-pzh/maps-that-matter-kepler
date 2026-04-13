@@ -252,26 +252,7 @@
     }
     #tl-drag { position: absolute; inset: -10px 0; cursor: ew-resize; z-index: 5; }
 
-    #btn-gemeenten {
-      display: flex; align-items: center; gap: 6px;
-      padding: 5px 11px; border-radius: 20px;
-      font-size: 11px; font-weight: 600;
-      border: 1.5px solid #d0cdc8;
-      background: #fff; color: #4a4540;
-      cursor: pointer; transition: all 0.15s;
-      white-space: nowrap;
-    }
-    #btn-gemeenten:hover {
-      border-color: #4a9eff; color: #1a6fc4;
-      background: #f0f7ff;
-    }
-    #btn-gemeenten.active {
-      background: #1a6fc4; color: #fff;
-      border-color: #1a6fc4;
-    }
-    #btn-gemeenten.loading {
-      opacity: 0.6; cursor: wait;
-    }
+
     .maplibregl-ctrl-bottom-right { bottom: 112px !important; }
     .maplibregl-ctrl-bottom-left  { bottom: 112px !important; }
 
@@ -297,6 +278,7 @@
 
     <div class="field-label">Voorbeelden</div>
     <div class="example-chips">
+      <span class="chip" onclick="fillExample('gem')">Gemeenten ZH</span>
       <span class="chip" onclick="fillExample('bag')">BAG panden</span>
       <span class="chip" onclick="fillExample('cbs')">CBS buurten</span>
       <span class="chip" onclick="fillExample('natuur')">Natura 2000</span>
@@ -331,12 +313,7 @@
       <span class="leg-item"><span class="leg-dot zomer"></span>Zomer 25cm</span>
       <span class="leg-item"><span class="leg-dot winter"></span>Winter 8cm</span>
     </div>
-    <button id="btn-gemeenten" title="Gemeente grenzen Zuid-Holland aan/uit">
-      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-      </svg>
-      Gemeenten ZH
-    </button>
+
     <div id="tl-opacity-wrap">
       <span>Dekking</span>
       <input type="range" id="opacity-slider" min="0" max="100" value="100" />
@@ -431,11 +408,6 @@
     map.addLayer({ id:'luchtfoto', type:'raster', source:'luchtfoto',
       paint:{'raster-opacity':opacity}
     }, before);
-
-    // Keep gemeente layers above the aerial photo
-    ['gem-zh-fill','gem-zh-line','gem-rdam-fill','gem-rdam-line'].forEach(id => {
-      if (map.getLayer(id)) map.moveLayer(id);
-    });
 
     map.once('idle', () => setLoading(false));
     setTimeout(() => setLoading(false), 8000);
@@ -555,8 +527,9 @@
   });
 
   const EXAMPLES = {
+    gem:    { url:'https://service.pdok.nl/cbs/gebiedsindelingen/2026/wfs/v1_0',   layer:'cbs_gemeente_2026_gegeneraliseerd' },
     bag:    { url:'https://service.pdok.nl/lv/bag/wfs/v2_0',                      layer:'bag:pand' },
-    cbs:    { url:'https://service.pdok.nl/cbs/wijkenbuurten/2023/wfs/v1_0',      layer:'cbs_buurten_2023:cbs_buurten_2023' },
+    cbs:    { url:'https://service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0',      layer:'cbs_buurten_2024:cbs_buurten_2024' },
     natuur: { url:'https://service.pdok.nl/minlnv/natura2000/wfs/v1_0',           layer:'natura2000:natura2000' },
     bp:     { url:'https://service.pdok.nl/kadaster/bestemmingsplannen/wfs/v1_0', layer:'bestemmingsplannen:bestemmingsvlak' },
   };
@@ -632,104 +605,6 @@
   function esc(s) { return String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
 
   // ── Gemeente grenzen Zuid-Holland ─────────────────────────────────────────
-
-  document.getElementById('btn-gemeenten').addEventListener('click', toggleGemeenten);
-
-  // ── Gemeente grenzen ────────────────────────────────────────────────────────
-  // Source: cartomap.github.io/nl — CBS gemeente boundaries, WGS84, no auth needed
-  // Filter client-side: statnaam property contains gemeente name, statcode for Rotterdam = GM0599
-  // Zuid-Holland gemeenten have provcode PV28
-  let gemeentenVisible = false;
-
-  document.getElementById('btn-gemeenten').addEventListener('click', toggleGemeenten);
-
-  async function toggleGemeenten() {
-    const btn = document.getElementById('btn-gemeenten');
-
-    if (gemeentenVisible) {
-      ['gem-zh-fill','gem-zh-line','gem-rdam-fill','gem-rdam-line'].forEach(id => {
-        if (map.getLayer(id)) map.removeLayer(id);
-      });
-      ['gemeenten-zh','gemeente-rdam'].forEach(id => {
-        if (map.getSource(id)) map.removeSource(id);
-      });
-      gemeentenVisible = false;
-      btn.classList.remove('active');
-      return;
-    }
-
-    btn.classList.add('loading');
-    btn.disabled = true;
-
-    try {
-      // PDOK CBS Gebiedsindelingen WFS (new URL, live since 2022)
-      // CQL filter server-side on provincienaam — only fetches ZH, small response
-      const base = 'https://service.pdok.nl/cbs/gebiedsindelingen/2026/wfs/v1_0'
-                 + '?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature'
-                 + '&TYPENAMES=cbs_gemeente_2026_gegeneraliseerd'
-                 + '&srsName=EPSG:4326'
-                 + '&outputFormat=application/json'
-                 + '&CQL_FILTER=';
-
-      const resp = await fetch(base + encodeURIComponent("provincienaam='Zuid-Holland'"));
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const allZH = await resp.json();
-
-      if (!allZH.features?.length) throw new Error('Geen ZH gemeenten gevonden');
-
-      // Split Rotterdam (GM0599) out for separate highlight
-      const zhFeatures   = allZH.features.filter(f => f.properties.statcode !== 'GM0599');
-      const rdamFeatures = allZH.features.filter(f => f.properties.statcode === 'GM0599');
-
-      if (!rdamFeatures.length) throw new Error('Rotterdam niet gevonden in response');
-
-      const zhGj   = { type:'FeatureCollection', features: zhFeatures };
-      const rdamGj = { type:'FeatureCollection', features: rdamFeatures };
-
-      map.addSource('gemeenten-zh',  { type:'geojson', data: zhGj });
-      map.addSource('gemeente-rdam', { type:'geojson', data: rdamGj });
-
-      // ZH — subtle blue fill
-      map.addLayer({ id:'gem-zh-fill', type:'fill', source:'gemeenten-zh',
-        paint:{ 'fill-color':'#1a6fc4', 'fill-opacity':0.06 }
-      });
-      // ZH — boundary line
-      map.addLayer({ id:'gem-zh-line', type:'line', source:'gemeenten-zh',
-        paint:{
-          'line-color':'#1a6fc4',
-          'line-width':['interpolate',['linear'],['zoom'], 8,1, 13,2],
-          'line-opacity':0.75
-        }
-      });
-      // Rotterdam — orange fill
-      map.addLayer({ id:'gem-rdam-fill', type:'fill', source:'gemeente-rdam',
-        paint:{ 'fill-color':'#e85d26', 'fill-opacity':0.10 }
-      });
-      // Rotterdam — thicker orange line
-      map.addLayer({ id:'gem-rdam-line', type:'line', source:'gemeente-rdam',
-        paint:{
-          'line-color':'#e85d26',
-          'line-width':['interpolate',['linear'],['zoom'], 8,2, 13,3.5],
-          'line-opacity':0.95
-        }
-      });
-
-      // Keep above luchtfoto
-      ['gem-zh-fill','gem-zh-line','gem-rdam-fill','gem-rdam-line'].forEach(id => {
-        if (map.getLayer(id)) map.moveLayer(id);
-      });
-
-      gemeentenVisible = true;
-      btn.classList.add('active');
-
-    } catch (err) {
-      console.error('Gemeenten laden mislukt:', err);
-      alert('Kon gemeentegrenzen niet laden:\n' + err.message);
-    } finally {
-      btn.classList.remove('loading');
-      btn.disabled = false;
-    }
-  }
 
   buildTimeline();
 
