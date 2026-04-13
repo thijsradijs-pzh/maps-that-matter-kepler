@@ -554,6 +554,7 @@
     const url  = baseUrl+sep+'SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature'
                + '&TYPENAMES='+encodeURIComponent(typeName)
                + '&BBOX='+encodeURIComponent(bbox)+',urn:ogc:def:crs:EPSG::4326'
+               + '&SRSNAME=EPSG:4326'
                + '&COUNT='+maxFeat+'&OUTPUTFORMAT=application%2Fjson';
 
     statusEl.textContent='Ophalen…'; statusEl.className='';
