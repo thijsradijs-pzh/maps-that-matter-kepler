@@ -413,6 +413,12 @@ function parsePermalinkState() {
     };
   }
   if (params.bm && BASEMAPS.some(b => b.id === params.bm)) currentBasemap = params.bm;
+  if (params.mca) {
+    const vals = params.mca.split('-').map(Number);
+    MCA_CRITERIA.forEach((c, i) => {
+      if (vals[i] != null && !isNaN(vals[i])) mcaState.weights[c.weightKey] = vals[i];
+    });
+  }
 }
 
 function enablePermalinkLayers() {
@@ -476,6 +482,11 @@ function enablePermalinkLayers() {
       }
     }
   });
+
+  const VALID_TABS = new Set(['layers', 'legend', 'catalog', 'analyse']);
+  if (params.tab && VALID_TABS.has(params.tab) && params.tab !== 'layers') {
+    switchTab(params.tab);
+  }
 }
 
 let _permalinkTimer = null;
@@ -491,6 +502,10 @@ function updatePermalink() {
       `lon=${longitude.toFixed(5)}`,
     ];
     if (currentBasemap !== 'light') parts.push(`bm=${currentBasemap}`);
+    const activeTab = document.querySelector('.tab.active')?.dataset.tab;
+    if (activeTab && activeTab !== 'layers') parts.push(`tab=${activeTab}`);
+    const mcaVals = MCA_CRITERIA.map(c => mcaState.weights[c.weightKey] ?? 2);
+    if (mcaVals.some(v => v !== 2)) parts.push(`mca=${mcaVals.join('-')}`);
     if (layerKeys.length) parts.push(`layers=${encodeURIComponent(layerKeys.join(','))}`);
 
     // Encode non-default sublayer selections: key:id+id+id

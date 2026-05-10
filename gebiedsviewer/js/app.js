@@ -74,6 +74,7 @@ function switchTab(tab) {
     deckInstance.setProps({ initialViewState: currentViewState });
     rebuildDeck();
   }
+  updatePermalink();
 }
 
 // ═══════════════════════════════════════════════════════
