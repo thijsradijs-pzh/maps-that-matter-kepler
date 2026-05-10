@@ -1414,7 +1414,6 @@
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const raw = await resp.json();
         allData = raw.filter(d => inZuidHolland(d.h3) && hasContent(d));
-        console.log(`${raw.length.toLocaleString('nl')} totaal → ${allData.length.toLocaleString('nl')} Zuid-Holland`);
 
         document.getElementById('loading').style.display = 'none';
         document.getElementById('controls').style.display = 'block';

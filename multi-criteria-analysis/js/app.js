@@ -152,8 +152,6 @@ async function addWmsLayer(item) {
             if (!targetLayerNode && allLayers.length > 0) targetLayerNode = allLayers[allLayers.length - 1];
         }
 
-        console.log(`[MCA] Selected Layer: ${finalLayerName}`);
-
         // Extract BBOX for Zoom
         let bbox = null;
         if (targetLayerNode) {
