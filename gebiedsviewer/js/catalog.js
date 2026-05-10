@@ -211,6 +211,7 @@ function onMcaSlider(el) {
   mcaState.weights[el.dataset.key] = Number(el.value);
   document.getElementById(`mca-val-${el.dataset.key}`).textContent = el.value;
   if (mcaState.active && mcaState.data) rebuildDeck();
+  updatePermalink();
 }
 
 async function loadMcaData() {
@@ -453,7 +454,7 @@ function enablePermalinkLayers() {
     });
   }
 
-  params.layers.split(',').filter(Boolean).forEach(async key => {
+  const enables = params.layers.split(',').filter(Boolean).map(async key => {
     const [serviceId, layerId] = key.split('::');
     for (const theme of CATALOG) {
       const service = theme.services.find(s => s.id === serviceId);
@@ -463,7 +464,6 @@ function enablePermalinkLayers() {
           const cb = document.querySelector(`input[data-key="${key}"]`);
           if (cb) cb.checked = true;
           await enableLayer(key, service, layer);
-          // Apply saved sublayer selection if present
           if (sublayerMap[key]) {
             const entry = activeLayers.get(key);
             if (entry?.subLayerDetails?.length) {
@@ -472,7 +472,6 @@ function enablePermalinkLayers() {
               rebuildDeck();
             }
           }
-          // Apply saved opacity if present
           if (opacityMap[key] != null) {
             const entry = activeLayers.get(key);
             if (entry) { entry.opacity = opacityMap[key]; renderLayerPanel(); rebuildDeck(); }
@@ -485,7 +484,7 @@ function enablePermalinkLayers() {
 
   const VALID_TABS = new Set(['layers', 'legend', 'catalog', 'analyse']);
   if (params.tab && VALID_TABS.has(params.tab) && params.tab !== 'layers') {
-    switchTab(params.tab);
+    Promise.all(enables).then(() => switchTab(params.tab));
   }
 }
 
