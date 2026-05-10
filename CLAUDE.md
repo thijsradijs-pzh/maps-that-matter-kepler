@@ -133,9 +133,42 @@ Key files:
 - `agro-viewer/app.js` — main application logic (560 lines): handles WMS layers, NGR search, satellite toggle, Deck.gl rendering
 - `agro-viewer/config.js` — layer/source configuration
 
+## AI Workflow
+
+This repo is worked on with two agents — use whichever fits the task:
+
+**Claude Code** (you are here) — multi-file edits, refactoring, new viewers, debugging. All context is in this CLAUDE.md. Slash commands available:
+- `/deploy` — push and deploy to Vercel production
+- `/capture` — write a session summary to the exobrain inbox
+- `/new-example` — scaffold a new viewer directory
+- `/improve` — review the backlog and start a focused improvement session
+
+**Hermes** — conversation, lookup, quick questions about patterns or PDOK. Has `maps-that-matter` skills installed with project context and coding patterns. Good for: "what's the basemap URL for dark mode?", "what's on the P1 backlog?", "how does CBS suppression work?".
+
+**When to capture**: after any session where something non-obvious was learned or decided — run `/capture`. Skip pure bug fixes already documented here.
+
+---
+
 ## Known Issues / Improvement Backlog
 
 Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app, fix relevant issues for that app too.
+
+---
+
+### P1 — High value
+
+**Shareable URL + export** — `vraag-de-kaart`
+- URL should encode the current query so it can be shared/bookmarked
+- Add a download button: CSV and GeoJSON export of current result set
+
+**Timeseries chart** — `vraag-de-kaart`
+- Show selected metric over 2018–2023 as a line chart alongside the map
+- Datacube already has the full timeseries — just needs a chart panel
+
+**Biodiversiteit viewer** — new viewer
+- Visualize kruidendiversiteit data as H3 hexagons
+- Connects to [[project-kruidendiversiteit-zh]] in exobrain (Wageningen research)
+- Pattern: same datacube approach as vraag-de-kaart, new Parquet file
 
 ---
 
