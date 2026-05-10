@@ -6,6 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A collection of standalone interactive geospatial visualizations built with Kepler.gl and Deck.gl, deployed to Vercel. Each visualization is a self-contained HTML/JS/CSS application with no build process — all dependencies are loaded from CDNs.
 
+## Exobrain
+
+My personal exobrain lives at `~/Documents/exobrain-vault`. After substantive work on this repo, I capture insights there in `inbox/`. Relevant existing exobrain notes:
+- [[project-maps-that-matter]] — overall project context
+- [[concept-h3-indexing]] — H3 hex spatial indexing
+- [[concept-deck-gl]] — deck.gl architecture decisions
+
 ## Development & Deployment
 
 **No build step required.** Open any `index.html` directly in a browser or use a local server:
