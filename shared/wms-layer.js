@@ -1,6 +1,7 @@
-// js/wms-layer.js
+// shared/wms-layer.js
+// Standard WMS TileLayer via proxy. Used by multi-criteria-analysis and agro-viewer.
+// For ArcGIS MapServer export endpoint, see gebiedsviewer/js/wms-layer.js.
 
-// Convert Tile coordinates to Bounding Box
 function tileToBoundingBox(x, y, z) {
     const e = 20037508.34;
     const resolution = e * 2 / Math.pow(2, z);
@@ -10,8 +11,7 @@ function tileToBoundingBox(x, y, z) {
     const south = north - resolution;
     return [west, south, east, north];
 }
-// extra check
-// Create a DeckGL TileLayer for WMS
+
 function createWMSLayer(layerConfig) {
     return new deck.TileLayer({
         id: `wms-${layerConfig.id}`,
@@ -24,12 +24,11 @@ function createWMSLayer(layerConfig) {
             const { x, y, z } = props.index;
             const bbox = tileToBoundingBox(x, y, z);
 
-            // 1. Construct the WMS URL carefully
             const wmsUrl = new URL(layerConfig.url);
             wmsUrl.searchParams.set('SERVICE', 'WMS');
             wmsUrl.searchParams.set('VERSION', '1.1.1');
             wmsUrl.searchParams.set('REQUEST', 'GetMap');
-            wmsUrl.searchParams.set('LAYERS', layerConfig.layer); // The correct layer name
+            wmsUrl.searchParams.set('LAYERS', layerConfig.layer);
             wmsUrl.searchParams.set('STYLES', '');
             wmsUrl.searchParams.set('SRS', 'EPSG:3857');
             wmsUrl.searchParams.set('WIDTH', '256');
@@ -38,9 +37,7 @@ function createWMSLayer(layerConfig) {
             wmsUrl.searchParams.set('TRANSPARENT', 'true');
             wmsUrl.searchParams.set('BBOX', bbox.join(','));
 
-            // 2. Route through our Proxy to avoid CORS errors on images
-            const originalUrl = wmsUrl.toString();
-            const proxyUrl = `/api/proxy?url=${encodeURIComponent(originalUrl)}`;
+            const proxyUrl = `/api/proxy?url=${encodeURIComponent(wmsUrl.toString())}`;
 
             try {
                 const response = await fetch(proxyUrl);

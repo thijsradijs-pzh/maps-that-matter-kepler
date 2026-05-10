@@ -11,6 +11,7 @@ let isSatellite = false;
 let isMeasuring = false;
 let measurePoints = [];
 let activeWmsLayers = [];
+let _activeTab = 'welcome';
 
 // Cache WMS GetCapabilities responses to avoid re-fetching the same service twice
 const _capabilitiesCache = new Map();
@@ -23,6 +24,62 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(later, wait);
     };
+}
+
+// --- PERMALINK ---
+const _debouncedUpdatePermalink = debounce(() => updatePermalink(), 400);
+
+function updatePermalink() {
+    const p = new URLSearchParams();
+    p.set('tab', _activeTab);
+    p.set('lat', currentViewState.latitude.toFixed(5));
+    p.set('lon', currentViewState.longitude.toFixed(5));
+    p.set('zoom', currentViewState.zoom.toFixed(2));
+    p.set('pitch', (currentViewState.pitch || 0).toFixed(1));
+    p.set('br', (currentViewState.bearing || 0).toFixed(1));
+    if (isSatellite) p.set('sat', '1');
+    p.set('w', VIZ_CONFIG.filters.map(f => currentWeights[f.key] ?? f.default).join(','));
+    if (activeWmsLayers.length > 0) {
+        p.set('layers', JSON.stringify(activeWmsLayers.map(l => ({ u: l.url, l: l.layer, t: l.title, p: l.publisher, b: l.bbox }))));
+    }
+    history.replaceState(null, '', '#' + p.toString());
+}
+
+function loadFromPermalink() {
+    const hash = location.hash.slice(1);
+    if (!hash) return;
+    try {
+        const p = new URLSearchParams(hash);
+        const lat = parseFloat(p.get('lat')), lon = parseFloat(p.get('lon')), zoom = parseFloat(p.get('zoom'));
+        const pitch = parseFloat(p.get('pitch') || '0'), bearing = parseFloat(p.get('br') || '0');
+        if (!isNaN(lat) && !isNaN(lon) && !isNaN(zoom)) {
+            currentViewState = { ...currentViewState, latitude: lat, longitude: lon, zoom, pitch, bearing };
+            deckInstance.setProps({ initialViewState: currentViewState });
+        }
+        if (p.get('sat') === '1') { isSatellite = true; document.getElementById('btn-basemap').innerText = 'Kaart'; }
+        const w = p.get('w');
+        if (w) {
+            w.split(',').map(Number).forEach((val, i) => {
+                const f = VIZ_CONFIG.filters[i];
+                if (!f || isNaN(val)) return;
+                currentWeights[f.key] = val;
+                const el = document.getElementById(`${f.key}-slider`); if (el) el.value = val;
+                const disp = document.getElementById(`${f.key}-display`); if (disp) disp.textContent = val;
+            });
+        }
+        const lj = p.get('layers');
+        if (lj) {
+            JSON.parse(lj).forEach(s => {
+                const base = s.u.split('?')[0];
+                const rawLegend = `${base}?SERVICE=WMS&REQUEST=GetLegendGraphic&VERSION=1.3.0&FORMAT=image/png&LAYER=${encodeURIComponent(s.l)}`;
+                activeWmsLayers.push({ id: Date.now() + Math.random(), url: s.u, layer: s.l, title: s.t, publisher: s.p, bbox: s.b, legendUrl: `/api/proxy?url=${encodeURIComponent(rawLegend)}`, showLegend: false });
+            });
+            updateActiveLayersUI();
+        }
+        renderLayers();
+        const tab = p.get('tab');
+        if (tab) switchTab(tab);
+    } catch(e) { /* corrupt hash, ignore */ }
 }
 
 // --- SEARCH UI LOGIC ---
@@ -195,7 +252,8 @@ async function addWmsLayer(item) {
         document.getElementById('layer-search').value = '';
         updateActiveLayersUI();
         renderLayers();
-        
+        updatePermalink();
+
         if(bbox) zoomToBbox(bbox);
 
     } catch (err) {
@@ -235,6 +293,7 @@ function removeWmsLayer(id) {
     activeWmsLayers = activeWmsLayers.filter(l => l.id !== id);
     updateActiveLayersUI();
     renderLayers();
+    updatePermalink();
 }
 
 function toggleLegend(id) {
@@ -532,11 +591,13 @@ function showDataInfo() { alert("GEGEVENS & BRONNEN\n------------------\nDataset
 function printMap() { window.print(); }
 
 function switchTab(t) {
+    _activeTab = t === 'layer' ? 'layers' : t;
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     document.querySelectorAll('.sidebar-content').forEach(x => x.classList.remove('active'));
     const map = { 'welcome': { idx: 0, id: 'welcome-content' }, 'layers': { idx: 1, id: 'layer-content' }, 'layer': { idx: 1, id: 'layer-content' }, 'legend': { idx: 2, id: 'legend-content' } };
     const target = map[t];
     if (target) { document.querySelectorAll('.tab')[target.idx].classList.add('active'); document.getElementById(target.id).classList.add('active'); }
+    updatePermalink();
 }
 
 function showCredits() { alert("Gemaakt voor Provincie Zuid-Holland."); }
@@ -549,7 +610,7 @@ function toggle3D() {
     document.getElementById('btn-2d3d').innerText = newPitch === 0 ? "3D" : "2D";
 }
 function resetBearing() { deckInstance.setProps({ initialViewState: { ...currentViewState, bearing: 0, transitionDuration: 800, transitionInterpolator: new deck.FlyToInterpolator() } }); }
-function toggleBasemap() { isSatellite = !isSatellite; renderLayers(); document.getElementById('btn-basemap').innerText = isSatellite ? "Kaart" : "Foto"; }
+function toggleBasemap() { isSatellite = !isSatellite; renderLayers(); document.getElementById('btn-basemap').innerText = isSatellite ? "Kaart" : "Foto"; updatePermalink(); }
 function toggleMeasure() {
   isMeasuring = !isMeasuring; measurePoints = [];
   const btn = document.getElementById('btn-measure');
@@ -593,7 +654,7 @@ async function init() {
       wrapper.innerHTML = `<div class="mca-label"><span style="display:flex; align-items:center;"><i class="fa fa-circle" style="color:rgb(${crit.color.join(',')}); font-size:10px; margin-right:6px;"></i>${crit.label}</span><span id="${f.key}-display" style="font-weight:bold;">${f.default}</span></div><input type="range" id="${f.key}-slider" min="${f.min}" max="${f.max}" step="${f.step}" value="${f.default}">`;
       sliderContainer.appendChild(wrapper);
       wrapper.querySelector('input').addEventListener('input', (e) => {
-        const val = parseInt(e.target.value); currentWeights[f.key] = val; document.getElementById(`${f.key}-display`).textContent = val; renderLayers();
+        const val = parseInt(e.target.value); currentWeights[f.key] = val; document.getElementById(`${f.key}-display`).textContent = val; renderLayers(); updatePermalink();
       });
       const legendItem = document.createElement('div');
       legendItem.style.display='flex'; legendItem.style.alignItems='center'; legendItem.style.marginBottom='8px';
@@ -608,7 +669,7 @@ async function init() {
       initialViewState: VIZ_CONFIG.initialView,
       controller: { doubleClickZoom: false },
       getTooltip: (info) => isMeasuring ? null : VIZ_CONFIG.tooltip(info),
-      onViewStateChange: ({viewState}) => { currentViewState = viewState; updateScaleBar(viewState); document.getElementById('btn-2d3d').innerText = viewState.pitch > 10 ? "2D" : "3D"; return viewState; },
+      onViewStateChange: ({viewState}) => { currentViewState = viewState; updateScaleBar(viewState); document.getElementById('btn-2d3d').innerText = viewState.pitch > 10 ? "2D" : "3D"; _debouncedUpdatePermalink(); return viewState; },
       onHover: updateCoords,
       onClick: onMapClick,
       onLoad: () => updateScaleBar(VIZ_CONFIG.initialView)
@@ -616,6 +677,7 @@ async function init() {
 
     renderLayers();
     updateScaleBar(VIZ_CONFIG.initialView);
+    loadFromPermalink();
   } catch (e) {
     console.error(e);
     document.getElementById('loading').innerHTML = '<div style="font-size:18px;margin-bottom:8px;">⚠️ Data kon niet worden geladen</div><div style="font-size:13px;color:#888;line-height:1.5;font-weight:normal;">Ververs de pagina om opnieuw te proberen.</div>';

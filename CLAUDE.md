@@ -55,6 +55,7 @@ Current examples:
 ### Shared Utilities (`/shared/`)
 - `deckgl-utils.js` — Color scales, color mapping functions, Carto basemap layer factory
 - `duckdb-loader.js` — DuckDB WASM integration for in-browser data loading
+- `wms-layer.js` — Standard WMS TileLayer via proxy (`createWMSLayer()`). Used by multi-criteria-analysis and agro-viewer. For ArcGIS MapServer export endpoint, see `gebiedsviewer/js/wms-layer.js`.
 
 ### Backend (`/api/`)
 Vercel serverless functions used as CORS proxies and AI endpoints:
@@ -223,8 +224,9 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 
 ### P2 — Medium (code quality / maintainability)
 
-**WMS layer creation duplicated** — `multi-criteria-analysis/js/wms-layer.js` vs `gebiedsviewer/js/wms-layer.js`
-- The two implementations differ (standard WMS vs ArcGIS MapServer export endpoint). Partial consolidation possible but not a true dedup. Note: agro-viewer already loads MCA's wms-layer.js directly.
+**✅ WMS layer creation consolidated** — `shared/wms-layer.js` *(done 2026-05-10)*
+- Standard WMS implementation moved to `/shared/wms-layer.js`; multi-criteria-analysis and agro-viewer both load from there.
+- `gebiedsviewer/js/wms-layer.js` kept separate (ArcGIS MapServer export endpoint, different protocol).
 
 **Large monolithic files** — `multi-criteria-analysis/js/app.js` (~600 lines), `gebiedsviewer/js/app.js` (~1900 lines)
 - Gebiedsviewer warrants a refactor plan before touching. Multi-criteria-analysis could split into wms.js, search.js, mca.js.
@@ -233,8 +235,12 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 
 ### P3 — Low (nice-to-have)
 
-**URL state not persisted** — `gebiedsviewer`, `multi-criteria-analysis`
-- Tab switches, weights, active WMS layers lost on page refresh. Store in URL hash. (gebiedsviewer already stores map position + layer list; missing: active tab, MCA weights.)
+**✅ URL state** — `multi-criteria-analysis` *(done 2026-05-10)*
+- Tab, viewport, MCA weights, active WMS layers, satellite mode all persisted to URL hash.
+- Restored on load without re-fetching GetCapabilities (saved layer data includes url/layer/title/publisher/bbox).
+
+**✅ URL state** — `gebiedsviewer` *(done 2026-05-10 earlier)*
+- Active tab + MCA weights + layer list + map position persisted to URL hash.
 
 
 
