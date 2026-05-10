@@ -306,7 +306,7 @@ async function searchCatalog(query) {
 
   try {
     // GeoNetwork 3.x/4.x search API
-    const apiUrl = `https://opendata.Zuid-Holland.nl/geonetwork/srv/dut/q?q=${encodeURIComponent(query)}&_content_type=json&fast=index&from=1&to=20`;
+    const apiUrl = `https://opendata.Zuid-Holland.nl/geonetwork/srv/dut/q?any=${encodeURIComponent(query)}&_content_type=json&fast=index&from=1&to=20`;
     const data = await (await fetch(`/api/proxy?url=${encodeURIComponent(apiUrl)}`)).json();
 
     const rawRecords = data?.response?.metadata || data?.metadata || [];
