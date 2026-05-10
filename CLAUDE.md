@@ -93,7 +93,7 @@ Large CSV/Parquet files with Netherlands geospatial data (H3 hexagons, populatio
 ## Key Patterns
 
 - **Basemaps**: Light and voyager use Carto (no API key needed). Dark basemap uses ArcGIS World Dark Gray as a custom `TileLayer` (not Carto `dark-matter`). Satellite uses ESRI World Imagery.
-- **H3 hexagons**: Most aggregations use H3 resolution 7–8 via `h3.js` loaded from CDN. Exceptions: pdok-viewer and vraag-de-kaart use resolution 9 (~174m hexagons) for CBS 100m grid data.
+- **H3 hexagons**: Most aggregations use H3 resolution 7–8 via `h3.js` loaded from CDN. Exception: `pdok-viewer` uses resolution 9 (~174m) for live WFS aggregation. `vraag-de-kaart` uses resolution 8 (~460m) — the pre-built datacube Parquet is at res 8.
 - **Deck.gl layers**: Prefer `H3HexagonLayer`, `ScatterplotLayer`, `BitmapLayer` for raster imagery
 - **Two rendering approaches**: Kepler.gl examples embed a full React/Redux stack (loaded from CDN) inside a `<div id="app">` and drive it with a JSON config exported from the Kepler.gl UI. Deck.gl examples use bare canvas rendering with no React — they instantiate `new Deck({...})` directly. Don't mix the two in one file.
 - **WMS tile cache-busting**: When toggling sublayers, include the active sublayer IDs in the deck.gl layer `id` (e.g. `${key}::${layerIds}`) so deck.gl invalidates the tile cache on change.
@@ -157,9 +157,9 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 
 ### P1 — High value
 
-**Shareable URL + export** — `vraag-de-kaart`
-- URL should encode the current query so it can be shared/bookmarked
-- Add a download button: CSV and GeoJSON export of current result set
+**✅ Shareable URL + export** — `vraag-de-kaart` *(done 2026-05-10)*
+- URL encodes current query, SQL, metric, color scale, viewport — shareable/bookmarkable
+- Share button (clipboard), CSV download, GeoJSON download (via h3.cellToBoundary)
 
 **Timeseries chart** — `vraag-de-kaart`
 - Show selected metric over 2018–2023 as a line chart alongside the map
