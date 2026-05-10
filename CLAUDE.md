@@ -161,9 +161,9 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 - URL encodes current query, SQL, metric, color scale, viewport — shareable/bookmarkable
 - Share button (clipboard), CSV download, GeoJSON download (via h3.cellToBoundary)
 
-**Timeseries chart** — `vraag-de-kaart`
-- Show selected metric over 2018–2023 as a line chart alongside the map
-- Datacube already has the full timeseries — just needs a chart panel
+**✅ Timeseries chart** — `vraag-de-kaart` *(done 2026-05-10)*
+- Chart.js line chart appears after each result — nationwide average for the queried metric, 2018–2023
+- CBS-suppressed values filtered; tooltip uses formatValue; also restores on shared URL load
 
 **Biodiversiteit viewer** — new viewer
 - Visualize kruidendiversiteit data as H3 hexagons
