@@ -228,8 +228,11 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 - Standard WMS implementation moved to `/shared/wms-layer.js`; multi-criteria-analysis and agro-viewer both load from there.
 - `gebiedsviewer/js/wms-layer.js` kept separate (ArcGIS MapServer export endpoint, different protocol).
 
-**Large monolithic files** — `multi-criteria-analysis/js/app.js` (~600 lines), `gebiedsviewer/js/app.js` (~1900 lines)
-- Gebiedsviewer warrants a refactor plan before touching. Multi-criteria-analysis could split into wms.js, search.js, mca.js.
+**✅ Large monolithic files split** — `multi-criteria-analysis`, `gebiedsviewer`, `som-viewer`, `vraag-de-kaart` *(done 2026-05-11)*
+- multi-criteria-analysis: split into csw-search.js, wms.js, search.js, ui.js, app.js
+- gebiedsviewer: already split (state.js, layers.js, rendering.js, catalog.js, interactions.js, tables.js, app.js) — confirmed 2026-05-11
+- som-viewer: split into css/style.css + js/config.js, render.js, trajectory.js, legend.js, story.js, controls.js, app.js
+- vraag-de-kaart: split into css/style.css + js/config.js, render.js, wms.js, ui.js, autocomplete.js, permalink.js, app.js
 
 ---
 
