@@ -267,3 +267,7 @@ When adding meta/OG tags to any app, use this pattern (swap in the app-specific 
 <meta name="twitter:description" content="…one sentence description…" />
 <meta name="twitter:image" content="https://www.mapsthatmatter.io/assets/thijs.jpg" />
 ```
+
+---
+
+@CLAUDE.local.md

@@ -22,3 +22,6 @@ npm-debug.log*
 # Temporary files
 *.tmp
 .cache/
+
+# Local Claude context (private — never push)
+CLAUDE.local.md
