@@ -471,10 +471,7 @@ function toggleMainLayer(e) {
     renderLayers();
 }
 
-function activateSearch() { switchTab('layers'); setTimeout(() => { document.getElementById('layer-search').focus(); }, 100); }
 // --- ADDRESS SEARCH LOGIC ---
-
-// Update the existing activateSearch function
 function activateSearch() {
     // Hide the sidebar layer search behavior if you want to focus on map search
     const container = document.getElementById('address-search-container');
@@ -584,10 +581,33 @@ async function selectAddress(id) {
         closeAddressSearch();
     } catch (err) {
         console.error("PDOK Lookup error:", err);
-        alert("Kon locatie niet ophalen.");
+        const res = document.getElementById('address-results');
+        res.innerHTML = '<div style="padding:8px 12px;color:#c0392b;font-size:12px;">Kon locatie niet ophalen. Probeer opnieuw.</div>';
+        res.style.display = 'block';
     }
 }
-function showDataInfo() { alert("GEGEVENS & BRONNEN\n------------------\nDataset: Groene Hart Noord (MCA)\nRecords: " + allData.length + " hexagonen\n\nBRONNEN:\n- Provincie Zuid-Holland (PPLG)\n- PDOK / Nationaal Geo Register\n- Basisregistratie Ondergrond (BRO)"); }
+
+function showInfoModal(title, html) {
+    document.getElementById('info-modal-title').textContent = title;
+    document.getElementById('info-modal-body').innerHTML = html;
+    document.getElementById('info-modal').style.display = 'flex';
+}
+function closeInfoModal() {
+    document.getElementById('info-modal').style.display = 'none';
+}
+
+function showDataInfo() {
+    showInfoModal('Gegevens & Bronnen', `
+        <p><strong>Dataset:</strong> Groene Hart Noord (MCA)<br>
+        <strong>Records:</strong> ${allData.length} hexagonen</p>
+        <p><strong>Bronnen:</strong></p>
+        <ul style="margin:0;padding-left:20px;">
+          <li>Provincie Zuid-Holland (PPLG)</li>
+          <li>PDOK / Nationaal Geo Register</li>
+          <li>Basisregistratie Ondergrond (BRO)</li>
+        </ul>
+    `);
+}
 function printMap() { window.print(); }
 
 function switchTab(t) {
@@ -600,7 +620,7 @@ function switchTab(t) {
     updatePermalink();
 }
 
-function showCredits() { alert("Gemaakt voor Provincie Zuid-Holland."); }
+function showCredits() { showInfoModal('Over deze tool', '<p>Gemaakt voor Provincie Zuid-Holland.</p>'); }
 function zoomIn() { if(deckInstance) deckInstance.setProps({ initialViewState: { ...currentViewState, zoom: currentViewState.zoom + 1, transitionDuration: 300, transitionInterpolator: new deck.FlyToInterpolator() } }); }
 function zoomOut() { if(deckInstance) deckInstance.setProps({ initialViewState: { ...currentViewState, zoom: currentViewState.zoom - 1, transitionDuration: 300, transitionInterpolator: new deck.FlyToInterpolator() } }); }
 function resetView() { deckInstance.setProps({ initialViewState: { ...VIZ_CONFIG.initialView, transitionDuration: 800, transitionInterpolator: new deck.FlyToInterpolator() } }); }
