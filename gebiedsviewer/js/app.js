@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initAddressSearch();
   initBasemapPanel();
   initCatalogSearch();
+  initKeaSection();
   initMcaTab();
   setupFileDrop();
   enablePermalinkLayers();

@@ -1267,6 +1267,50 @@ details[open] > summary .toggle-arrow { transform: rotate(90deg); }
 }
 .catalog-meta-link:hover { color: var(--esri-blue); }
 
+/* KEA section in catalog tab */
+#kea-catalog-section {
+  border-top: 2px solid #e65100;
+  margin-top: 8px;
+}
+.kea-cat-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #e65100;
+}
+.kea-cat-badge {
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 600;
+  background: #f0f0f0;
+  color: #888;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.kea-cat-intro {
+  margin: 0;
+  padding: 2px 12px 8px;
+  font-size: 11px;
+  color: #888;
+  line-height: 1.4;
+}
+.kea-cat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  font-size: 12px;
+  border-top: 1px solid #f0f0f0;
+  cursor: pointer;
+  color: #333;
+}
+.kea-cat-row:hover { background: #fff5f0; color: #bf360c; }
+.kea-cat-row .fa-plus-circle { color: #e0c8be; font-size: 14px; }
+.kea-cat-row:hover .fa-plus-circle { color: #e65100; }
+
 /* ── MOBILE ── */
 #sidebar-toggle {
   display: none;

@@ -178,6 +178,61 @@ function addGeoJsonLayer(name, geojson) {
 }
 
 // ═══════════════════════════════════════════════════════
+// KLIMAATEFFECTATLAS (KEA) — standard WMS layers
+// ═══════════════════════════════════════════════════════
+
+const _KEA_WMS = 'https://cas.cloud.sogelink.com/public/data/org/gws/YWFMLMWERURF/kea_public/wms';
+let _keaCount = 0;
+
+function addKeaLayer(layerName, label) {
+  if ([...activeLayers.values()].some(e => e.isStandardWms && e.layerId === layerName)) return;
+  const key = `kea::${++_keaCount}`;
+  activeLayers.set(key, {
+    wmsUrl: _KEA_WMS,
+    layerId: layerName,
+    label,
+    serviceId: '_kea',
+    isStandardWms: true,
+    color: '#e65100',
+    opacity: 0.85,
+    visible: true,
+    minScale: 0,
+    isCustom: true,
+  });
+  rebuildDeck();
+  renderLayerPanel();
+  updateLegend();
+  updateBadges();
+  updatePermalink();
+  switchTab('layers');
+}
+
+function initKeaSection() {
+  const section = document.getElementById('kea-catalog-section');
+  if (!section) return;
+  const layers = [
+    { layer: 'hitteeiland',                   label: 'Hitte-eiland effect' },
+    { layer: 'warme_nachten_huidig',           label: 'Warme nachten (huidig)' },
+    { layer: 'droogtestress_huidig',           label: 'Droogtestress (huidig)' },
+    { layer: 'waterdiepte_neerslag_70mm_2uur', label: 'Waterdiepte bij 70mm/2u' },
+    { layer: 'bodemdaling_2020_2050',          label: 'Bodemdaling 2020–2050' },
+    { layer: 'risicopaalrot_huidig',           label: 'Risico paalrot (huidig)' },
+  ];
+  section.innerHTML = `
+    <div class="kea-cat-header">
+      <i class="fa fa-cloud-sun-rain"></i> Klimaateffectatlas
+      <span class="kea-cat-badge">CC BY 4.0</span>
+    </div>
+    <p class="kea-cat-intro">~380 klimaatlagen over hitte, droogte, wateroverlast en bodemdaling. Klik om een laag toe te voegen.</p>
+    ${layers.map(l => `
+      <div class="kea-cat-row" onclick="addKeaLayer('${l.layer}', '${l.label.replace(/'/g, "\\'")}')">
+        <span>${l.label}</span>
+        <i class="fa fa-plus-circle"></i>
+      </div>`).join('')}
+  `;
+}
+
+// ═══════════════════════════════════════════════════════
 // MULTI-CRITERIA ANALYSIS
 // ═══════════════════════════════════════════════════════
 

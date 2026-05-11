@@ -18,6 +18,13 @@ function updateLegend() {
     const div = document.createElement('div');
     div.className = 'legend-item';
 
+    if (entry.isStandardWms) {
+      div.innerHTML = `<div class="legend-layer-name">${label}</div>
+        <div class="legend-body" style="color:#888;font-size:11px;">Klimaateffectatlas — legenda in kaartviewer</div>`;
+      container.appendChild(div);
+      return;
+    }
+
     if (isGeoJson) {
       div.innerHTML = `
         <div class="legend-layer-name">${label}</div>
@@ -110,6 +117,47 @@ function rebuildDeck() {
 
   const layers = [...activeLayers.entries()].map(([key, entry]) => {
     entry.hasError = false; // reset error state on each rebuild
+    if (entry.isStandardWms) {
+      const wmsEntry = entry;
+      const wmsKey = key;
+      return new deck.TileLayer({
+        id: `${wmsKey}::${wmsEntry.layerId}`,
+        tileSize: 256,
+        minZoom: 0,
+        maxZoom: 19,
+        opacity: wmsEntry.visible ? wmsEntry.opacity : 0,
+        getTileData: async ({index: {x, y, z}}) => {
+          const e = 20037508.34;
+          const res = e * 2 / Math.pow(2, z);
+          const west = x * res - e;
+          const north = e - y * res;
+          const bbox = `${west},${north - res},${west + res},${north}`;
+          const url = new URL(wmsEntry.wmsUrl);
+          url.searchParams.set('SERVICE', 'WMS');
+          url.searchParams.set('VERSION', '1.1.1');
+          url.searchParams.set('REQUEST', 'GetMap');
+          url.searchParams.set('LAYERS', wmsEntry.layerId);
+          url.searchParams.set('STYLES', '');
+          url.searchParams.set('SRS', 'EPSG:3857');
+          url.searchParams.set('WIDTH', '256');
+          url.searchParams.set('HEIGHT', '256');
+          url.searchParams.set('FORMAT', 'image/png');
+          url.searchParams.set('TRANSPARENT', 'true');
+          url.searchParams.set('BBOX', bbox);
+          try {
+            const r = await fetch(`/api/proxy?url=${encodeURIComponent(url.toString())}`);
+            if (!r.ok) return null;
+            return await createImageBitmap(await r.blob());
+          } catch { return null; }
+        },
+        renderSubLayers: props => {
+          if (!props.data) return null;
+          const {bbox: {west, south, east, north}} = props.tile;
+          return new deck.BitmapLayer(props, {data: null, image: props.data, bounds: [west, south, east, north]});
+        },
+      });
+    }
+
     if (entry.isGeoJson && entry.geojsonData) {
       return new deck.GeoJsonLayer({
         id: key,
