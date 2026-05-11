@@ -94,10 +94,33 @@ function makeResultItem(item) {
     return div;
 }
 
-function renderKeaResults(layers, term) {
-    const resultsContainer = document.getElementById('search-results');
-    resultsContainer.innerHTML = '';
-    resultsContainer.style.display = 'block';
+function ensureKeaStickyBar(resultsContainer) {
+    let bar = resultsContainer.querySelector('.kea-sticky-search');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.className = 'kea-sticky-search';
+        bar.innerHTML = `
+            <div class="kea-search-label"><i class="fa fa-cloud-sun-rain"></i> Zoek in alle ~380 klimaatlagen</div>
+            <div class="kea-search-wrap">
+                <i class="fa fa-search kea-search-icon"></i>
+                <input type="text" id="kea-search" class="kea-search-input" placeholder="bijv. hitte, droogte, wateroverlast..." aria-label="Zoek Klimaateffectatlas lagen">
+            </div>`;
+        resultsContainer.insertBefore(bar, resultsContainer.firstChild);
+        const input = bar.querySelector('#kea-search');
+        input.addEventListener('input', debounce(async (e) => {
+            const layers = keaLayerCache || await fetchKeaLayers();
+            renderKeaContent(resultsContainer, layers, e.target.value);
+        }, 300));
+    }
+    return bar;
+}
+
+function renderKeaContent(resultsContainer, layers, term) {
+    // Remove all nodes after the sticky bar
+    const bar = resultsContainer.querySelector('.kea-sticky-search');
+    while (resultsContainer.lastChild && resultsContainer.lastChild !== bar) {
+        resultsContainer.removeChild(resultsContainer.lastChild);
+    }
 
     if (term) {
         const q = term.toLowerCase();
@@ -105,12 +128,15 @@ function renderKeaResults(layers, term) {
             l.name.toLowerCase().includes(q) || l.layer.toLowerCase().includes(q)
         );
         if (matches.length === 0) {
-            resultsContainer.innerHTML = '<div style="padding:10px 15px;color:#888;font-size:12px;">Geen lagen gevonden</div>';
+            const msg = document.createElement('div');
+            msg.style.cssText = 'padding:10px 15px;color:#888;font-size:12px;';
+            msg.textContent = 'Geen lagen gevonden';
+            resultsContainer.appendChild(msg);
             return;
         }
         const header = document.createElement('div');
         header.className = 'kea-section-label';
-        header.textContent = `Klimaateffectatlas (${matches.length} resultaten)`;
+        header.textContent = `${matches.length} resultaten`;
         resultsContainer.appendChild(header);
         matches.slice(0, 50).forEach(l => resultsContainer.appendChild(makeResultItem({
             name: l.name, description: l.description,
@@ -120,7 +146,7 @@ function renderKeaResults(layers, term) {
         return;
     }
 
-    // No search term — show featured layers grouped by theme
+    // No search term — show featured layers
     const featuredHeader = document.createElement('div');
     featuredHeader.className = 'kea-section-label';
     featuredHeader.textContent = 'Aanbevolen lagen';
@@ -139,22 +165,27 @@ function renderKeaResults(layers, term) {
             }));
         }
     }
+}
 
-    if (layers.length > 0) {
-        const allHeader = document.createElement('div');
-        allHeader.className = 'kea-section-label';
-        allHeader.style.borderTop = '2px solid #e0e0e0';
-        allHeader.textContent = `Alle ${layers.length} lagen — gebruik zoekveld om te filteren`;
-        resultsContainer.appendChild(allHeader);
-    }
+function renderKeaResults(layers, term) {
+    const resultsContainer = document.getElementById('search-results');
+    resultsContainer.style.display = 'block';
+    ensureKeaStickyBar(resultsContainer);
+    renderKeaContent(resultsContainer, layers, term);
 }
 
 async function showKeaCatalog(term) {
     const resultsContainer = document.getElementById('search-results');
+    resultsContainer.style.display = 'block';
+    ensureKeaStickyBar(resultsContainer);
 
     if (!keaLayerCache) {
-        resultsContainer.innerHTML = '<div style="padding:10px 15px;color:#888;font-size:12px;"><i class="fa fa-spinner fa-spin"></i> Laden...</div>';
-        resultsContainer.style.display = 'block';
+        // Show spinner below sticky bar while loading
+        renderKeaContent(resultsContainer, [], '');
+        const spinner = document.createElement('div');
+        spinner.style.cssText = 'padding:10px 15px;color:#888;font-size:12px;';
+        spinner.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Lagen laden...';
+        resultsContainer.appendChild(spinner);
     }
 
     const layers = await fetchKeaLayers();
@@ -163,7 +194,6 @@ async function showKeaCatalog(term) {
 
 function initSearch() {
     const input = document.getElementById('layer-search');
-    const keaInput = document.getElementById('kea-search');
     const resultsContainer = document.getElementById('search-results');
 
     const performSearch = debounce(async (term) => {
@@ -206,14 +236,10 @@ function initSearch() {
 
     input.addEventListener('input', (e) => performSearch(e.target.value));
 
-    const performKeaSearch = debounce((term) => showKeaCatalog(term), 300);
-    keaInput.addEventListener('input', (e) => performKeaSearch(e.target.value));
-
     document.addEventListener('click', (e) => {
         const tabs = document.getElementById('search-source-tabs');
-        const keaBar = document.getElementById('kea-filter-bar');
         if (!input.contains(e.target) && !resultsContainer.contains(e.target) &&
-            !tabs.contains(e.target) && !keaBar.contains(e.target)) {
+            !tabs.contains(e.target)) {
             resultsContainer.style.display = 'none';
         }
     });
@@ -223,11 +249,9 @@ function initSearch() {
         document.getElementById('tab-ngr').classList.add('active');
         document.getElementById('tab-kea').classList.remove('active');
         document.getElementById('ngr-filter-bar').style.display = '';
-        document.getElementById('kea-filter-bar').style.display = 'none';
         resultsContainer.style.display = 'none';
         resultsContainer.innerHTML = '';
         input.value = '';
-        keaInput.value = '';
         input.focus();
     });
 
@@ -235,12 +259,11 @@ function initSearch() {
         document.getElementById('tab-kea').classList.add('active');
         document.getElementById('tab-ngr').classList.remove('active');
         document.getElementById('ngr-filter-bar').style.display = 'none';
-        document.getElementById('kea-filter-bar').style.display = '';
         input.value = '';
-        keaInput.focus();
         showKeaCatalog('');
-        // Prefetch in background so search is instant
         fetchKeaLayers();
+        const keaInput = document.getElementById('kea-search');
+        if (keaInput) keaInput.focus();
     });
 }
 

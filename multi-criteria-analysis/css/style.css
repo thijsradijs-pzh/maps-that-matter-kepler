@@ -153,11 +153,13 @@ body {
     display: none;
 }
 
-#kea-filter-bar {
+.kea-sticky-search {
+    position: sticky;
+    top: 0;
+    z-index: 10;
     padding: 10px 12px;
-    border-bottom: 2px solid #e65100;
     background: #fff8f5;
-    display: none;
+    border-bottom: 2px solid #e65100;
 }
 
 .kea-search-label {
