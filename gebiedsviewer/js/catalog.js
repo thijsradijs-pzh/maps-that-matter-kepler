@@ -207,29 +207,41 @@ function addKeaLayer(layerName, label) {
   switchTab('layers');
 }
 
-function initKeaSection() {
-  const section = document.getElementById('kea-catalog-section');
-  if (!section) return;
-  const layers = [
-    { layer: 'hitteeiland',                   label: 'Hitte-eiland effect' },
-    { layer: 'warme_nachten_huidig',           label: 'Warme nachten (huidig)' },
-    { layer: 'droogtestress_huidig',           label: 'Droogtestress (huidig)' },
-    { layer: 'waterdiepte_neerslag_70mm_2uur', label: 'Waterdiepte bij 70mm/2u' },
-    { layer: 'bodemdaling_2020_2050',          label: 'Bodemdaling 2020–2050' },
-    { layer: 'risicopaalrot_huidig',           label: 'Risico paalrot (huidig)' },
-  ];
-  section.innerHTML = `
-    <div class="kea-cat-header">
-      <i class="fa fa-cloud-sun-rain"></i> Klimaateffectatlas
-      <span class="kea-cat-badge">CC BY 4.0</span>
+const _KEA_FEATURED_LAYERS = [
+  { layer: 'hitteeiland',                   label: 'Hitte-eiland effect' },
+  { layer: 'warme_nachten_huidig',           label: 'Warme nachten (huidig)' },
+  { layer: 'droogtestress_huidig',           label: 'Droogtestress (huidig)' },
+  { layer: 'waterdiepte_neerslag_70mm_2uur', label: 'Waterdiepte bij 70mm/2u' },
+  { layer: 'bodemdaling_2020_2050',          label: 'Bodemdaling 2020–2050' },
+  { layer: 'risicopaalrot_huidig',           label: 'Risico paalrot (huidig)' },
+];
+
+function _renderCatalogEmpty() {
+  return `
+    <div class="cat-source-block">
+      <div class="cat-source-header">
+        <i class="fa fa-database" style="color:#007ac2"></i>
+        <strong>GeoNetwork — Provincie Zuid-Holland</strong>
+      </div>
+      <p class="cat-source-desc">Doorzoek de open data catalogus van Zuid-Holland: bodem, water, natuur, omgeving en meer. Gebruik de zoekbalk hierboven.</p>
     </div>
-    <p class="kea-cat-intro">~380 klimaatlagen over hitte, droogte, wateroverlast en bodemdaling. Klik om een laag toe te voegen.</p>
-    ${layers.map(l => `
-      <div class="kea-cat-row" onclick="addKeaLayer('${l.layer}', '${l.label.replace(/'/g, "\\'")}')">
-        <span>${l.label}</span>
-        <i class="fa fa-plus-circle"></i>
-      </div>`).join('')}
-  `;
+    <div class="cat-source-block cat-source-kea">
+      <div class="cat-source-header">
+        <i class="fa fa-cloud-sun-rain" style="color:#e65100"></i>
+        <strong>Klimaateffectatlas</strong>
+        <span class="kea-cat-badge">CC BY 4.0</span>
+      </div>
+      <p class="cat-source-desc">~380 klimaatlagen direct beschikbaar — hitte, droogte, wateroverlast en bodemdaling. Klik om een laag toe te voegen:</p>
+      ${_KEA_FEATURED_LAYERS.map(l => `
+        <div class="kea-cat-row" onclick="addKeaLayer('${l.layer}', '${l.label.replace(/'/g, "\\'")}')">
+          <span>${l.label}</span>
+          <i class="fa fa-plus-circle"></i>
+        </div>`).join('')}
+    </div>`;
+}
+
+function initKeaSection() {
+  document.getElementById('catalog-results').innerHTML = _renderCatalogEmpty();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -343,16 +355,14 @@ function initCatalogSearch() {
     if (q.length >= 2) {
       _catalogTimer = setTimeout(() => searchCatalog(q), 500);
     } else {
-      document.getElementById('catalog-results').innerHTML =
-        '<p class="legend-empty">Zoek naar kaartlagen in de provinciale catalogus van Zuid-Holland.</p>';
+      document.getElementById('catalog-results').innerHTML = _renderCatalogEmpty();
     }
   });
 
   clear.addEventListener('click', () => {
     input.value = '';
     clear.style.display = 'none';
-    document.getElementById('catalog-results').innerHTML =
-      '<p class="legend-empty">Zoek naar kaartlagen in de provinciale catalogus van Zuid-Holland.</p>';
+    document.getElementById('catalog-results').innerHTML = _renderCatalogEmpty();
   });
 }
 
