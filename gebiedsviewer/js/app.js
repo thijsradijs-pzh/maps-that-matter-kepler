@@ -102,7 +102,8 @@ function printMap() {
   try {
     imgData = canvas.toDataURL('image/png');
   } catch (e) {
-    alert('Canvas kon niet worden geëxporteerd. Zorg dat de kaart volledig geladen is.');
+    const errEl = document.getElementById('print-error');
+    if (errEl) { errEl.textContent = 'Canvas kon niet worden geëxporteerd. Zorg dat de kaart volledig geladen is.'; errEl.style.display = 'block'; }
     return;
   }
 

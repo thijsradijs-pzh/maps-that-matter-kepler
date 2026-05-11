@@ -979,7 +979,12 @@
           setTimeout(() => { btn.textContent = original; btn.classList.remove('copied'); }, 2000);
         }
       } catch {
-        alert(lang === 'nl' ? 'Kopieer de URL uit de adresbalk.' : 'Copy the URL from the address bar.');
+        const btn = document.querySelector('.share-btn');
+        if (btn) {
+          const original = btn.textContent;
+          btn.textContent = lang === 'nl' ? '📋 Kopieer URL uit adresbalk' : '📋 Copy URL from address bar';
+          setTimeout(() => { btn.textContent = original; }, 3000);
+        }
       }
     }
 
