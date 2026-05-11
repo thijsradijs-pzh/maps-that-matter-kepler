@@ -636,6 +636,15 @@ function renderLayers() {
   updateLegendUI();
 }
 
+function fmtLegend(v) {
+  const a = Math.abs(v);
+  if (a >= 100) return v.toFixed(0);
+  if (a >= 10)  return v.toFixed(1);
+  if (a >= 1)   return v.toFixed(2);
+  if (a >= 0.01) return v.toFixed(3);
+  return v.toExponential(1);
+}
+
 function updateLegendUI() {
   const legendEl      = document.getElementById('legend');
   const deltaLegendEl = document.getElementById('delta-legend');
@@ -660,8 +669,8 @@ function updateLegendUI() {
     deltaLegendEl.classList.remove('visible');
     barEl.style.background   = LEGEND_GRADIENTS[currentColorScale] || LEGEND_GRADIENTS.sequential;
     titleEl.textContent      = currentTitle;
-    minEl.textContent        = colorDomain[0].toFixed(1);
-    maxEl.textContent        = colorDomain[1].toFixed(1);
+    minEl.textContent        = fmtLegend(colorDomain[0]);
+    maxEl.textContent        = fmtLegend(colorDomain[1]);
   }
 
   viewLabelEl.classList.add('visible');

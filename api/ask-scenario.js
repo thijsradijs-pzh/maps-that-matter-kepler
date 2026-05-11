@@ -86,16 +86,32 @@ DuckDB SQL REGELS (strikt volgen):
 7. NULL-veilig: COALESCE(kolom, 0.0)
 8. Geen subqueries buiten CTE. Geen window functions.
 
+KRITISCHE WAARSCHUWING OVER DREMPELWAARDEN:
+groenklasse, hitte en soortenrijkdomsklasse zijn 0-255 geïndexeerde waarden maar de werkelijke
+verdeling varieert sterk per gemeente. In stedelijke gemeenten (Rotterdam, Delft, Den Haag)
+liggen typische waarden voor groenklasse tussen 0-30. In landelijke gemeenten (Goeree-Overflakkee,
+Hoeksche Waard) kan groenklasse oplopen tot 80-200. Gebruik NOOIT vaste absolute drempels zoals
+groenklasse > 150 — die treffen in een stad nul hexagonen en leveren een zinloze scenario-SQL op.
+
+Gebruik altijd RELATIEVE drempels via CTE met AVG of PERCENTILE:
+  WITH gemeente_stats AS (
+    SELECT AVG(groenklasse) as avg_groen,
+           PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY groenklasse) as p75_groen
+    FROM datacube WHERE gemeentenaam = 'Delft' AND year_int = 2023
+  )
+  SELECT d.h3_id,
+    CAST(CASE
+      WHEN d.groenklasse > (SELECT p75_groen FROM gemeente_stats)
+           AND d.bebouwing_in_primair_bebouwd_gebied_fraction < 0.3
+        THEN GREATEST(0.0, d.groenklasse * 0.25)
+      ELSE d.groenklasse
+    END AS DOUBLE) AS waarde
+  FROM datacube d WHERE d.gemeentenaam = 'Delft' AND d.year_int = 2023
+
 WAT-ALS SCENARIO AANPAK:
 base_sql = huidige situatie, scenario_sql = gesimuleerd resultaat via CASE WHEN transformatie.
-Voorbeeld (impact woningbouw op groenklasse):
-  SELECT h3_id,
-    CAST(CASE
-      WHEN bebouwing_in_primair_bebouwd_gebied_fraction < 0.25 AND agrarisch_gras_fraction > 0.15
-        THEN GREATEST(0.0, groenklasse - ROUND(agrarisch_gras_fraction * 90.0, 0))
-      ELSE groenklasse
-    END AS DOUBLE) AS waarde
-  FROM datacube WHERE gemeentenaam = 'Rotterdam' AND year_int = 2023
+Gebruik bovenstaand CTE-patroon met relatieve drempels (AVG / PERCENTILE_CONT).
+Zorg altijd dat scenario_sql andere waarden geeft dan base_sql voor minstens een deel van de hexagonen.
 
 CONFLICT SCORE AANPAK (hoog = sterke spanning):
 Voorbeeld (natuur vs. woningbouwpotentie):
