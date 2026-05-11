@@ -22,6 +22,8 @@
     { "source": "/api/proxy", "destination": "/api/proxy.js" },
     { "source": "/api/search-ngr", "destination": "/api/search-ngr.js" },
     { "source": "/api/ask-map", "destination": "/api/ask-map.js" },
+    { "source": "/api/ask-scenario", "destination": "/api/ask-scenario.js" },
+    { "source": "/scenario-viewer", "destination": "/scenario-viewer/index.html" },
     { "source": "/api/search-wms", "destination": "/api/search-wms.js" },
     { "source": "/api/ask-wfs", "destination": "/api/ask-wfs.js" },
     { "source": "/api/wfs-proxy", "destination": "/api/wfs-proxy.js" },

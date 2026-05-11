@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <title>Ruimtelijke Verkenner — Maps That Matter</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta name="description" content="Van beschrijven naar verkennen: wat-als vragen, conflictzones en gebiedsvergelijkingen op H3-hexagonkaarten voor Provincie Zuid-Holland." />
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://www.mapsthatmatter.io/scenario-viewer" />
+  <meta property="og:title" content="Ruimtelijke Verkenner — Maps That Matter" />
+  <meta property="og:description" content="Ruimtelijke scenario-analyse: wat-als vragen, conflictzones en gebiedsvergelijkingen op H3-hexagonkaarten." />
+  <meta property="og:image" content="https://www.mapsthatmatter.io/assets/thijs.jpg" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Ruimtelijke Verkenner" />
+  <meta name="twitter:description" content="Van beschrijven naar verkennen: ruimtelijke scenario-analyse op H3-hexagonkaarten." />
+  <meta name="twitter:image" content="https://www.mapsthatmatter.io/assets/thijs.jpg" />
+
+  <!-- DuckDB WASM via esm.sh -->
+  <script type="module">
+    import * as duckdb from 'https://esm.sh/@duckdb/duckdb-wasm@1.28.0';
+    window.duckdb = duckdb;
+  </script>
+  <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
+  <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
+  <script src="/shared/duckdb-loader.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    /* Loading overlay */
+    #loading {
+      position: fixed; inset: 0; z-index: 9999;
+      background: #0d1117;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px;
+      transition: opacity 0.4s ease;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+    #loading-title { font-size: 16px; font-weight: 600; color: #e6edf3; }
+    #loading-sub { font-size: 12px; color: #8b949e; }
+    #loading-bar-wrap {
+      width: 260px; height: 4px; background: #21262d; border-radius: 2px; overflow: hidden;
+    }
+    #loading-bar {
+      height: 100%; width: 0%; background: #4e9af1; border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+
+    /* Header */
+    #app-header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      height: 48px;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      display: flex; align-items: center; gap: 12px; padding: 0 16px;
+    }
+    #home-link {
+      color: #58a6ff; font-size: 11px; font-weight: 600;
+      text-decoration: none; white-space: nowrap;
+      padding: 4px 8px; border-radius: 4px;
+      border: 1px solid #30363d;
+      background: rgba(13,17,23,0.6);
+      transition: background 0.15s;
+    }
+    #home-link:hover { background: #21262d; }
+    #header-title {
+      display: flex; align-items: center; gap: 8px; flex: 1;
+    }
+    #title-text { font-weight: 700; font-size: 14px; color: #e6edf3; }
+    .badge {
+      font-size: 10px; font-weight: 600; padding: 2px 7px;
+      border-radius: 10px; letter-spacing: 0.3px; white-space: nowrap;
+    }
+    .badge-geo  { background: rgba(88,166,255,0.15); color: #58a6ff; border: 1px solid rgba(88,166,255,0.3); }
+    .badge-dggs { background: rgba(63,185,80,0.15);  color: #3fb950; border: 1px solid rgba(63,185,80,0.3); }
+    #header-meta { font-size: 11px; color: #8b949e; white-space: nowrap; }
+
+    /* Main layout */
+    #main {
+      position: fixed; top: 48px; bottom: 0; left: 0; right: 0;
+      display: flex;
+    }
+
+    /* Map area */
+    #map-area {
+      flex: 1; position: relative; overflow: hidden;
+    }
+    #deck-canvas {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+    }
+
+    /* Map empty state */
+    #map-empty {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center; color: #8b949e; pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    #map-empty.hidden { opacity: 0; }
+    #map-empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
+    #map-empty-text { font-size: 13px; }
+
+    /* Mode controls (top-left overlay on map) */
+    #mode-controls {
+      position: absolute; top: 12px; left: 12px; z-index: 10;
+      display: none; /* shown when scenario loaded */
+      background: rgba(22,27,34,0.92);
+      border: 1px solid #30363d;
+      border-radius: 8px; overflow: hidden;
+      backdrop-filter: blur(8px);
+      flex-direction: row;
+    }
+    #mode-controls.visible { display: flex; }
+    .mode-btn {
+      padding: 7px 14px; font-size: 12px; font-weight: 600;
+      background: transparent; border: none; color: #8b949e;
+      cursor: pointer; transition: all 0.15s;
+      border-right: 1px solid #30363d;
+    }
+    .mode-btn:last-child { border-right: none; }
+    .mode-btn:hover { color: #e6edf3; background: rgba(255,255,255,0.05); }
+    .mode-btn.active { color: #e6edf3; background: rgba(88,166,255,0.15); }
+
+    /* View label (top-center) */
+    #view-label {
+      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+      z-index: 10; pointer-events: none;
+      background: rgba(22,27,34,0.85);
+      border: 1px solid #30363d;
+      border-radius: 6px; padding: 4px 12px;
+      font-size: 11px; font-weight: 600; color: #8b949e;
+      white-space: nowrap;
+      display: none; backdrop-filter: blur(6px);
+    }
+    #view-label.visible { display: block; }
+
+    /* Legend (bottom-left) */
+    #legend {
+      position: absolute; bottom: 24px; left: 12px; z-index: 10;
+      background: rgba(22,27,34,0.92); border: 1px solid #30363d;
+      border-radius: 8px; padding: 10px 14px;
+      min-width: 180px; backdrop-filter: blur(8px);
+      display: none;
+    }
+    #legend.visible { display: block; }
+    #legend-title { font-size: 10px; color: #8b949e; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    #legend-bar {
+      height: 8px; border-radius: 4px; margin-bottom: 4px;
+      background: linear-gradient(to right, #1a6bbd, #4da6ff, #ffe066, #ff8c42, #d93048);
+    }
+    #legend-range { display: flex; justify-content: space-between; font-size: 10px; color: #8b949e; }
+
+    /* Right panel */
+    #panel {
+      width: 360px; min-width: 300px;
+      background: #161b22;
+      border-left: 1px solid #30363d;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Chat messages */
+    #chat-messages {
+      flex: 1; overflow-y: auto; padding: 16px;
+      display: flex; flex-direction: column; gap: 12px;
+      scroll-behavior: smooth;
+    }
+    #chat-messages::-webkit-scrollbar { width: 4px; }
+    #chat-messages::-webkit-scrollbar-track { background: transparent; }
+    #chat-messages::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+
+    /* Message bubbles */
+    .msg-user {
+      align-self: flex-end;
+      background: #1f6feb;
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 12px 12px 2px 12px;
+      font-size: 13px; line-height: 1.4;
+      max-width: 90%;
+    }
+
+    .msg-thinking {
+      align-self: flex-start;
+      color: #8b949e; font-size: 12px; font-style: italic;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .thinking-dots { display: flex; gap: 3px; }
+    .thinking-dots span {
+      width: 5px; height: 5px; background: #4e9af1; border-radius: 50%;
+      animation: bounce 1.2s infinite;
+    }
+    .thinking-dots span:nth-child(2) { animation-delay: 0.15s; }
+    .thinking-dots span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-5px); }
+    }
+
+    /* Result card */
+    .result-card {
+      align-self: flex-start;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 10px; padding: 12px;
+      font-size: 12px; width: 100%;
+    }
+    .result-card-header {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+    }
+    .scenario-badge {
+      font-size: 9px; font-weight: 700; padding: 2px 7px;
+      border-radius: 10px; letter-spacing: 0.5px; white-space: nowrap;
+      text-transform: uppercase;
+    }
+    .badge-descriptief { background: rgba(88,166,255,0.2);  color: #58a6ff;  border: 1px solid rgba(88,166,255,0.4); }
+    .badge-wat-als     { background: rgba(240,173,78,0.2);  color: #f0ad4e;  border: 1px solid rgba(240,173,78,0.4); }
+    .badge-conflict    { background: rgba(229,83,75,0.2);   color: #e5534b;  border: 1px solid rgba(229,83,75,0.4); }
+    .badge-vergelijking{ background: rgba(188,140,255,0.2); color: #bc8cff;  border: 1px solid rgba(188,140,255,0.4); }
+
+    .result-title { font-weight: 700; font-size: 13px; color: #e6edf3; line-height: 1.3; }
+
+    .result-meta { color: #8b949e; font-size: 11px; margin-bottom: 10px; }
+
+    /* Assumptions */
+    .assumptions-block {
+      background: #0d1117; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px;
+    }
+    .assumptions-label {
+      font-size: 10px; font-weight: 700; color: #8b949e;
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .assumption-item {
+      font-size: 11px; color: #c9d1d9; line-height: 1.5;
+      padding: 3px 0; border-bottom: 1px solid #21262d;
+    }
+    .assumption-item:last-child { border-bottom: none; }
+
+    /* Redeneerlog */
+    .log-toggle {
+      background: none; border: none; cursor: pointer;
+      font-size: 11px; color: #58a6ff; padding: 4px 0;
+      display: flex; align-items: center; gap: 4px;
+      width: 100%; text-align: left;
+    }
+    .log-toggle:hover { color: #79c0ff; }
+    .log-content { display: none; margin-top: 8px; }
+    .log-content.open { display: block; }
+    .log-step {
+      padding: 6px 0; border-bottom: 1px solid #30363d;
+      font-size: 11px; line-height: 1.5;
+    }
+    .log-step:last-child { border-bottom: none; }
+    .log-step-name { font-weight: 700; color: #8b949e; margin-bottom: 2px; font-size: 10px; text-transform: uppercase; }
+    .log-step-content { color: #c9d1d9; }
+
+    /* Error message */
+    .msg-error {
+      align-self: flex-start; width: 100%;
+      background: rgba(229,83,75,0.1); border: 1px solid rgba(229,83,75,0.3);
+      border-radius: 8px; padding: 10px 12px;
+      font-size: 12px; color: #e5534b;
+    }
+
+    /* Examples */
+    #examples {
+      padding: 12px 16px;
+      border-bottom: 1px solid #30363d;
+    }
+    #examples.hidden { display: none; }
+    #examples-label { font-size: 11px; color: #8b949e; margin-bottom: 8px; }
+    #example-chips { display: flex; flex-direction: column; gap: 5px; }
+    .example-chip {
+      background: #21262d; border: 1px solid #30363d;
+      border-radius: 6px; padding: 7px 10px;
+      font-size: 11px; color: #c9d1d9; cursor: pointer;
+      transition: all 0.15s; text-align: left;
+      display: flex; align-items: flex-start; gap: 6px;
+    }
+    .example-chip:hover { background: #2d333b; border-color: #4e9af1; color: #e6edf3; }
+    .chip-type {
+      font-size: 9px; font-weight: 700; padding: 1px 5px;
+      border-radius: 4px; white-space: nowrap; margin-top: 1px; flex-shrink: 0;
+    }
+
+    /* Input area */
+    #input-area {
+      border-top: 1px solid #30363d;
+      padding: 12px 16px;
+      background: #161b22;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    #question-input {
+      background: #0d1117; border: 1px solid #30363d;
+      border-radius: 8px; padding: 10px 12px;
+      color: #e6edf3; font-size: 13px; font-family: inherit;
+      resize: none; width: 100%; line-height: 1.5;
+      transition: border-color 0.15s;
+    }
+    #question-input:focus { outline: none; border-color: #4e9af1; }
+    #question-input::placeholder { color: #484f58; }
+    #input-row { display: flex; gap: 8px; align-items: center; }
+    #submit-btn {
+      background: #238636; border: 1px solid #2ea043;
+      color: #fff; font-weight: 600; font-size: 12px;
+      padding: 8px 16px; border-radius: 6px; cursor: pointer;
+      white-space: nowrap; transition: background 0.15s; flex-shrink: 0;
+    }
+    #submit-btn:hover:not(:disabled) { background: #2ea043; }
+    #submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #input-hint { font-size: 10px; color: #484f58; }
+
+    /* Delta legend extra */
+    #delta-legend {
+      display: none;
+      position: absolute; bottom: 24px; left: 12px; z-index: 10;
+      background: rgba(22,27,34,0.92); border: 1px solid #30363d;
+      border-radius: 8px; padding: 10px 14px;
+      min-width: 180px; backdrop-filter: blur(8px);
+    }
+    #delta-legend.visible { display: block; }
+    .delta-bar {
+      height: 8px; border-radius: 4px; margin-bottom: 4px;
+      background: linear-gradient(to right, #d93048, #8b8b8b, #3fb950);
+    }
+    .delta-range { display: flex; justify-content: space-between; font-size: 10px; color: #8b949e; }
+  </style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading">
+  <div id="loading-title">Datakubus laden...</div>
+  <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+  <div id="loading-sub">225.684 H3-hexagonen · CBS + LGN · 2018–2023</div>
+</div>
+
+<!-- Header -->
+<header id="app-header">
+  <a href="/" id="home-link">← Maps That Matter</a>
+  <div id="header-title">
+    <span id="title-text">Ruimtelijke Verkenner</span>
+    <span class="badge badge-geo">Geo-GraphRAG</span>
+    <span class="badge badge-dggs">DGGS H3</span>
+  </div>
+  <div id="header-meta">225.684 hexagonen · ZH &amp; NL</div>
+</header>
+
+<!-- Main layout -->
+<div id="main">
+
+  <!-- Map area -->
+  <div id="map-area">
+    <canvas id="deck-canvas"></canvas>
+
+    <!-- Empty state -->
+    <div id="map-empty">
+      <div id="map-empty-icon">🗺️</div>
+      <div id="map-empty-text">Stel een vraag aan de rechterkant<br/>om een scenario te verkennen</div>
+    </div>
+
+    <!-- Mode controls -->
+    <div id="mode-controls">
+      <button class="mode-btn active" data-mode="base">Basis</button>
+      <button class="mode-btn" data-mode="scenario">Scenario</button>
+      <button class="mode-btn delta-only" data-mode="delta">Δ Delta</button>
+    </div>
+
+    <!-- View label -->
+    <div id="view-label"></div>
+
+    <!-- Standard legend -->
+    <div id="legend">
+      <div id="legend-title">Waarde</div>
+      <div id="legend-bar"></div>
+      <div id="legend-range">
+        <span id="legend-min">0</span>
+        <span id="legend-max">255</span>
+      </div>
+    </div>
+
+    <!-- Delta legend -->
+    <div id="delta-legend">
+      <div id="legend-title" style="font-size:10px;color:#8b949e;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Δ Verandering</div>
+      <div class="delta-bar"></div>
+      <div class="delta-range">
+        <span id="delta-min">Slechter</span>
+        <span id="delta-max">Beter</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right panel -->
+  <div id="panel">
+
+    <!-- Chat messages -->
+    <div id="chat-messages"></div>
+
+    <!-- Examples -->
+    <div id="examples">
+      <div id="examples-label">Probeer een verkennende vraag:</div>
+      <div id="example-chips"></div>
+    </div>
+
+    <!-- Input area -->
+    <div id="input-area">
+      <textarea id="question-input" rows="2" placeholder="Stel een ruimtelijke vraag... (bijv. 'Waar botst woningbouw met natuur in Delft?')"></textarea>
+      <div id="input-row">
+        <span id="input-hint">Enter = verstuur · Shift+Enter = nieuwe regel</span>
+        <button id="submit-btn">Verkennen →</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+
+const PARQUET_URL  = '/data/volledige_tijdreeks_met_namen.parquet';
+const API_ENDPOINT = '/api/ask-scenario';
+
+const INITIAL_VIEW = { longitude: 4.5, latitude: 51.85, zoom: 8.5, pitch: 0, bearing: 0 };
+
+// Color palettes [low → high]
+const PALETTES = {
+  conflict:    [[26,107,189],[77,166,255],[255,224,102],[255,140,66],[217,48,48]],
+  nature:      [[217,48,48],[255,140,66],[255,224,102],[77,166,255],[26,107,189]],
+  heat:        [[255,255,220],[255,200,80],[255,140,40],[200,60,20],[140,0,0]],
+  sequential:  [[220,235,255],[130,185,255],[26,107,189],[10,55,130],[3,15,50]],
+};
+
+const LEGEND_GRADIENTS = {
+  conflict:   'linear-gradient(to right,#1a6bbd,#4da6ff,#ffe066,#ff8c42,#d93048)',
+  nature:     'linear-gradient(to right,#d93048,#ff8c42,#ffe066,#4da6ff,#1a6bbd)',
+  heat:       'linear-gradient(to right,#ffffe0,#ffc850,#ff8c28,#c83c14,#8c0000)',
+  sequential: 'linear-gradient(to right,#dcebff,#82b9ff,#1a6bbd,#0a3782,#030f32)',
+};
+
+const EXAMPLES = [
+  { type: 'conflict',    label: 'Waar botst woningbouw met biodiversiteit in Rotterdam?'       },
+  { type: 'wat-als',     label: 'Wat als we groene zones in Delft bebouwen?'                   },
+  { type: 'vergelijking',label: 'Vergelijk het groenprofiel van Den Haag en Leiden'            },
+  { type: 'wat-als',     label: 'Wat is het effect van zonneparken op soortenrijkdom in Goeree-Overflakkee?' },
+  { type: 'conflict',    label: 'Welke gebieden in Hoeksche Waard zijn kwetsbaar voor hitte én wateroverlast?' },
+];
+
+const BADGE_CLASS = {
+  descriptief:  'badge-descriptief',
+  'wat-als':    'badge-wat-als',
+  conflict:     'badge-conflict',
+  vergelijking: 'badge-vergelijking',
+};
+
+// ============================================================
+// STATE
+// ============================================================
+
+let loader = new DuckDBLoader();
+let deckInstance = null;
+let busy = false;
+
+let baseRows     = null;
+let scenarioRows = null;
+let deltaRows    = null;
+
+let currentMode        = 'base';
+let currentScenarioType = null;
+let currentColorScale  = 'sequential';
+let colorDomain        = [0, 255];
+let currentTitle       = '';
+let currentUnit        = 'index';
+let currentBaseLabel   = 'Huidige situatie (2023)';
+let currentScenLabel   = 'Scenario';
+
+// ============================================================
+// COLOR ENCODING
+// ============================================================
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function getColor(value, domain, scale) {
+  const palette = PALETTES[scale] || PALETTES.sequential;
+  const [min, max] = domain;
+  const t = Math.max(0, Math.min(1, (value - min) / ((max - min) || 1)));
+  const i = t * (palette.length - 1);
+  const lo = Math.floor(i);
+  const hi = Math.min(lo + 1, palette.length - 1);
+  const f  = i - lo;
+  return palette[lo].map((c, j) => Math.round(lerp(c, palette[hi][j], f)));
+}
+
+function getDeltaColor(delta, maxAbs) {
+  const t = Math.max(-1, Math.min(1, delta / (maxAbs || 1)));
+  if (t < 0) {
+    const s = -t;
+    return [Math.round(lerp(160, 217, s)), Math.round(lerp(160, 48, s)), Math.round(lerp(160, 48, s))];
+  }
+  const s = t;
+  return [Math.round(lerp(160, 63, s)), Math.round(lerp(160, 185, s)), Math.round(lerp(160, 80, s))];
+}
+
+function computeColorDomain(rows) {
+  if (!rows?.length) return [0, 255];
+  const vals = rows.map(d => d.waarde).filter(v => v != null && isFinite(v));
+  if (!vals.length) return [0, 255];
+  const p5  = vals.slice().sort((a,b)=>a-b)[Math.floor(vals.length * 0.05)] ?? vals[0];
+  const p95 = vals.slice().sort((a,b)=>a-b)[Math.floor(vals.length * 0.95)] ?? vals[vals.length-1];
+  return [p5, p95];
+}
+
+function computeDelta(bRows, sRows) {
+  if (!bRows?.length || !sRows?.length) return null;
+  const baseMap = new Map(bRows.map(d => [d.h3_id, d.waarde]));
+  return sRows
+    .filter(d => baseMap.has(d.h3_id) && d.waarde != null && baseMap.get(d.h3_id) != null)
+    .map(d => ({ h3_id: d.h3_id, delta: d.waarde - baseMap.get(d.h3_id) }));
+}
+
+// ============================================================
+// DECK.GL
+// ============================================================
+
+function makeBasemap() {
+  const { TileLayer, BitmapLayer } = deck;
+  const urls = [
+    'https://a.basemaps.cartocdn.com/dark_matter_nolabels/{z}/{x}/{y}.png',
+    'https://b.basemaps.cartocdn.com/dark_matter_nolabels/{z}/{x}/{y}.png',
+    'https://c.basemaps.cartocdn.com/dark_matter_nolabels/{z}/{x}/{y}.png',
+  ];
+  return new TileLayer({
+    id: 'basemap', data: urls,
+    minZoom: 0, maxZoom: 19, tileSize: 256, pickable: false,
+    renderSubLayers: props => {
+      const { west, south, east, north } = props.tile.bbox;
+      return new BitmapLayer(props, { data: null, image: props.data, bounds: [west, south, east, north] });
+    }
+  });
+}
+
+function makeH3Layer(id, rows, domain, scale, alpha = 210) {
+  if (!rows?.length) return null;
+  return new deck.H3HexagonLayer({
+    id,
+    data: rows,
+    getHexagon: d => d.h3_id,
+    getFillColor: d => {
+      if (d.waarde == null || !isFinite(d.waarde)) return [0, 0, 0, 0];
+      return [...getColor(d.waarde, domain, scale), alpha];
+    },
+    getElevation: 0,
+    extruded: false,
+    pickable: true,
+    updateTriggers: { getFillColor: [...domain, scale] }
+  });
+}
+
+function makeDeltaLayer(rows) {
+  if (!rows?.length) return null;
+  const vals = rows.map(d => Math.abs(d.delta)).filter(isFinite);
+  const maxAbs = Math.max(...vals, 1);
+  return new deck.H3HexagonLayer({
+    id: 'delta-layer',
+    data: rows,
+    getHexagon: d => d.h3_id,
+    getFillColor: d => {
+      if (d.delta == null || !isFinite(d.delta)) return [100, 100, 100, 80];
+      return [...getDeltaColor(d.delta, maxAbs), 220];
+    },
+    getElevation: 0,
+    extruded: false,
+    pickable: true,
+    updateTriggers: { getFillColor: [maxAbs] }
+  });
+}
+
+function getTooltipFn({ object }) {
+  if (!object) return null;
+  const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  let html;
+  if (currentMode === 'delta' && object.delta != null) {
+    const sign  = object.delta > 0 ? '+' : '';
+    const label = object.delta > 0.5 ? 'Verbetering' : object.delta < -0.5 ? 'Verslechtering' : 'Vrijwel onveranderd';
+    html = `<div style="font-family:-apple-system,sans-serif;font-size:12px;padding:2px 0;">
+      <div style="font-weight:700;color:#e6edf3;margin-bottom:4px;">${esc(sign)}${(object.delta).toFixed(1)} ${esc(currentUnit)}</div>
+      <div style="color:#8b949e;">${esc(label)}</div>
+    </div>`;
+  } else {
+    html = `<div style="font-family:-apple-system,sans-serif;font-size:12px;padding:2px 0;">
+      <div style="font-weight:700;color:#e6edf3;margin-bottom:4px;">${object.waarde != null ? object.waarde.toFixed(1) : '—'} <span style="color:#8b949e;">${esc(currentUnit)}</span></div>
+      <div style="color:#8b949e;">${currentMode === 'base' ? esc(currentBaseLabel) : esc(currentScenLabel)}</div>
+    </div>`;
+  }
+  return { html, style: { background:'rgba(22,27,34,0.95)', border:'1px solid #30363d', borderRadius:'8px', padding:'8px 12px', color:'#c9d1d9', fontSize:'12px' } };
+}
+
+function initDeck() {
+  deckInstance = new deck.Deck({
+    canvas: 'deck-canvas',
+    width: '100%', height: '100%',
+    controller: true,
+    initialViewState: INITIAL_VIEW,
+    onViewStateChange: ({ viewState }) => { currentViewState = viewState; },
+    getTooltip: getTooltipFn,
+    layers: [makeBasemap()]
+  });
+}
+
+function renderLayers() {
+  if (!deckInstance) return;
+  const basemap = makeBasemap();
+
+  let dataLayer = null;
+  if (currentMode === 'delta' && deltaRows) {
+    dataLayer = makeDeltaLayer(deltaRows);
+  } else {
+    const rows   = currentMode === 'scenario' && scenarioRows ? scenarioRows : baseRows;
+    if (rows) {
+      dataLayer = makeH3Layer('data-layer', rows, colorDomain, currentColorScale);
+    }
+  }
+
+  deckInstance.setProps({ layers: dataLayer ? [basemap, dataLayer] : [basemap] });
+  updateLegendUI();
+}
+
+function updateLegendUI() {
+  const legendEl      = document.getElementById('legend');
+  const deltaLegendEl = document.getElementById('delta-legend');
+  const viewLabelEl   = document.getElementById('view-label');
+  const barEl         = document.getElementById('legend-bar');
+  const titleEl       = document.getElementById('legend-title');
+  const minEl         = document.getElementById('legend-min');
+  const maxEl         = document.getElementById('legend-max');
+
+  if (!baseRows) {
+    legendEl.classList.remove('visible');
+    deltaLegendEl.classList.remove('visible');
+    viewLabelEl.classList.remove('visible');
+    return;
+  }
+
+  if (currentMode === 'delta') {
+    legendEl.classList.remove('visible');
+    deltaLegendEl.classList.add('visible');
+  } else {
+    legendEl.classList.add('visible');
+    deltaLegendEl.classList.remove('visible');
+    barEl.style.background   = LEGEND_GRADIENTS[currentColorScale] || LEGEND_GRADIENTS.sequential;
+    titleEl.textContent      = currentTitle;
+    minEl.textContent        = colorDomain[0].toFixed(1);
+    maxEl.textContent        = colorDomain[1].toFixed(1);
+  }
+
+  viewLabelEl.classList.add('visible');
+  if (currentMode === 'base')     viewLabelEl.textContent = currentBaseLabel;
+  else if (currentMode === 'scenario') viewLabelEl.textContent = currentScenLabel;
+  else viewLabelEl.textContent = 'Δ Delta — verandering tov basisscenario';
+}
+
+// ============================================================
+// SQL SAFETY + EXECUTION
+// ============================================================
+
+function isSafeSQL(sql) {
+  if (!sql) return false;
+  const t = sql.trim().toLowerCase();
+  return t.startsWith('select') || t.startsWith('with');
+}
+
+async function executeSQL(sql) {
+  if (!isSafeSQL(sql)) throw new Error('Onveilige SQL (geen SELECT/WITH)');
+  return loader.query(sql);
+}
+
+// ============================================================
+// API
+// ============================================================
+
+async function callAPI(question) {
+  const res = await fetch(API_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question }),
+  });
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+// ============================================================
+// CHAT UI
+// ============================================================
+
+function addUserMessage(text) {
+  const el = document.createElement('div');
+  el.className = 'msg-user';
+  el.textContent = text;
+  document.getElementById('chat-messages').appendChild(el);
+  scrollChat();
+}
+
+function addThinking() {
+  const el = document.createElement('div');
+  el.className = 'msg-thinking';
+  el.innerHTML = `<span>Verkennen...</span>
+    <div class="thinking-dots"><span></span><span></span><span></span></div>`;
+  document.getElementById('chat-messages').appendChild(el);
+  scrollChat();
+  return el;
+}
+
+function addError(msg) {
+  const el = document.createElement('div');
+  el.className = 'msg-error';
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  el.innerHTML = `⚠ ${esc(msg)}`;
+  document.getElementById('chat-messages').appendChild(el);
+  scrollChat();
+}
+
+function addResultCard(result, baseCount, scenarioCount) {
+  const { scenario_type, title_nl, assumptions = [], reasoning_steps = [], unit, base_label, scenario_label } = result;
+  const badgeClass = BADGE_CLASS[scenario_type] || 'badge-descriptief';
+
+  const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  const metaParts = [`${baseCount.toLocaleString()} hexagonen`];
+  if (scenarioCount) metaParts.push(`scenario: ${scenarioCount.toLocaleString()}`);
+  if (unit && unit !== 'index') metaParts.push(`eenheid: ${unit}`);
+
+  const assumptionsHTML = assumptions.map(a =>
+    `<div class="assumption-item">${esc(a)}</div>`
+  ).join('');
+
+  const stepsHTML = reasoning_steps.map(s =>
+    `<div class="log-step">
+      <div class="log-step-name">${esc(s.step)}</div>
+      <div class="log-step-content">${esc(s.content)}</div>
+    </div>`
+  ).join('');
+
+  const scenInfoHTML = scenario_type !== 'descriptief' && scenario_type !== 'conflict'
+    ? `<div style="margin-top:6px;font-size:11px;color:#8b949e;">
+        <span style="color:#3fb950;">●</span> ${esc(base_label || 'Basis')} &nbsp;→&nbsp;
+        <span style="color:#f0ad4e;">●</span> ${esc(scenario_label || 'Scenario')}
+        ${scenario_type === 'wat-als' ? '&nbsp; <span style="color:#4e9af1;">Δ Delta beschikbaar</span>' : ''}
+      </div>`
+    : '';
+
+  const card = document.createElement('div');
+  card.className = 'result-card';
+  card.innerHTML = `
+    <div class="result-card-header">
+      <span class="scenario-badge ${badgeClass}">${esc(scenario_type)}</span>
+      <span class="result-title">${esc(title_nl)}</span>
+    </div>
+    <div class="result-meta">${esc(metaParts.join(' · '))}${scenInfoHTML}</div>
+
+    ${assumptions.length ? `
+    <div class="assumptions-block">
+      <div class="assumptions-label">📋 Aannames</div>
+      ${assumptionsHTML}
+    </div>` : ''}
+
+    ${reasoning_steps.length ? `
+    <button class="log-toggle" onclick="this.nextElementSibling.classList.toggle('open');this.textContent=this.nextElementSibling.classList.contains('open')?'▲ Verberg redeneerlog':'▼ Toon redeneerlog (Woo)'" >
+      ▼ Toon redeneerlog (Woo)
+    </button>
+    <div class="log-content">
+      ${stepsHTML}
+    </div>` : ''}
+  `;
+
+  document.getElementById('chat-messages').appendChild(card);
+  scrollChat();
+}
+
+function scrollChat() {
+  const el = document.getElementById('chat-messages');
+  el.scrollTop = el.scrollHeight;
+}
+
+// ============================================================
+// MODE CONTROLS
+// ============================================================
+
+function setMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+  renderLayers();
+}
+
+function setupModeControls(scenarioType) {
+  const controls = document.getElementById('mode-controls');
+  const hasSplit  = scenarioType === 'wat-als' || scenarioType === 'vergelijking';
+  const hasDelta  = scenarioType === 'wat-als';
+
+  // Label overrides for vergelijking
+  const modeLabels = scenarioType === 'vergelijking'
+    ? { base: currentBaseLabel.replace('Huidige situatie (2023)', 'Gemeente A').slice(0, 20), scenario: currentScenLabel.slice(0, 20) }
+    : { base: 'Basis', scenario: 'Scenario' };
+
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    const m = btn.dataset.mode;
+    if (m === 'base')     btn.textContent = modeLabels.base || 'Basis';
+    if (m === 'scenario') btn.textContent = modeLabels.scenario || 'Scenario';
+    btn.style.display = (m === 'scenario' && !hasSplit) ? 'none'
+                      : (m === 'delta' && !hasDelta)   ? 'none'
+                      : 'block';
+  });
+
+  controls.classList.toggle('visible', hasSplit || hasDelta);
+  setMode('base');
+}
+
+// ============================================================
+// SUBMIT
+// ============================================================
+
+async function submitQuestion(question) {
+  if (busy || !question.trim()) return;
+  busy = true;
+
+  const submitBtn = document.getElementById('submit-btn');
+  submitBtn.disabled = true;
+  document.getElementById('question-input').value = '';
+  document.getElementById('examples').classList.add('hidden');
+  document.getElementById('map-empty').classList.add('hidden');
+
+  addUserMessage(question);
+  const thinkingEl = addThinking();
+
+  let result;
+  try {
+    result = await callAPI(question);
+  } catch (err) {
+    thinkingEl.remove();
+    addError('API fout: ' + err.message);
+    busy = false; submitBtn.disabled = false;
+    return;
+  }
+
+  // Execute base SQL
+  let bRows, sRows = null;
+  try {
+    bRows = await executeSQL(result.base_sql);
+  } catch (err) {
+    thinkingEl.remove();
+    addError('SQL fout (basis): ' + err.message);
+    busy = false; submitBtn.disabled = false;
+    return;
+  }
+
+  if (!bRows.length) {
+    thinkingEl.remove();
+    addError('Geen resultaten gevonden. Probeer een andere gemeente of vraag.');
+    busy = false; submitBtn.disabled = false;
+    return;
+  }
+
+  // Execute scenario SQL if present
+  if (result.scenario_sql) {
+    try {
+      sRows = await executeSQL(result.scenario_sql);
+    } catch (err) {
+      addError('Scenario SQL fout (niet fataal): ' + err.message);
+    }
+  }
+
+  thinkingEl.remove();
+
+  // Update state
+  baseRows         = bRows;
+  scenarioRows     = sRows;
+  deltaRows        = (result.scenario_type === 'wat-als' && sRows) ? computeDelta(bRows, sRows) : null;
+  currentColorScale = result.color_scale || 'sequential';
+  currentTitle     = result.title_nl || 'Waarde';
+  currentUnit      = result.unit || 'index';
+  currentBaseLabel = result.base_label || 'Huidige situatie (2023)';
+  currentScenLabel = result.scenario_label || 'Scenario';
+  currentScenarioType = result.scenario_type;
+
+  // Compute shared color domain (p5–p95 across both datasets)
+  const allRows = [...bRows, ...(sRows || [])];
+  colorDomain = computeColorDomain(allRows);
+
+  // Fly to data
+  flyToData(bRows);
+
+  // Setup UI
+  setupModeControls(result.scenario_type);
+  addResultCard(result, bRows.length, sRows?.length || 0);
+  renderLayers();
+
+  busy = false;
+  submitBtn.disabled = false;
+}
+
+// ============================================================
+// FLY TO DATA
+// ============================================================
+
+function flyToData(rows) {
+  if (!rows?.length || !deckInstance) return;
+  const lats = rows.map(d => h3.h3ToGeo(d.h3_id)?.[0]).filter(Boolean);
+  const lons = rows.map(d => h3.h3ToGeo(d.h3_id)?.[1]).filter(Boolean);
+  if (!lats.length) return;
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+  const centerLat = (minLat + maxLat) / 2;
+  const centerLon = (minLon + maxLon) / 2;
+  const spanLat = maxLat - minLat, spanLon = maxLon - minLon;
+  const span = Math.max(spanLat, spanLon);
+  const zoom = span < 0.05 ? 13 : span < 0.2 ? 11 : span < 0.5 ? 10 : span < 1.5 ? 9 : 8;
+  deckInstance.setProps({
+    initialViewState: {
+      longitude: centerLon, latitude: centerLat,
+      zoom, pitch: 0, bearing: 0,
+      transitionDuration: 800
+    }
+  });
+}
+
+// ============================================================
+// EXAMPLES
+// ============================================================
+
+function renderExamples() {
+  const container = document.getElementById('example-chips');
+  const badgeColors = {
+    conflict:    '#e5534b',
+    'wat-als':   '#f0ad4e',
+    vergelijking:'#bc8cff',
+    descriptief: '#58a6ff',
+  };
+  container.innerHTML = EXAMPLES.map(ex => `
+    <button class="example-chip" data-label="${ex.label.replace(/"/g,'&quot;')}">
+      <span class="chip-type" style="background:${badgeColors[ex.type]}22;color:${badgeColors[ex.type]};border:1px solid ${badgeColors[ex.type]}44;">${ex.type}</span>
+      <span>${ex.label}</span>
+    </button>
+  `).join('');
+
+  container.querySelectorAll('.example-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const q = btn.dataset.label;
+      document.getElementById('question-input').value = q;
+      submitQuestion(q);
+    });
+  });
+}
+
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
+
+function setupEvents() {
+  // Submit button
+  document.getElementById('submit-btn').addEventListener('click', () => {
+    const q = document.getElementById('question-input').value.trim();
+    if (q) submitQuestion(q);
+  });
+
+  // Enter key
+  document.getElementById('question-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const q = e.target.value.trim();
+      if (q) submitQuestion(q);
+    }
+  });
+
+  // Mode toggle buttons
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => setMode(btn.dataset.mode));
+  });
+}
+
+// ============================================================
+// INIT
+// ============================================================
+
+async function init() {
+  initDeck();
+  renderExamples();
+  setupEvents();
+
+  try {
+    const rows = await loader.loadParquetFile(
+      PARQUET_URL, 'datacube',
+      pct => { document.getElementById('loading-bar').style.width = pct + '%'; }
+    );
+    document.getElementById('loading-sub').textContent =
+      `${rows.toLocaleString()} hexagonen geladen · klaar om te verkennen`;
+  } catch (err) {
+    document.getElementById('loading-title').textContent = 'Fout bij laden: ' + err.message;
+    document.getElementById('loading-title').style.color = '#e5534b';
+    return;
+  }
+
+  setTimeout(() => document.getElementById('loading').classList.add('hidden'), 800);
+}
+
+init();
+</script>
+</body>
+</html>
