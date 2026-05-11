@@ -117,6 +117,7 @@ body {
 }
 .src-tab:hover { background: #e0eaf5; border-color: #007ac2; color: #007ac2; }
 .src-tab.active { background: #007ac2; color: #fff; border-color: #007ac2; }
+#tab-kea.active { background: #e65100; border-color: #e65100; }
 
 /* Sidebar Search & Results */
 .filter-bar {
@@ -153,10 +154,58 @@ body {
 }
 
 #kea-filter-bar {
-    padding: 8px 15px;
-    border-bottom: 1px solid var(--border-color);
-    position: relative;
+    padding: 10px 12px;
+    border-bottom: 2px solid #e65100;
+    background: #fff8f5;
     display: none;
+}
+
+.kea-search-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #e65100;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.kea-search-label .fa {
+    margin-right: 4px;
+}
+
+.kea-search-wrap {
+    position: relative;
+}
+
+.kea-search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #e65100;
+    font-size: 12px;
+    pointer-events: none;
+}
+
+.kea-search-input {
+    width: 100%;
+    padding: 8px 10px 8px 30px;
+    border: 1.5px solid #e65100;
+    border-radius: 4px;
+    font-size: 12px;
+    box-sizing: border-box;
+    outline: none;
+    background: #fff;
+    color: #333;
+}
+
+.kea-search-input::placeholder {
+    color: #bba;
+}
+
+.kea-search-input:focus {
+    border-color: #bf360c;
+    box-shadow: 0 0 0 2px rgba(230, 81, 0, 0.15);
 }
 
 .kea-section-label {
