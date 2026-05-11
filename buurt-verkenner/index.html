@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buurtverkenner — Maps That Matter</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <meta name="description" content="Stel zelf ruimtelijke normen in voor groen, geluid, overstroming en bouwkansen. Zie direct welke plekken in uw gemeente voldoen — volledig transparant.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://mapsthatmatter.io/buurt-verkenner">
+  <meta property="og:title" content="Buurtverkenner — Maps That Matter">
+  <meta property="og:description" content="Stel zelf ruimtelijke normen in en zie direct welke gebieden voldoen. Transparante drempelwaarden, echte data.">
+  <meta property="og:image" content="https://mapsthatmatter.io/assets/thijs.jpg">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Buurtverkenner">
+  <meta name="twitter:description" content="Stel zelf ruimtelijke normen in. Transparante drempelwaarden, echte data.">
+  <meta name="twitter:image" content="https://mapsthatmatter.io/assets/thijs.jpg">
+
+  <script type="module">
+    import * as duckdb from 'https://esm.sh/@duckdb/duckdb-wasm@1.28.0';
+    window.duckdb = duckdb;
+  </script>
+  <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
+  <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
+  <script src="/shared/duckdb-loader.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Loading overlay ── */
+    #loading {
+      position: fixed; inset: 0; z-index: 9999;
+      background: #0d1117;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 14px;
+      transition: opacity 0.4s;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+    #loading-title { font-size: 15px; font-weight: 600; color: #e6edf3; }
+    #loading-sub { font-size: 12px; color: #6e7681; }
+    #loading-bar-wrap { width: 240px; height: 3px; background: #21262d; border-radius: 2px; overflow: hidden; }
+    #loading-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #3b8eea, #58a6ff); border-radius: 2px; transition: width 0.25s; }
+
+    /* ── App layout ── */
+    #app { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Left panel ── */
+    #panel {
+      width: 360px; flex-shrink: 0;
+      background: #161b22;
+      border-right: 1px solid #30363d;
+      display: flex; flex-direction: column;
+      overflow-y: auto;
+    }
+
+    #panel-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid #30363d;
+      display: flex; align-items: center; gap: 10px;
+    }
+    #home-link {
+      font-size: 11px; font-weight: 600; color: #58a6ff;
+      text-decoration: none; padding: 4px 8px; border-radius: 4px;
+      border: 1px solid #30363d; background: rgba(13,17,23,0.5);
+      white-space: nowrap; transition: background 0.15s;
+    }
+    #home-link:hover { background: #21262d; }
+    #panel-title { font-size: 14px; font-weight: 700; color: #e6edf3; flex: 1; }
+
+    /* ── Step indicator ── */
+    #step-indicator {
+      display: flex; align-items: center;
+      padding: 14px 20px 10px;
+      gap: 0;
+    }
+    .step-dot {
+      width: 26px; height: 26px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700;
+      background: #21262d; color: #6e7681;
+      border: 2px solid #30363d;
+      transition: all 0.2s; flex-shrink: 0; position: relative; z-index: 1;
+    }
+    .step-dot.active { background: #1f6feb; color: #fff; border-color: #58a6ff; }
+    .step-dot.done { background: #238636; color: #fff; border-color: #2ea043; }
+    .step-line {
+      flex: 1; height: 2px; background: #30363d; transition: background 0.3s;
+    }
+    .step-line.done { background: #2ea043; }
+
+    /* ── Panel sections ── */
+    .panel-section {
+      padding: 16px; border-bottom: 1px solid #21262d;
+    }
+    .section-label {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.5px; color: #6e7681; margin-bottom: 12px;
+    }
+
+    /* ── Theme cards ── */
+    #theme-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+    .theme-card {
+      background: #21262d; border: 2px solid #30363d;
+      border-radius: 8px; padding: 14px 8px;
+      cursor: pointer; text-align: center;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      transition: all 0.15s; outline: none;
+    }
+    .theme-card:hover { border-color: #58a6ff; background: #1c2128; }
+    .theme-card.selected { border-color: #58a6ff; background: #0d1117; box-shadow: 0 0 0 1px #58a6ff20; }
+    .theme-icon { font-size: 24px; line-height: 1; }
+    .theme-name { font-size: 13px; font-weight: 700; color: #e6edf3; }
+    .theme-desc { font-size: 11px; color: #8b949e; line-height: 1.3; }
+
+    /* ── Gemeente dropdown ── */
+    .form-group { margin-bottom: 12px; }
+    .form-label { font-size: 12px; color: #8b949e; margin-bottom: 4px; display: block; }
+    select, input[type=range] { width: 100%; }
+    select {
+      background: #21262d; color: #c9d1d9;
+      border: 1px solid #30363d; border-radius: 6px;
+      padding: 8px 10px; font-size: 13px; cursor: pointer;
+      outline: none;
+    }
+    select:focus { border-color: #58a6ff; }
+
+    /* ── Rule text ── */
+    #rule-text {
+      background: #0d1117; border-radius: 6px;
+      padding: 12px 14px; margin-bottom: 14px;
+      font-size: 13px; line-height: 1.6; color: #c9d1d9;
+      border: 1px solid #30363d;
+    }
+    #rule-text strong { color: #58a6ff; font-size: 15px; }
+    .norm-ref { font-size: 11px; color: #6e7681; margin-top: 4px; display: block; }
+
+    /* ── Slider ── */
+    #slider-wrap { margin-bottom: 16px; }
+    .slider-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+    #threshold-slider {
+      flex: 1; -webkit-appearance: none; appearance: none;
+      height: 4px; border-radius: 2px; background: #30363d; cursor: pointer;
+    }
+    #threshold-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+      background: #58a6ff; cursor: pointer; border: 2px solid #0d1117;
+      box-shadow: 0 0 0 2px #1f6feb;
+    }
+    #threshold-slider::-moz-range-thumb {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: #58a6ff; cursor: pointer; border: 2px solid #0d1117;
+    }
+    #threshold-val {
+      font-size: 14px; font-weight: 700; color: #58a6ff;
+      min-width: 52px; text-align: right; white-space: nowrap;
+    }
+    .slider-bounds { display: flex; justify-content: space-between; font-size: 10px; color: #6e7681; }
+
+    /* ── Stats ── */
+    #stats-block { display: none; }
+    #stats-block.visible { display: block; }
+
+    #fraction-bar-wrap {
+      height: 20px; background: #21262d; border-radius: 4px;
+      overflow: hidden; margin-bottom: 10px; position: relative;
+    }
+    #fraction-bar {
+      height: 100%; border-radius: 4px; transition: width 0.4s ease;
+      background: #238636;
+    }
+    #fraction-bar-label {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 600; color: #fff;
+    }
+    .stat-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 12px; margin-bottom: 5px;
+    }
+    .stat-label { color: #8b949e; }
+    .stat-value { color: #e6edf3; font-weight: 600; }
+
+    /* ── Legend ── */
+    #legend {
+      display: flex; gap: 12px; margin: 12px 0 8px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #8b949e; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+    /* ── How-it-works ── */
+    #how-it-works {
+      margin-top: 8px;
+      background: #0d1117; border-radius: 6px;
+      border: 1px solid #30363d; overflow: hidden;
+    }
+    #how-it-works summary {
+      padding: 10px 12px; font-size: 11px; font-weight: 600;
+      color: #58a6ff; cursor: pointer; list-style: none;
+      display: flex; align-items: center; gap: 6px;
+    }
+    #how-it-works summary::-webkit-details-marker { display: none; }
+    #how-it-works summary::before { content: '▶'; font-size: 9px; transition: transform 0.2s; }
+    #how-it-works[open] summary::before { transform: rotate(90deg); }
+    #how-content {
+      padding: 12px; border-top: 1px solid #30363d;
+      font-size: 11px; color: #8b949e; line-height: 1.6;
+    }
+    #how-content .source-row { margin-bottom: 6px; }
+    #how-content .source-row strong { color: #c9d1d9; }
+    pre#sql-box {
+      background: #0d1117; border: 1px solid #21262d;
+      border-radius: 4px; padding: 10px; margin-top: 8px;
+      font-size: 10px; color: #79c0ff; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-all;
+      line-height: 1.5; font-family: 'SF Mono', 'Consolas', monospace;
+    }
+
+    /* ── Loading spinner (inline) ── */
+    .spin-wrap { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6e7681; }
+    .spinner {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid #30363d; border-top-color: #58a6ff;
+      animation: spin 0.8s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #query-status { min-height: 24px; margin-bottom: 8px; }
+
+    /* ── Map ── */
+    #map-wrap { flex: 1; position: relative; }
+    #deck-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+    /* ── Tooltip ── */
+    .deck-tooltip {
+      background: #1a1a2e !important; color: #e0e0e0 !important;
+      border: 1px solid #30363d !important; border-radius: 6px !important;
+      font-size: 12px !important; padding: 8px 12px !important;
+      line-height: 1.5 !important;
+    }
+
+    /* ── Utilities ── */
+    .hidden { display: none !important; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 6px; padding: 9px 16px; border-radius: 6px; border: none;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: all 0.15s; outline: none; width: 100%;
+    }
+    .btn-primary { background: #1f6feb; color: #fff; }
+    .btn-primary:hover { background: #388bfd; }
+    .btn-primary:disabled { opacity: 0.5; cursor: default; }
+    .reset-link {
+      font-size: 11px; color: #6e7681; cursor: pointer; text-decoration: underline;
+      background: none; border: none; padding: 0; float: right; margin-top: 2px;
+    }
+    .reset-link:hover { color: #c9d1d9; }
+  </style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading">
+  <div id="loading-title">Buurtverkenner laden...</div>
+  <div id="loading-sub">H3-datacube wordt opgehaald (±11 MB)</div>
+  <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+</div>
+
+<!-- App -->
+<div id="app">
+
+  <!-- Left panel -->
+  <div id="panel">
+    <div id="panel-header">
+      <a href="/" id="home-link">← Maps That Matter</a>
+      <span id="panel-title">Buurtverkenner</span>
+    </div>
+
+    <!-- Step indicator -->
+    <div id="step-indicator">
+      <div class="step-dot active" id="dot-1">1</div>
+      <div class="step-line" id="line-1"></div>
+      <div class="step-dot" id="dot-2">2</div>
+      <div class="step-line" id="line-2"></div>
+      <div class="step-dot" id="dot-3">3</div>
+    </div>
+
+    <!-- Step 1: Kies thema -->
+    <div class="panel-section" id="step1">
+      <div class="section-label">Stap 1 — Kies een thema</div>
+      <div id="theme-grid">
+        <button class="theme-card" data-theme="groen">
+          <span class="theme-icon">🌳</span>
+          <span class="theme-name">Groen</span>
+          <span class="theme-desc">Hoeveel beplanting per gebied?</span>
+        </button>
+        <button class="theme-card" data-theme="geluid">
+          <span class="theme-icon">🔊</span>
+          <span class="theme-name">Geluid</span>
+          <span class="theme-desc">Hoe luid of stil is het?</span>
+        </button>
+        <button class="theme-card" data-theme="overstroming">
+          <span class="theme-icon">🌊</span>
+          <span class="theme-name">Overstroming</span>
+          <span class="theme-desc">Hoe groot is het risico?</span>
+        </button>
+        <button class="theme-card" data-theme="bouwkansen">
+          <span class="theme-icon">🏗️</span>
+          <span class="theme-name">Bouwkansen</span>
+          <span class="theme-desc">Waar is agrarisch land?</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2: Kies gemeente -->
+    <div class="panel-section hidden" id="step2">
+      <div class="section-label">
+        Stap 2 — Kies een gemeente
+        <button class="reset-link" id="reset-theme">opnieuw</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="gemeente-select">Gemeente</label>
+        <select id="gemeente-select">
+          <option value="">— kies een gemeente —</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" id="bekijk-btn" disabled>Bekijk kaart →</button>
+    </div>
+
+    <!-- Step 3: Pas norm aan + resultaten -->
+    <div class="panel-section hidden" id="step3">
+      <div class="section-label">
+        Stap 3 — Stel uw norm in
+        <button class="reset-link" id="reset-gemeente">andere gemeente</button>
+      </div>
+
+      <div id="rule-text">Kies een thema om te beginnen.</div>
+
+      <div id="slider-wrap">
+        <div class="slider-row">
+          <input type="range" id="threshold-slider" min="0" max="100" value="50">
+          <span id="threshold-val">50</span>
+        </div>
+        <div class="slider-bounds">
+          <span id="slider-min"></span>
+          <span id="slider-max"></span>
+        </div>
+      </div>
+
+      <div id="query-status"></div>
+
+      <!-- Stats (visible after first query) -->
+      <div id="stats-block">
+        <div id="fraction-bar-wrap">
+          <div id="fraction-bar" style="width:0%"></div>
+          <div id="fraction-bar-label"></div>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Voldoet aan norm</span>
+          <span class="stat-value" id="stat-matching">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Totaal hexagonen</span>
+          <span class="stat-value" id="stat-total">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Gemiddelde waarde</span>
+          <span class="stat-value" id="stat-avg">—</span>
+        </div>
+
+        <div id="legend">
+          <div class="legend-item">
+            <div class="legend-dot" id="legend-dot-yes"></div>
+            <span id="legend-label-yes">voldoet</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" id="legend-dot-no"></div>
+            <span id="legend-label-no">voldoet niet</span>
+          </div>
+        </div>
+
+        <details id="how-it-works">
+          <summary>Hoe werkt dit?</summary>
+          <div id="how-content">
+            <div class="source-row"><strong>Databron:</strong> <span id="source-label"></span></div>
+            <div class="source-row"><strong>Hexagonraster:</strong> H3 resolutie 8 (~460 meter per zijde)</div>
+            <div class="source-row"><strong>Jaar:</strong> 2023</div>
+            <div class="source-row" style="margin-top:6px"><strong>Toelichting:</strong><br><span id="source-explanation"></span></div>
+            <pre id="sql-box"></pre>
+          </div>
+        </details>
+      </div>
+    </div>
+
+  </div><!-- /panel -->
+
+  <!-- Map -->
+  <div id="map-wrap">
+    <canvas id="deck-canvas"></canvas>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+const THEMES = {
+  groen: {
+    label: 'Groen',
+    unit: '%',
+    defaultThreshold: 20,
+    min: 0, max: 80, step: 5,
+    colorYes: [76, 175, 80, 210],
+    colorNo: [45, 45, 45, 160],
+    voldoetLabel: 'voldoende groen',
+    voldoetNietLabel: 'te weinig groen',
+    source: 'LGN8 landgebruikskaart 2023',
+    explanation: 'Som van het aandeel loofbos, naaldbos, rietvegetatie, natuurgrasland en heide per hexagon. Fruitbomen en stedelijk groen zijn niet meegerekend.',
+    metricSQL: `ROUND((COALESCE(loofbos_fraction,0) + COALESCE(naaldbos_fraction,0) + COALESCE(rietvegetatie_fraction,0) + COALESCE(natuurgraslanden_fraction,0) + COALESCE(heide_fraction,0)) * 100, 1)`,
+    conditionExpr: (t) => `(COALESCE(loofbos_fraction,0) + COALESCE(naaldbos_fraction,0) + COALESCE(rietvegetatie_fraction,0) + COALESCE(natuurgraslanden_fraction,0) + COALESCE(heide_fraction,0)) * 100 >= ${t}`,
+    ruleHTML: (t) => `Een plek is <strong>groen</strong> als meer dan <strong>${t}%</strong> van het oppervlak beplanting heeft`,
+    normHint: null,
+  },
+  geluid: {
+    label: 'Geluid',
+    unit: 'dB',
+    defaultThreshold: 53,
+    min: 40, max: 75, step: 1,
+    colorYes: [76, 175, 80, 210],
+    colorNo: [220, 60, 60, 210],
+    voldoetLabel: 'onder de geluidsnorm',
+    voldoetNietLabel: 'boven de geluidsnorm',
+    source: 'Geluidsbelastingkaart Nederland 2022',
+    explanation: 'geluid_lden is het jaargemiddeld omgevingsgeluid, gecombineerd over dag (06–19u), avond (19–23u) en nacht (23–06u). Hogere avond- en nachtwaarden tellen zwaarder mee.',
+    metricSQL: `ROUND(COALESCE(geluid_lden, NULL), 1)`,
+    conditionExpr: (t) => `geluid_lden IS NOT NULL AND geluid_lden < ${t}`,
+    ruleHTML: (t) => `Een plek is <strong>stil genoeg</strong> als het omgevingsgeluid lager is dan <strong>${t} dB</strong>`,
+    normHint: 'WHO-norm voor woongebieden: ≤ 53 dB',
+    extraWhere: `AND geluid_lden IS NOT NULL`,
+  },
+  overstroming: {
+    label: 'Overstroming',
+    unit: 'cm water',
+    defaultThreshold: 50,
+    min: 0, max: 300, step: 10,
+    colorYes: [76, 175, 80, 210],
+    colorNo: [21, 101, 192, 210],
+    voldoetLabel: 'veilig (laag risico)',
+    voldoetNietLabel: 'overstromingsrisico',
+    source: 'Overstromingsscenario 1 — dijkdoorbraak binnendijks',
+    explanation: 'flooddepth_1 is de maximale waterdiepte (in meters) bij een dijkdoorbraakscenario. Een hexagon is "veilig" als de waterdiepte onder de ingestelde grens blijft. Diepte 0 betekent geen overstromingsrisico.',
+    metricSQL: `ROUND(COALESCE(flooddepth_1, 0) * 100, 0)`,
+    conditionExpr: (t) => `COALESCE(flooddepth_1, 0) * 100 < ${t}`,
+    ruleHTML: (t) => `Een plek is <strong>veilig</strong> als de waterdiepte bij overstroming lager is dan <strong>${t} cm</strong>`,
+    normHint: null,
+  },
+  bouwkansen: {
+    label: 'Bouwkansen',
+    unit: '%',
+    defaultThreshold: 30,
+    min: 5, max: 90, step: 5,
+    colorYes: [255, 152, 0, 210],
+    colorNo: [45, 45, 45, 160],
+    voldoetLabel: 'agrarisch land aanwezig',
+    voldoetNietLabel: 'geen agrarisch land',
+    source: 'LGN8 landgebruikskaart 2023',
+    explanation: 'Agrarisch grasland en maïsland zijn gronden die soms beschikbaar zijn voor herontwikkeling. Dit zegt niets over juridische planstatus, bestemmingsplan of NNN-bescherming. Gebruik dit uitsluitend als indicatie.',
+    metricSQL: `ROUND((COALESCE(agrarisch_gras_fraction,0) + COALESCE("maïs_fraction",0)) * 100, 1)`,
+    conditionExpr: (t) => `(COALESCE(agrarisch_gras_fraction,0) + COALESCE("maïs_fraction",0)) * 100 >= ${t}`,
+    ruleHTML: (t) => `Een plek heeft <strong>bouwkansen</strong> als meer dan <strong>${t}%</strong> agrarisch grasland of maïsland beslaat`,
+    normHint: null,
+  },
+};
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let state = { theme: null, gemeente: null, threshold: null };
+let loader = null;
+let deckgl = null;
+let queryTimer = null;
+
+// ─── Deck.gl setup ───────────────────────────────────────────────────────────
+function initDeck() {
+  deckgl = new deck.Deck({
+    canvas: 'deck-canvas',
+    controller: true,
+    initialViewState: { longitude: 4.55, latitude: 52.0, zoom: 8, pitch: 0, bearing: 0 },
+    onViewStateChange: ({ viewState }) => { deckgl.setProps({ initialViewState: viewState }); },
+    layers: [basemapLayer()],
+    getTooltip: ({ object }) => {
+      if (!object || !state.theme) return null;
+      const t = THEMES[state.theme];
+      const val = object.waarde != null ? `${object.waarde} ${t.unit}` : 'geen data';
+      const status = object.voldoet
+        ? `<span style="color:#4CAF50">✓ ${t.voldoetLabel}</span>`
+        : `<span style="color:#9e9e9e">✗ ${t.voldoetNietLabel}</span>`;
+      return {
+        html: `<strong>${val}</strong><br>${status}`,
+        style: { background:'#161b22', color:'#c9d1d9', border:'1px solid #30363d', borderRadius:'6px', padding:'8px 12px', fontSize:'12px', lineHeight:'1.5' }
+      };
+    },
+  });
+}
+
+function basemapLayer() {
+  return new deck.TileLayer({
+    id: 'basemap',
+    data: 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+    tileSize: 256, maxZoom: 19, minZoom: 0,
+    renderSubLayers: props => {
+      const { boundingBox } = props.tile;
+      return new deck.BitmapLayer(props, {
+        data: null, image: props.data,
+        bounds: [boundingBox[0][0], boundingBox[0][1], boundingBox[1][0], boundingBox[1][1]],
+      });
+    },
+  });
+}
+
+// ─── Query ───────────────────────────────────────────────────────────────────
+function buildSQL(theme, gemeente, threshold) {
+  const t = THEMES[theme];
+  const g = gemeente.replace(/'/g, "''");
+  const extra = t.extraWhere || '';
+  return `SELECT h3_id,
+  ${t.metricSQL} AS waarde,
+  CASE WHEN ${t.conditionExpr(threshold)} THEN 1 ELSE 0 END AS voldoet
+FROM datacube
+WHERE gemeentenaam = '${g}' AND year_int = 2023${extra}`;
+}
+
+async function runQuery() {
+  if (!state.theme || !state.gemeente) return;
+  const t = THEMES[state.theme];
+  const sql = buildSQL(state.theme, state.gemeente, state.threshold);
+
+  setQueryStatus('loading');
+  try {
+    const rows = await loader.query(sql);
+    setQueryStatus('done');
+    updateMap(rows);
+    updateStats(rows, t);
+    updateHowItWorks(t, sql);
+    if (rows.length > 0) flyToData(rows);
+    document.getElementById('stats-block').classList.add('visible');
+  } catch (err) {
+    setQueryStatus('error', err.message);
+  }
+}
+
+function debounceQuery() {
+  clearTimeout(queryTimer);
+  queryTimer = setTimeout(runQuery, 380);
+}
+
+// ─── Map ─────────────────────────────────────────────────────────────────────
+function updateMap(rows) {
+  const t = THEMES[state.theme];
+  deckgl.setProps({
+    layers: [
+      basemapLayer(),
+      new deck.H3HexagonLayer({
+        id: 'hex',
+        data: rows,
+        getHexagon: d => d.h3_id,
+        getFillColor: d => d.voldoet ? t.colorYes : t.colorNo,
+        extruded: false, filled: true, stroked: false,
+        opacity: 1, pickable: true,
+        updateTriggers: { getFillColor: [state.theme, state.threshold] },
+      }),
+    ],
+  });
+}
+
+function flyToData(rows) {
+  const sample = rows.length > 600 ? rows.filter((_, i) => i % Math.ceil(rows.length / 600) === 0) : rows;
+  let mnLat=90, mxLat=-90, mnLng=180, mxLng=-180;
+  for (const r of sample) {
+    const [lat, lng] = h3.h3ToGeo(r.h3_id);
+    if (lat < mnLat) mnLat = lat; if (lat > mxLat) mxLat = lat;
+    if (lng < mnLng) mnLng = lng; if (lng > mxLng) mxLng = lng;
+  }
+  const dlat = mxLat - mnLat, dlng = mxLng - mnLng;
+  const zoom = Math.min(12, Math.max(6.5, 8.8 - Math.log2(Math.max(dlat, dlng) * 12 + 0.01)));
+  deckgl.setProps({
+    initialViewState: {
+      longitude: (mnLng + mxLng) / 2,
+      latitude: (mnLat + mxLat) / 2,
+      zoom, pitch: 0, bearing: 0,
+      transitionDuration: 900,
+      transitionInterpolator: new deck.FlyToInterpolator(),
+    },
+  });
+}
+
+// ─── Stats ───────────────────────────────────────────────────────────────────
+function updateStats(rows, t) {
+  const total = rows.length;
+  const matching = rows.filter(r => r.voldoet).length;
+  const pct = total > 0 ? Math.round(matching / total * 100) : 0;
+
+  const vals = rows.map(r => r.waarde).filter(v => v != null && isFinite(v));
+  const avg = vals.length > 0
+    ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) + ' ' + t.unit
+    : '—';
+
+  document.getElementById('fraction-bar').style.width = pct + '%';
+  document.getElementById('fraction-bar-label').textContent = `${pct}% voldoet`;
+  document.getElementById('stat-matching').textContent = `${matching.toLocaleString('nl-NL')} van de ${total.toLocaleString('nl-NL')}`;
+  document.getElementById('stat-total').textContent = `${total.toLocaleString('nl-NL')} hexagonen`;
+  document.getElementById('stat-avg').textContent = avg;
+
+  const [yr, yg, yb] = t.colorYes;
+  const [nr, ng, nb] = t.colorNo;
+  document.getElementById('legend-dot-yes').style.background = `rgb(${yr},${yg},${yb})`;
+  document.getElementById('legend-dot-no').style.background = `rgb(${nr},${ng},${nb})`;
+  document.getElementById('legend-label-yes').textContent = t.voldoetLabel;
+  document.getElementById('legend-label-no').textContent = t.voldoetNietLabel;
+
+  document.getElementById('fraction-bar').style.background = `rgb(${yr},${yg},${yb})`;
+}
+
+function updateHowItWorks(t, sql) {
+  document.getElementById('source-label').textContent = t.source;
+  document.getElementById('source-explanation').textContent = t.explanation;
+  document.getElementById('sql-box').textContent = sql;
+}
+
+// ─── UI helpers ──────────────────────────────────────────────────────────────
+function setProgress(pct) {
+  document.getElementById('loading-bar').style.width = pct + '%';
+}
+
+function setQueryStatus(type, msg) {
+  const el = document.getElementById('query-status');
+  if (type === 'loading') {
+    el.innerHTML = `<div class="spin-wrap"><div class="spinner"></div>Kaart wordt berekend…</div>`;
+  } else if (type === 'error') {
+    el.innerHTML = `<div style="color:#f85149;font-size:12px">⚠ ${msg}</div>`;
+  } else {
+    el.innerHTML = '';
+  }
+}
+
+function updateRuleText() {
+  if (!state.theme) return;
+  const t = THEMES[state.theme];
+  let html = t.ruleHTML(state.threshold) + ' ' + t.unit;
+  if (t.normHint) html += `<span class="norm-ref">${t.normHint}</span>`;
+  document.getElementById('rule-text').innerHTML = html;
+  document.getElementById('threshold-val').textContent = state.threshold + ' ' + t.unit;
+}
+
+function setStep(n) {
+  ['dot-1','dot-2','dot-3'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.className = 'step-dot' + (i + 1 === n ? ' active' : i + 1 < n ? ' done' : '');
+  });
+  ['line-1','line-2'].forEach((id, i) => {
+    document.getElementById(id).className = 'step-line' + (i + 1 < n ? ' done' : '');
+  });
+  document.getElementById('step1').classList.toggle('hidden', n > 1);
+  document.getElementById('step2').classList.toggle('hidden', n < 2);
+  document.getElementById('step3').classList.toggle('hidden', n < 3);
+}
+
+// ─── Event wiring ─────────────────────────────────────────────────────────────
+document.querySelectorAll('.theme-card').forEach(card => {
+  card.addEventListener('click', () => {
+    const themeKey = card.dataset.theme;
+    state.theme = themeKey;
+    const t = THEMES[themeKey];
+
+    document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+
+    // Configure slider
+    const slider = document.getElementById('threshold-slider');
+    slider.min = t.min; slider.max = t.max; slider.step = t.step;
+    state.threshold = t.defaultThreshold;
+    slider.value = t.defaultThreshold;
+    document.getElementById('slider-min').textContent = t.min + ' ' + t.unit;
+    document.getElementById('slider-max').textContent = t.max + ' ' + t.unit;
+    updateRuleText();
+
+    // If gemeente already selected, re-query; otherwise go to step 2
+    if (state.gemeente) {
+      document.getElementById('stats-block').classList.remove('visible');
+      setStep(3);
+      debounceQuery();
+    } else {
+      setStep(2);
+    }
+  });
+});
+
+document.getElementById('threshold-slider').addEventListener('input', e => {
+  state.threshold = Number(e.target.value);
+  updateRuleText();
+  debounceQuery();
+});
+
+document.getElementById('gemeente-select').addEventListener('change', e => {
+  document.getElementById('bekijk-btn').disabled = !e.target.value;
+});
+
+document.getElementById('bekijk-btn').addEventListener('click', () => {
+  state.gemeente = document.getElementById('gemeente-select').value;
+  if (!state.gemeente) return;
+  document.getElementById('stats-block').classList.remove('visible');
+  setStep(3);
+  runQuery();
+});
+
+document.getElementById('reset-theme').addEventListener('click', () => {
+  state.theme = null;
+  document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('selected'));
+  setStep(1);
+});
+
+document.getElementById('reset-gemeente').addEventListener('click', () => {
+  state.gemeente = null;
+  document.getElementById('gemeente-select').value = '';
+  document.getElementById('bekijk-btn').disabled = true;
+  document.getElementById('stats-block').classList.remove('visible');
+  setStep(2);
+});
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+  initDeck();
+
+  loader = new DuckDBLoader();
+  try {
+    await loader.loadParquetFile(
+      '/data/volledige_tijdreeks_met_namen.parquet',
+      'datacube',
+      pct => setProgress(pct)
+    );
+  } catch (err) {
+    document.getElementById('loading-sub').textContent = '⚠ Laden mislukt: ' + err.message;
+    document.getElementById('loading-sub').style.color = '#f85149';
+    return;
+  }
+
+  // Populate gemeente dropdown from data
+  try {
+    const rows = await loader.query(
+      `SELECT DISTINCT gemeentenaam FROM datacube WHERE year_int = 2023 AND gemeentenaam IS NOT NULL ORDER BY gemeentenaam`
+    );
+    const sel = document.getElementById('gemeente-select');
+    for (const r of rows) {
+      const opt = document.createElement('option');
+      opt.value = r.gemeentenaam;
+      opt.textContent = r.gemeentenaam;
+      sel.appendChild(opt);
+    }
+  } catch (_) { /* fallback: user types manually */ }
+
+  const loadEl = document.getElementById('loading');
+  loadEl.classList.add('hidden');
+  setTimeout(() => { loadEl.style.display = 'none'; }, 450);
+}
+
+init();
+</script>
+</body>
+</html>

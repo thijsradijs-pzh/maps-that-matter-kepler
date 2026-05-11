@@ -1,7 +1,169 @@
 // js/search.js
 
+const KEA_WMS = 'https://cas.cloud.sogelink.com/public/data/org/gws/YWFMLMWERURF/kea_public/wms';
+
+const KEA_FEATURED = [
+    {
+        theme: '🌡 Hitte', color: '#c62828',
+        layers: [
+            { name: 'Hitte-eiland effect', description: 'Gebieden waar de temperatuur aanzienlijk hoger is dan de omgeving', layer: 'hitteeiland' },
+            { name: 'Afstand tot koelte', description: 'Loopafstand naar de dichtstbijzijnde koele plek (park, water, schaduw)', layer: 'Afstand_tot_koelte' },
+            { name: 'Warme nachten (huidig)', description: 'Aantal tropische nachten per jaar (T ≥ 20°C)', layer: 'warme_nachten_huidig' },
+        ]
+    },
+    {
+        theme: '🌧 Wateroverlast', color: '#1565c0',
+        layers: [
+            { name: 'Waterdiepte bij 70mm/2u', description: 'Wateraccumulatie bij extreme neerslag (terugkeertijd ~10 jaar)', layer: 'waterdiepte_neerslag_70mm_2uur' },
+            { name: 'Kans op grondwateroverlast', description: 'Gebieden met verhoogde kans dat grondwater tot aan maaiveld stijgt', layer: 'kans_grondwateroverlast_wateroverlast' },
+        ]
+    },
+    {
+        theme: '☀️ Droogte', color: '#e65100',
+        layers: [
+            { name: 'Droogtestress (huidig)', description: 'Mate van droogtestress voor landbouw en natuur', layer: 'droogtestress_huidig' },
+            { name: 'Droogtegevoeligheid natuur', description: 'Gevoeligheid van grondwaterafhankelijke natuur voor droogteperiodes', layer: 'Droogtegevoeligheid' },
+        ]
+    },
+    {
+        theme: '🌊 Overstroming', color: '#0277bd',
+        layers: [
+            { name: 'Overstromingskans huidig (>20cm)', description: 'Kans per jaar op overstroming met meer dan 20 cm water', layer: 'plaatsgebonden_overstromingskans_huidig_20_cm_20251120' },
+            { name: 'Max. overstromingsdiepte (kleine kans)', description: 'Maximale waterdiepte bij overstroming met kleine kans', layer: 'maximale_waterdiepte_nederland_kleine_kans_20251219' },
+        ]
+    },
+    {
+        theme: '🏗️ Bodemdaling', color: '#6d4c41',
+        layers: [
+            { name: 'Bodemdaling 2020–2050', description: 'Verwachte bodemdaling in centimeters tot 2050', layer: 'bodemdaling_2020_2050' },
+            { name: 'Risico paalrot (huidig)', description: 'Gebieden met verhoogd risico op paalrot door toenemende droogte', layer: 'risicopaalrot_huidig' },
+        ]
+    },
+];
+
+let keaLayerCache = null;
+let keaFetchPromise = null;
+
+async function fetchKeaLayers() {
+    if (keaLayerCache) return keaLayerCache;
+    if (keaFetchPromise) return keaFetchPromise;
+
+    const capsUrl = `${KEA_WMS}?service=WMS&request=GetCapabilities`;
+    keaFetchPromise = fetch(`/api/proxy?url=${encodeURIComponent(capsUrl)}`)
+        .then(r => r.text())
+        .then(xml => {
+            const names = [...xml.matchAll(/<Name>([^<]+)<\/Name>/g)].map(m => m[1].trim());
+            const titles = [...xml.matchAll(/<Title>([^<]+)<\/Title>/g)].map(m => m[1].trim());
+            const layers = [];
+            for (let i = 0; i < names.length; i++) {
+                const name = names[i];
+                if (!name || name === 'kea_public') continue;
+                layers.push({ layer: name, name: titles[i] || name, description: '' });
+            }
+            keaLayerCache = layers;
+            return layers;
+        })
+        .catch(() => {
+            keaFetchPromise = null;
+            return [];
+        });
+    return keaFetchPromise;
+}
+
+function makeResultItem(item) {
+    const div = document.createElement('div');
+    div.className = 'result-item';
+    const isKea = item.source === 'kea';
+    const iconClass = isKea ? 'fa-cloud-sun-rain' : item.source === 'geonetwork' ? 'fa-globe' : 'fa-layer-group';
+    const iconColor = isKea ? '#e65100' : item.source === 'geonetwork' ? '#E3001B' : '#007ac2';
+    const pubColor = isKea ? '#e65100' : item.source === 'geonetwork' ? '#E3001B' : '#666';
+    const pubText = item.publisher || 'NGR';
+    div.innerHTML = `
+        <div style="flex:1;min-width:0;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <span style="flex:1;min-width:0;"><i class="fa ${iconClass}" style="color:${iconColor};margin-right:6px;flex-shrink:0;"></i><b style="word-break:break-word;">${item.name}</b></span>
+                <span style="background:${pubColor};color:white;font-size:9px;padding:1px 5px;border-radius:3px;white-space:nowrap;margin-left:6px;flex-shrink:0;">${pubText}</span>
+            </div>
+            ${item.description ? `<span style="color:#888;font-size:11px;display:block;margin-top:2px;">${item.description}</span>` : ''}
+        </div>
+        <i class="fa fa-plus-circle" style="color:#ccc;margin-left:8px;flex-shrink:0;"></i>`;
+    div.setAttribute('role', 'button');
+    div.setAttribute('tabindex', '0');
+    div.onclick = () => addWmsLayer(item);
+    div.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addWmsLayer(item); } };
+    return div;
+}
+
+function renderKeaResults(layers, term) {
+    const resultsContainer = document.getElementById('search-results');
+    resultsContainer.innerHTML = '';
+    resultsContainer.style.display = 'block';
+
+    if (term) {
+        const q = term.toLowerCase();
+        const matches = layers.filter(l =>
+            l.name.toLowerCase().includes(q) || l.layer.toLowerCase().includes(q)
+        );
+        if (matches.length === 0) {
+            resultsContainer.innerHTML = '<div style="padding:10px 15px;color:#888;font-size:12px;">Geen lagen gevonden</div>';
+            return;
+        }
+        const header = document.createElement('div');
+        header.className = 'kea-section-label';
+        header.textContent = `Klimaateffectatlas (${matches.length} resultaten)`;
+        resultsContainer.appendChild(header);
+        matches.slice(0, 50).forEach(l => resultsContainer.appendChild(makeResultItem({
+            name: l.name, description: l.description,
+            url: KEA_WMS, layer: l.layer,
+            hasWms: true, source: 'kea', publisher: 'KEA'
+        })));
+        return;
+    }
+
+    // No search term — show featured layers grouped by theme
+    const featuredHeader = document.createElement('div');
+    featuredHeader.className = 'kea-section-label';
+    featuredHeader.textContent = 'Aanbevolen lagen';
+    resultsContainer.appendChild(featuredHeader);
+
+    for (const group of KEA_FEATURED) {
+        const themeHeader = document.createElement('div');
+        themeHeader.style.cssText = `padding:4px 15px;background:#f5f5f5;font-size:11px;font-weight:bold;color:${group.color};border-bottom:1px solid #eee;`;
+        themeHeader.textContent = group.theme;
+        resultsContainer.appendChild(themeHeader);
+        for (const l of group.layers) {
+            resultsContainer.appendChild(makeResultItem({
+                name: l.name, description: l.description,
+                url: KEA_WMS, layer: l.layer,
+                hasWms: true, source: 'kea', publisher: 'KEA'
+            }));
+        }
+    }
+
+    if (layers.length > 0) {
+        const allHeader = document.createElement('div');
+        allHeader.className = 'kea-section-label';
+        allHeader.style.borderTop = '2px solid #e0e0e0';
+        allHeader.textContent = `Alle ${layers.length} lagen — gebruik zoekveld om te filteren`;
+        resultsContainer.appendChild(allHeader);
+    }
+}
+
+async function showKeaCatalog(term) {
+    const resultsContainer = document.getElementById('search-results');
+
+    if (!keaLayerCache) {
+        resultsContainer.innerHTML = '<div style="padding:10px 15px;color:#888;font-size:12px;"><i class="fa fa-spinner fa-spin"></i> Laden...</div>';
+        resultsContainer.style.display = 'block';
+    }
+
+    const layers = await fetchKeaLayers();
+    renderKeaResults(layers, term || '');
+}
+
 function initSearch() {
     const input = document.getElementById('layer-search');
+    const keaInput = document.getElementById('kea-search');
     const resultsContainer = document.getElementById('search-results');
 
     const performSearch = debounce(async (term) => {
@@ -39,33 +201,46 @@ function initSearch() {
         header.style.cssText = `padding:5px 15px;background:${bg};font-size:11px;font-weight:bold;color:${color};`;
         header.textContent = `${title} (${items.length})`;
         resultsContainer.appendChild(header);
-        items.forEach(item => resultsContainer.appendChild(createResultItem(item)));
-    }
-
-    function createResultItem(item) {
-        const div = document.createElement('div');
-        div.className = 'result-item';
-        const iconClass = item.source === 'geonetwork' ? 'fa-globe' : 'fa-layer-group';
-        const iconColor = item.source === 'geonetwork' ? '#E3001B' : '#007ac2';
-        const pubText = item.publisher || "NGR";
-        const pubColor = item.source === 'geonetwork' ? '#E3001B' : '#666';
-        div.innerHTML = `
-            <div style="flex:1;">
-               <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                    <span><i class="fa ${iconClass}" style="color:${iconColor}; margin-right:8px;"></i> <b>${item.name}</b></span>
-                    <span style="background:${pubColor}; color:white; font-size:9px; padding:1px 4px; border-radius:3px; white-space:nowrap; margin-left:5px;">${pubText}</span>
-               </div>
-               <span style="color:#888; font-size:11px;">${item.description}</span>
-            </div>
-            <i class="fa fa-plus-circle" style="color:#ccc; margin-left:8px;"></i>
-        `;
-        div.onclick = () => addWmsLayer(item);
-        return div;
+        items.forEach(item => resultsContainer.appendChild(makeResultItem(item)));
     }
 
     input.addEventListener('input', (e) => performSearch(e.target.value));
+
+    const performKeaSearch = debounce((term) => showKeaCatalog(term), 300);
+    keaInput.addEventListener('input', (e) => performKeaSearch(e.target.value));
+
     document.addEventListener('click', (e) => {
-        if (!input.contains(e.target) && !resultsContainer.contains(e.target)) resultsContainer.style.display = 'none';
+        const tabs = document.getElementById('search-source-tabs');
+        const keaBar = document.getElementById('kea-filter-bar');
+        if (!input.contains(e.target) && !resultsContainer.contains(e.target) &&
+            !tabs.contains(e.target) && !keaBar.contains(e.target)) {
+            resultsContainer.style.display = 'none';
+        }
+    });
+
+    // Tab switching
+    document.getElementById('tab-ngr').addEventListener('click', () => {
+        document.getElementById('tab-ngr').classList.add('active');
+        document.getElementById('tab-kea').classList.remove('active');
+        document.getElementById('ngr-filter-bar').style.display = '';
+        document.getElementById('kea-filter-bar').style.display = 'none';
+        resultsContainer.style.display = 'none';
+        resultsContainer.innerHTML = '';
+        input.value = '';
+        keaInput.value = '';
+        input.focus();
+    });
+
+    document.getElementById('tab-kea').addEventListener('click', () => {
+        document.getElementById('tab-kea').classList.add('active');
+        document.getElementById('tab-ngr').classList.remove('active');
+        document.getElementById('ngr-filter-bar').style.display = 'none';
+        document.getElementById('kea-filter-bar').style.display = '';
+        input.value = '';
+        keaInput.focus();
+        showKeaCatalog('');
+        // Prefetch in background so search is instant
+        fetchKeaLayers();
     });
 }
 

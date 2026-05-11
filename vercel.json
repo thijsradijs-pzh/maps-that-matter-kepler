@@ -24,6 +24,7 @@
     { "source": "/api/ask-map", "destination": "/api/ask-map.js" },
     { "source": "/api/ask-scenario", "destination": "/api/ask-scenario.js" },
     { "source": "/scenario-viewer", "destination": "/scenario-viewer/index.html" },
+    { "source": "/buurt-verkenner", "destination": "/buurt-verkenner/index.html" },
     { "source": "/api/search-wms", "destination": "/api/search-wms.js" },
     { "source": "/api/ask-wfs", "destination": "/api/ask-wfs.js" },
     { "source": "/api/wfs-proxy", "destination": "/api/wfs-proxy.js" },

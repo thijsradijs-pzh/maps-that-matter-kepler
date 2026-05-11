@@ -95,8 +95,31 @@ body {
 
 .sidebar-content.active { display: block; }
 
+/* Source tabs (NGR / Klimaateffectatlas) */
+#search-source-tabs {
+    display: flex;
+    padding: 7px 10px;
+    gap: 5px;
+    border-bottom: 1px solid var(--border-color);
+    background: #fafafa;
+}
+.src-tab {
+    flex: 1;
+    padding: 5px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #f0f0f0;
+    cursor: pointer;
+    color: #555;
+    transition: all 0.15s;
+}
+.src-tab:hover { background: #e0eaf5; border-color: #007ac2; color: #007ac2; }
+.src-tab.active { background: #007ac2; color: #fff; border-color: #007ac2; }
+
 /* Sidebar Search & Results */
-.filter-bar { 
+.filter-bar {
     padding: 8px 15px; 
     border-bottom: 1px solid var(--border-color); 
     position: relative; 
@@ -121,12 +144,30 @@ body {
     font-size: 12px; 
 }
 
-#search-results { 
-    max-height: 200px; 
-    overflow-y: auto; 
-    border-bottom: 1px solid #eee; 
-    background: #fff; 
-    display: none; 
+#search-results {
+    max-height: 320px;
+    overflow-y: auto;
+    border-bottom: 1px solid #eee;
+    background: #fff;
+    display: none;
+}
+
+#kea-filter-bar {
+    padding: 8px 15px;
+    border-bottom: 1px solid var(--border-color);
+    position: relative;
+    display: none;
+}
+
+.kea-section-label {
+    padding: 5px 15px 3px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #888;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    background: #f9f9f9;
+    border-bottom: 1px solid #eee;
 }
 
 .result-item { 

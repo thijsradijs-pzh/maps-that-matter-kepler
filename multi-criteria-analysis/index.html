@@ -62,9 +62,17 @@
         <div class="action-btn" style="display:none"><i class="fa fa-map"></i> Deelgebieden</div>
       </div>
 
-      <div class="filter-bar">
+      <div id="search-source-tabs">
+        <button class="src-tab active" id="tab-ngr">🔍 NGR zoeken</button>
+        <button class="src-tab" id="tab-kea">🌡 Klimaateffectatlas</button>
+      </div>
+      <div class="filter-bar" id="ngr-filter-bar">
         <i class="fa fa-search filter-icon"></i>
         <input type="text" id="layer-search" class="filter-input" placeholder="Zoek kaartlagen (bijv. bodem, natuur)..." aria-label="Zoek kaartlagen">
+      </div>
+      <div id="kea-filter-bar">
+        <i class="fa fa-search filter-icon"></i>
+        <input type="text" id="kea-search" class="filter-input" placeholder="Zoek Klimaateffectatlas lagen..." aria-label="Zoek Klimaateffectatlas lagen">
       </div>
       <div id="search-results"></div>
       <div id="add-layer-error" style="display:none;color:#c0392b;font-size:11px;margin-top:4px;"></div>
