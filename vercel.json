@@ -32,6 +32,7 @@
     { "source": "/pdok-viewer", "destination": "/pdok-viewer/index.html" },
     { "source": "/vraag-de-kaart", "destination": "/vraag-de-kaart/index.html" },
     { "source": "/population-3d", "destination": "/population-3d/index.html" },
+    { "source": "/ufo-viewer", "destination": "/ufo-viewer/index.html" },
     { "source": "/", "destination": "/index.html" }
   ]
 }

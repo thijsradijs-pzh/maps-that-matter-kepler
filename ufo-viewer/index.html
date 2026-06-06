@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>UFO Meldingen Nederland — Maps That Matter</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta name="description" content="18,291 UFO meldingen in Nederland als H3-hexagonen — met windmolen- en coffeeshopoverlays voor correlatie-analyse." />
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://www.mapsthatmatter.io/ufo-viewer" />
+  <meta property="og:title" content="UFO Meldingen Nederland — Maps That Matter" />
+  <meta property="og:description" content="18,291 UFO meldingen in Nederland als H3-hexagonen — met windmolen- en coffeeshopoverlays voor correlatie-analyse." />
+  <meta property="og:image" content="https://www.mapsthatmatter.io/assets/thijs.jpg" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="UFO Meldingen Nederland" />
+  <meta name="twitter:description" content="18,291 UFO meldingen als H3-hexagonen — correlaties met windmolens en coffeeshops." />
+  <meta name="twitter:image" content="https://www.mapsthatmatter.io/assets/thijs.jpg" />
+
+  <script async src="https://plausible.io/js/pa-unGG15m6r6ufvAQNAPz3f.js"></script>
+  <script>
+    window.plausible = window.plausible || function() { (plausible.q = plausible.q || []).push(arguments) };
+    plausible.init = plausible.init || function(i) { plausible.o = i || {} };
+    plausible.init();
+  </script>
+
+  <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
+  <script src="https://unpkg.com/deck.gl@8.9.33/dist.min.js"></script>
+  <script src="/shared/deckgl-utils.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: hidden; background: #050510; }
+    #container { width: 100vw; height: 100vh; }
+
+    /* ── Panel ── */
+    #panel {
+      position: absolute; top: 20px; left: 20px;
+      width: 300px;
+      background: rgba(8,8,20,0.96);
+      color: #ddd;
+      border-radius: 10px;
+      box-shadow: 0 2px 24px rgba(0,0,50,0.8);
+      z-index: 10;
+      display: none;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 14px 18px 10px;
+      border-bottom: 1px solid #1a1a30;
+    }
+
+    .panel-header-row {
+      display: flex; align-items: flex-start; justify-content: space-between;
+    }
+
+    .panel-header h3 {
+      margin: 0 0 3px;
+      font-size: 14px; font-weight: 700; color: #fff;
+    }
+
+    .panel-header .subtitle {
+      font-size: 11px; color: #556; line-height: 1.4;
+    }
+
+    #panel-collapse {
+      background: none; border: none;
+      color: #444; font-size: 16px; cursor: pointer; padding: 0 2px;
+      transition: transform 0.2s; flex-shrink: 0;
+    }
+
+    /* ── Stats ── */
+    .stats-row {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 6px; padding: 10px 14px;
+      border-bottom: 1px solid #1a1a30;
+    }
+
+    .stat-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid #1e1e35;
+      border-radius: 6px; padding: 7px 9px;
+    }
+
+    .stat-label { font-size: 10px; color: #556; margin-bottom: 2px; }
+    .stat-value { font-size: 17px; font-weight: 700; color: #a78bfa; }
+    .stat-unit  { font-size: 10px; color: #445; }
+
+    /* ── Filters ── */
+    .filter-section {
+      padding: 10px 14px 8px;
+      border-bottom: 1px solid #1a1a30;
+    }
+
+    .filter-label {
+      font-size: 10px; color: #556;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      margin-bottom: 6px; margin-top: 8px;
+    }
+    .filter-label:first-child { margin-top: 0; }
+
+    .year-inputs {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; color: #778;
+    }
+
+    .year-inputs input[type="number"] {
+      width: 60px; background: #0d0d20; border: 1px solid #2a2a45;
+      color: #ccc; border-radius: 4px; padding: 4px 6px;
+      font-size: 11px; text-align: center;
+    }
+
+    .year-inputs input[type="number"]::-webkit-inner-spin-button { opacity: 0; }
+
+    select {
+      width: 100%; background: #0d0d20; border: 1px solid #2a2a45;
+      color: #ccc; border-radius: 4px; padding: 5px 7px;
+      font-size: 11px; appearance: none;
+    }
+
+    .toggle-row {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; color: #778; margin-top: 6px;
+    }
+    .toggle-row input[type="checkbox"] { accent-color: #a78bfa; }
+    .toggle-row label { cursor: pointer; flex: 1; }
+
+    /* ── Overlay section ── */
+    .overlay-section {
+      padding: 10px 14px 10px;
+      border-bottom: 1px solid #1a1a30;
+    }
+
+    .layer-status {
+      font-size: 10px; color: #556; margin-left: 2px;
+    }
+
+    /* ── Correlation ── */
+    .corr-section {
+      padding: 10px 14px 10px;
+      border-bottom: 1px solid #1a1a30;
+    }
+
+    .corr-stat {
+      font-size: 11px; color: #aab; line-height: 1.6;
+      padding: 4px 0;
+    }
+
+    .corr-stat b { color: #c4b5fd; }
+
+    /* ── Legend ── */
+    .legend-section {
+      padding: 10px 14px 12px;
+      border-bottom: 1px solid #1a1a30;
+    }
+
+    .legend-title { font-size: 10px; color: #556; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 7px; }
+
+    .legend-bar {
+      height: 10px; border-radius: 3px;
+      background: linear-gradient(to right, #1e053c, #3c14a0, #0ea5e9, #4ade80, #facc15, #ffffff);
+    }
+
+    .legend-labels {
+      display: flex; justify-content: space-between;
+      font-size: 9px; color: #556; margin-top: 3px;
+    }
+
+    /* ── Extras ── */
+    .res-row {
+      padding: 8px 14px 10px;
+      border-bottom: 1px solid #1a1a30;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; color: #667;
+    }
+
+    .res-row input[type="range"] {
+      flex: 1; accent-color: #a78bfa;
+    }
+
+    /* ── Loading ── */
+    #loading {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,15,0.9); color: #ccd;
+      padding: 24px 36px; border-radius: 8px; font-size: 14px; z-index: 20;
+      text-align: center; min-width: 220px;
+    }
+
+    .ufo-spinner {
+      width: 30px; height: 30px;
+      border: 3px solid rgba(167,139,250,0.15);
+      border-top-color: #a78bfa;
+      border-radius: 50%;
+      animation: ufo-spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes ufo-spin { to { transform: rotate(360deg); } }
+
+    /* ── Mobile ── */
+    .mobile-handle {
+      display: none; width: 36px; height: 4px;
+      background: #2a2a45; border-radius: 2px; margin: 0 auto 10px;
+    }
+
+    @media (max-width: 640px) {
+      #panel {
+        top: auto; bottom: 0; left: 0; right: 0; width: 100%;
+        border-radius: 12px 12px 0 0;
+      }
+      .mobile-handle { display: block; }
+      #panel-collapse { display: block; }
+      #panel.collapsed .panel-body { display: none; }
+      #panel.collapsed #panel-collapse { transform: rotate(180deg); }
+      .stats-row { grid-template-columns: repeat(4, 1fr); }
+      .stat-value { font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+  <a href="/" style="position:fixed;top:12px;left:12px;z-index:9999;background:rgba(5,5,20,0.85);color:#a78bfa;font-size:11px;font-weight:600;padding:6px 10px;border-radius:6px;border:1px solid #2a2a45;text-decoration:none;backdrop-filter:blur(4px);">← Maps That Matter</a>
+  <div id="container"></div>
+  <div id="loading"><div class="ufo-spinner"></div>UFO-data laden...</div>
+
+  <div id="panel">
+    <div class="panel-header">
+      <div class="mobile-handle"></div>
+      <div class="panel-header-row">
+        <div>
+          <h3>&#x1F6F8; UFO Meldingen Nederland</h3>
+          <div class="subtitle" id="panel-subtitle">Laden...</div>
+        </div>
+        <button id="panel-collapse" title="Inklappen">&#8963;</button>
+      </div>
+    </div>
+
+    <div class="panel-body">
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Meldingen</div>
+          <div class="stat-value" id="stat-total">–</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Opmerkelijk</div>
+          <div class="stat-value" id="stat-remarkable">–</div>
+          <div class="stat-unit">%</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Geïdentificeerd</div>
+          <div class="stat-value" id="stat-identified">–</div>
+          <div class="stat-unit">%</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Met foto</div>
+          <div class="stat-value" id="stat-photo">–</div>
+          <div class="stat-unit">%</div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="filter-section">
+        <div class="filter-label">Jaar</div>
+        <div class="year-inputs">
+          <input type="number" id="year-from" min="1970" max="2025" value="1970" />
+          <span>–</span>
+          <input type="number" id="year-to" min="1970" max="2025" value="2025" />
+        </div>
+
+        <div class="filter-label">Provincie</div>
+        <select id="province-filter">
+          <option value="all">Alle provincies</option>
+        </select>
+
+        <div class="toggle-row" style="margin-top:8px">
+          <input type="checkbox" id="only-remarkable" />
+          <label for="only-remarkable">Alleen opmerkelijke meldingen</label>
+        </div>
+
+        <div class="toggle-row">
+          <input type="checkbox" id="only-photo" />
+          <label for="only-photo">Alleen meldingen met foto</label>
+        </div>
+      </div>
+
+      <!-- Overlay layers -->
+      <div class="overlay-section">
+        <div class="filter-label">Overlays</div>
+        <div class="toggle-row">
+          <input type="checkbox" id="show-wind" />
+          <label for="show-wind">&#x1F300; Windmolens</label>
+          <span class="layer-status" id="wind-status"></span>
+        </div>
+        <div class="toggle-row">
+          <input type="checkbox" id="show-shops" />
+          <label for="show-shops">&#x1F343; Coffeeshops</label>
+          <span class="layer-status" id="shop-status"></span>
+        </div>
+      </div>
+
+      <!-- Correlation stats (shown when overlays loaded) -->
+      <div class="corr-section" id="corr-section" style="display:none">
+        <div class="filter-label">Correlatie</div>
+        <div class="corr-stat" id="corr-wind" style="display:none"></div>
+        <div class="corr-stat" id="corr-shop" style="display:none"></div>
+      </div>
+
+      <!-- Legend -->
+      <div class="legend-section">
+        <div class="legend-title">Meldingen per hexagoon</div>
+        <div class="legend-bar"></div>
+        <div class="legend-labels">
+          <span>1</span>
+          <span id="legend-mid">–</span>
+          <span id="legend-max">–</span>
+        </div>
+      </div>
+
+      <!-- Resolution -->
+      <div class="res-row">
+        <span>Resolutie</span>
+        <input type="range" id="res-slider" min="5" max="9" value="7" step="1" />
+        <span id="res-val">H3 res-7</span>
+      </div>
+
+      <!-- 3D toggle -->
+      <div style="padding: 0 14px 12px">
+        <div class="toggle-row">
+          <input type="checkbox" id="extrude-toggle" checked />
+          <label for="extrude-toggle">3D hoogte</label>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const { DeckGL, H3HexagonLayer, ScatterplotLayer } = deck;
+
+    const DATA_URL  = '/data/ufo.geojson';
+    const WIND_URL  = `/api/proxy?url=${encodeURIComponent('https://service.pdok.nl/rvo/windturbines/wfs/v1_0?service=WFS&version=2.0.0&request=GetFeature&typeName=windturbines:windturbines&outputFormat=application/json&count=10000')}`;
+    const SHOP_URL  = '/data/coffeeshops.json';
+
+    const INITIAL_VIEW = { longitude: 5.2913, latitude: 52.1326, zoom: 7, pitch: 40, bearing: 0 };
+
+    const TOOLTIP_STYLE = {
+      background: 'rgba(5,5,20,0.95)', color: '#ddd',
+      border: '1px solid #2a2a45', borderRadius: '6px', padding: '10px 14px',
+    };
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    let rawData    = [];
+    let hexData    = [];
+    let windPoints = [];
+    let shopPoints = [];
+    let maxCount   = 1;
+    let deckInstance = null;
+
+    const state = {
+      resolution: 7,
+      yearFrom: 1970,
+      yearTo: 2025,
+      province: 'all',
+      onlyRemarkable: false,
+      onlyPhoto: false,
+      showWind: false,
+      showShops: false,
+      extrude: true,
+    };
+
+    // ── H3 aggregation ────────────────────────────────────────────────────────
+    function applyFilters() {
+      const filtered = rawData.filter(f => {
+        const p = f.properties;
+        const year = p.datetime ? parseInt(p.datetime.slice(0, 4)) : 0;
+        if (year < state.yearFrom || year > state.yearTo) return false;
+        if (state.province !== 'all' && p.province !== state.province) return false;
+        if (state.onlyRemarkable && p.is_remarkable != 1) return false;
+        if (state.onlyPhoto && p.has_photo != 1) return false;
+        return true;
+      });
+
+      const hexMap = {};
+      filtered.forEach(f => {
+        const [lng, lat] = f.geometry.coordinates;
+        if (!isFinite(lat) || !isFinite(lng)) return;
+        const idx = h3.geoToH3(lat, lng, state.resolution);
+        if (!hexMap[idx]) {
+          hexMap[idx] = { h3: idx, count: 0, remarkable: 0, identified: 0, photo: 0, cities: [] };
+        }
+        const cell = hexMap[idx];
+        cell.count++;
+        if (f.properties.is_remarkable == 1) cell.remarkable++;
+        if (f.properties.is_identified == 1) cell.identified++;
+        if (f.properties.has_photo == 1) cell.photo++;
+        const city = f.properties.location_city;
+        if (city && cell.cities.length < 3 && !cell.cities.includes(city)) cell.cities.push(city);
+      });
+
+      hexData = Object.values(hexMap);
+      maxCount = hexData.reduce((m, d) => Math.max(m, d.count), 1);
+
+      updateStats(filtered);
+      updateLegend();
+      updateCorrelation(filtered);
+      render();
+    }
+
+    // ── Color (log-scaled, night sky palette) ─────────────────────────────────
+    const COLOR_STOPS = [
+      [0,    [30,   5,  80, 180]],
+      [0.18, [60,  20, 160, 200]],
+      [0.38, [14, 165, 233, 210]],
+      [0.58, [74, 222, 128, 220]],
+      [0.78, [250, 204,  21, 230]],
+      [1.0,  [255, 255, 255, 240]],
+    ];
+
+    function getColor(d) {
+      const t = Math.min(1, Math.log1p(d.count) / Math.log1p(maxCount));
+      for (let i = 0; i < COLOR_STOPS.length - 1; i++) {
+        const [t0, c0] = COLOR_STOPS[i];
+        const [t1, c1] = COLOR_STOPS[i + 1];
+        if (t >= t0 && t <= t1) {
+          const f = (t - t0) / (t1 - t0);
+          return c0.map((v, j) => Math.round(v + f * (c1[j] - v)));
+        }
+      }
+      return COLOR_STOPS[COLOR_STOPS.length - 1][1];
+    }
+
+    // ── Layers ────────────────────────────────────────────────────────────────
+    function buildLayers() {
+      const layers = [DeckGLUtils.createBasemap('dark-matter')];
+
+      if (state.showWind && windPoints.length > 0) {
+        layers.push(new ScatterplotLayer({
+          id: 'wind-layer',
+          data: windPoints,
+          getPosition: d => d,
+          getRadius: 250,
+          getFillColor: [255, 150, 20, 200],
+          getLineColor: [255, 200, 60, 255],
+          stroked: true,
+          lineWidthMinPixels: 1,
+          radiusMinPixels: 3,
+          radiusMaxPixels: 7,
+          pickable: true,
+        }));
+      }
+
+      if (state.showShops && shopPoints.length > 0) {
+        layers.push(new ScatterplotLayer({
+          id: 'shop-layer',
+          data: shopPoints,
+          getPosition: d => d,
+          getRadius: 350,
+          getFillColor: [50, 220, 100, 200],
+          getLineColor: [100, 255, 150, 255],
+          stroked: true,
+          lineWidthMinPixels: 1,
+          radiusMinPixels: 4,
+          radiusMaxPixels: 10,
+          pickable: true,
+        }));
+      }
+
+      layers.push(new H3HexagonLayer({
+        id: 'ufo-hex',
+        data: hexData,
+        getHexagon: d => d.h3,
+        getFillColor: getColor,
+        getElevation: d => state.extrude ? d.count * (state.resolution >= 8 ? 600 : 200) : 0,
+        extruded: state.extrude,
+        elevationScale: 1,
+        pickable: true,
+        updateTriggers: {
+          getFillColor: [maxCount, hexData.length],
+          getElevation:  [state.extrude, maxCount, state.resolution],
+        },
+      }));
+
+      return layers;
+    }
+
+    function render() {
+      if (!deckInstance) return;
+      deckInstance.setProps({ layers: buildLayers() });
+    }
+
+    // ── Tooltip ───────────────────────────────────────────────────────────────
+    function buildTooltip({ object, layer }) {
+      if (!object) return null;
+      if (layer?.id === 'wind-layer') {
+        return { html: '<div style="font-size:12px">&#x1F300; <b>Windmolen</b></div>', style: TOOLTIP_STYLE };
+      }
+      if (layer?.id === 'shop-layer') {
+        return { html: '<div style="font-size:12px">&#x1F343; <b>Coffeeshop</b></div>', style: TOOLTIP_STYLE };
+      }
+      const d = object;
+      const pct = v => d.count > 0 ? Math.round((v / d.count) * 100) : 0;
+      return {
+        html: `<div style="font-size:12px;line-height:1.9">
+          &#x1F6F8; <b>${d.count} melding${d.count !== 1 ? 'en' : ''}</b><br>
+          ${d.cities.length ? `<span style="color:#a78bfa">${d.cities.join(', ')}</span><br>` : ''}
+          Opmerkelijk: <b>${pct(d.remarkable)}%</b><br>
+          Geïdentificeerd: <b>${pct(d.identified)}%</b><br>
+          Met foto: <b>${pct(d.photo)}%</b>
+        </div>`,
+        style: TOOLTIP_STYLE,
+      };
+    }
+
+    // ── Stats ─────────────────────────────────────────────────────────────────
+    function updateStats(filtered) {
+      const n = filtered.length;
+      const remarkable  = filtered.filter(f => f.properties.is_remarkable == 1).length;
+      const identified  = filtered.filter(f => f.properties.is_identified == 1).length;
+      const photo       = filtered.filter(f => f.properties.has_photo == 1).length;
+
+      document.getElementById('stat-total').textContent      = n.toLocaleString('nl');
+      document.getElementById('stat-remarkable').textContent = n > 0 ? Math.round((remarkable / n) * 100) : '–';
+      document.getElementById('stat-identified').textContent = n > 0 ? Math.round((identified / n) * 100) : '–';
+      document.getElementById('stat-photo').textContent      = n > 0 ? Math.round((photo / n) * 100) : '–';
+    }
+
+    function updateLegend() {
+      const mid = Math.round(Math.exp(Math.log1p(maxCount) * 0.5) - 1);
+      document.getElementById('legend-mid').textContent = mid || '–';
+      document.getElementById('legend-max').textContent = maxCount;
+    }
+
+    // ── Correlation (H3-based proximity) ─────────────────────────────────────
+    function updateCorrelation(filtered) {
+      const hasWind  = state.showWind  && windPoints.length > 0;
+      const hasShops = state.showShops && shopPoints.length > 0;
+      const corrSection = document.getElementById('corr-section');
+
+      if (!hasWind && !hasShops) {
+        corrSection.style.display = 'none';
+        return;
+      }
+      corrSection.style.display = 'block';
+
+      if (hasWind) {
+        // Build set of H3 cells (+ k1 ring) occupied by wind turbines
+        const windCells = new Set();
+        windPoints.forEach(([lng, lat]) => {
+          const cell = h3.geoToH3(lat, lng, state.resolution);
+          windCells.add(cell);
+          h3.kRing(cell, 1).forEach(c => windCells.add(c));
+        });
+        const nearWind = filtered.filter(f => {
+          const [lng, lat] = f.geometry.coordinates;
+          if (!isFinite(lat) || !isFinite(lng)) return false;
+          return windCells.has(h3.geoToH3(lat, lng, state.resolution));
+        }).length;
+        const pct = filtered.length > 0 ? Math.round((nearWind / filtered.length) * 100) : 0;
+        const el = document.getElementById('corr-wind');
+        el.style.display = 'block';
+        el.innerHTML = `&#x1F300; <b>${pct}%</b> van de meldingen binnen ~5 km van een windmolen (${nearWind.toLocaleString('nl')} van ${filtered.length.toLocaleString('nl')})`;
+      } else {
+        document.getElementById('corr-wind').style.display = 'none';
+      }
+
+      if (hasShops) {
+        const shopCells = new Set();
+        shopPoints.forEach(([lng, lat]) => {
+          const cell = h3.geoToH3(lat, lng, state.resolution);
+          shopCells.add(cell);
+          h3.kRing(cell, 2).forEach(c => shopCells.add(c));
+        });
+        const nearShop = filtered.filter(f => {
+          const [lng, lat] = f.geometry.coordinates;
+          if (!isFinite(lat) || !isFinite(lng)) return false;
+          return shopCells.has(h3.geoToH3(lat, lng, state.resolution));
+        }).length;
+        const pct = filtered.length > 0 ? Math.round((nearShop / filtered.length) * 100) : 0;
+        const el = document.getElementById('corr-shop');
+        el.style.display = 'block';
+        el.innerHTML = `&#x1F343; <b>${pct}%</b> van de meldingen in de buurt van een coffeeshop (${nearShop.toLocaleString('nl')} van ${filtered.length.toLocaleString('nl')})`;
+      } else {
+        document.getElementById('corr-shop').style.display = 'none';
+      }
+    }
+
+    // ── Controls ──────────────────────────────────────────────────────────────
+    function setupControls() {
+      const yearFrom = document.getElementById('year-from');
+      const yearTo   = document.getElementById('year-to');
+
+      yearFrom.addEventListener('change', () => {
+        state.yearFrom = parseInt(yearFrom.value) || state.yearFrom;
+        applyFilters();
+      });
+      yearTo.addEventListener('change', () => {
+        state.yearTo = parseInt(yearTo.value) || state.yearTo;
+        applyFilters();
+      });
+
+      document.getElementById('province-filter').addEventListener('change', e => {
+        state.province = e.target.value;
+        applyFilters();
+      });
+
+      document.getElementById('only-remarkable').addEventListener('change', e => {
+        state.onlyRemarkable = e.target.checked;
+        applyFilters();
+      });
+
+      document.getElementById('only-photo').addEventListener('change', e => {
+        state.onlyPhoto = e.target.checked;
+        applyFilters();
+      });
+
+      document.getElementById('show-wind').addEventListener('change', e => {
+        state.showWind = e.target.checked;
+        applyFilters();
+        render();
+      });
+
+      document.getElementById('show-shops').addEventListener('change', e => {
+        state.showShops = e.target.checked;
+        applyFilters();
+        render();
+      });
+
+      document.getElementById('extrude-toggle').addEventListener('change', e => {
+        state.extrude = e.target.checked;
+        render();
+      });
+
+      const resSlider = document.getElementById('res-slider');
+      resSlider.addEventListener('input', () => {
+        state.resolution = parseInt(resSlider.value);
+        document.getElementById('res-val').textContent = `H3 res-${state.resolution}`;
+        applyFilters();
+      });
+
+      document.getElementById('panel-collapse').addEventListener('click', () => {
+        document.getElementById('panel').classList.toggle('collapsed');
+      });
+
+      if (window.innerWidth <= 640) {
+        document.getElementById('panel').classList.add('collapsed');
+      }
+    }
+
+    // ── Data loaders ──────────────────────────────────────────────────────────
+    async function loadWindData() {
+      const statusEl = document.getElementById('wind-status');
+      try {
+        const res = await fetch(WIND_URL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        windPoints = (data.features || [])
+          .filter(f => f.geometry?.type === 'Point')
+          .map(f => f.geometry.coordinates);
+        statusEl.textContent = `(${windPoints.length.toLocaleString('nl')})`;
+        statusEl.style.color = '#a78bfa';
+        if (state.showWind) { applyFilters(); render(); }
+      } catch (err) {
+        console.warn('Wind turbine data unavailable:', err.message);
+        statusEl.textContent = '(niet beschikbaar)';
+      }
+    }
+
+    async function loadShopData() {
+      const statusEl = document.getElementById('shop-status');
+      try {
+        const res = await fetch(SHOP_URL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.features) {
+          shopPoints = data.features
+            .filter(f => f.geometry?.type === 'Point')
+            .map(f => f.geometry.coordinates);
+        } else if (Array.isArray(data)) {
+          shopPoints = data
+            .map(d => [+(d.lng ?? d.longitude), +(d.lat ?? d.latitude)])
+            .filter(([lng, lat]) => isFinite(lng) && isFinite(lat));
+        }
+        statusEl.textContent = `(${shopPoints.length.toLocaleString('nl')})`;
+        statusEl.style.color = '#4ade80';
+        if (state.showShops) { applyFilters(); render(); }
+      } catch {
+        statusEl.textContent = '(zie README)';
+      }
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    async function init() {
+      try {
+        const res = await fetch(DATA_URL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const geojson = await res.json();
+
+        rawData = (geojson.features || []).filter(
+          f => f.geometry?.type === 'Point' &&
+               isFinite(f.geometry.coordinates[0]) &&
+               isFinite(f.geometry.coordinates[1])
+        );
+
+        // Derive year range from data
+        const years = rawData
+          .map(f => parseInt(f.properties.datetime?.slice(0, 4)))
+          .filter(y => y > 1900 && y <= 2025);
+        const minYear = Math.min(...years);
+        state.yearFrom = minYear;
+        document.getElementById('year-from').min   = minYear;
+        document.getElementById('year-from').value = minYear;
+        document.getElementById('year-to').max     = Math.max(...years);
+
+        // Populate province dropdown
+        const provinces = [...new Set(
+          rawData.map(f => f.properties.province).filter(Boolean)
+        )].sort();
+        const sel = document.getElementById('province-filter');
+        provinces.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p; opt.textContent = p; sel.appendChild(opt);
+        });
+
+        document.getElementById('panel-subtitle').textContent =
+          `${rawData.length.toLocaleString('nl')} meldingen · ufomeldpunt.nl`;
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('panel').style.display = 'block';
+
+        setupControls();
+        applyFilters();
+
+        deckInstance = new DeckGL({
+          container: 'container',
+          initialViewState: INITIAL_VIEW,
+          controller: true,
+          layers: buildLayers(),
+          getTooltip: buildTooltip,
+        });
+
+        render();
+
+        // Non-blocking overlay loads
+        loadWindData();
+        loadShopData();
+
+      } catch (err) {
+        console.error(err);
+        document.getElementById('loading').innerHTML = `
+          <div style="font-size:20px;margin-bottom:8px">&#x1F6F8;</div>
+          <div style="font-size:14px;margin-bottom:8px">Data niet gevonden</div>
+          <div style="font-size:11px;color:#778;line-height:1.7">
+            Zet <code style="color:#a78bfa">ufo.geojson</code> in de <code style="color:#a78bfa">/data/</code> map.<br>
+            Zie <a href="https://www.ufomeldpunt.nl/kaart" style="color:#a78bfa" target="_blank">ufomeldpunt.nl</a> voor de brondata.
+          </div>`;
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>
