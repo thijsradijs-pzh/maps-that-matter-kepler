@@ -321,6 +321,7 @@
         <div class="view-tab active" data-tab="kaart">Kaart</div>
         <div class="view-tab" data-tab="tijdlijn">Tijdlijn</div>
         <div class="view-tab" data-tab="correlatie">Correlatie</div>
+        <div class="view-tab" data-tab="demo">Demografie</div>
       </div>
 
       <!-- ═══ TAB: Kaart ═══ -->
@@ -364,6 +365,27 @@
           <label for="show-shops">&#x1F343; Coffeeshops</label>
           <span class="layer-status" id="shop-status"></span>
         </div>
+        <div class="toggle-row">
+          <input type="checkbox" id="show-military" />
+          <label for="show-military">&#x1F6A7; Militaire zones</label>
+          <span class="layer-status" id="military-status"></span>
+        </div>
+        <div class="toggle-row">
+          <input type="checkbox" id="show-nlog" />
+          <label for="show-nlog">&#x26CF; Gas- en olieputten</label>
+          <span class="layer-status" id="nlog-status"></span>
+        </div>
+      </div>
+
+      <!-- Color mode -->
+      <div class="filter-section" style="border-bottom:1px solid #1a1a30;padding:8px 14px 10px">
+        <div class="filter-label">Kleurmodus</div>
+        <select id="color-mode">
+          <option value="abs">Absoluut (aantal meldingen)</option>
+          <option value="percapita">Per 100k inwoners (CBS)</option>
+          <option value="licht">Lichtemissie (CBS)</option>
+        </select>
+        <div class="chart-note" id="cbs-status" style="margin-top:4px">CBS data laden...</div>
       </div>
 
       <!-- Correlation stats (shown when overlays loaded) -->
@@ -415,10 +437,20 @@
           <svg id="chart-month" class="chart-svg" height="54"></svg>
         </div>
 
-        <div class="chart-section" style="border-bottom:none;padding-bottom:12px">
+        <div class="chart-section">
           <div class="chart-label">Meldingen per jaar</div>
           <svg id="chart-year" class="chart-svg" height="60"></svg>
           <div class="chart-note" id="chart-year-note"></div>
+        </div>
+
+        <div class="chart-section" style="border-bottom:none;padding-bottom:12px">
+          <div class="chart-label">&#x1F386; Oud &amp; Nieuw — 1 jan per uur</div>
+          <div class="corr-legend">
+            <span><span class="corr-dot" style="background:#facc15"></span>1 januari</span>
+            <span><span class="corr-dot" style="background:#4a4a6a"></span>Rest van het jaar</span>
+          </div>
+          <svg id="chart-jan1" class="chart-svg" height="60"></svg>
+          <div class="chart-note" id="chart-jan1-note"></div>
         </div>
 
       </div><!-- end tab-tijdlijn -->
@@ -452,15 +484,55 @@
 
       </div><!-- end tab-correlatie -->
 
+      <!-- ═══ TAB: Demografie ═══ -->
+      <div id="tab-demo" class="tab-content">
+
+        <div id="demo-no-cbs" class="no-data-msg">CBS data laden...<br><span style="font-size:10px;color:#334">Gebaseerd op CBS vierkantstatistieken<br>(H3 res-9 → res-7)</span></div>
+
+        <div id="demo-content" style="display:none">
+
+          <div class="chart-section">
+            <div class="chart-label">Meldingen per 100k inwoners — inkomen</div>
+            <div class="corr-legend" style="margin-bottom:3px">
+              <span style="font-size:9px;color:#556">Laag inkomen → Hoog inkomen (5 kwintielen)</span>
+            </div>
+            <svg id="chart-demo-inkomen" class="chart-svg" height="54"></svg>
+            <div class="chart-note" id="demo-inkomen-note"></div>
+          </div>
+
+          <div class="chart-section">
+            <div class="chart-label">Meldingen per 100k inwoners — bebouwing</div>
+            <div class="corr-legend" style="margin-bottom:3px">
+              <span style="font-size:9px;color:#556">Landelijk → Stedelijk (5 kwintielen)</span>
+            </div>
+            <svg id="chart-demo-bebouwing" class="chart-svg" height="54"></svg>
+            <div class="chart-note" id="demo-bebouwing-note"></div>
+          </div>
+
+          <div class="chart-section" style="border-bottom:none;padding-bottom:12px">
+            <div class="chart-label">Meldingen per 100k inwoners — licht</div>
+            <div class="corr-legend" style="margin-bottom:3px">
+              <span style="font-size:9px;color:#556">Donker → Licht (lichtemissie kwintielen)</span>
+            </div>
+            <svg id="chart-demo-licht" class="chart-svg" height="54"></svg>
+            <div class="chart-note" id="demo-licht-note"></div>
+          </div>
+
+        </div>
+      </div><!-- end tab-demo -->
+
     </div>
   </div>
 
   <script>
-    const { DeckGL, H3HexagonLayer, ScatterplotLayer } = deck;
+    const { DeckGL, H3HexagonLayer, ScatterplotLayer, GeoJsonLayer } = deck;
 
-    const DATA_URL  = '/data/ufo.geojson';
-    const WIND_URL  = `/api/proxy?url=${encodeURIComponent('https://service.pdok.nl/rvo/windturbines/wfs/v1_0?service=WFS&version=2.0.0&request=GetFeature&typeName=windturbines:windturbines&outputFormat=application/json&count=10000')}`;
-    const SHOP_URL  = '/data/coffeeshops.json';
+    const DATA_URL     = '/data/ufo.geojson';
+    const WIND_URL     = `/api/proxy?url=${encodeURIComponent('https://service.pdok.nl/rvo/windturbines/wfs/v1_0?service=WFS&version=2.0.0&request=GetFeature&typeName=windturbines:windturbines&outputFormat=application/json&count=10000')}`;
+    const SHOP_URL     = '/data/coffeeshops.json';
+    const CBS_URL      = '/data/cbs_h3_7.json';
+    const MILITARY_URL = '/data/military_zones.json';
+    const NLOG_URL     = '/data/nlog_wells.json';
 
     const INITIAL_VIEW = { longitude: 5.2913, latitude: 52.1326, zoom: 7, pitch: 40, bearing: 0 };
 
@@ -470,11 +542,15 @@
     };
 
     // ── State ─────────────────────────────────────────────────────────────────
-    let rawData    = [];
-    let hexData    = [];
-    let windPoints = [];
-    let shopPoints = [];
-    let maxCount   = 1;
+    let rawData      = [];
+    let hexData      = [];
+    let windPoints   = [];
+    let shopPoints   = [];
+    let cbsData      = {};   // h3_7 → {p, i, l, bw, db}
+    let militaryGeo  = null; // GeoJSON FeatureCollection
+    let nlogPoints   = [];   // [{lng, lat, name}]
+    let maxCount     = 1;
+    let maxPerCapita = 1;
     let deckInstance = null;
 
     const state = {
@@ -486,8 +562,19 @@
       onlyPhoto: false,
       showWind: false,
       showShops: false,
+      showMilitary: false,
+      showNlog: false,
+      colorMode: 'abs',
       extrude: true,
     };
+
+    // ── CBS helpers ───────────────────────────────────────────────────────────
+    function getCbs(h3cell) {
+      const res = state.resolution;
+      if (res === 7) return cbsData[h3cell];
+      if (res > 7)  return cbsData[h3.h3ToParent(h3cell, 7)];
+      return null; // res < 7: too coarse
+    }
 
     // ── SVG bar chart helper ──────────────────────────────────────────────────
     function svgBars(svgEl, data, { colors, barLabels = [], h = 50, annotate = null } = {}) {
@@ -702,6 +789,121 @@
       }
     }
 
+    // ── Jan 1 chart ───────────────────────────────────────────────────────────
+    function renderJan1Chart(filtered) {
+      const jan1   = new Array(24).fill(0);
+      const other  = new Array(24).fill(0);
+      filtered.forEach(f => {
+        const dt = f.properties.datetime || '';
+        const hr = parseInt(dt.slice(11, 13));
+        if (isNaN(hr) || hr < 0 || hr >= 24) return;
+        const mmdd = dt.slice(5, 10);
+        if (mmdd === '01-01') jan1[hr]++;
+        else other[hr]++;
+      });
+      const jan1Total  = jan1.reduce((a, b) => a + b, 0)  || 1;
+      const otherTotal = other.reduce((a, b) => a + b, 0) || 1;
+      const jan1Pct  = jan1.map(v => (v / jan1Total)  * 100);
+      const otherPct = other.map(v => (v / otherTotal) * 100);
+
+      const svgEl = document.getElementById('chart-jan1');
+      const W = svgEl.parentElement?.clientWidth - 28 || 244;
+      const h = 50;
+      const bw = W / 24;
+      const maxV = Math.max(...jan1Pct, ...otherPct, 0.01);
+      svgEl.setAttribute('viewBox', `0 0 ${W} ${h + 12}`);
+      svgEl.setAttribute('width', W);
+      svgEl.setAttribute('height', h + 12);
+
+      let html = '';
+      otherPct.forEach((v, i) => {
+        const barH = Math.max(1, Math.round((v / maxV) * h));
+        html += `<rect x="${Math.round(i * bw + 0.5)}" y="${h - barH}" width="${Math.max(1, Math.round(bw) - 1)}" height="${barH}" fill="#4a4a6a" opacity="0.65"/>`;
+      });
+      jan1Pct.forEach((v, i) => {
+        if (v <= 0) return;
+        const barH = Math.max(1, Math.round((v / maxV) * h));
+        html += `<rect x="${Math.round(i * bw + 1)}" y="${h - barH}" width="${Math.max(1, Math.round(bw) - 2)}" height="${barH}" fill="#facc15" opacity="0.9"/>`;
+      });
+      [[0,'0u'],[6,'6u'],[12,'12u'],[18,'18u'],[23,'23u']].forEach(([i, lbl]) => {
+        html += `<text x="${Math.round(i * bw + bw / 2)}" y="${h + 10}" text-anchor="middle" font-size="8" fill="#556">${lbl}</text>`;
+      });
+      svgEl.innerHTML = html;
+
+      const jan1Count = jan1.reduce((a, b) => a + b, 0);
+      const midnightPct = jan1Total > 0 ? Math.round((jan1[0] / jan1Total) * 100) : 0;
+      document.getElementById('chart-jan1-note').textContent =
+        `${jan1Count.toLocaleString('nl')} meldingen op 1 jan · middernacht: ${midnightPct}% van alle 1-jan meldingen`;
+    }
+
+    // ── Demografie (CBS quintile) charts ──────────────────────────────────────
+    function renderDemoCharts(filtered) {
+      if (!Object.keys(cbsData).length) return;
+
+      document.getElementById('demo-no-cbs').style.display = 'none';
+      document.getElementById('demo-content').style.display = 'block';
+
+      // Gather sightings with CBS data
+      const sightingsWithCbs = filtered.map(f => {
+        const [lng, lat] = f.geometry.coordinates;
+        if (!isFinite(lat) || !isFinite(lng)) return null;
+        const cell = h3.geoToH3(lat, lng, 7);
+        const cbs = cbsData[cell];
+        if (!cbs || !cbs.p) return null;
+        return { cbs, perCapita: 1 / (cbs.p / 100000) };
+      }).filter(Boolean);
+
+      // Build quintile chart for a CBS attribute
+      function drawQuintileChart(svgId, noteId, getValue, label) {
+        // Collect hex cells with that attribute + sighting counts
+        const hexAttr = {};
+        filtered.forEach(f => {
+          const [lng, lat] = f.geometry.coordinates;
+          if (!isFinite(lat) || !isFinite(lng)) return;
+          const cell = state.resolution === 7
+            ? h3.geoToH3(lat, lng, 7)
+            : h3.h3ToParent(h3.geoToH3(lat, lng, state.resolution), 7);
+          const cbs = cbsData[cell];
+          if (!cbs || !cbs.p) return;
+          const attr = getValue(cbs);
+          if (attr === null || attr === undefined) return;
+          if (!hexAttr[cell]) hexAttr[cell] = { attr, count: 0, pop: cbs.p };
+          hexAttr[cell].count++;
+        });
+
+        const entries = Object.values(hexAttr);
+        if (entries.length < 5) {
+          document.getElementById(noteId).textContent = 'Te weinig data voor kwintielen.';
+          return;
+        }
+
+        // Sort by attribute to determine quintile boundaries
+        const sorted = [...entries].sort((a, b) => a.attr - b.attr);
+        const qSize = sorted.length / 5;
+        const quintiles = [0, 1, 2, 3, 4].map(q => {
+          const slice = sorted.slice(Math.round(q * qSize), Math.round((q + 1) * qSize));
+          const totalCount = slice.reduce((s, d) => s + d.count, 0);
+          const totalPop   = slice.reduce((s, d) => s + d.pop, 0);
+          return totalPop > 0 ? (totalCount / (totalPop / 100000)) : 0;
+        });
+
+        const svgEl = document.getElementById(svgId);
+        const qColors = ['#3a3a6a', '#4a5080', '#6060a0', '#8060c0', '#a070e0'];
+        svgBars(svgEl, quintiles, { colors: qColors, h: 44,
+          barLabels: [[0,'Q1'],[1,'Q2'],[2,'Q3'],[3,'Q4'],[4,'Q5']],
+          annotate: v => v.toFixed(1),
+        });
+        const max = Math.max(...quintiles);
+        const maxQ = quintiles.indexOf(max) + 1;
+        document.getElementById(noteId).textContent =
+          `Kwintiel ${maxQ} heeft meeste meldingen p/100k (${max.toFixed(1)}) · ${entries.length} hexagonen met data`;
+      }
+
+      drawQuintileChart('chart-demo-inkomen',   'demo-inkomen-note',   c => c.i, 'inkomen');
+      drawQuintileChart('chart-demo-bebouwing',  'demo-bebouwing-note', c => c.bw, 'bebouwing');
+      drawQuintileChart('chart-demo-licht',      'demo-licht-note',    c => c.l, 'licht');
+    }
+
     // ── H3 aggregation ────────────────────────────────────────────────────────
     function applyFilters() {
       const filtered = rawData.filter(f => {
@@ -734,11 +936,23 @@
       hexData = Object.values(hexMap);
       maxCount = hexData.reduce((m, d) => Math.max(m, d.count), 1);
 
+      // Compute per-capita max for color scaling
+      maxPerCapita = 1;
+      hexData.forEach(d => {
+        const cbs = getCbs(d.h3);
+        if (cbs && cbs.p) {
+          const rate = d.count / (cbs.p / 100000);
+          if (rate > maxPerCapita) maxPerCapita = rate;
+        }
+      });
+
       updateStats(filtered);
       updateLegend();
       updateCorrelation(filtered);
       renderTimeCharts(filtered);
       renderCorrCharts(filtered);
+      renderJan1Chart(filtered);
+      renderDemoCharts(filtered);
       render();
     }
 
@@ -752,17 +966,41 @@
       [1.0,  [255, 255, 255, 240]],
     ];
 
-    function getColor(d) {
-      const t = Math.min(1, Math.log1p(d.count) / Math.log1p(maxCount));
-      for (let i = 0; i < COLOR_STOPS.length - 1; i++) {
-        const [t0, c0] = COLOR_STOPS[i];
-        const [t1, c1] = COLOR_STOPS[i + 1];
+    function interpolateStops(t, stops) {
+      for (let i = 0; i < stops.length - 1; i++) {
+        const [t0, c0] = stops[i];
+        const [t1, c1] = stops[i + 1];
         if (t >= t0 && t <= t1) {
           const f = (t - t0) / (t1 - t0);
           return c0.map((v, j) => Math.round(v + f * (c1[j] - v)));
         }
       }
-      return COLOR_STOPS[COLOR_STOPS.length - 1][1];
+      return stops[stops.length - 1][1];
+    }
+
+    function getColor(d) {
+      if (state.colorMode === 'percapita') {
+        const cbs = getCbs(d.h3);
+        if (!cbs || !cbs.p) return [20, 20, 35, 80];
+        const rate = d.count / (cbs.p / 100000);
+        const t = Math.min(1, Math.log1p(rate) / Math.log1p(maxPerCapita));
+        return interpolateStops(t, COLOR_STOPS);
+      }
+      if (state.colorMode === 'licht') {
+        const cbs = getCbs(d.h3);
+        if (!cbs || cbs.l === null) return [20, 20, 35, 80];
+        const t = Math.min(1, cbs.l / 30);  // lichtemissie roughly 0-30
+        // dark = deep blue, bright = white/yellow
+        const lichtStops = [
+          [0,   [5, 10, 60, 200]],
+          [0.3, [14, 60, 160, 210]],
+          [0.6, [255, 200, 60, 220]],
+          [1.0, [255, 255, 220, 240]],
+        ];
+        return interpolateStops(t, lichtStops);
+      }
+      const t = Math.min(1, Math.log1p(d.count) / Math.log1p(maxCount));
+      return interpolateStops(t, COLOR_STOPS);
     }
 
     // ── Layers ────────────────────────────────────────────────────────────────
@@ -801,6 +1039,35 @@
         }));
       }
 
+      if (state.showMilitary && militaryGeo) {
+        layers.push(new GeoJsonLayer({
+          id: 'military-layer',
+          data: militaryGeo,
+          filled: true,
+          stroked: true,
+          getFillColor: [255, 40, 40, 45],
+          getLineColor: [255, 80, 80, 200],
+          lineWidthMinPixels: 1.5,
+          pickable: true,
+        }));
+      }
+
+      if (state.showNlog && nlogPoints.length > 0) {
+        layers.push(new ScatterplotLayer({
+          id: 'nlog-layer',
+          data: nlogPoints,
+          getPosition: d => [d.lng, d.lat],
+          getRadius: 400,
+          getFillColor: [255, 160, 20, 200],
+          getLineColor: [255, 200, 80, 255],
+          stroked: true,
+          lineWidthMinPixels: 1,
+          radiusMinPixels: 3,
+          radiusMaxPixels: 8,
+          pickable: true,
+        }));
+      }
+
       layers.push(new H3HexagonLayer({
         id: 'ufo-hex',
         data: hexData,
@@ -811,7 +1078,7 @@
         elevationScale: 1,
         pickable: true,
         updateTriggers: {
-          getFillColor: [maxCount, hexData.length],
+          getFillColor: [maxCount, maxPerCapita, hexData.length, state.colorMode],
           getElevation:  [state.extrude, maxCount, state.resolution],
         },
       }));
@@ -832,6 +1099,14 @@
       }
       if (layer?.id === 'shop-layer') {
         return { html: '<div style="font-size:12px">&#x1F343; <b>Coffeeshop</b></div>', style: TOOLTIP_STYLE };
+      }
+      if (layer?.id === 'military-layer') {
+        const name = object.properties?.name || 'Militaire zone';
+        return { html: `<div style="font-size:12px">&#x1F6A7; <b>${name}</b></div>`, style: TOOLTIP_STYLE };
+      }
+      if (layer?.id === 'nlog-layer') {
+        const name = object.name || 'Gas-/olieput';
+        return { html: `<div style="font-size:12px">&#x26CF;&#xFE0F; <b>${name}</b></div>`, style: TOOLTIP_STYLE };
       }
       const d = object;
       const pct = v => d.count > 0 ? Math.round((v / d.count) * 100) : 0;
@@ -961,6 +1236,21 @@
         render();
       });
 
+      document.getElementById('show-military').addEventListener('change', e => {
+        state.showMilitary = e.target.checked;
+        render();
+      });
+
+      document.getElementById('show-nlog').addEventListener('change', e => {
+        state.showNlog = e.target.checked;
+        render();
+      });
+
+      document.getElementById('color-mode').addEventListener('change', e => {
+        state.colorMode = e.target.value;
+        render();
+      });
+
       document.getElementById('extrude-toggle').addEventListener('change', e => {
         state.extrude = e.target.checked;
         render();
@@ -992,6 +1282,8 @@
             });
             renderTimeCharts(filtered);
             renderCorrCharts(filtered);
+            renderJan1Chart(filtered);
+            if (tab.dataset.tab === 'demo') renderDemoCharts(filtered);
           }
         });
       });
@@ -1044,6 +1336,55 @@
         if (state.showShops) { applyFilters(); render(); }
       } catch {
         statusEl.textContent = '(zie README)';
+      }
+    }
+
+    async function loadCbsData() {
+      const statusEl = document.getElementById('cbs-status');
+      try {
+        const res = await fetch(CBS_URL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        cbsData = await res.json();
+        const n = Object.keys(cbsData).length;
+        statusEl.textContent = `CBS geladen (${n.toLocaleString('nl')} hexagonen)`;
+        statusEl.style.color = '#a78bfa';
+        // Re-render with CBS data available (color modes + demo tab)
+        applyFilters();
+      } catch (err) {
+        console.warn('CBS data unavailable:', err.message);
+        statusEl.textContent = 'CBS data niet beschikbaar';
+        document.getElementById('demo-no-cbs').textContent = 'CBS data kon niet worden geladen.';
+      }
+    }
+
+    async function loadMilitaryData() {
+      const statusEl = document.getElementById('military-status');
+      try {
+        const res = await fetch(MILITARY_URL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        militaryGeo = await res.json();
+        const n = (militaryGeo.features || []).length;
+        statusEl.textContent = `(${n} zones)`;
+        statusEl.style.color = '#f87171';
+        if (state.showMilitary) render();
+      } catch (err) {
+        console.warn('Military zone data unavailable:', err.message);
+        statusEl.textContent = '(niet beschikbaar)';
+      }
+    }
+
+    async function loadNlogData() {
+      const statusEl = document.getElementById('nlog-status');
+      try {
+        const res = await fetch(NLOG_URL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        nlogPoints = await res.json();
+        statusEl.textContent = `(${nlogPoints.length.toLocaleString('nl')})`;
+        statusEl.style.color = '#fbbf24';
+        if (state.showNlog) render();
+      } catch (err) {
+        console.warn('NLOG data unavailable:', err.message);
+        statusEl.textContent = '(niet beschikbaar)';
       }
     }
 
@@ -1101,6 +1442,9 @@
         // Non-blocking overlay loads
         loadWindData();
         loadShopData();
+        loadCbsData();
+        loadMilitaryData();
+        loadNlogData();
 
       } catch (err) {
         console.error(err);
