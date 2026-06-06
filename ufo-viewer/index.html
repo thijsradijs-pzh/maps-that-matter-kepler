@@ -203,6 +203,63 @@
       background: #2a2a45; border-radius: 2px; margin: 0 auto 10px;
     }
 
+    /* ── View tabs ── */
+    .view-tabs {
+      display: flex; gap: 3px;
+      padding: 8px 10px;
+      border-bottom: 1px solid #1a1a30;
+    }
+
+    .view-tab {
+      flex: 1; padding: 5px 4px;
+      font-size: 11px; font-weight: 600;
+      border: 1px solid #2a2a45; border-radius: 5px;
+      background: #0d0d20; color: #667;
+      cursor: pointer; text-align: center; transition: all 0.15s;
+    }
+    .view-tab:hover { background: #14142a; color: #aaa; }
+    .view-tab.active { background: #1a1040; border-color: #5b3fd4; color: #c4b5fd; }
+
+    /* ── Charts ── */
+    .chart-section {
+      padding: 8px 14px 4px;
+      border-bottom: 1px solid #1a1a30;
+    }
+
+    .chart-label {
+      font-size: 10px; color: #556;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      margin-bottom: 5px;
+    }
+
+    .chart-note {
+      font-size: 9px; color: #445; margin-top: 2px; line-height: 1.4;
+    }
+
+    .chart-svg { display: block; width: 100%; overflow: visible; }
+
+    /* ── Corr comparison ── */
+    .corr-chart-section {
+      padding: 8px 14px 10px;
+      border-bottom: 1px solid #1a1a30;
+    }
+
+    .corr-legend {
+      display: flex; gap: 12px; margin-bottom: 6px;
+      font-size: 10px; color: #778;
+    }
+
+    .corr-legend span { display: flex; align-items: center; gap: 4px; }
+    .corr-dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+
+    .no-data-msg {
+      padding: 16px 14px; font-size: 11px; color: #445;
+      text-align: center; line-height: 1.7;
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
     @media (max-width: 640px) {
       #panel {
         top: auto; bottom: 0; left: 0; right: 0; width: 100%;
@@ -236,7 +293,7 @@
 
     <div class="panel-body">
 
-      <!-- Stats -->
+      <!-- Stats (always visible) -->
       <div class="stats-row">
         <div class="stat-card">
           <div class="stat-label">Meldingen</div>
@@ -258,6 +315,16 @@
           <div class="stat-unit">%</div>
         </div>
       </div>
+
+      <!-- Tab bar -->
+      <div class="view-tabs">
+        <div class="view-tab active" data-tab="kaart">Kaart</div>
+        <div class="view-tab" data-tab="tijdlijn">Tijdlijn</div>
+        <div class="view-tab" data-tab="correlatie">Correlatie</div>
+      </div>
+
+      <!-- ═══ TAB: Kaart ═══ -->
+      <div id="tab-kaart" class="tab-content active">
 
       <!-- Filters -->
       <div class="filter-section">
@@ -332,6 +399,59 @@
         </div>
       </div>
 
+      </div><!-- end tab-kaart -->
+
+      <!-- ═══ TAB: Tijdlijn ═══ -->
+      <div id="tab-tijdlijn" class="tab-content">
+
+        <div class="chart-section">
+          <div class="chart-label">Uur van de dag</div>
+          <svg id="chart-hour" class="chart-svg" height="54"></svg>
+          <div class="chart-note">Nacht (0–6u) en avond (20–24u) gemarkeerd</div>
+        </div>
+
+        <div class="chart-section">
+          <div class="chart-label">Maand van het jaar</div>
+          <svg id="chart-month" class="chart-svg" height="54"></svg>
+        </div>
+
+        <div class="chart-section" style="border-bottom:none;padding-bottom:12px">
+          <div class="chart-label">Meldingen per jaar</div>
+          <svg id="chart-year" class="chart-svg" height="60"></svg>
+          <div class="chart-note" id="chart-year-note"></div>
+        </div>
+
+      </div><!-- end tab-tijdlijn -->
+
+      <!-- ═══ TAB: Correlatie ═══ -->
+      <div id="tab-correlatie" class="tab-content">
+
+        <div id="corr-wind-chart" class="corr-chart-section" style="display:none">
+          <div class="chart-label">&#x1F300; Uur van de dag — windmolens</div>
+          <div class="corr-legend">
+            <span><span class="corr-dot" style="background:#ff8c14"></span>Nabij windmolen</span>
+            <span><span class="corr-dot" style="background:#4a4a6a"></span>Overig</span>
+          </div>
+          <svg id="chart-corr-wind" class="chart-svg" height="60"></svg>
+          <div class="chart-note" id="corr-wind-note"></div>
+        </div>
+
+        <div id="corr-shop-chart" class="corr-chart-section" style="display:none">
+          <div class="chart-label">&#x1F343; Uur van de dag — coffeeshops</div>
+          <div class="corr-legend">
+            <span><span class="corr-dot" style="background:#32dc64"></span>Nabij coffeeshop</span>
+            <span><span class="corr-dot" style="background:#4a4a6a"></span>Overig</span>
+          </div>
+          <svg id="chart-corr-shop" class="chart-svg" height="60"></svg>
+          <div class="chart-note" id="corr-shop-note"></div>
+        </div>
+
+        <div id="corr-no-data" class="no-data-msg">
+          Zet windmolens of coffeeshops aan<br>op het <b>Kaart</b>-tabblad om<br>correlaties te zien.
+        </div>
+
+      </div><!-- end tab-correlatie -->
+
     </div>
   </div>
 
@@ -369,6 +489,219 @@
       extrude: true,
     };
 
+    // ── SVG bar chart helper ──────────────────────────────────────────────────
+    function svgBars(svgEl, data, { colors, barLabels = [], h = 50, annotate = null } = {}) {
+      const n = data.length;
+      const max = Math.max(...data, 1);
+      const W = svgEl.parentElement?.clientWidth - 28 || 244;
+      const bw = W / n;
+      const totalH = h + (barLabels.length ? 12 : 0);
+      svgEl.setAttribute('viewBox', `0 0 ${W} ${totalH}`);
+      svgEl.setAttribute('width', W);
+      svgEl.setAttribute('height', totalH);
+
+      let html = '';
+      data.forEach((v, i) => {
+        const barH = Math.max(1, Math.round((v / max) * h));
+        const x = Math.round(i * bw + 0.5);
+        const y = h - barH;
+        const w = Math.max(1, Math.round(bw) - 1);
+        const fill = Array.isArray(colors) ? (colors[i] || colors[0]) : colors;
+        html += `<rect x="${x}" y="${y}" width="${w}" height="${barH}" fill="${fill}" opacity="0.85"/>`;
+      });
+
+      // Value annotation on tallest bar
+      if (annotate) {
+        const maxI = data.indexOf(Math.max(...data));
+        const x = Math.round(maxI * bw + bw / 2);
+        html += `<text x="${x}" y="${Math.max(0, h - Math.round((max / max) * h) - 3)}" text-anchor="middle" font-size="8" fill="#c4b5fd">${annotate(max)}</text>`;
+      }
+
+      barLabels.forEach(([i, text]) => {
+        const x = Math.round(i * bw + bw / 2);
+        html += `<text x="${x}" y="${h + 10}" text-anchor="middle" font-size="8" fill="#556">${text}</text>`;
+      });
+
+      svgEl.innerHTML = html;
+    }
+
+    function hourColors(i) {
+      if (i < 6 || i >= 22) return '#6d28d9';   // night: purple
+      if (i >= 20) return '#9d4edd';              // late evening
+      if (i >= 18) return '#7c3aed';              // evening
+      return '#3a3a5c';                            // daytime: muted
+    }
+
+    // ── Temporal charts ───────────────────────────────────────────────────────
+    function renderTimeCharts(filtered) {
+      const hours  = new Array(24).fill(0);
+      const months = new Array(12).fill(0);
+      const yearMap = {};
+
+      filtered.forEach(f => {
+        const dt = f.properties.datetime || '';
+        const y  = parseInt(dt.slice(0, 4));
+        const mo = parseInt(dt.slice(5, 7));
+        const hr = parseInt(dt.slice(11, 13));
+        if (!isNaN(hr) && hr >= 0 && hr < 24) hours[hr]++;
+        if (!isNaN(mo) && mo >= 1 && mo <= 12) months[mo - 1]++;
+        if (!isNaN(y) && y > 1960 && y <= 2030) yearMap[y] = (yearMap[y] || 0) + 1;
+      });
+
+      // Hour chart
+      const hourSvg = document.getElementById('chart-hour');
+      if (hourSvg) {
+        svgBars(hourSvg, hours, {
+          colors: Array.from({ length: 24 }, (_, i) => hourColors(i)),
+          barLabels: [[0,'0u'],[6,'6u'],[12,'12u'],[18,'18u'],[23,'23u']],
+          h: 44,
+        });
+      }
+
+      // Month chart
+      const monthSvg = document.getElementById('chart-month');
+      if (monthSvg) {
+        svgBars(monthSvg, months, {
+          colors: '#7c3aed',
+          barLabels: [[0,'J'],[1,'F'],[2,'M'],[3,'A'],[4,'M'],[5,'J'],[6,'J'],[7,'A'],[8,'S'],[9,'O'],[10,'N'],[11,'D']],
+          h: 44,
+        });
+      }
+
+      // Year chart
+      const yearSvg = document.getElementById('chart-year');
+      if (yearSvg && Object.keys(yearMap).length) {
+        const minY = Math.min(...Object.keys(yearMap).map(Number));
+        const maxY = Math.max(...Object.keys(yearMap).map(Number));
+        const yearData = [];
+        for (let y = minY; y <= maxY; y++) yearData.push(yearMap[y] || 0);
+        const labelStep = Math.max(1, Math.ceil(yearData.length / 6));
+        const labels = yearData.map((_, i) => {
+          const yr = minY + i;
+          return (i % labelStep === 0) ? [i, String(yr).slice(2)] : null;
+        }).filter(Boolean);
+        svgBars(yearSvg, yearData, {
+          colors: '#a78bfa',
+          barLabels: labels,
+          h: 48,
+          annotate: v => v,
+        });
+        const peakYear = minY + yearData.indexOf(Math.max(...yearData));
+        const noteEl = document.getElementById('chart-year-note');
+        if (noteEl) noteEl.textContent = `Piek: ${peakYear} (${Math.max(...yearData).toLocaleString('nl')} meldingen)`;
+      }
+    }
+
+    // ── Correlation hour-distribution charts ──────────────────────────────────
+    function renderCorrCharts(filtered) {
+      const hasWind  = state.showWind  && windPoints.length > 0;
+      const hasShops = state.showShops && shopPoints.length > 0;
+      const noDataEl = document.getElementById('corr-no-data');
+
+      if (!hasWind && !hasShops) {
+        noDataEl.style.display = 'block';
+        document.getElementById('corr-wind-chart').style.display = 'none';
+        document.getElementById('corr-shop-chart').style.display = 'none';
+        return;
+      }
+      noDataEl.style.display = 'none';
+
+      function hourDist(pts) {
+        const dist = new Array(24).fill(0);
+        pts.forEach(f => {
+          const hr = parseInt((f.properties.datetime || '').slice(11, 13));
+          if (!isNaN(hr) && hr >= 0 && hr < 24) dist[hr]++;
+        });
+        // Normalize to % of total
+        const total = pts.length || 1;
+        return dist.map(v => (v / total) * 100);
+      }
+
+      function overlaidBars(svgEl, distA, distB, colorA, colorB) {
+        const W = svgEl.parentElement?.clientWidth - 28 || 244;
+        const h = 50;
+        const n = 24;
+        const bw = W / n;
+        const maxV = Math.max(...distA, ...distB, 0.01);
+        svgEl.setAttribute('viewBox', `0 0 ${W} ${h + 12}`);
+        svgEl.setAttribute('width', W);
+        svgEl.setAttribute('height', h + 12);
+
+        let html = '';
+        // Background (distB = all others)
+        distB.forEach((v, i) => {
+          const barH = Math.max(1, Math.round((v / maxV) * h));
+          html += `<rect x="${Math.round(i * bw + 0.5)}" y="${h - barH}" width="${Math.max(1, Math.round(bw) - 1)}" height="${barH}" fill="${colorB}" opacity="0.6"/>`;
+        });
+        // Foreground (distA = near overlay)
+        distA.forEach((v, i) => {
+          const barH = Math.max(1, Math.round((v / maxV) * h));
+          html += `<rect x="${Math.round(i * bw + 1)}" y="${h - barH}" width="${Math.max(1, Math.round(bw) - 2)}" height="${barH}" fill="${colorA}" opacity="0.9"/>`;
+        });
+        [[0,'0u'],[6,'6u'],[12,'12u'],[18,'18u'],[23,'23u']].forEach(([i, lbl]) => {
+          html += `<text x="${Math.round(i * bw + bw / 2)}" y="${h + 10}" text-anchor="middle" font-size="8" fill="#556">${lbl}</text>`;
+        });
+        svgEl.innerHTML = html;
+      }
+
+      function nightPct(dist) {
+        const night = dist.slice(20).concat(dist.slice(0, 6)).reduce((a, b) => a + b, 0);
+        return night.toFixed(1);
+      }
+
+      if (hasWind) {
+        const windCells = new Set();
+        windPoints.forEach(([lng, lat]) => {
+          const c = h3.geoToH3(lat, lng, state.resolution);
+          windCells.add(c);
+          h3.kRing(c, 1).forEach(x => windCells.add(x));
+        });
+        const near = filtered.filter(f => {
+          const [lng, lat] = f.geometry.coordinates;
+          return isFinite(lat) && windCells.has(h3.geoToH3(lat, lng, state.resolution));
+        });
+        const far = filtered.filter(f => {
+          const [lng, lat] = f.geometry.coordinates;
+          return isFinite(lat) && !windCells.has(h3.geoToH3(lat, lng, state.resolution));
+        });
+        const distNear = hourDist(near);
+        const distFar  = hourDist(far);
+        const svgEl = document.getElementById('chart-corr-wind');
+        overlaidBars(svgEl, distNear, distFar, '#ff8c14', '#4a4a6a');
+        const noteEl = document.getElementById('corr-wind-note');
+        noteEl.textContent = `Nacht (20–6u): nabij ${nightPct(distNear)}% vs overig ${nightPct(distFar)}% — ${near.length.toLocaleString('nl')} nabij, ${far.length.toLocaleString('nl')} overig`;
+        document.getElementById('corr-wind-chart').style.display = 'block';
+      } else {
+        document.getElementById('corr-wind-chart').style.display = 'none';
+      }
+
+      if (hasShops) {
+        const shopCells = new Set();
+        shopPoints.forEach(([lng, lat]) => {
+          const c = h3.geoToH3(lat, lng, state.resolution);
+          shopCells.add(c);
+          h3.kRing(c, 2).forEach(x => shopCells.add(x));
+        });
+        const near = filtered.filter(f => {
+          const [lng, lat] = f.geometry.coordinates;
+          return isFinite(lat) && shopCells.has(h3.geoToH3(lat, lng, state.resolution));
+        });
+        const far = filtered.filter(f => {
+          const [lng, lat] = f.geometry.coordinates;
+          return isFinite(lat) && !shopCells.has(h3.geoToH3(lat, lng, state.resolution));
+        });
+        const distNear = hourDist(near);
+        const distFar  = hourDist(far);
+        const svgEl = document.getElementById('chart-corr-shop');
+        overlaidBars(svgEl, distNear, distFar, '#32dc64', '#4a4a6a');
+        const noteEl = document.getElementById('corr-shop-note');
+        noteEl.textContent = `Nacht (20–6u): nabij ${nightPct(distNear)}% vs overig ${nightPct(distFar)}% — ${near.length.toLocaleString('nl')} nabij, ${far.length.toLocaleString('nl')} overig`;
+        document.getElementById('corr-shop-chart').style.display = 'block';
+      } else {
+        document.getElementById('corr-shop-chart').style.display = 'none';
+      }
+    }
+
     // ── H3 aggregation ────────────────────────────────────────────────────────
     function applyFilters() {
       const filtered = rawData.filter(f => {
@@ -404,6 +737,8 @@
       updateStats(filtered);
       updateLegend();
       updateCorrelation(filtered);
+      renderTimeCharts(filtered);
+      renderCorrCharts(filtered);
       render();
     }
 
@@ -636,6 +971,29 @@
         state.resolution = parseInt(resSlider.value);
         document.getElementById('res-val').textContent = `H3 res-${state.resolution}`;
         applyFilters();
+      });
+
+      document.querySelectorAll('.view-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+          // Redraw SVG charts (width may not have been known before tab was visible)
+          if (tab.dataset.tab !== 'kaart') {
+            const filtered = rawData.filter(f => {
+              const p = f.properties;
+              const year = p.datetime ? parseInt(p.datetime.slice(0, 4)) : 0;
+              if (year < state.yearFrom || year > state.yearTo) return false;
+              if (state.province !== 'all' && p.province !== state.province) return false;
+              if (state.onlyRemarkable && p.is_remarkable != 1) return false;
+              if (state.onlyPhoto && p.has_photo != 1) return false;
+              return true;
+            });
+            renderTimeCharts(filtered);
+            renderCorrCharts(filtered);
+          }
+        });
       });
 
       document.getElementById('panel-collapse').addEventListener('click', () => {
