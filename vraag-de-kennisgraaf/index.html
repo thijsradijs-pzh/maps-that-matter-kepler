@@ -1216,8 +1216,20 @@ function renderWmsOnMap(node, wms) {
   map.addSource('wms', { type: 'raster', tiles: [tileUrl], tileSize: 256 });
   map.addLayer({ id: 'wms-raster', type: 'raster', source: 'wms', paint: { 'raster-opacity': 0.85 } });
 
+  // Zonder dit navigeerde de kaart alleen als de vraag zelf een plaatsnaam
+  // noemde (currentBbox) — bij de meeste vragen niet het geval, dus bleef
+  // de kaart op de huidige (vaak landelijke) uitsnede staan terwijl de WMS-
+  // laag alleen een regio dekt. Tegels werden dan wel opgevraagd, maar
+  // buiten beeld: leek alsof er "niks gevisualiseerd" werd. Elke dataset
+  // heeft al een extent (zelfde bron als de dekkingsgebied-fallback) — die
+  // gebruiken als de vraag geen locatie gaf.
   if (currentBbox) {
     map.fitBounds([[currentBbox[0], currentBbox[1]], [currentBbox[2], currentBbox[3]]], { padding: 40, duration: 600 });
+  } else if (node.extent) {
+    const [w, s, e, n] = node.extent.split(',').map(Number);
+    if ([w, s, e, n].every(Number.isFinite)) {
+      map.fitBounds([[w, s], [e, n]], { padding: 40, maxZoom: 13, duration: 600 });
+    }
   }
 
   const legend = document.getElementById('map-legend');
