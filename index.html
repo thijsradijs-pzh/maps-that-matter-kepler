@@ -265,36 +265,42 @@
       text-transform: uppercase;
     }
 
-    /* ─── Blog card ─── */
-    .card.blog {
-      background: linear-gradient(135deg, #161b22, #101418);
-      flex-direction: row;
-      align-items: flex-start;
+    /* ─── Featured stories ─── */
+    .stories-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
       gap: 16px;
     }
 
-    .blog-icon {
-      font-size: 32px;
-      flex-shrink: 0;
-      margin-top: 2px;
+    .card.story {
+      border-color: #388bfd;
+      background: linear-gradient(135deg, #161b22, #0d1530);
+      padding: 22px 22px 20px;
     }
 
-    .blog-content {
-      flex: 1;
+    .card.story:hover {
+      box-shadow: 0 4px 28px rgba(56, 139, 253, 0.18);
     }
 
-    .blog-content h3 {
-      font-size: 15px;
-      font-weight: 700;
-      color: #f0f6fc;
-      margin-bottom: 5px;
+    .story-icon {
+      font-size: 26px;
+      line-height: 1;
     }
 
-    .blog-content p {
+    .card.story h3 {
+      font-size: 16px;
+      line-height: 1.35;
+    }
+
+    .card.story p {
+      font-size: 12.5px;
+    }
+
+    .toolbox-note {
       font-size: 12px;
       color: #7d8590;
-      line-height: 1.65;
-      margin-bottom: 10px;
+      margin-bottom: 20px;
+      max-width: 640px;
     }
 
     /* ─── Footer ─── */
@@ -324,7 +330,7 @@
       .tech-tags { justify-content: flex-start; }
       .brand h1 { font-size: 22px; }
       .cards-grid { grid-template-columns: 1fr; }
-      .card.blog { flex-direction: column; }
+      .stories-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -357,8 +363,60 @@
   <main>
     <div class="container">
 
+      <!-- Featured -->
+      <div class="section" style="padding-top: 32px;">
+        <div class="section-title">Featured — what actually worked</div>
+        <div class="stories-grid">
+
+          <a href="https://mapsthatmatter.substack.com/p/the-veluwe-is-burning-heres-how-to" target="_blank" class="card story">
+            <div class="card-top">
+              <span class="story-icon">🔥</span>
+              <span class="card-arrow">↗</span>
+            </div>
+            <h3>The Veluwe Is Burning. Here's How to Watch It From Space.</h3>
+            <p>A 500-hectare wildfire broke out on a military training ground inside a protected Natura 2000 reserve — free Sentinel-2 satellite data and open-source tools tracked its spread in near real-time.</p>
+            <div class="card-tags">
+              <span class="tag orange">Substack</span>
+              <span class="tag">Sentinel-2</span>
+              <span class="tag">Wildfire</span>
+              <span class="tag">Copernicus</span>
+            </div>
+          </a>
+
+          <a href="https://substack.com/@thijsoosterhuis1/p-171870232" target="_blank" class="card story">
+            <div class="card-top">
+              <span class="story-icon">📰</span>
+              <span class="card-arrow">↗</span>
+            </div>
+            <h3>From Chaos to Clarity: How a Geo-Data Cube Can Help Fix the Netherlands</h3>
+            <p>Integrating demographics, land use, economics, and climate data into one hexagonal geo-datacube reveals hidden patterns — and lets anyone query it in plain language, no code required.</p>
+            <div class="card-tags">
+              <span class="tag orange">Substack</span>
+              <span class="tag">Geo-datacube</span>
+              <span class="tag">Zuid-Holland</span>
+            </div>
+          </a>
+
+          <a href="/blog-h3-examples" class="card story">
+            <div class="card-top">
+              <span class="story-icon">📖</span>
+              <span class="card-arrow">↗</span>
+            </div>
+            <h3>From Hexagons to Foresight</h3>
+            <p>How H3 hexagons, a spatial datacube, and interactive visualisations turn Dutch geo-data into insight, time travel, and foresight — with live maps embedded straight in the article.</p>
+            <div class="card-tags">
+              <span class="tag orange">Article</span>
+              <span class="tag">H3</span>
+              <span class="tag">Spatial data</span>
+            </div>
+          </a>
+
+        </div>
+      </div>
+
       <!-- AI tools -->
       <div class="section">
+        <p class="toolbox-note" style="margin-top: -4px;">The toolbox behind those stories — actively evolving experiments, and where the next one gets built.</p>
         <div class="section-title">AI-powered tools</div>
         <div class="cards-grid">
 
@@ -588,42 +646,6 @@
             </div>
           </a>
 
-        </div>
-      </div>
-
-      <!-- Reading -->
-      <div class="section" style="padding-bottom: 0">
-        <div class="section-title">Reading</div>
-        <div style="display: flex; flex-direction: column; gap: 14px;">
-          <a href="/blog-h3-examples" class="card blog">
-            <span class="blog-icon">📖</span>
-            <div class="blog-content">
-              <h3>From Hexagons to Foresight</h3>
-              <p>How H3 hexagons, a spatial datacube, and visualisations turn Dutch geo-data into insight, time travel, and foresight. A deep-dive into the tools and methods behind Maps That Matter.</p>
-              <div class="card-tags">
-                <span class="tag orange">Article</span>
-                <span class="tag">H3</span>
-                <span class="tag">Spatial data</span>
-                <span class="tag">Netherlands</span>
-              </div>
-            </div>
-            <span class="card-arrow" style="margin-top:4px">↗</span>
-          </a>
-
-          <a href="https://substack.com/@thijsoosterhuis1/p-171870232" target="_blank" class="card blog">
-            <span class="blog-icon">📰</span>
-            <div class="blog-content">
-              <h3>From Chaos to Clarity: How a Geo-Data Cube Can Help Fix the Netherlands</h3>
-              <p>How integrating demographics, land use, economics, and climate data into a hexagonal geo-datacube reveals hidden patterns — and how AI lets anyone query it without writing code.</p>
-              <div class="card-tags">
-                <span class="tag orange">Substack</span>
-                <span class="tag">Geo-datacube</span>
-                <span class="tag">Zuid-Holland</span>
-                <span class="tag">Netherlands</span>
-              </div>
-            </div>
-            <span class="card-arrow" style="margin-top:4px">↗</span>
-          </a>
         </div>
       </div>
 
