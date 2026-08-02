@@ -26,8 +26,6 @@
     { "source": "/scenario-viewer", "destination": "/scenario-viewer/index.html" },
     { "source": "/buurt-verkenner", "destination": "/buurt-verkenner/index.html" },
     { "source": "/api/search-wms", "destination": "/api/search-wms.js" },
-    { "source": "/api/ask-wfs", "destination": "/api/ask-wfs.js" },
-    { "source": "/api/wfs-proxy", "destination": "/api/wfs-proxy.js" },
     { "source": "/api/suggest-location", "destination": "/api/suggest-location.js" },
     { "source": "/pdok-viewer", "destination": "/pdok-viewer/index.html" },
     { "source": "/vraag-de-kaart", "destination": "/vraag-de-kaart/index.html" },
@@ -38,6 +36,8 @@
     { "source": "/vraag-de-kennisgraaf", "destination": "/vraag-de-kennisgraaf/index.html" },
     { "source": "/api/ngr-record", "destination": "/api/ngr-record.js" },
     { "source": "/api/ngr-wfs-proxy", "destination": "/api/ngr-wfs-proxy.js" },
+    { "source": "/api/pdok-location", "destination": "/api/pdok-location.js" },
+    { "source": "/api/ngr-wms-tile", "destination": "/api/ngr-wms-tile.js" },
     { "source": "/", "destination": "/index.html" }
   ]
 }

@@ -1,12 +1,16 @@
 // api/ask-kennisgraaf.js
 // Receives: POST { question: string }
-// Returns:  { keywords: string[], reasoning: string }
+// Returns:  { keywords: string[], reasoning: string, location: string|null }
 //
 // Turns a free-form Dutch question into candidate search terms for the
 // Nationaal Georegister kennisgraaf. Terms are NOT trusted as-is — the
 // frontend grounds them against the real topic/trefwoord vocabulary that
 // was actually harvested from NGR (kennisgraaf-viewer/index.html), so a
 // hallucinated term simply finds no match instead of showing fake data.
+//
+// `location`, when present, is resolved separately by the frontend via
+// api/pdok-location.js (PDOK Location API) to a real bounding box — this
+// endpoint only extracts the place name, it never guesses coordinates itself.
 
 const SYSTEM_PROMPT = `Je bent een zoekassistent voor de Nederlandse geodata-catalogus (Nationaal Georegister).
 Een gebruiker stelt een vraag in gewone taal over ruimtelijke data. Vertaal die vraag naar
@@ -14,14 +18,18 @@ Een gebruiker stelt een vraag in gewone taal over ruimtelijke data. Vertaal die 
 geodata-metadatacatalogus zouden voorkomen als onderwerp of trefwoord.
 
 Voorbeelden:
-"waar vind ik data over bodemvervuiling" -> ["bodem", "bodemkwaliteit", "vervuiling", "milieu"]
-"ik zoek iets over overstromingsrisico in Zuid-Holland" -> ["overstroming", "waterveiligheid", "risico", "water"]
-"is er data over fietspaden" -> ["fietspaden", "wegen", "infrastructuur", "verkeer"]
+"waar vind ik data over bodemvervuiling" -> keywords: ["bodem", "bodemkwaliteit", "vervuiling", "milieu"], location: null
+"ik zoek iets over overstromingsrisico in Zuid-Holland" -> keywords: ["overstroming", "waterveiligheid", "risico", "water"], location: "Zuid-Holland"
+"is er data over fietspaden in Rotterdam" -> keywords: ["fietspaden", "wegen", "infrastructuur", "verkeer"], location: "Rotterdam"
+
+location: een Nederlandse gemeente, plaats, wijk, buurt of provincie die EXPLICIET in de vraag
+wordt genoemd (officiële naam). null als er geen specifieke plek wordt genoemd.
 
 Retourneer UITSLUITEND geldige JSON:
 {
   "reasoning": "1 zin in het Nederlands die uitlegt wat je zoekt",
-  "keywords": ["term1", "term2", "term3"]
+  "keywords": ["term1", "term2", "term3"],
+  "location": null
 }`;
 
 export default async function handler(req, res) {

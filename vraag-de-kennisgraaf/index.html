@@ -143,6 +143,7 @@ const COLOR = { dataset:'#5b8cff', topic:'#ff7cc3', trefwoord:'#3fbf9f' };
 const MAX_FEATURES = 1000;
 
 let GRAPH, adj, nodeById, vocab;
+let currentBbox = null; // [minLon, minLat, maxLon, maxLat] van de laatst herkende plaatsnaam
 
 async function init() {
   const map = window.map = new maplibregl.Map({
@@ -226,6 +227,20 @@ async function askKennisgraaf(question) {
   const datasetScores  = new Map();
   const termChips = [];
 
+  currentBbox = null;
+  let locationNote = '';
+  if (ai.location) {
+    try {
+      const locRes = await fetch('/api/pdok-location?q=' + encodeURIComponent(ai.location));
+      const loc = await locRes.json();
+      if (loc.bbox) {
+        currentBbox = loc.bbox;
+        map.fitBounds([[loc.bbox[0], loc.bbox[1]], [loc.bbox[2], loc.bbox[3]]], { padding: 40, duration: 800 });
+        locationNote = `<div class="reasoning" style="color:var(--accent)">📍 Gescoped op ${esc(loc.display_name)}</div>`;
+      }
+    } catch { /* geocoding is best-effort; vraag blijft landelijk als dit faalt */ }
+  }
+
   ai.keywords.forEach(kw => {
     const matches = kgMatchTerm(vocab, kw);
     termChips.push({ kw, matched: matches.length > 0 });
@@ -254,10 +269,12 @@ async function askKennisgraaf(question) {
       ? 'Deze termen komen voor in de catalogus, maar zijn niet aan datasets gekoppeld.'
       : 'Geen van de voorgestelde termen komt voor in de kennisgraaf. Probeer de vraag anders te formuleren.';
     body.innerHTML = `<div class="reasoning">${esc(ai.reasoning || '')}</div>
+      ${locationNote}
       <div class="terms">${termsHtml}</div>
       <div class="empty">${msg}</div>`;
   } else {
     body.innerHTML = `<div class="reasoning">${esc(ai.reasoning || '')}</div>
+      ${locationNote}
       <div class="terms">${termsHtml}</div>
       <div class="result-count">${ranked.length} datasets gevonden</div>
       <div id="result-list"></div>`;
@@ -298,9 +315,16 @@ async function showOnMap(node, itemEl) {
     return;
   }
 
-  if (!rec.wfs) {
+  if (!rec.wfs && !rec.wms) {
     statusEl.className = 'result-status error';
-    statusEl.innerHTML = `Geen WFS-service gevonden voor deze dataset — <a href="${esc(node.url_opendata)}" target="_blank" rel="noopener">bekijk in NGR</a>`;
+    statusEl.innerHTML = `Geen kaartservice gevonden voor deze dataset — <a href="${esc(node.url_opendata)}" target="_blank" rel="noopener">bekijk in NGR</a>`;
+    return;
+  }
+
+  if (!rec.wfs) {
+    renderWmsOnMap(node, rec.wms);
+    statusEl.className = 'result-status ok';
+    statusEl.innerHTML = `✓ Getoond als kaartlaag (WMS) — geen downloadbare features, dus geen klikbare details`;
     return;
   }
 
@@ -309,17 +333,32 @@ async function showOnMap(node, itemEl) {
   let gj, truncated;
   try {
     const params = new URLSearchParams({ wfsUrl: rec.wfs.url, typeName: rec.wfs.typeName, pageSize: MAX_FEATURES });
+    if (currentBbox) params.set('bbox', currentBbox.join(','));
     const res = await fetch('/api/ngr-wfs-proxy?' + params);
     gj = await res.json();
     if (!res.ok) throw new Error(gj.error || 'Onbekende fout');
     truncated = res.headers.get('X-Truncated') === '1';
   } catch (err) {
+    // Common case: an ArcGIS-hosted WFS that only speaks GML, not GeoJSON.
+    // Fall back to WMS if this record also has that, rather than dead-ending.
+    if (rec.wms) {
+      renderWmsOnMap(node, rec.wms);
+      statusEl.className = 'result-status ok';
+      statusEl.innerHTML = `WFS-data niet beschikbaar (${esc(err.message)}) — getoond als kaartlaag (WMS) in plaats daarvan`;
+      return;
+    }
     statusEl.className = 'result-status error';
     statusEl.innerHTML = `Kon de data niet ophalen: ${esc(err.message)} — <a href="${esc(node.url_opendata)}" target="_blank" rel="noopener">bekijk in NGR</a>`;
     return;
   }
 
   if (!gj.features?.length) {
+    if (rec.wms) {
+      renderWmsOnMap(node, rec.wms);
+      statusEl.className = 'result-status ok';
+      statusEl.innerHTML = 'WFS leverde geen features op — getoond als kaartlaag (WMS) in plaats daarvan';
+      return;
+    }
     statusEl.className = 'result-status error';
     statusEl.textContent = 'Deze service leverde geen features op.';
     return;
@@ -332,10 +371,34 @@ async function showOnMap(node, itemEl) {
     (truncated ? ' (mogelijk niet volledig — eerste ' + MAX_FEATURES + ')' : '');
 }
 
+function clearMapLayers() {
+  const map = window.map;
+  ['wfs-fill', 'wfs-line', 'wfs-circle'].forEach(id => map.off('click', id, onFeatureClick));
+  ['wfs-fill', 'wfs-line', 'wfs-circle', 'wms-raster'].forEach(id => { if (map.getLayer(id)) map.removeLayer(id); });
+  if (map.getSource('wfs')) map.removeSource('wfs');
+  if (map.getSource('wms')) map.removeSource('wms');
+}
+
+function renderWmsOnMap(node, wms) {
+  const map = window.map;
+  clearMapLayers();
+
+  const tileUrl = '/api/ngr-wms-tile?' + new URLSearchParams({ wmsUrl: wms.url, layer: wms.layer }) + '&bbox={bbox-epsg-3857}';
+  map.addSource('wms', { type: 'raster', tiles: [tileUrl], tileSize: 256 });
+  map.addLayer({ id: 'wms-raster', type: 'raster', source: 'wms', paint: { 'raster-opacity': 0.85 } });
+
+  if (currentBbox) {
+    map.fitBounds([[currentBbox[0], currentBbox[1]], [currentBbox[2], currentBbox[3]]], { padding: 40, duration: 600 });
+  }
+
+  const legend = document.getElementById('map-legend');
+  legend.style.display = 'block';
+  legend.innerHTML = `<b>${esc(node.label)}</b><br>WMS-weergave · ${esc(wms.layer)}`;
+}
+
 function renderOnMap(gj, node, typeName) {
   const map = window.map;
-  ['wfs-fill', 'wfs-line', 'wfs-circle'].forEach(id => { if (map.getLayer(id)) map.removeLayer(id); });
-  if (map.getSource('wfs')) map.removeSource('wfs');
+  clearMapLayers();
   map.addSource('wfs', { type: 'geojson', data: gj });
 
   const t = gj.features[0]?.geometry?.type || '';
@@ -353,7 +416,6 @@ function renderOnMap(gj, node, typeName) {
     clickLayer = 'wfs-circle';
   }
 
-  ['wfs-fill', 'wfs-line', 'wfs-circle'].forEach(id => map.off('click', id, onFeatureClick));
   map.on('click', clickLayer, onFeatureClick);
   map.on('mouseenter', clickLayer, () => { map.getCanvas().style.cursor = 'pointer'; });
   map.on('mouseleave', clickLayer, () => { map.getCanvas().style.cursor = ''; });

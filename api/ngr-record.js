@@ -2,13 +2,17 @@
 // GET /api/ngr-record?id=<NGR dataset uuid>
 //
 // Fetches the full ISO19139 metadata record for a dataset from the
-// Nationaal Georegister GeoNetwork API and extracts the OGC:WFS
-// distribution link (if any), so the frontend doesn't need to parse
-// ISO19139 JSON itself.
+// Nationaal Georegister GeoNetwork API and extracts its OGC:WFS and
+// OGC:WMS distribution links (if any), so the frontend doesn't need to
+// parse ISO19139 JSON itself.
 //
-// Returns: { wfs: { url, typeName, description } | null }
-// A `wfs: null` response is a normal outcome — not every dataset has a
-// WFS distribution — and is returned with 200, not an error status.
+// Returns: { wfs: { url, typeName, description } | null,
+//            wms: { url, layer, description } | null }
+// null values are a normal outcome — not every dataset has a WFS or WMS
+// distribution — and are returned with 200, not an error status. WMS is
+// a fallback: vraag-de-kennisgraaf renders WFS features as-is when
+// available, and only falls back to a WMS raster overlay when there's no
+// WFS to work with.
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -27,7 +31,10 @@ function text(v) {
   return '';
 }
 
-function extractWfs(record) {
+// Walks every gmd:CI_OnlineResource in the record's distribution info once,
+// returning the first WFS match and the first WMS match found.
+function extractServices(record) {
+  let wfs = null, wms = null;
   const distributions = asArray(record?.['gmd:distributionInfo']);
   for (const dist of distributions) {
     const transferOptions = asArray(dist?.['gmd:MD_Distribution']?.['gmd:transferOptions']);
@@ -36,16 +43,19 @@ function extractWfs(record) {
       for (const on of onLines) {
         const res = on?.['gmd:CI_OnlineResource'];
         if (!res) continue;
-        const protocol = text(res['gmd:protocol']);
-        if (!protocol.toUpperCase().includes('WFS')) continue;
+        const protocol = text(res['gmd:protocol']).toUpperCase();
         const url = res['gmd:linkage']?.['gmd:URL'];
-        const typeName = text(res['gmd:name']);
-        if (!url || !typeName) continue;
-        return { url, typeName, description: text(res['gmd:description']) };
+        const name = text(res['gmd:name']);
+        if (!url || !name) continue;
+        if (!wfs && protocol.includes('WFS')) {
+          wfs = { url, typeName: name, description: text(res['gmd:description']) };
+        } else if (!wms && protocol.includes('WMS')) {
+          wms = { url, layer: name, description: text(res['gmd:description']) };
+        }
       }
     }
   }
-  return null;
+  return { wfs, wms };
 }
 
 export default async function handler(req, res) {
@@ -74,10 +84,10 @@ export default async function handler(req, res) {
     }
 
     const record = await upstream.json();
-    const wfs = extractWfs(record);
+    const { wfs, wms } = extractServices(record);
 
     res.setHeader('Cache-Control', 'public, max-age=86400');
-    return res.status(200).json({ wfs });
+    return res.status(200).json({ wfs, wms });
   } catch (err) {
     if (err.name === 'TimeoutError') return res.status(504).json({ error: 'NGR record lookup timed out' });
     return res.status(500).json({ error: 'Kon dataset-metadata niet ophalen' });
