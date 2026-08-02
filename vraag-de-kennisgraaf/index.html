@@ -315,16 +315,10 @@ async function showOnMap(node, itemEl) {
     return;
   }
 
-  if (!rec.wfs && !rec.wms) {
+  if (!rec.wfs) {
+    if (tryFallback(node, rec, statusEl, 'Geen WFS-service')) return;
     statusEl.className = 'result-status error';
     statusEl.innerHTML = `Geen kaartservice gevonden voor deze dataset — <a href="${esc(node.url_opendata)}" target="_blank" rel="noopener">bekijk in NGR</a>`;
-    return;
-  }
-
-  if (!rec.wfs) {
-    renderWmsOnMap(node, rec.wms);
-    statusEl.className = 'result-status ok';
-    statusEl.innerHTML = `✓ Getoond als kaartlaag (WMS) — geen downloadbare features, dus geen klikbare details`;
     return;
   }
 
@@ -340,25 +334,14 @@ async function showOnMap(node, itemEl) {
     truncated = res.headers.get('X-Truncated') === '1';
   } catch (err) {
     // Common case: an ArcGIS-hosted WFS that only speaks GML, not GeoJSON.
-    // Fall back to WMS if this record also has that, rather than dead-ending.
-    if (rec.wms) {
-      renderWmsOnMap(node, rec.wms);
-      statusEl.className = 'result-status ok';
-      statusEl.innerHTML = `WFS-data niet beschikbaar (${esc(err.message)}) — getoond als kaartlaag (WMS) in plaats daarvan`;
-      return;
-    }
+    if (tryFallback(node, rec, statusEl, `WFS-data niet beschikbaar (${esc(err.message)})`)) return;
     statusEl.className = 'result-status error';
     statusEl.innerHTML = `Kon de data niet ophalen: ${esc(err.message)} — <a href="${esc(node.url_opendata)}" target="_blank" rel="noopener">bekijk in NGR</a>`;
     return;
   }
 
   if (!gj.features?.length) {
-    if (rec.wms) {
-      renderWmsOnMap(node, rec.wms);
-      statusEl.className = 'result-status ok';
-      statusEl.innerHTML = 'WFS leverde geen features op — getoond als kaartlaag (WMS) in plaats daarvan';
-      return;
-    }
+    if (tryFallback(node, rec, statusEl, 'WFS leverde geen features op')) return;
     statusEl.className = 'result-status error';
     statusEl.textContent = 'Deze service leverde geen features op.';
     return;
@@ -371,12 +354,52 @@ async function showOnMap(node, itemEl) {
     (truncated ? ' (mogelijk niet volledig — eerste ' + MAX_FEATURES + ')' : '');
 }
 
+// Three-tier fallback, in order of how much it actually shows: WFS features
+// (handled by the caller before this is ever reached) > WMS raster overlay
+// > geographic extent outline (coverage area only, not real data — this is
+// the one that's almost always available, since it's a mandatory ISO19115
+// field even for datasets with no live map service at all). Returns true if
+// something got rendered.
+function tryFallback(node, rec, statusEl, reasonPrefix) {
+  if (rec.wms) {
+    renderWmsOnMap(node, rec.wms);
+    statusEl.className = 'result-status ok';
+    statusEl.innerHTML = `${reasonPrefix} — getoond als kaartlaag (WMS)`;
+    return true;
+  }
+  if (rec.extent) {
+    renderExtentOnMap(node, rec.extent);
+    statusEl.className = 'result-status ok';
+    statusEl.innerHTML = `${reasonPrefix} — dekkingsgebied getoond (geen kaartservice, alleen indicatief)`;
+    return true;
+  }
+  return false;
+}
+
 function clearMapLayers() {
   const map = window.map;
   ['wfs-fill', 'wfs-line', 'wfs-circle'].forEach(id => map.off('click', id, onFeatureClick));
-  ['wfs-fill', 'wfs-line', 'wfs-circle', 'wms-raster'].forEach(id => { if (map.getLayer(id)) map.removeLayer(id); });
+  ['wfs-fill', 'wfs-line', 'wfs-circle', 'wms-raster', 'extent-fill', 'extent-line'].forEach(id => { if (map.getLayer(id)) map.removeLayer(id); });
   if (map.getSource('wfs')) map.removeSource('wfs');
   if (map.getSource('wms')) map.removeSource('wms');
+  if (map.getSource('extent')) map.removeSource('extent');
+}
+
+function renderExtentOnMap(node, extent) {
+  const map = window.map;
+  clearMapLayers();
+
+  const [minLon, minLat, maxLon, maxLat] = extent;
+  const ring = [[minLon, minLat], [maxLon, minLat], [maxLon, maxLat], [minLon, maxLat], [minLon, minLat]];
+  map.addSource('extent', { type: 'geojson', data: { type: 'Feature', geometry: { type: 'Polygon', coordinates: [ring] }, properties: {} } });
+  map.addLayer({ id: 'extent-fill', type: 'fill', source: 'extent', paint: { 'fill-color': '#ff9d7c', 'fill-opacity': 0.08 } });
+  map.addLayer({ id: 'extent-line', type: 'line', source: 'extent', paint: { 'line-color': '#ff9d7c', 'line-width': 2, 'line-dasharray': [3, 2] } });
+
+  map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 40, maxZoom: 13, duration: 600 });
+
+  const legend = document.getElementById('map-legend');
+  legend.style.display = 'block';
+  legend.innerHTML = `<b>${esc(node.label)}</b><br>Dekkingsgebied (indicatief) · geen kaartservice beschikbaar`;
 }
 
 function renderWmsOnMap(node, wms) {
