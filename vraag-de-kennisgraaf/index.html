@@ -130,6 +130,23 @@
   .related-list .result-item:first-child { border-top:none; }
   .related-list .result-item { padding:9px 0; }
 
+  .filter-toggle { margin:10px 0 0; background:none; border:none; color:var(--accent);
+    font-size:11px; font-weight:600; cursor:pointer; padding:0; display:block; }
+  .filter-toggle:hover { text-decoration:underline; }
+  .filter-panel { margin:8px 0 14px; padding:10px; background:rgba(255,255,255,0.02);
+    border:1px solid var(--border); border-radius:8px; }
+  .filter-label { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.4px;
+    color:var(--muted); margin:8px 0 4px; }
+  .filter-label:first-child { margin-top:0; }
+  .filter-label-inline { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); margin-top:10px; }
+  #filter-topic, #filter-area { width:100%; background:#0a0a16; border:1px solid var(--border); color:var(--fg);
+    border-radius:6px; padding:6px 8px; font-size:12px; font-family:inherit; }
+  #filter-topic:focus, #filter-area:focus { outline:1px solid var(--accent); }
+  .filter-chips { display:flex; gap:5px; }
+  .filter-chip { flex:1; font-size:11px; padding:5px 6px; border-radius:6px; border:1px solid var(--border);
+    background:none; color:var(--muted); cursor:pointer; }
+  .filter-chip.active { border-color:var(--accent); background:rgba(167,139,250,0.12); color:var(--accent); }
+
   .empty { font-size:12px; color:var(--muted); line-height:1.6; }
 
   .kg-spinner { width:20px; height:20px; border:3px solid rgba(167,139,250,0.15);
@@ -200,6 +217,8 @@ const MAX_FEATURES = 1000;
 
 let GRAPH, adj, nodeById, vocab;
 let currentBbox = null; // [minLon, minLat, maxLon, maxLat] van de laatst herkende plaatsnaam
+let filterAreaBbox = null;     // [minLon, minLat, maxLon, maxLat] van het "Gebied"-filter, apart van currentBbox (AI-locatie)
+let filterAreaDebounce = null;
 
 async function init() {
   const map = window.map = new maplibregl.Map({
@@ -330,19 +349,22 @@ async function askKennisgraaf(question) {
       <div class="terms">${termsHtml}</div>
       <div class="empty">${msg}</div>`;
   } else {
+    const rankedNodes = ranked.map(([dsId]) => nodeById.get(dsId));
+    filterAreaBbox = null;
     body.innerHTML = `<div class="reasoning">${esc(ai.reasoning || '')}</div>
       ${locationNote}
       <div class="terms">${termsHtml}</div>
       <div class="result-count-row">
-        <div class="result-count">${ranked.length} datasets gevonden</div>
+        <div class="result-count" id="result-count-text">${ranked.length} datasets gevonden</div>
         <button class="analyze-btn" id="analyze-btn" type="button">🔬 Op de kaart</button>
       </div>
       <div class="result-status" id="analyze-status"></div>
+      ${buildFilterBarHTML(rankedNodes)}
       <div id="result-list"></div>`;
-    const list = document.getElementById('result-list');
-    ranked.forEach(([dsId]) => list.appendChild(buildResultItem(nodeById.get(dsId))));
+    wireFilterBar(rankedNodes);
+    refreshResultList(rankedNodes);
     document.getElementById('analyze-btn').addEventListener('click', () =>
-      analyzeResultsOnMap(ranked.map(([dsId]) => dsId)));
+      analyzeResultsOnMap(applyFilters(rankedNodes).map(n => n.id)));
   }
 
   btn.disabled = false;
@@ -444,6 +466,116 @@ function buildResultItem(n, depth = 0) {
 
 function cssId(id) { return id.replace(/[^a-zA-Z0-9]/g, ''); }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Filters: refinement op het huidige zoekresultaat, geen nieuwe zoekopdracht ──
+// Onderwerp-opties komen uit het VOLLEDIGE (ongefilterde) resultaat en blijven
+// stabiel terwijl andere filters de zichtbare lijst versmallen — anders
+// verdwijnen/verschijnen opties terwijl je aan het filteren bent.
+function buildFilterBarHTML(nodes) {
+  const topicCounts = new Map();
+  nodes.forEach(n => {
+    (adj.get(n.id) || []).forEach(neighborId => {
+      const neighbor = nodeById.get(neighborId);
+      if (neighbor?.type === 'topic') topicCounts.set(neighborId, (topicCounts.get(neighborId) || 0) + 1);
+    });
+  });
+  const topicOptions = [...topicCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([id, count]) => `<option value="${esc(id)}">${esc(nodeById.get(id).label)} (${count})</option>`)
+    .join('');
+
+  return `
+    <button class="filter-toggle" id="filter-toggle" type="button">▸ Filters</button>
+    <div class="filter-panel" id="filter-panel" style="display:none">
+      <label class="filter-label" for="filter-topic">Onderwerp</label>
+      <select id="filter-topic"><option value="">Alle onderwerpen</option>${topicOptions}</select>
+      <label class="filter-label" for="filter-area">Gebied</label>
+      <input type="text" id="filter-area" placeholder="bv. Utrecht" autocomplete="off" />
+      <label class="filter-label">Type</label>
+      <div class="filter-chips">
+        <button class="filter-chip active" data-type="wfs" type="button">WFS</button>
+        <button class="filter-chip active" data-type="wms" type="button">WMS</button>
+        <button class="filter-chip active" data-type="extent" type="button">Gebied</button>
+      </div>
+      <label class="filter-label-inline"><input type="checkbox" id="filter-fresh" /> Alleen recent (&lt; 3 jaar)</label>
+    </div>`;
+}
+
+function wireFilterBar(nodes) {
+  const toggle = document.getElementById('filter-toggle');
+  const panel = document.getElementById('filter-panel');
+  toggle.addEventListener('click', () => {
+    const isOpen = panel.style.display !== 'none';
+    panel.style.display = isOpen ? 'none' : 'block';
+    toggle.textContent = isOpen ? '▸ Filters' : '▾ Filters';
+  });
+
+  document.getElementById('filter-topic').addEventListener('change', () => refreshResultList(nodes));
+  document.getElementById('filter-fresh').addEventListener('change', () => refreshResultList(nodes));
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => { chip.classList.toggle('active'); refreshResultList(nodes); });
+  });
+
+  const areaInput = document.getElementById('filter-area');
+  areaInput.addEventListener('input', () => {
+    clearTimeout(filterAreaDebounce);
+    const q = areaInput.value.trim();
+    if (!q) { filterAreaBbox = null; refreshResultList(nodes); return; }
+    filterAreaDebounce = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/pdok-location?q=' + encodeURIComponent(q));
+        const loc = await res.json();
+        filterAreaBbox = loc.bbox || null;
+      } catch { filterAreaBbox = null; }
+      refreshResultList(nodes);
+    }, 400);
+  });
+}
+
+const FILTER_YEAR_MS = 365.25 * 86400 * 1000;
+
+function applyFilters(nodes) {
+  const topicId = document.getElementById('filter-topic')?.value || '';
+  const activeTypes = [...document.querySelectorAll('.filter-chip.active')].map(el => el.dataset.type);
+  const freshOnly = document.getElementById('filter-fresh')?.checked || false;
+  const now = Date.now();
+
+  return nodes.filter(n => {
+    if (topicId && !(adj.get(n.id) || new Set()).has(topicId)) return false;
+    if (activeTypes.length < 3) {
+      const cls = badgeFor(recordFor(n)).cls;
+      if (cls === 'none' || !activeTypes.includes(cls)) return false;
+    }
+    if (freshOnly) {
+      const age = (now - Date.parse(n.gew)) / FILTER_YEAR_MS;
+      if (!(age >= 0 && age < 3)) return false;
+    }
+    if (filterAreaBbox) {
+      if (!n.extent) return false;
+      const [w, s, e, no] = n.extent.split(',').map(Number);
+      const [bw, bs, be, bn] = filterAreaBbox;
+      if (e < bw || w > be || no < bs || s > bn) return false; // geen overlap
+    }
+    return true;
+  });
+}
+
+function refreshResultList(nodes) {
+  const filtered = applyFilters(nodes);
+  const list = document.getElementById('result-list');
+  list.innerHTML = '';
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty">Geen datasets voldoen aan deze filters.</div>';
+  } else {
+    filtered.forEach(n => list.appendChild(buildResultItem(n)));
+  }
+  const countEl = document.getElementById('result-count-text');
+  if (countEl) {
+    countEl.textContent = filtered.length === nodes.length
+      ? `${nodes.length} datasets gevonden`
+      : `${filtered.length} van ${nodes.length} datasets`;
+  }
+}
 
 async function showOnMap(node, itemEl) {
   document.querySelectorAll('.result-item.active').forEach(el => el.classList.remove('active'));
