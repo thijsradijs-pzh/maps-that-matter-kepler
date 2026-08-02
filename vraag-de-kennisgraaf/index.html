@@ -142,9 +142,14 @@
     color:var(--muted); margin:8px 0 4px; }
   .filter-label:first-child { margin-top:0; }
   .filter-label-inline { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); margin-top:10px; }
-  #filter-topic, #filter-area { width:100%; background:#0a0a16; border:1px solid var(--border); color:var(--fg);
+  #filter-topic, #filter-bronhouder, #filter-area { width:100%; background:#0a0a16; border:1px solid var(--border); color:var(--fg);
     border-radius:6px; padding:6px 8px; font-size:12px; font-family:inherit; }
-  #filter-topic:focus, #filter-area:focus { outline:1px solid var(--accent); }
+  #filter-topic:focus, #filter-bronhouder:focus, #filter-area:focus { outline:1px solid var(--accent); }
+  .related-topics { margin-top:6px; font-size:11px; line-height:2; }
+  .related-topics-label { color:var(--muted); margin-right:2px; }
+  .related-topic-chip { font-size:10.5px; padding:2px 8px; border-radius:10px; border:1px solid var(--trefwoord);
+    color:var(--trefwoord); background:rgba(63,191,159,0.1); cursor:pointer; margin:0 3px 3px 0; }
+  .related-topic-chip:hover { background:rgba(63,191,159,0.2); }
   .filter-chips { display:flex; gap:5px; }
   .filter-chip { flex:1; font-size:11px; padding:5px 6px; border-radius:6px; border:1px solid var(--border);
     background:none; color:var(--muted); cursor:pointer; }
@@ -154,6 +159,8 @@
   .filter-clear:hover { border-color:var(--accent); color:var(--fg); }
 
   .empty { font-size:12px; color:var(--muted); line-height:1.6; }
+  .hub-heading { font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted);
+    margin:18px 0 8px; }
 
   .kg-spinner { width:20px; height:20px; border:3px solid rgba(167,139,250,0.15);
     border-top-color:var(--accent); border-radius:50%; animation:kg-spin 0.8s linear infinite;
@@ -264,8 +271,7 @@ async function init() {
   GRAPH.links.forEach(l => { adj.get(l.source)?.add(l.target); adj.get(l.target)?.add(l.source); });
   vocab = kgBuildVocabIndex(GRAPH);
 
-  document.getElementById('empty-state').textContent =
-    'Stel een vraag hierboven, of probeer een van de voorbeelden.';
+  renderEmptyStateWithHubs();
 
   wireForm();
   restoreFromURL();
@@ -283,6 +289,25 @@ function wireForm() {
     chip.addEventListener('click', () => { input.value = chip.textContent; submit(); });
   });
   document.getElementById('coverage-toggle').addEventListener('click', toggleCoverageMode);
+}
+
+// Cold-start: in plaats van een kale prompt, meteen iets te ontdekken.
+// Graafgraad (deg) is al op elke knoop aanwezig — geen berekening nodig,
+// gewoon sorteren. Hoge graad = veel topic/trefwoord-verbindingen = vaak een
+// foundational referentiedataset (BAG, BRT, CBS-grenzen e.d.).
+function topDatasetsByDegree(limit = 6) {
+  return GRAPH.nodes.filter(n => n.type === 'dataset')
+    .sort((a, b) => (b.deg || 0) - (a.deg || 0))
+    .slice(0, limit);
+}
+
+function renderEmptyStateWithHubs() {
+  document.getElementById('panel-body').innerHTML = `
+    <div class="empty">Stel een vraag hierboven, of probeer een van de voorbeelden.</div>
+    <div class="hub-heading">Of begin bij een van de meest verbonden datasets:</div>
+    <div id="hub-list"></div>`;
+  const list = document.getElementById('hub-list');
+  topDatasetsByDegree().forEach(n => list.appendChild(buildResultItem(n)));
 }
 
 async function askKennisgraaf(question) {
@@ -496,11 +521,21 @@ function buildFilterBarHTML(nodes) {
     .map(([id, count]) => `<option value="${esc(id)}">${esc(nodeById.get(id).label)} (${count})</option>`)
     .join('');
 
+  const bronhouderCounts = new Map();
+  nodes.forEach(n => { if (n.bronhouder) bronhouderCounts.set(n.bronhouder, (bronhouderCounts.get(n.bronhouder) || 0) + 1); });
+  const bronhouderOptions = [...bronhouderCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => `<option value="${esc(name)}">${esc(name)} (${count})</option>`)
+    .join('');
+
   return `
     <button class="filter-toggle" id="filter-toggle" type="button">▸ Filters</button>
     <div class="filter-panel" id="filter-panel" style="display:none">
       <label class="filter-label" for="filter-topic">Onderwerp</label>
       <select id="filter-topic"><option value="">Alle onderwerpen</option>${topicOptions}</select>
+      <div class="related-topics" id="related-topics" style="display:none"></div>
+      <label class="filter-label" for="filter-bronhouder">Bronhouder</label>
+      <select id="filter-bronhouder"><option value="">Alle bronhouders</option>${bronhouderOptions}</select>
       <label class="filter-label" for="filter-area">Gebied</label>
       <input type="text" id="filter-area" placeholder="bv. Utrecht" autocomplete="off" />
       <label class="filter-label">Type</label>
@@ -516,10 +551,11 @@ function buildFilterBarHTML(nodes) {
 
 function filtersActive() {
   const topicId = document.getElementById('filter-topic')?.value;
+  const bronhouder = document.getElementById('filter-bronhouder')?.value;
   const area = document.getElementById('filter-area')?.value?.trim();
   const activeTypes = [...document.querySelectorAll('.filter-chip.active')].map(el => el.dataset.type);
   const fresh = document.getElementById('filter-fresh')?.checked;
-  return !!(topicId || area || fresh || activeTypes.length < 3);
+  return !!(topicId || bronhouder || area || fresh || activeTypes.length < 3);
 }
 
 // Eén plek voor het label, ipv losse textContent-toewijzingen her en der —
@@ -542,7 +578,11 @@ function wireFilterBar(nodes) {
     updateFilterToggleLabel();
   });
 
-  document.getElementById('filter-topic').addEventListener('change', () => refreshResultList(nodes));
+  document.getElementById('filter-topic').addEventListener('change', () => {
+    updateRelatedTopicsUI(nodes);
+    refreshResultList(nodes);
+  });
+  document.getElementById('filter-bronhouder').addEventListener('change', () => refreshResultList(nodes));
   document.getElementById('filter-fresh').addEventListener('change', () => refreshResultList(nodes));
   document.querySelectorAll('.filter-chip').forEach(chip => {
     chip.addEventListener('click', () => { chip.classList.toggle('active'); refreshResultList(nodes); });
@@ -550,11 +590,13 @@ function wireFilterBar(nodes) {
 
   document.getElementById('filter-clear').addEventListener('click', () => {
     document.getElementById('filter-topic').value = '';
+    document.getElementById('filter-bronhouder').value = '';
     document.getElementById('filter-area').value = '';
     filterAreaBbox = null;
     clearTimeout(filterAreaDebounce);
     document.querySelectorAll('.filter-chip').forEach(chip => chip.classList.add('active'));
     document.getElementById('filter-fresh').checked = false;
+    updateRelatedTopicsUI(nodes);
     refreshResultList(nodes);
   });
 
@@ -574,16 +616,42 @@ function wireFilterBar(nodes) {
   });
 }
 
+// Verwante-onderwerpen-chips onder de Onderwerp-dropdown, uit
+// related_topic_ids (topic-cooccurrentie, geëxporteerd door build_graph.py).
+// Alleen tonen wat ook echt in de HUIDIGE dropdown zit — anders stuurt een
+// klik je naar een onderwerp waar in dit zoekresultaat toch niks bij zit.
+function updateRelatedTopicsUI(nodes) {
+  const topicSelect = document.getElementById('filter-topic');
+  const container = document.getElementById('related-topics');
+  const topicId = topicSelect.value;
+  if (!topicId) { container.style.display = 'none'; container.innerHTML = ''; return; }
+  const optionIds = new Set([...topicSelect.options].map(o => o.value));
+  const relatedIds = (nodeById.get(topicId)?.related_topic_ids || []).filter(id => optionIds.has(id));
+  if (!relatedIds.length) { container.style.display = 'none'; container.innerHTML = ''; return; }
+  container.style.display = 'block';
+  container.innerHTML = '<span class="related-topics-label">Verwant:</span> ' +
+    relatedIds.map(id => `<button class="related-topic-chip" data-id="${esc(id)}" type="button">${esc(nodeById.get(id).label)}</button>`).join('');
+  container.querySelectorAll('.related-topic-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      topicSelect.value = chip.dataset.id;
+      updateRelatedTopicsUI(nodes);
+      refreshResultList(nodes);
+    });
+  });
+}
+
 const FILTER_YEAR_MS = 365.25 * 86400 * 1000;
 
 function applyFilters(nodes) {
   const topicId = document.getElementById('filter-topic')?.value || '';
+  const bronhouder = document.getElementById('filter-bronhouder')?.value || '';
   const activeTypes = [...document.querySelectorAll('.filter-chip.active')].map(el => el.dataset.type);
   const freshOnly = document.getElementById('filter-fresh')?.checked || false;
   const now = Date.now();
 
   return nodes.filter(n => {
     if (topicId && !(adj.get(n.id) || new Set()).has(topicId)) return false;
+    if (bronhouder && n.bronhouder !== bronhouder) return false;
     if (activeTypes.length < 3) {
       const cls = badgeFor(recordFor(n)).cls;
       if (cls === 'none' || !activeTypes.includes(cls)) return false;
@@ -630,6 +698,8 @@ function buildShareURL(question) {
   params.set('q', question);
   const topicId = document.getElementById('filter-topic')?.value;
   if (topicId) params.set('topic', topicId);
+  const bronhouder = document.getElementById('filter-bronhouder')?.value;
+  if (bronhouder) params.set('bron', bronhouder);
   const area = document.getElementById('filter-area')?.value?.trim();
   if (area) params.set('area', area);
   const activeTypes = [...document.querySelectorAll('.filter-chip.active')].map(el => el.dataset.type);
@@ -663,17 +733,23 @@ async function restoreFromURL() {
   await askKennisgraaf(q);
 
   const topicId = params.get('topic');
+  const bron = params.get('bron');
   const area = params.get('area');
   const types = params.get('types');
   const fresh = params.get('fresh') === '1';
   // Ook afbreken als de vraag deze keer geen resultaten opleverde (AI is niet
   // volledig deterministisch) — dan bestaat de filterbalk/resultatenlijst
   // niet, en zou refreshResultList() verderop crashen op een null element.
-  if ((!topicId && !area && !types && !fresh) || !document.getElementById('result-list')) return;
+  if ((!topicId && !bron && !area && !types && !fresh) || !document.getElementById('result-list')) return;
 
   const topicSelect = document.getElementById('filter-topic');
   if (topicId && topicSelect && [...topicSelect.options].some(o => o.value === topicId)) {
     topicSelect.value = topicId;
+    updateRelatedTopicsUI(currentRankedNodes);
+  }
+  const bronSelect = document.getElementById('filter-bronhouder');
+  if (bron && bronSelect && [...bronSelect.options].some(o => o.value === bron)) {
+    bronSelect.value = bron;
   }
   if (area) {
     const areaInput = document.getElementById('filter-area');
@@ -938,8 +1014,7 @@ function exitCoverageMode() {
   document.getElementById('ask-form').style.display = '';
   clearMapLayers();
   document.getElementById('map-legend').style.display = 'none';
-  document.getElementById('panel-body').innerHTML =
-    '<div class="empty" id="empty-state">Stel een vraag hierboven, of probeer een van de voorbeelden.</div>';
+  renderEmptyStateWithHubs();
   window.map.flyTo({ center: [5.3, 52.15], zoom: 6.7, duration: 600 });
 }
 
