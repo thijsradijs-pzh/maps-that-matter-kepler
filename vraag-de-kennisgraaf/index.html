@@ -60,6 +60,14 @@
   .coverage-legend-scale { display:flex; height:10px; border-radius:4px; overflow:hidden; margin:10px 0 4px; }
   .coverage-legend-scale span { flex:1; }
   .coverage-legend-labels { display:flex; justify-content:space-between; font-size:10px; color:var(--muted); }
+  .coverage-mode-toggle { display:flex; gap:6px; margin:10px 0 8px; }
+  .color-mode-btn { flex:1; font-size:11px; padding:5px 8px; border-radius:6px; border:1px solid var(--border);
+    background:none; color:var(--muted); cursor:pointer; }
+  .color-mode-btn:hover { border-color:var(--accent); color:var(--fg); }
+  .color-mode-btn.active { border-color:var(--accent); background:rgba(167,139,250,0.12); color:var(--accent); }
+  .coverage-mode-toggle-inline { margin-top:8px; }
+  .coverage-mode-toggle-inline .coverage-mode-toggle { margin:4px 0 6px; }
+  .coverage-mode-toggle-inline .coverage-legend-scale { height:6px; margin:6px 0 3px; }
   .hex-back { display:block; background:none; border:1px solid var(--border); color:var(--muted);
     border-radius:6px; padding:5px 10px; font-size:11px; cursor:pointer; margin-bottom:12px; }
   .hex-back:hover { border-color:var(--accent); color:var(--fg); }
@@ -497,10 +505,30 @@ function computeCoverageData(datasetIds = null) {
       excluded++;
     }
   });
+  const YEAR_MS = 365.25 * 86400 * 1000;
+  const now = Date.now();
   const features = [...cellDatasets.entries()].map(([idx, dsIds]) => {
     const boundary = h3.h3ToGeoBoundary(idx, true);
     boundary.push(boundary[0]);
-    return { type: 'Feature', properties: { h3: idx, count: dsIds.size }, geometry: { type: 'Polygon', coordinates: [boundary] } };
+    // Leeftijd (jaar sinds gew) van het OUDSTE dataset in deze hexagon — niet
+    // de mediaan. Getest tegen de echte data: de mediaan wordt overal
+    // gedomineerd door landelijk-dekkende, vaak-ververste referentielagen
+    // (BRT, LGN, CBS-grenzen e.d.) die in vrijwel elke hexagon meetellen,
+    // waardoor 90% van de hexagons als "~1 jaar oud" scoorde — geen enkel
+    // onderscheid. De oudste-dataset-per-hexagon geeft wél een reëel signaal:
+    // ~82% van de hexagons ligt onder de 2,3 jaar, maar een duidelijke groep
+    // (~15%) bevat een dataset van 25+ jaar oud (bv. "Bos en hei 1900",
+    // "EG-Habitatrichtlijngebied 2000") — precies de vergeten/verweesde data
+    // die deze weergave moet opsporen.
+    // Een handvol records heeft een datum in de toekomst (foutieve metadata,
+    // bv. "2099"); geclampt op 0 i.p.v. apart uitgesloten, te weinig gevallen
+    // om een aparte "excluded"-categorie voor te verzinnen.
+    const ages = [...dsIds]
+      .map(id => Date.parse(nodeById.get(id)?.gew))
+      .filter(Number.isFinite)
+      .map(t => Math.max(0, (now - t) / YEAR_MS));
+    const maxAge = ages.length ? Math.max(...ages) : 0;
+    return { type: 'Feature', properties: { h3: idx, count: dsIds.size, maxAge }, geometry: { type: 'Polygon', coordinates: [boundary] } };
   });
   return { fc: { type: 'FeatureCollection', features }, included, excluded, cellDatasets };
 }
@@ -520,12 +548,16 @@ function analyzeResultsOnMap(datasetIds) {
   }
 
   clearMapLayers();
-  renderCoverageLayer(data, 'scoped');
+  renderCoverageLayer(data, 'scoped', 'Zoekresultaten op de kaart');
   const bounds = boundsOf(data.fc);
   if (bounds) window.map.fitBounds(bounds, { padding: 60, maxZoom: 10, duration: 600 });
 
   statusEl.className = 'result-status ok';
-  statusEl.textContent = `✓ ${data.fc.features.length.toLocaleString('nl-NL')} hexagons getoond — klik een hexagon voor details`;
+  statusEl.innerHTML = `✓ ${data.fc.features.length.toLocaleString('nl-NL')} hexagons getoond — klik een hexagon voor details
+    <div id="analyze-legend" class="coverage-mode-toggle-inline"></div>`;
+  const legendEl = document.getElementById('analyze-legend');
+  legendEl.innerHTML = coverageLegendHTML(coverageColorMode);
+  wireCoverageLegend(legendEl);
 }
 
 function toggleCoverageMode() {
@@ -564,27 +596,85 @@ function exitCoverageMode() {
   window.map.flyTo({ center: [5.3, 52.15], zoom: 6.7, duration: 600 });
 }
 
+// Kleurmodus geldt voor beide weergaven (landelijk + gescoped) — herstijlt
+// alleen de bestaande laag (map.setPaintProperty), geen hercomputatie nodig
+// want maxAge/count zitten al op elke feature.
+let coverageColorMode = 'density'; // 'density' | 'freshness'
+
+function coverageFillColorExpr(colorMode, maxCount) {
+  if (colorMode === 'freshness') {
+    // Stops afgestemd op de echte verdeling: ~82% van de hexagons < 2,3 jaar,
+    // dan een duidelijke sprong naar een cluster rond 25 jaar oud.
+    return [
+      'interpolate', ['linear'], ['get', 'maxAge'],
+      0,   '#3fbf9f',
+      1,   '#5b8cff',
+      2.5, '#a78bfa',
+      10,  '#ff7cc3',
+      26,  '#ff9d7c',
+    ];
+  }
+  return [
+    'interpolate', ['linear'], ['ln', ['+', ['get', 'count'], 1]],
+    Math.log(2),   '#1a2f52',
+    Math.log(11),  '#2d4a7a',
+    Math.log(51),  '#5b8cff',
+    Math.log(501), '#a78bfa',
+    Math.log(maxCount + 1), '#ff7cc3',
+  ];
+}
+
+function coverageLegendHTML(colorMode) {
+  const colors = colorMode === 'freshness'
+    ? ['#3fbf9f', '#5b8cff', '#a78bfa', '#ff7cc3', '#ff9d7c']
+    : ['#1a2f52', '#2d4a7a', '#5b8cff', '#a78bfa', '#ff7cc3'];
+  const labels = colorMode === 'freshness' ? ['recent', 'oud'] : ['weinig data', 'veel data'];
+  return `
+    <div class="coverage-mode-toggle">
+      <button class="color-mode-btn${colorMode === 'density' ? ' active' : ''}" data-mode="density" type="button">Dichtheid</button>
+      <button class="color-mode-btn${colorMode === 'freshness' ? ' active' : ''}" data-mode="freshness" type="button">Actualiteit</button>
+    </div>
+    <div class="coverage-legend-scale">${colors.map(c => `<span style="background:${c}"></span>`).join('')}</div>
+    <div class="coverage-legend-labels"><span>${labels[0]}</span><span>${labels[1]}</span></div>`;
+}
+
+function wireCoverageLegend(containerEl) {
+  containerEl.querySelectorAll('.color-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      setCoverageColorMode(btn.dataset.mode);
+      containerEl.innerHTML = coverageLegendHTML(btn.dataset.mode);
+      wireCoverageLegend(containerEl);
+    });
+  });
+}
+
+function updateMapLegendText(title) {
+  const sub = coverageColorMode === 'freshness'
+    ? 'Oudste dataset per hexagon (jaar sinds laatste update)'
+    : 'Aantal datasets per hexagon';
+  document.getElementById('map-legend').innerHTML = `<b>${esc(title)}</b><br>${sub}`;
+}
+
+function setCoverageColorMode(newMode) {
+  coverageColorMode = newMode;
+  const map = window.map;
+  if (activeCoverage && map.getLayer('coverage-fill')) {
+    map.setPaintProperty('coverage-fill', 'fill-color', coverageFillColorExpr(newMode, activeCoverage.maxCount));
+  }
+  if (activeCoverage) updateMapLegendText(activeCoverage.legendTitle);
+}
+
 // Tekent alleen de kaartlaag — gebruikt door zowel de landelijke dekkingskaart
 // (volledig paneel-overname) als de gescoped "analyseer deze resultaten"
 // (paneel blijft de zoekresultaten tonen, alleen de kaart verandert).
-function renderCoverageLayer(data, mode) {
+function renderCoverageLayer(data, mode, legendTitle) {
   const map = window.map;
   const maxCount = data.fc.features.reduce((m, f) => Math.max(m, f.properties.count), 1);
 
   map.addSource('coverage', { type: 'geojson', data: data.fc });
   map.addLayer({
     id: 'coverage-fill', type: 'fill', source: 'coverage',
-    paint: {
-      'fill-color': [
-        'interpolate', ['linear'], ['ln', ['+', ['get', 'count'], 1]],
-        Math.log(2),   '#1a2f52',
-        Math.log(11),  '#2d4a7a',
-        Math.log(51),  '#5b8cff',
-        Math.log(501), '#a78bfa',
-        Math.log(maxCount + 1), '#ff7cc3',
-      ],
-      'fill-opacity': 0.75,
-    },
+    paint: { 'fill-color': coverageFillColorExpr(coverageColorMode, maxCount), 'fill-opacity': 0.75 },
   });
   map.addLayer({
     id: 'coverage-line', type: 'line', source: 'coverage',
@@ -594,11 +684,15 @@ function renderCoverageLayer(data, mode) {
   map.on('mouseenter', 'coverage-fill', () => { map.getCanvas().style.cursor = 'pointer'; });
   map.on('mouseleave', 'coverage-fill', () => { map.getCanvas().style.cursor = ''; });
 
-  activeCoverage = { ...data, mode };
+  activeCoverage = { ...data, mode, maxCount, legendTitle };
+
+  const legend = document.getElementById('map-legend');
+  legend.style.display = 'block';
+  updateMapLegendText(legendTitle);
 }
 
 function renderCoverageMap(data) {
-  renderCoverageLayer(data, 'global');
+  renderCoverageLayer(data, 'global', 'Dekkingskaart');
   window.map.flyTo({ center: [5.6, 52.1], zoom: 6.3, duration: 600 });
   renderCoverageStatsPanel(data);
 }
@@ -611,16 +705,10 @@ function renderCoverageStatsPanel(data) {
       <div><b>${data.fc.features.length.toLocaleString('nl-NL')}</b> hexagons · resolutie 5 (~253 km² per cel)</div>
       <div style="margin-top:6px">Klik een hexagon voor de datasets erin.</div>
     </div>
-    <div class="coverage-legend-scale">
-      <span style="background:#1a2f52"></span><span style="background:#2d4a7a"></span>
-      <span style="background:#5b8cff"></span><span style="background:#a78bfa"></span>
-      <span style="background:#ff7cc3"></span>
-    </div>
-    <div class="coverage-legend-labels"><span>weinig data</span><span>veel data</span></div>`;
-
-  const legend = document.getElementById('map-legend');
-  legend.style.display = 'block';
-  legend.innerHTML = '<b>Dekkingskaart</b><br>Aantal datasets per hexagon, heel Nederland';
+    <div id="coverage-legend-container"></div>`;
+  const container = document.getElementById('coverage-legend-container');
+  container.innerHTML = coverageLegendHTML(coverageColorMode);
+  wireCoverageLegend(container);
 }
 
 const HEX_LIST_CAP = 100;
