@@ -59,6 +59,9 @@
   .coverage-legend-scale { display:flex; height:10px; border-radius:4px; overflow:hidden; margin:10px 0 4px; }
   .coverage-legend-scale span { flex:1; }
   .coverage-legend-labels { display:flex; justify-content:space-between; font-size:10px; color:var(--muted); }
+  .hex-back { display:block; background:none; border:1px solid var(--border); color:var(--muted);
+    border-radius:6px; padding:5px 10px; font-size:11px; cursor:pointer; margin-bottom:12px; }
+  .hex-back:hover { border-color:var(--accent); color:var(--fg); }
 
   #ask-form { padding:14px 18px; border-bottom:1px solid var(--border); flex-shrink:0; }
   #ask-input { width:100%; background:#0a0a16; border:1px solid var(--border); color:var(--fg);
@@ -411,6 +414,7 @@ function tryFallback(node, rec, statusEl, reasonPrefix) {
 function clearMapLayers() {
   const map = window.map;
   ['wfs-fill', 'wfs-line', 'wfs-circle'].forEach(id => map.off('click', id, onFeatureClick));
+  map.off('click', 'coverage-fill', onCoverageClick);
   ['wfs-fill', 'wfs-line', 'wfs-circle', 'wms-raster', 'extent-fill', 'extent-line', 'coverage-fill', 'coverage-line']
     .forEach(id => { if (map.getLayer(id)) map.removeLayer(id); });
   ['wfs', 'wms', 'extent', 'coverage'].forEach(id => { if (map.getSource(id)) map.removeSource(id); });
@@ -443,7 +447,11 @@ function extentIsSane(w, s, e, n) {
 }
 
 function computeCoverageData() {
-  const counts = new Map();
+  // h3-index -> Set<datasetId>, niet alleen een telling — zo kan een klik op een
+  // hexagon straks de daadwerkelijke datasets tonen (KnowWhereGraph-patroon:
+  // cel als knoop met edges naar de entiteiten erin, i.p.v. de cel alleen als
+  // rendering-laag te gebruiken).
+  const cellDatasets = new Map();
   let included = 0, excluded = 0;
   GRAPH.nodes.forEach(node => {
     if (node.type !== 'dataset' || !node.extent) return;
@@ -451,7 +459,10 @@ function computeCoverageData() {
     if (!extentIsSane(w, s, e, n)) { excluded++; return; }
     const ring = [[w, s], [e, s], [e, n], [w, n], [w, s]];
     try {
-      h3.polyfill([ring], COVERAGE_RES, true).forEach(idx => counts.set(idx, (counts.get(idx) || 0) + 1));
+      h3.polyfill([ring], COVERAGE_RES, true).forEach(idx => {
+        if (!cellDatasets.has(idx)) cellDatasets.set(idx, new Set());
+        cellDatasets.get(idx).add(node.id);
+      });
       included++;
     } catch {
       // een handvol extents blijft ook binnen de oppervlaktegrens te complex voor
@@ -460,12 +471,12 @@ function computeCoverageData() {
       excluded++;
     }
   });
-  const features = [...counts.entries()].map(([idx, count]) => {
+  const features = [...cellDatasets.entries()].map(([idx, dsIds]) => {
     const boundary = h3.h3ToGeoBoundary(idx, true);
     boundary.push(boundary[0]);
-    return { type: 'Feature', properties: { count }, geometry: { type: 'Polygon', coordinates: [boundary] } };
+    return { type: 'Feature', properties: { h3: idx, count: dsIds.size }, geometry: { type: 'Polygon', coordinates: [boundary] } };
   });
-  return { fc: { type: 'FeatureCollection', features }, included, excluded };
+  return { fc: { type: 'FeatureCollection', features }, included, excluded, cellDatasets };
 }
 
 function toggleCoverageMode() {
@@ -527,14 +538,22 @@ function renderCoverageMap(data) {
     id: 'coverage-line', type: 'line', source: 'coverage',
     paint: { 'line-color': 'rgba(5,5,16,0.15)', 'line-width': 0.5 },
   });
+  map.on('click', 'coverage-fill', onCoverageClick);
+  map.on('mouseenter', 'coverage-fill', () => { map.getCanvas().style.cursor = 'pointer'; });
+  map.on('mouseleave', 'coverage-fill', () => { map.getCanvas().style.cursor = ''; });
 
   map.flyTo({ center: [5.6, 52.1], zoom: 6.3, duration: 600 });
 
+  renderCoverageStatsPanel(data);
+}
+
+function renderCoverageStatsPanel(data) {
   document.getElementById('panel-body').innerHTML = `
     <div class="coverage-stats">
       <div><b>${data.included.toLocaleString('nl-NL')}</b> van 5.824 datasets meegenomen</div>
       <div>${data.excluded.toLocaleString('nl-NL')} overgeslagen (onbetrouwbare of extreem grote dekking in de brondata)</div>
       <div><b>${data.fc.features.length.toLocaleString('nl-NL')}</b> hexagons · resolutie 5 (~253 km² per cel)</div>
+      <div style="margin-top:6px">Klik een hexagon voor de datasets erin.</div>
     </div>
     <div class="coverage-legend-scale">
       <span style="background:#1a2f52"></span><span style="background:#2d4a7a"></span>
@@ -546,6 +565,39 @@ function renderCoverageMap(data) {
   const legend = document.getElementById('map-legend');
   legend.style.display = 'block';
   legend.innerHTML = '<b>Dekkingskaart</b><br>Aantal datasets per hexagon, heel Nederland';
+}
+
+const HEX_LIST_CAP = 100;
+
+function onCoverageClick(e) {
+  const idx = e.features[0].properties.h3;
+  const dsIds = [...(coverageData.cellDatasets.get(idx) || [])];
+  showHexDatasets(dsIds);
+}
+
+function showHexDatasets(dsIds) {
+  const nodes = dsIds.map(id => nodeById.get(id)).filter(Boolean)
+    .sort((a, b) => (b.deg || 0) - (a.deg || 0));
+  const shown = nodes.slice(0, HEX_LIST_CAP);
+
+  const body = document.getElementById('panel-body');
+  body.innerHTML = `
+    <button class="hex-back" id="hex-back" type="button">← Terug naar dekkingskaart</button>
+    <div class="result-count">${nodes.length.toLocaleString('nl-NL')} datasets in deze hexagon${nodes.length > HEX_LIST_CAP ? ` (eerste ${HEX_LIST_CAP} getoond)` : ''}</div>
+    <div id="hex-result-list"></div>`;
+  document.getElementById('hex-back').addEventListener('click', () => renderCoverageStatsPanel(coverageData));
+
+  const list = document.getElementById('hex-result-list');
+  shown.forEach(n => {
+    const b = badgeFor(recordFor(n));
+    const item = document.createElement('div');
+    item.className = 'result-item';
+    item.innerHTML = `<div class="result-title"><span>${esc(n.label)}</span><span class="avail-badge ${b.cls}">${esc(b.label)}</span></div>
+      <div class="result-sam">${esc(n.sam || '')}</div>
+      <div class="result-status" id="status-${cssId(n.id)}"></div>`;
+    item.addEventListener('click', () => showOnMap(n, item));
+    list.appendChild(item);
+  });
 }
 
 function renderExtentOnMap(node, extent) {
