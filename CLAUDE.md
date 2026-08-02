@@ -51,6 +51,7 @@ Current examples:
 - `pdok-viewer/` — AI-powered natural language interface for Dutch geodata (CBS/BAG/NGR). 2-step flow: draw bbox → ask question. AI picks WFS dataset → data fetched live as H3 res-9 hexagons (~174m). Two-click bbox drawing. Panel is a floating draggable/resizable chat window that snaps right after results load. (Deck.gl, H3 res 9)
 - `vraag-de-kaart/` — AI-powered natural language queries over a pre-built H3 datacube (225,684 hexagons, CBS + LGN, 2018–2023). Uses DuckDB WASM to query a 11MB Parquet file in-browser. NL & EN. (Deck.gl, H3, DuckDB WASM)
 - `ufo-viewer/` — 18,291 UFO meldingen (ufomeldpunt.nl) als H3-hexagoonkaart; correlatie met windmolens (PDOK WFS) en coffeeshops (bundled JSON); client-side H3 aggregation van GeoJSON punten
+- `kennisgraaf-viewer/` — 5,824 datasets uit het landelijke Nationaal Georegister (CSW-harvest) als interactieve force-directed graph (force-graph CDN); knopen = dataset/topic/trefwoord, data uit `/data/kennisgraaf_ngr.json`. Harvest-tooling leeft in het aparte repo `graph-geonetwork` (niet in dit repo)
 - `blog-h3-examples/` — Static article page ("From Hexagons to Foresight"), not a map app
 
 ### Shared Utilities (`/shared/`)
