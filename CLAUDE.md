@@ -42,10 +42,10 @@ Current examples:
 - `population-3d/` — 3D population time-series over Dutch H3 hexagons (Kepler.gl). Kept deployed solely as a live embed target for `blog-h3-examples`; not linked from the landing page.
 - `groundheight/` — Ground height (AHN) visualization over H3 hexagons (Deck.gl). Kept deployed solely as a live embed target for `blog-h3-examples`; not linked from the landing page.
 - `gebiedsviewer/` — Zuid-Holland Gebiedsviewer: WMS layer browser for 6 thematic categories (Grenzen, Landelijk Gebied, Bodem, Klimaat, Water, Milieu) sourced from geoservices.zuid-holland.nl (Deck.gl, no H3)
-- `pdok-viewer/` — AI-powered natural language interface for Dutch geodata (CBS/BAG/NGR). 2-step flow: draw bbox → ask question. AI picks WFS dataset → data fetched live as H3 res-9 hexagons (~174m). Two-click bbox drawing. Panel is a floating draggable/resizable chat window that snaps right after results load. (Deck.gl, H3 res 9)
+- `pdok-viewer/` — PDOK Verkenner: single-file MapLibre app (617 lines, no framework). Timeline bar (bottom) scrubs through PDOK historical aerial imagery (`luchtfotorgb` WMTS, 2016–2025, zomer 25cm / winter 8cm) via drag or click. Separate collapsible WFS panel (top-right) lets you paste any PDOK WFS service URL + typename (5 example chips: gemeenten, BAG panden, CBS buurten, Natura 2000, bestemmingsplannen) and renders the GetFeature response directly as a MapLibre GeoJSON layer, styled by geometry type, with a click-to-inspect popup. No AI, no proxy, no H3 — everything fetches PDOK directly client-side.
 - `vraag-de-kaart/` — AI-powered natural language queries over a pre-built H3 datacube (225,684 hexagons, CBS + LGN, 2018–2023). Uses DuckDB WASM to query a 11MB Parquet file in-browser. NL & EN. (Deck.gl, H3, DuckDB WASM)
 - `kennisgraaf-viewer/` — 5,824 datasets uit het landelijke Nationaal Georegister (CSW-harvest) als interactieve force-directed graph (force-graph CDN); knopen = dataset/topic/trefwoord, data uit `/data/kennisgraaf_ngr.json`. "Vraag de kennisgraaf"-balk: NL vraag → `api/ask-kennisgraaf.js` (Gemini) stelt kandidaat-zoektermen voor → client-side fuzzy matching (Levenshtein) grondt die tegen de écht geoogste trefwoorden/topics, dus een gehallucineerde term levert gewoon geen match op i.p.v. nepdata. Harvest-tooling leeft in het aparte repo `graph-geonetwork` (niet in dit repo)
-- `vraag-de-kennisgraaf/` — chat-eerste ingang tot dezelfde kennisgraaf-data, zonder graafvisualisatie: vraag stellen → gegronde datasets als lijst (zelfde grounding-logica als kennisgraaf-viewer, geëxtraheerd naar `shared/kennisgraaf-vocab.js`) → klik = laad de data van die dataset **as-is** (ruwe geometrie, MapLibre, geen H3-aggregatie) op de kaart. Drieledige fallback-keten, badge per resultaat vóór het klikken (WFS/WMS/gebied): WFS (echte features) > WMS-rasterlaag > dekkingsgebied-outline uit ISO19139's `EX_GeographicBoundingBox` (gestippeld, niet klikbaar, nooit met echte data te verwarren). Over alle 5.824 datasets: 20% WFS, 12% WMS-only, 68% alleen dekkingsgebied, 0% niets — dus altijd wél iets te zien. `wfs_url`/`wfs_typename`/`wms_url`/`wms_layer`/`extent` zitten sinds kort **direct op elke dataset-node** in `/data/kennisgraaf_ngr.json` (geëxtraheerd bij harvest-tijd door `graph-geonetwork`'s `build_graph.py`, niet live per klik) — badges zijn dus synchroon, geen netwerklatency. `api/ngr-record.js` bestaat nog (blijft live-fallback bruikbaar) maar wordt door deze pagina niet meer aangeroepen. Noemt de vraag een plaatsnaam (`ask-kennisgraaf.js`'s `location`-veld), dan scoped `api/pdok-location.js` de kaart + WFS-bbox naar die plek (PDOK Location API, niet de oudere Locatieserver). Basemap: Carto Positron (licht), zelfde als gebiedsviewer's default. `kennisgraaf-viewer` en `pdok-viewer` blijven ongewijzigd
+- `vraag-de-kennisgraaf/` — chat-eerste ingang tot dezelfde kennisgraaf-data, zonder graafvisualisatie: vraag stellen → gegronde datasets als lijst (zelfde grounding-logica als kennisgraaf-viewer, geëxtraheerd naar `shared/kennisgraaf-vocab.js`) → klik = laad de data van die dataset **as-is** (ruwe geometrie, MapLibre, geen H3-aggregatie) op de kaart. Drieledige fallback-keten, badge per resultaat vóór het klikken (WFS/WMS/gebied): WFS (echte features) > WMS-rasterlaag > dekkingsgebied-outline uit ISO19139's `EX_GeographicBoundingBox` (gestippeld, niet klikbaar, nooit met echte data te verwarren). Over alle 5.824 datasets: 20% WFS, 12% WMS-only, 68% alleen dekkingsgebied, 0% niets — dus altijd wél iets te zien. `wfs_url`/`wfs_typename`/`wms_url`/`wms_layer`/`extent` zitten sinds kort **direct op elke dataset-node** in `/data/kennisgraaf_ngr.json` (geëxtraheerd bij harvest-tijd door `graph-geonetwork`'s `build_graph.py`, niet live per klik) — badges zijn dus synchroon, geen netwerklatency. `api/ngr-record.js` bestaat nog (blijft live-fallback bruikbaar) maar wordt door deze pagina niet meer aangeroepen. Noemt de vraag een plaatsnaam (`ask-kennisgraaf.js`'s `location`-veld), dan scoped `api/pdok-location.js` de kaart + WFS-bbox naar die plek (PDOK Location API, niet de oudere Locatieserver). Basemap: Carto Positron (licht), zelfde als gebiedsviewer's default. **Dekkingskaart**-toggle: H3-aggregatie (res 5, ~253 km²/cel) van alle dataset-extents tot een landelijke dichtheidskaart — draait volledig client-side op al-geladen data (geen fetch), eenmalig ~3,6 sec, daarna gecached voor de sessie. Extents groter dan 50 vierkante graden (~4x NL) worden overgeslagen als vermoedelijk foutieve metadata (bv. RD-coördinaten abusievelijk als WGS84 opgeslagen, of een half-Europa bounding box) — zonder die grens kan `h3.polyfill` de vaste WASM-heap laten overlopen. `kennisgraaf-viewer` en `pdok-viewer` blijven ongewijzigd
 - `blog-h3-examples/` — Static article page ("From Hexagons to Foresight"), not a map app
 
 ### Shared Utilities (`/shared/`)
@@ -106,24 +106,18 @@ The most complex example (1929 lines). Key files:
 
 ## Example: PDOK Verkenner (`pdok-viewer/`)
 Key files:
-- `pdok-viewer/index.html` — single-file app (~2200 lines); all logic, CSS, and HTML inline
+- `pdok-viewer/index.html` — single-file app (617 lines); all logic, CSS, and HTML inline. No framework — bare MapLibre GL.
 
-UX flow:
-1. Welcome splash (skippable, "don't show again" in localStorage)
-2. **Step 1** — Draw bbox: floating chat panel shows draw card with municipality autocomplete. Two-click drawing (first click = anchor, mousemove = live preview, second click = finish). Panel glows blue.
-3. **Step 2** — Ask question: question card appears with example buttons, input bar slides in at the bottom of the panel. Panel glows green.
-4. **Step 3** — Results: AI card + result card shown, panel snaps to right side, map fills the screen. Year switcher for CBS data, retry buttons for suppressed metrics.
+What it does:
+- **Timeline bar** (bottom): scrubs through PDOK historical aerial imagery (`service.pdok.nl/hwh/luchtfotorgb` WMTS), 2016–2025, alternating zomer (25cm) / winter (8cm, from 2021) captures. Drag the needle or click a pip to jump; opacity slider blends the loaded tile layer over the CARTO basemap.
+- **WFS panel** (top-right, collapsible): paste any PDOK WFS service URL + typename (5 example chips: gemeenten, BAG panden, CBS buurten, Natura 2000, bestemmingsplannen) → `GetFeature` request built client-side, fetched directly (no proxy — PDOK WFS is CORS-open), rendered as a MapLibre GeoJSON layer styled by geometry type (fill/line/circle). Click a feature for a property-table popup.
 
 Key JS patterns:
-- `initDrawStep()` — resets all state, clears messages, shows draw card, activates draw mode
-- `clearDrawnArea()` — calls `initDrawStep()` to fully reset (not just clear the bbox)
-- `askAI(question)` → `fetchDataForBbox(bbox)` — two-phase: AI picks dataset, then WFS data is fetched
-- `snapPanelRight()` — switches panel from centered floating to right-side fixed after results load
-- `wireLocationSearch(inputEl, dropdownEl)` — reusable PDOK Locatieserver autocomplete wiring
-- `CBS_SUPPRESSED = -9000` — values below this threshold are CBS-suppressed, filtered out
-- `SUPPRESSION_PRONE` set + `SUPPRESSION_ALTS` map — pre-warn users and offer retry alternatives
-- `switchYear(year)` — replaces year in WFS URL and re-fetches for same bbox
-- `pixelToLatLon(cx, cy)` — converts screen pixels to WGS84 using current viewport state
+- `IMAGES` array — the full chronological list of available WMTS layers (hardcoded; 2021 has no zomer capture per PDOK)
+- `loadImage(idx)` — swaps the `luchtfoto` raster source/layer, keeps insertion order below any active WFS layers
+- `buildTimeline()` — generates the pip/tick DOM from `IMAGES`, one call at page load
+- `EXAMPLES` map — the 5 example chip URL+typename pairs
+- `renderWFS(geojson, typeName)` — picks fill/line/circle styling from the first feature's geometry type
 
 ## AI Workflow
 

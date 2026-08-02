@@ -25,6 +25,7 @@
 
 <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet" />
 <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
 <script src="/shared/kennisgraaf-vocab.js"></script>
 
 <style>
@@ -47,7 +48,17 @@
 
   #panel-head { padding:44px 18px 14px; border-bottom:1px solid var(--border); flex-shrink:0; }
   #panel-head h1 { font-size:15px; margin:0 0 4px; color:#fff; font-weight:700; }
-  #panel-head p { font-size:12px; color:var(--muted); margin:0; line-height:1.5; }
+  #panel-head p { font-size:12px; color:var(--muted); margin:0 0 10px; line-height:1.5; }
+  #coverage-toggle { background:none; border:1px solid var(--border); color:var(--muted);
+    border-radius:6px; padding:5px 10px; font-size:11px; cursor:pointer; }
+  #coverage-toggle:hover { border-color:var(--accent); color:var(--fg); }
+  #coverage-toggle.active { border-color:var(--accent); background:rgba(167,139,250,0.12); color:var(--accent); }
+
+  .coverage-stats { font-size:12px; color:var(--muted); line-height:1.7; }
+  .coverage-stats b { color:var(--fg); }
+  .coverage-legend-scale { display:flex; height:10px; border-radius:4px; overflow:hidden; margin:10px 0 4px; }
+  .coverage-legend-scale span { flex:1; }
+  .coverage-legend-labels { display:flex; justify-content:space-between; font-size:10px; color:var(--muted); }
 
   #ask-form { padding:14px 18px; border-bottom:1px solid var(--border); flex-shrink:0; }
   #ask-input { width:100%; background:#0a0a16; border:1px solid var(--border); color:var(--fg);
@@ -128,6 +139,7 @@
   <div id="panel-head">
     <h1>Vraag de Kennisgraaf</h1>
     <p>Stel een vraag over Nederlandse geodata — het antwoord komt uit de 5.824 datasets van het Nationaal Georegister.</p>
+    <button id="coverage-toggle" type="button">📊 Dekkingskaart</button>
   </div>
   <div id="ask-form">
     <textarea id="ask-input" rows="2" placeholder="bv. “waar vind ik data over bodemvervuiling”" aria-label="Stel een vraag aan de kennisgraaf"></textarea>
@@ -206,6 +218,7 @@ function wireForm() {
   document.querySelectorAll('.example-chip').forEach(chip => {
     chip.addEventListener('click', () => { input.value = chip.textContent; submit(); });
   });
+  document.getElementById('coverage-toggle').addEventListener('click', toggleCoverageMode);
 }
 
 async function askKennisgraaf(question) {
@@ -398,10 +411,141 @@ function tryFallback(node, rec, statusEl, reasonPrefix) {
 function clearMapLayers() {
   const map = window.map;
   ['wfs-fill', 'wfs-line', 'wfs-circle'].forEach(id => map.off('click', id, onFeatureClick));
-  ['wfs-fill', 'wfs-line', 'wfs-circle', 'wms-raster', 'extent-fill', 'extent-line'].forEach(id => { if (map.getLayer(id)) map.removeLayer(id); });
-  if (map.getSource('wfs')) map.removeSource('wfs');
-  if (map.getSource('wms')) map.removeSource('wms');
-  if (map.getSource('extent')) map.removeSource('extent');
+  ['wfs-fill', 'wfs-line', 'wfs-circle', 'wms-raster', 'extent-fill', 'extent-line', 'coverage-fill', 'coverage-line']
+    .forEach(id => { if (map.getLayer(id)) map.removeLayer(id); });
+  ['wfs', 'wms', 'extent', 'coverage'].forEach(id => { if (map.getSource(id)) map.removeSource(id); });
+}
+
+// ── Dekkingskaart: H3-aggregatie van alle dataset-extents ───────────────────
+// Elke dataset heeft al een extent (zie hierboven) — dit telt, per H3-hexagon,
+// hoeveel dataset-extents die hexagon overlappen, en toont dat als een
+// landelijke dichtheidskaart. Werkt volledig uit al-geladen data, geen fetch.
+//
+// COVERAGE_AREA_CAP filtert overduidelijk foutieve metadata: sommige NGR-
+// records hebben een extent die half Europa beslaat (bron: verkeerd
+// ingevoerde metadata, niet een echt zo grote dataset) — zonder deze grens
+// zou zo'n record alle omliggende landen laten "oplichten" alsof daar
+// evenveel Nederlandse data zit, en de polyfill-berekening voor zo'n enorme
+// rechthoek kan de H3 WASM-heap laten overlopen. 50 vierkante graden ≈ 4x
+// Nederland zelf — genereus voor grensoverschrijdende (INSPIRE) datasets,
+// hard genoeg om de foutieve half-Europa-extents eruit te filteren.
+const COVERAGE_RES = 5;
+const COVERAGE_AREA_CAP = 50;
+let coverageMode = false;
+let coverageData = null; // { fc, included, excluded } — eenmalig berekend (~3 sec), daarna hergebruikt
+
+function extentIsSane(w, s, e, n) {
+  if (![w, s, e, n].every(Number.isFinite)) return false;
+  if (w < -30 || e > 40 || s < 25 || n > 72) return false;
+  if (e <= w || n <= s) return false;
+  if ((e - w) * (n - s) > COVERAGE_AREA_CAP) return false;
+  return true;
+}
+
+function computeCoverageData() {
+  const counts = new Map();
+  let included = 0, excluded = 0;
+  GRAPH.nodes.forEach(node => {
+    if (node.type !== 'dataset' || !node.extent) return;
+    const [w, s, e, n] = node.extent.split(',').map(Number);
+    if (!extentIsSane(w, s, e, n)) { excluded++; return; }
+    const ring = [[w, s], [e, s], [e, n], [w, n], [w, s]];
+    try {
+      h3.polyfill([ring], COVERAGE_RES, true).forEach(idx => counts.set(idx, (counts.get(idx) || 0) + 1));
+      included++;
+    } catch {
+      // een handvol extents blijft ook binnen de oppervlaktegrens te complex voor
+      // polyfill (bv. een smalle, kilometers lange kustlijnstrook) — overslaan
+      // i.p.v. de hele berekening te laten crashen op één rare dataset
+      excluded++;
+    }
+  });
+  const features = [...counts.entries()].map(([idx, count]) => {
+    const boundary = h3.h3ToGeoBoundary(idx, true);
+    boundary.push(boundary[0]);
+    return { type: 'Feature', properties: { count }, geometry: { type: 'Polygon', coordinates: [boundary] } };
+  });
+  return { fc: { type: 'FeatureCollection', features }, included, excluded };
+}
+
+function toggleCoverageMode() {
+  if (coverageMode) exitCoverageMode(); else enterCoverageMode();
+}
+
+async function enterCoverageMode() {
+  coverageMode = true;
+  const toggle = document.getElementById('coverage-toggle');
+  toggle.classList.add('active');
+  toggle.textContent = '← Terug naar vragen';
+  document.getElementById('ask-form').style.display = 'none';
+  clearMapLayers();
+
+  const body = document.getElementById('panel-body');
+  body.innerHTML = '<div class="empty"><span class="kg-spinner"></span>Dekkingskaart berekenen (eenmalig, ~3 sec)…</div>';
+
+  if (!coverageData) {
+    await new Promise(r => setTimeout(r, 30)); // laat de spinner renderen vóór het hoofdthread blokkeert
+    coverageData = computeCoverageData();
+  }
+
+  renderCoverageMap(coverageData);
+}
+
+function exitCoverageMode() {
+  coverageMode = false;
+  const toggle = document.getElementById('coverage-toggle');
+  toggle.classList.remove('active');
+  toggle.textContent = '📊 Dekkingskaart';
+  document.getElementById('ask-form').style.display = '';
+  clearMapLayers();
+  document.getElementById('map-legend').style.display = 'none';
+  document.getElementById('panel-body').innerHTML =
+    '<div class="empty" id="empty-state">Stel een vraag hierboven, of probeer een van de voorbeelden.</div>';
+  window.map.flyTo({ center: [5.3, 52.15], zoom: 6.7, duration: 600 });
+}
+
+function renderCoverageMap(data) {
+  const map = window.map;
+  const maxCount = data.fc.features.reduce((m, f) => Math.max(m, f.properties.count), 1);
+
+  map.addSource('coverage', { type: 'geojson', data: data.fc });
+  map.addLayer({
+    id: 'coverage-fill', type: 'fill', source: 'coverage',
+    paint: {
+      'fill-color': [
+        'interpolate', ['linear'], ['ln', ['+', ['get', 'count'], 1]],
+        Math.log(2),   '#1a2f52',
+        Math.log(11),  '#2d4a7a',
+        Math.log(51),  '#5b8cff',
+        Math.log(501), '#a78bfa',
+        Math.log(maxCount + 1), '#ff7cc3',
+      ],
+      'fill-opacity': 0.75,
+    },
+  });
+  map.addLayer({
+    id: 'coverage-line', type: 'line', source: 'coverage',
+    paint: { 'line-color': 'rgba(5,5,16,0.15)', 'line-width': 0.5 },
+  });
+
+  map.flyTo({ center: [5.6, 52.1], zoom: 6.3, duration: 600 });
+
+  document.getElementById('panel-body').innerHTML = `
+    <div class="coverage-stats">
+      <div><b>${data.included.toLocaleString('nl-NL')}</b> van 5.824 datasets meegenomen</div>
+      <div>${data.excluded.toLocaleString('nl-NL')} overgeslagen (onbetrouwbare of extreem grote dekking in de brondata)</div>
+      <div><b>${data.fc.features.length.toLocaleString('nl-NL')}</b> hexagons · resolutie 5 (~253 km² per cel)</div>
+    </div>
+    <div class="coverage-legend-scale">
+      <span style="background:#1a2f52"></span><span style="background:#2d4a7a"></span>
+      <span style="background:#5b8cff"></span><span style="background:#a78bfa"></span>
+      <span style="background:#ff7cc3"></span>
+    </div>
+    <div class="coverage-legend-labels"><span>weinig data</span><span>veel data</span></div>`;
+
+  const legend = document.getElementById('map-legend');
+  legend.style.display = 'block';
+  legend.innerHTML = '<b>Dekkingskaart</b><br>Aantal datasets per hexagon, heel Nederland';
 }
 
 function renderExtentOnMap(node, extent) {
