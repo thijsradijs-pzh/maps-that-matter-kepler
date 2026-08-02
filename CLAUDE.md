@@ -51,13 +51,15 @@ Current examples:
 - `pdok-viewer/` — AI-powered natural language interface for Dutch geodata (CBS/BAG/NGR). 2-step flow: draw bbox → ask question. AI picks WFS dataset → data fetched live as H3 res-9 hexagons (~174m). Two-click bbox drawing. Panel is a floating draggable/resizable chat window that snaps right after results load. (Deck.gl, H3 res 9)
 - `vraag-de-kaart/` — AI-powered natural language queries over a pre-built H3 datacube (225,684 hexagons, CBS + LGN, 2018–2023). Uses DuckDB WASM to query a 11MB Parquet file in-browser. NL & EN. (Deck.gl, H3, DuckDB WASM)
 - `ufo-viewer/` — 18,291 UFO meldingen (ufomeldpunt.nl) als H3-hexagoonkaart; correlatie met windmolens (PDOK WFS) en coffeeshops (bundled JSON); client-side H3 aggregation van GeoJSON punten
-- `kennisgraaf-viewer/` — 5,824 datasets uit het landelijke Nationaal Georegister (CSW-harvest) als interactieve force-directed graph (force-graph CDN); knopen = dataset/topic/trefwoord, data uit `/data/kennisgraaf_ngr.json`. Harvest-tooling leeft in het aparte repo `graph-geonetwork` (niet in dit repo)
+- `kennisgraaf-viewer/` — 5,824 datasets uit het landelijke Nationaal Georegister (CSW-harvest) als interactieve force-directed graph (force-graph CDN); knopen = dataset/topic/trefwoord, data uit `/data/kennisgraaf_ngr.json`. "Vraag de kennisgraaf"-balk: NL vraag → `api/ask-kennisgraaf.js` (Gemini) stelt kandidaat-zoektermen voor → client-side fuzzy matching (Levenshtein) grondt die tegen de écht geoogste trefwoorden/topics, dus een gehallucineerde term levert gewoon geen match op i.p.v. nepdata. Harvest-tooling leeft in het aparte repo `graph-geonetwork` (niet in dit repo)
+- `vraag-de-kennisgraaf/` — chat-eerste ingang tot dezelfde kennisgraaf-data, zonder graafvisualisatie: vraag stellen → gegronde datasets als lijst (zelfde grounding-logica als kennisgraaf-viewer, geëxtraheerd naar `shared/kennisgraaf-vocab.js`) → klik = laad de WFS-data van die dataset **as-is** (ruwe geometrie, MapLibre, geen H3-aggregatie) op de kaart. `api/ngr-record.js` haalt WFS-serviceURLs uit NGR's ISO19139-metadata (niet elke dataset heeft er een; ArcGIS-gehoste WFS-services leveren vaak alleen GML i.p.v. GeoJSON — toont dan een nette melding). `kennisgraaf-viewer` en `pdok-viewer` blijven ongewijzigd
 - `blog-h3-examples/` — Static article page ("From Hexagons to Foresight"), not a map app
 
 ### Shared Utilities (`/shared/`)
 - `deckgl-utils.js` — Color scales, color mapping functions, Carto basemap layer factory
 - `duckdb-loader.js` — DuckDB WASM integration for in-browser data loading
 - `wms-layer.js` — Standard WMS TileLayer via proxy (`createWMSLayer()`). Used by multi-criteria-analysis and agro-viewer. For ArcGIS MapServer export endpoint, see `gebiedsviewer/js/wms-layer.js`.
+- `kennisgraaf-vocab.js` — Pure grounding functions (`kgNormalize`, `kgLevenshtein`, `kgBuildVocabIndex`, `kgMatchTerm`) over the kennisgraaf graph, no DOM dependency. Used by vraag-de-kennisgraaf; kennisgraaf-viewer keeps its own inline copy (untouched).
 
 ### Backend (`/api/`)
 Vercel serverless functions used as CORS proxies and AI endpoints:
@@ -71,6 +73,9 @@ Vercel serverless functions used as CORS proxies and AI endpoints:
   - `GET ?q=...` → autocomplete suggestions (gemeente, wijk, buurt, woonplaats)
   - `GET ?id=<locatieserver_id>` → lookup returning `{ doc: { weergavenaam, type, gemeentenaam, centroide_ll } }` where `centroide_ll` is WKT `POINT(lon lat)` in WGS84
 - `ask-map.js` — AI endpoint used by vraag-de-kaart (separate from ask-wfs.js)
+- `ask-kennisgraaf.js` — POST `{ question }` → Gemini proposes 3–6 Dutch search terms for kennisgraaf-viewer's "vraag de kennisgraaf" bar; terms are grounded client-side against the real harvested vocabulary, never trusted as-is (also used by vraag-de-kennisgraaf)
+- `ngr-record.js` — GET `?id=<uuid>` → fetches a dataset's full ISO19139 metadata from NGR's GeoNetwork API and extracts its OGC:WFS distribution link; returns `{ wfs: { url, typeName, description } | null }`, `null` is a normal (not error) response. Used by vraag-de-kennisgraaf.
+- `ngr-wfs-proxy.js` — GET proxy for WFS GetFeature requests, same query contract as `wfs-proxy.js` (`wfsUrl, typeName, bbox, pageSize, startIndex`) but accepts any `https` host (not just pdok.nl/nationaalgeoregister.nl) since NGR indexes services from many hosts (provinces, gemeentes); blocks private/loopback/link-local hostnames. Caps at 1000 features, sets `X-Truncated: 1`. Used by vraag-de-kennisgraaf.
 
 ### Landing page (`/index.html`)
 Root `index.html` serves as the homepage at mapsthatmatter.io — lists all projects with descriptions and tech tags. Dark GitHub-style design. The `/` rewrite in `vercel.json` points here.

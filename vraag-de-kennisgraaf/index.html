@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8" />
+<title>Vraag de Kennisgraaf — Maps That Matter</title>
+<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+<meta name="description" content="Stel een vraag in gewone taal over Nederlandse geodata en zie de bijbehorende NGR-dataset direct op de kaart." />
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://www.mapsthatmatter.io/vraag-de-kennisgraaf" />
+<meta property="og:title" content="Vraag de Kennisgraaf — Maps That Matter" />
+<meta property="og:description" content="Stel een vraag in gewone taal over Nederlandse geodata en zie de bijbehorende NGR-dataset direct op de kaart." />
+<meta property="og:image" content="https://www.mapsthatmatter.io/assets/thijs.jpg" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="Vraag de Kennisgraaf" />
+<meta name="twitter:description" content="Stel een vraag in gewone taal over Nederlandse geodata en zie de bijbehorende NGR-dataset direct op de kaart." />
+<meta name="twitter:image" content="https://www.mapsthatmatter.io/assets/thijs.jpg" />
+
+<script async src="https://plausible.io/js/pa-unGG15m6r6ufvAQNAPz3f.js"></script>
+<script>
+  window.plausible = window.plausible || function() { (plausible.q = plausible.q || []).push(arguments) };
+  plausible.init = plausible.init || function(i) { plausible.o = i || {} };
+  plausible.init();
+</script>
+
+<link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet" />
+<script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
+<script src="/shared/kennisgraaf-vocab.js"></script>
+
+<style>
+  :root { --bg:#050510; --fg:#d5d5e0; --muted:#778; --panel:#0b0b1a; --border:#2a2a45;
+          --dataset:#5b8cff; --topic:#ff7cc3; --trefwoord:#3fbf9f; --accent:#a78bfa; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; overflow:hidden }
+
+  a.home-link { position:fixed; top:12px; left:12px; z-index:20;
+    background:rgba(5,5,20,0.85); color:var(--accent); font-size:11px; font-weight:600;
+    padding:6px 10px; border-radius:6px; border:1px solid var(--border);
+    text-decoration:none; backdrop-filter:blur(4px); }
+
+  #map { position:fixed; top:0; left:0; right:380px; bottom:0; }
+
+  #panel { position:fixed; top:0; right:0; bottom:0; width:380px; max-width:100vw;
+    background:var(--panel); border-left:1px solid var(--border);
+    display:flex; flex-direction:column; z-index:10; }
+
+  #panel-head { padding:44px 18px 14px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  #panel-head h1 { font-size:15px; margin:0 0 4px; color:#fff; font-weight:700; }
+  #panel-head p { font-size:12px; color:var(--muted); margin:0; line-height:1.5; }
+
+  #ask-form { padding:14px 18px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  #ask-input { width:100%; background:#0a0a16; border:1px solid var(--border); color:var(--fg);
+    border-radius:6px; padding:9px 10px; font-size:13px; font-family:inherit; resize:none; }
+  #ask-input:focus { outline:1px solid var(--accent) }
+  #ask-submit { margin-top:8px; width:100%; background:var(--accent); border:none; color:#16162b;
+    font-weight:700; border-radius:6px; padding:9px 14px; cursor:pointer; font-size:12.5px; }
+  #ask-submit:hover { opacity:.9 }
+  #ask-submit:disabled { opacity:.5; cursor:default }
+  .examples { display:flex; flex-wrap:wrap; gap:5px; margin-top:9px; }
+  .example-chip { font-size:11px; padding:3px 9px; border-radius:12px; border:1px solid var(--border);
+    color:var(--muted); background:none; cursor:pointer; }
+  .example-chip:hover { border-color:var(--accent); color:var(--fg); }
+
+  #panel-body { flex:1; overflow-y:auto; padding:14px 18px 24px; }
+
+  .reasoning { font-size:12px; color:#c2c2d2; margin-bottom:12px; line-height:1.5; }
+  .terms { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:16px; }
+  .term-chip { font-size:11px; padding:3px 9px; border-radius:12px;
+    border:1px solid var(--trefwoord); color:var(--trefwoord); background:rgba(63,191,159,0.1); }
+  .term-chip.no-match { border-color:var(--border); color:var(--muted); background:none;
+    text-decoration:line-through; }
+
+  .result-count { font-size:11px; color:var(--muted); text-transform:uppercase;
+    letter-spacing:.5px; margin-bottom:8px; }
+  .result-item { padding:11px 0; border-top:1px solid var(--border); cursor:pointer; }
+  .result-item:hover .result-title { color:var(--accent); }
+  .result-item.active { background:rgba(167,139,250,0.08); margin:0 -18px; padding:11px 18px; }
+  .result-title { font-size:13px; font-weight:600; color:var(--fg); margin-bottom:3px; }
+  .result-sam { font-size:11px; color:var(--muted); line-height:1.4;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .result-status { font-size:11px; margin-top:6px; line-height:1.5; }
+  .result-status.loading { color:var(--muted); }
+  .result-status.error { color:#ff9d7c; }
+  .result-status a { color:var(--accent); }
+  .result-status.ok { color:var(--trefwoord); }
+
+  .empty { font-size:12px; color:var(--muted); line-height:1.6; }
+
+  .kg-spinner { width:20px; height:20px; border:3px solid rgba(167,139,250,0.15);
+    border-top-color:var(--accent); border-radius:50%; animation:kg-spin 0.8s linear infinite;
+    display:inline-block; vertical-align:middle; margin-right:8px; }
+  @keyframes kg-spin { to { transform:rotate(360deg); } }
+
+  #map-legend { position:fixed; left:12px; bottom:12px; z-index:10;
+    background:rgba(11,11,26,0.85); backdrop-filter:blur(8px); padding:8px 12px;
+    border:1px solid var(--border); border-radius:8px; font-size:11px; color:var(--muted);
+    display:none; max-width:340px; }
+  #map-legend b { color:var(--fg); }
+
+  .maplibregl-popup-content { background:rgba(11,11,26,0.97); border:1px solid var(--border);
+    border-radius:8px; padding:10px 12px; font-size:11px; color:var(--fg); }
+  .popup-inner { max-height:200px; overflow-y:auto; line-height:1.7; }
+  .popup-inner b { color:var(--muted); margin-right:4px; }
+
+  @media (max-width: 720px) {
+    #map { right:0; bottom:45vh; }
+    #panel { top:auto; height:45vh; width:100%; border-left:none; border-top:1px solid var(--border); }
+    #panel-head { padding:14px 18px; }
+  }
+</style>
+</head>
+<body>
+
+<a href="/" class="home-link">← Maps That Matter</a>
+
+<div id="map"></div>
+<div id="map-legend"></div>
+
+<div id="panel">
+  <div id="panel-head">
+    <h1>Vraag de Kennisgraaf</h1>
+    <p>Stel een vraag over Nederlandse geodata — het antwoord komt uit de 5.824 datasets van het Nationaal Georegister.</p>
+  </div>
+  <div id="ask-form">
+    <textarea id="ask-input" rows="2" placeholder="bv. “waar vind ik data over bodemvervuiling”" aria-label="Stel een vraag aan de kennisgraaf"></textarea>
+    <button id="ask-submit" aria-label="Vraag versturen">Vraag</button>
+    <div class="examples">
+      <button class="example-chip" type="button">bodemvervuiling</button>
+      <button class="example-chip" type="button">grondwater</button>
+      <button class="example-chip" type="button">geluidscontouren</button>
+      <button class="example-chip" type="button">fietspaden</button>
+    </div>
+  </div>
+  <div id="panel-body">
+    <div class="empty" id="empty-state">Laden van de kennisgraaf…</div>
+  </div>
+</div>
+
+<script>
+const DATA_URL = '/data/kennisgraaf_ngr.json';
+const COLOR = { dataset:'#5b8cff', topic:'#ff7cc3', trefwoord:'#3fbf9f' };
+const MAX_FEATURES = 1000;
+
+let GRAPH, adj, nodeById, vocab;
+
+async function init() {
+  const map = window.map = new maplibregl.Map({
+    container: 'map',
+    style: {
+      version: 8,
+      sources: { carto: {
+        type: 'raster',
+        tiles: ['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'],
+        tileSize: 256,
+        attribution: '© OpenStreetMap contributors · © CARTO'
+      }},
+      layers: [{ id:'carto-bg', type:'raster', source:'carto' }]
+    },
+    glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
+    center: [5.3, 52.15], zoom: 6.7,
+    attributionControl: false
+  });
+  map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+  map.addControl(new maplibregl.AttributionControl({ customAttribution: 'Nationaal Georegister' }), 'bottom-left');
+
+  let data;
+  try {
+    const res = await fetch(DATA_URL);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    data = await res.json();
+  } catch (err) {
+    document.getElementById('empty-state').textContent = 'Kon de kennisgraaf niet laden. Probeer de pagina te vernieuwen.';
+    console.error('Kennisgraaf laden mislukt:', err);
+    return;
+  }
+  GRAPH = data;
+  nodeById = new Map(GRAPH.nodes.map(n => [n.id, n]));
+  adj = new Map();
+  GRAPH.nodes.forEach(n => adj.set(n.id, new Set()));
+  GRAPH.links.forEach(l => { adj.get(l.source)?.add(l.target); adj.get(l.target)?.add(l.source); });
+  vocab = kgBuildVocabIndex(GRAPH);
+
+  document.getElementById('empty-state').textContent =
+    'Stel een vraag hierboven, of probeer een van de voorbeelden.';
+
+  wireForm();
+}
+
+function wireForm() {
+  const input  = document.getElementById('ask-input');
+  const btn    = document.getElementById('ask-submit');
+  const submit = () => { const q = input.value.trim(); if (q) askKennisgraaf(q); };
+  btn.addEventListener('click', submit);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
+  });
+  document.querySelectorAll('.example-chip').forEach(chip => {
+    chip.addEventListener('click', () => { input.value = chip.textContent; submit(); });
+  });
+}
+
+async function askKennisgraaf(question) {
+  const body    = document.getElementById('panel-body');
+  const btn     = document.getElementById('ask-submit');
+
+  body.innerHTML = '<div class="empty"><span class="kg-spinner"></span>Zoeken in de kennisgraaf…</div>';
+  btn.disabled = true;
+
+  let ai;
+  try {
+    const res = await fetch('/api/ask-kennisgraaf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question }),
+    });
+    ai = await res.json();
+    if (!res.ok || ai.error) throw new Error(ai.error || 'Onbekende fout');
+  } catch (err) {
+    body.innerHTML = `<div class="empty">Kon de vraag niet verwerken: ${esc(String(err.message || err))}</div>`;
+    btn.disabled = false;
+    return;
+  }
+
+  const matchedTermIds = new Set();
+  const datasetScores  = new Map();
+  const termChips = [];
+
+  ai.keywords.forEach(kw => {
+    const matches = kgMatchTerm(vocab, kw);
+    termChips.push({ kw, matched: matches.length > 0 });
+    matches.forEach(m => {
+      matchedTermIds.add(m.id);
+      (adj.get(m.id) || []).forEach(dsId => {
+        const dsNode = nodeById.get(dsId);
+        if (!dsNode || dsNode.type !== 'dataset') return;
+        const entry = datasetScores.get(dsId) || { score: 0, viaTerms: new Set() };
+        entry.score += m.score;
+        entry.viaTerms.add(m.id);
+        datasetScores.set(dsId, entry);
+      });
+    });
+  });
+
+  const ranked = [...datasetScores.entries()]
+    .sort((a, b) => (b[1].viaTerms.size - a[1].viaTerms.size) || (b[1].score - a[1].score))
+    .slice(0, 15);
+
+  const termsHtml = termChips.map(t =>
+    `<span class="term-chip${t.matched ? '' : ' no-match'}">${esc(t.kw)}</span>`).join('');
+
+  if (!ranked.length) {
+    const msg = matchedTermIds.size
+      ? 'Deze termen komen voor in de catalogus, maar zijn niet aan datasets gekoppeld.'
+      : 'Geen van de voorgestelde termen komt voor in de kennisgraaf. Probeer de vraag anders te formuleren.';
+    body.innerHTML = `<div class="reasoning">${esc(ai.reasoning || '')}</div>
+      <div class="terms">${termsHtml}</div>
+      <div class="empty">${msg}</div>`;
+  } else {
+    body.innerHTML = `<div class="reasoning">${esc(ai.reasoning || '')}</div>
+      <div class="terms">${termsHtml}</div>
+      <div class="result-count">${ranked.length} datasets gevonden</div>
+      <div id="result-list"></div>`;
+    const list = document.getElementById('result-list');
+    ranked.forEach(([dsId]) => {
+      const n = nodeById.get(dsId);
+      const item = document.createElement('div');
+      item.className = 'result-item';
+      item.innerHTML = `<div class="result-title">${esc(n.label)}</div>
+        <div class="result-sam">${esc(n.sam || '')}</div>
+        <div class="result-status" id="status-${cssId(dsId)}"></div>`;
+      item.addEventListener('click', () => showOnMap(n, item));
+      list.appendChild(item);
+    });
+  }
+
+  btn.disabled = false;
+}
+
+function cssId(id) { return id.replace(/[^a-zA-Z0-9]/g, ''); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function showOnMap(node, itemEl) {
+  document.querySelectorAll('.result-item.active').forEach(el => el.classList.remove('active'));
+  itemEl.classList.add('active');
+  const statusEl = itemEl.querySelector('.result-status');
+  statusEl.className = 'result-status loading';
+  statusEl.innerHTML = '<span class="kg-spinner" style="width:12px;height:12px;border-width:2px"></span>Kaartservice zoeken…';
+
+  let rec;
+  try {
+    const res = await fetch('/api/ngr-record?id=' + encodeURIComponent(node.id));
+    rec = await res.json();
+    if (!res.ok) throw new Error(rec.error || 'Onbekende fout');
+  } catch (err) {
+    statusEl.className = 'result-status error';
+    statusEl.textContent = 'Kon dataset-metadata niet ophalen: ' + err.message;
+    return;
+  }
+
+  if (!rec.wfs) {
+    statusEl.className = 'result-status error';
+    statusEl.innerHTML = `Geen WFS-service gevonden voor deze dataset — <a href="${esc(node.url_opendata)}" target="_blank" rel="noopener">bekijk in NGR</a>`;
+    return;
+  }
+
+  statusEl.textContent = 'Data ophalen…';
+
+  let gj, truncated;
+  try {
+    const params = new URLSearchParams({ wfsUrl: rec.wfs.url, typeName: rec.wfs.typeName, pageSize: MAX_FEATURES });
+    const res = await fetch('/api/ngr-wfs-proxy?' + params);
+    gj = await res.json();
+    if (!res.ok) throw new Error(gj.error || 'Onbekende fout');
+    truncated = res.headers.get('X-Truncated') === '1';
+  } catch (err) {
+    statusEl.className = 'result-status error';
+    statusEl.innerHTML = `Kon de data niet ophalen: ${esc(err.message)} — <a href="${esc(node.url_opendata)}" target="_blank" rel="noopener">bekijk in NGR</a>`;
+    return;
+  }
+
+  if (!gj.features?.length) {
+    statusEl.className = 'result-status error';
+    statusEl.textContent = 'Deze service leverde geen features op.';
+    return;
+  }
+
+  renderOnMap(gj, node, rec.wfs.typeName);
+
+  statusEl.className = 'result-status ok';
+  statusEl.textContent = `✓ ${gj.features.length.toLocaleString('nl-NL')} features op de kaart` +
+    (truncated ? ' (mogelijk niet volledig — eerste ' + MAX_FEATURES + ')' : '');
+}
+
+function renderOnMap(gj, node, typeName) {
+  const map = window.map;
+  ['wfs-fill', 'wfs-line', 'wfs-circle'].forEach(id => { if (map.getLayer(id)) map.removeLayer(id); });
+  if (map.getSource('wfs')) map.removeSource('wfs');
+  map.addSource('wfs', { type: 'geojson', data: gj });
+
+  const t = gj.features[0]?.geometry?.type || '';
+  let clickLayer;
+  if (t.includes('Polygon')) {
+    map.addLayer({ id: 'wfs-fill', type: 'fill', source: 'wfs', paint: { 'fill-color': '#5b8cff', 'fill-opacity': 0.25 } });
+    map.addLayer({ id: 'wfs-line', type: 'line', source: 'wfs', paint: { 'line-color': '#a78bfa', 'line-width': 1 } });
+    clickLayer = 'wfs-fill';
+  } else if (t.includes('Line')) {
+    map.addLayer({ id: 'wfs-line', type: 'line', source: 'wfs', paint: { 'line-color': '#a78bfa', 'line-width': 2.5 } });
+    clickLayer = 'wfs-line';
+  } else {
+    map.addLayer({ id: 'wfs-circle', type: 'circle', source: 'wfs',
+      paint: { 'circle-radius': 4.5, 'circle-color': '#5b8cff', 'circle-stroke-width': 1, 'circle-stroke-color': '#050510' } });
+    clickLayer = 'wfs-circle';
+  }
+
+  ['wfs-fill', 'wfs-line', 'wfs-circle'].forEach(id => map.off('click', id, onFeatureClick));
+  map.on('click', clickLayer, onFeatureClick);
+  map.on('mouseenter', clickLayer, () => { map.getCanvas().style.cursor = 'pointer'; });
+  map.on('mouseleave', clickLayer, () => { map.getCanvas().style.cursor = ''; });
+
+  const bounds = boundsOf(gj);
+  if (bounds) map.fitBounds(bounds, { padding: 40, maxZoom: 15, duration: 600 });
+
+  const legend = document.getElementById('map-legend');
+  legend.style.display = 'block';
+  legend.innerHTML = `<b>${esc(node.label)}</b><br>${gj.features.length.toLocaleString('nl-NL')} features · ${esc(typeName.split(':').pop())}`;
+}
+
+function onFeatureClick(e) {
+  const p = e.features[0].properties;
+  const rows = Object.entries(p).filter(([, v]) => v !== null && v !== '').slice(0, 16)
+    .map(([k, v]) => `<div><b>${esc(k)}</b>${esc(String(v))}</div>`).join('');
+  new maplibregl.Popup({ maxWidth: '300px' }).setLngLat(e.lngLat)
+    .setHTML(`<div class="popup-inner">${rows}</div>`).addTo(window.map);
+}
+
+function boundsOf(gj) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  function walk(coords) {
+    if (typeof coords[0] === 'number') {
+      const [x, y] = coords;
+      if (isFinite(x) && isFinite(y)) {
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+      }
+    } else {
+      coords.forEach(walk);
+    }
+  }
+  gj.features.forEach(f => f.geometry && walk(f.geometry.coordinates));
+  if (minX === Infinity) return null;
+  return [[minX, minY], [maxX, maxY]];
+}
+
+init();
+</script>
+</body>
+</html>
