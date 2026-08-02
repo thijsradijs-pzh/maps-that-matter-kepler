@@ -80,7 +80,6 @@
     display:flex; align-items:center; gap:7px; }
   .avail-badge { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.3px;
     padding:2px 6px; border-radius:8px; flex-shrink:0; border:1px solid transparent; }
-  .avail-badge.loading { background:none; border-color:var(--border); color:var(--muted); }
   .avail-badge.wfs { background:rgba(63,191,159,0.12); border-color:var(--trefwoord); color:var(--trefwoord); }
   .avail-badge.wms { background:rgba(91,140,255,0.12); border-color:var(--dataset); color:var(--dataset); }
   .avail-badge.extent { background:none; border-color:var(--border); color:var(--muted); }
@@ -152,7 +151,6 @@ const MAX_FEATURES = 1000;
 
 let GRAPH, adj, nodeById, vocab;
 let currentBbox = null; // [minLon, minLat, maxLon, maxLat] van de laatst herkende plaatsnaam
-const recordCache = new Map(); // dataset id -> /api/ngr-record response, gedeeld tussen badges en klik
 
 async function init() {
   const map = window.map = new maplibregl.Map({
@@ -290,34 +288,31 @@ async function askKennisgraaf(question) {
     const list = document.getElementById('result-list');
     ranked.forEach(([dsId]) => {
       const n = nodeById.get(dsId);
+      const b = badgeFor(recordFor(n));
       const item = document.createElement('div');
       item.className = 'result-item';
-      item.innerHTML = `<div class="result-title"><span>${esc(n.label)}</span><span class="avail-badge loading" id="badge-${cssId(dsId)}">…</span></div>
+      item.innerHTML = `<div class="result-title"><span>${esc(n.label)}</span><span class="avail-badge ${b.cls}">${esc(b.label)}</span></div>
         <div class="result-sam">${esc(n.sam || '')}</div>
         <div class="result-status" id="status-${cssId(dsId)}"></div>`;
       item.addEventListener('click', () => showOnMap(n, item));
       list.appendChild(item);
     });
-    prefetchAvailability(ranked.map(([dsId]) => dsId));
   }
 
   btn.disabled = false;
 }
 
-// One record fetch per dataset, shared between the availability badges (fired
-// right after the list renders) and the actual click handler — whichever
-// happens first populates the cache for the other.
-async function fetchRecord(dsId) {
-  if (recordCache.has(dsId)) return recordCache.get(dsId);
-  const promise = fetch('/api/ngr-record?id=' + encodeURIComponent(dsId))
-    .then(res => res.json().then(body => { if (!res.ok) throw new Error(body.error || 'Onbekende fout'); return body; }));
-  recordCache.set(dsId, promise);
-  try {
-    return await promise;
-  } catch (err) {
-    recordCache.delete(dsId); // don't cache a failed lookup — worth retrying on click
-    throw err;
-  }
+// wfs_url/wms_url/extent are baked straight into the kennisgraaf nodes at
+// harvest time (see graph-geonetwork/build_graph.py) — parsed once from the
+// ISO19139 XML per dataset instead of live-fetched per session. Badges and
+// showOnMap() both read this synchronously, no network round-trip at all
+// until a WFS/WMS layer is actually fetched.
+function recordFor(node) {
+  return {
+    wfs: node.wfs_url ? { url: node.wfs_url, typeName: node.wfs_typename } : null,
+    wms: node.wms_url ? { url: node.wms_url, layer: node.wms_layer } : null,
+    extent: node.extent ? node.extent.split(',').map(Number) : null,
+  };
 }
 
 function badgeFor(rec) {
@@ -327,23 +322,6 @@ function badgeFor(rec) {
   return { cls: 'none', label: '' };
 }
 
-// Fires all lookups in parallel (NGR isn't fast, but 15 concurrent requests
-// beats 15 sequential ones) and updates each badge as its response lands,
-// rather than blocking the whole list on the slowest one.
-function prefetchAvailability(dsIds) {
-  dsIds.forEach(dsId => {
-    const badgeEl = document.getElementById('badge-' + cssId(dsId));
-    fetchRecord(dsId)
-      .then(rec => {
-        if (!badgeEl) return;
-        const b = badgeFor(rec);
-        badgeEl.className = 'avail-badge ' + b.cls;
-        badgeEl.textContent = b.label;
-      })
-      .catch(() => { if (badgeEl) badgeEl.className = 'avail-badge none'; });
-  });
-}
-
 function cssId(id) { return id.replace(/[^a-zA-Z0-9]/g, ''); }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
@@ -351,26 +329,19 @@ async function showOnMap(node, itemEl) {
   document.querySelectorAll('.result-item.active').forEach(el => el.classList.remove('active'));
   itemEl.classList.add('active');
   const statusEl = itemEl.querySelector('.result-status');
-  statusEl.className = 'result-status loading';
-  statusEl.innerHTML = '<span class="kg-spinner" style="width:12px;height:12px;border-width:2px"></span>Kaartservice zoeken…';
-
-  let rec;
-  try {
-    rec = await fetchRecord(node.id); // shares the badge prefetch's cache — usually instant
-  } catch (err) {
-    statusEl.className = 'result-status error';
-    statusEl.textContent = 'Kon dataset-metadata niet ophalen: ' + err.message;
-    return;
-  }
+  const rec = recordFor(node);
 
   if (!rec.wfs) {
+    // wms/extent presence is already known from the badge — this always succeeds
+    // unless a genuinely broken/missing case slipped through (shouldn't happen).
     if (tryFallback(node, rec, statusEl, 'Geen WFS-service')) return;
     statusEl.className = 'result-status error';
     statusEl.innerHTML = `Geen kaartservice gevonden voor deze dataset — <a href="${esc(node.url_opendata)}" target="_blank" rel="noopener">bekijk in NGR</a>`;
     return;
   }
 
-  statusEl.textContent = 'Data ophalen…';
+  statusEl.className = 'result-status loading';
+  statusEl.innerHTML = '<span class="kg-spinner" style="width:12px;height:12px;border-width:2px"></span>Data ophalen…';
 
   let gj, truncated;
   try {
