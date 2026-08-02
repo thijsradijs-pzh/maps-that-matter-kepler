@@ -48,9 +48,10 @@
 
   #panel-head { padding:44px 18px 14px; border-bottom:1px solid var(--border); flex-shrink:0; }
   #panel-head h1 { font-size:15px; margin:0 0 4px; color:#fff; font-weight:700; }
-  #panel-head p { font-size:12px; color:var(--muted); margin:0 0 10px; line-height:1.5; }
-  #coverage-toggle { background:none; border:1px solid var(--border); color:var(--muted);
-    border-radius:6px; padding:5px 10px; font-size:11px; cursor:pointer; }
+  #panel-head p { font-size:12px; color:var(--muted); margin:0; line-height:1.5; }
+  #panel-footer { padding:10px 18px; border-top:1px solid var(--border); flex-shrink:0; }
+  #coverage-toggle { width:100%; text-align:left; background:none; border:1px solid var(--border); color:var(--muted);
+    border-radius:6px; padding:6px 10px; font-size:11px; cursor:pointer; }
   #coverage-toggle:hover { border-color:var(--accent); color:var(--fg); }
   #coverage-toggle.active { border-color:var(--accent); background:rgba(167,139,250,0.12); color:var(--accent); }
 
@@ -87,6 +88,11 @@
 
   .result-count { font-size:11px; color:var(--muted); text-transform:uppercase;
     letter-spacing:.5px; margin-bottom:8px; }
+  .result-count-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .result-count-row .result-count { margin-bottom:0; }
+  .analyze-btn { font-size:11px; padding:3px 9px; border-radius:12px; border:1px solid var(--accent);
+    color:var(--accent); background:rgba(167,139,250,0.1); cursor:pointer; white-space:nowrap; flex-shrink:0; }
+  .analyze-btn:hover { background:rgba(167,139,250,0.2); }
   .result-item { padding:11px 0; border-top:1px solid var(--border); cursor:pointer; }
   .result-item:hover .result-title { color:var(--accent); }
   .result-item.active { background:rgba(167,139,250,0.08); margin:0 -18px; padding:11px 18px; }
@@ -123,6 +129,10 @@
     border-radius:8px; padding:10px 12px; font-size:11px; color:var(--fg); }
   .popup-inner { max-height:200px; overflow-y:auto; line-height:1.7; }
   .popup-inner b { color:var(--muted); margin-right:4px; }
+  .popup-hex-list { max-height:220px; overflow-y:auto; font-size:12px; }
+  .popup-hex-list b { display:block; color:var(--fg); margin-bottom:4px; }
+  .popup-hex-item { padding:5px 0; border-top:1px solid var(--border); cursor:pointer; line-height:1.4; }
+  .popup-hex-item:hover { color:var(--accent); }
 
   @media (max-width: 720px) {
     #map { right:0; bottom:45vh; }
@@ -142,7 +152,6 @@
   <div id="panel-head">
     <h1>Vraag de Kennisgraaf</h1>
     <p>Stel een vraag over Nederlandse geodata — het antwoord komt uit de 5.824 datasets van het Nationaal Georegister.</p>
-    <button id="coverage-toggle" type="button">📊 Dekkingskaart</button>
   </div>
   <div id="ask-form">
     <textarea id="ask-input" rows="2" placeholder="bv. “waar vind ik data over bodemvervuiling”" aria-label="Stel een vraag aan de kennisgraaf"></textarea>
@@ -156,6 +165,9 @@
   </div>
   <div id="panel-body">
     <div class="empty" id="empty-state">Laden van de kennisgraaf…</div>
+  </div>
+  <div id="panel-footer">
+    <button id="coverage-toggle" type="button">📊 Landelijke dekkingskaart</button>
   </div>
 </div>
 
@@ -299,7 +311,11 @@ async function askKennisgraaf(question) {
     body.innerHTML = `<div class="reasoning">${esc(ai.reasoning || '')}</div>
       ${locationNote}
       <div class="terms">${termsHtml}</div>
-      <div class="result-count">${ranked.length} datasets gevonden</div>
+      <div class="result-count-row">
+        <div class="result-count">${ranked.length} datasets gevonden</div>
+        <button class="analyze-btn" id="analyze-btn" type="button">🔬 Op de kaart</button>
+      </div>
+      <div class="result-status" id="analyze-status"></div>
       <div id="result-list"></div>`;
     const list = document.getElementById('result-list');
     ranked.forEach(([dsId]) => {
@@ -313,6 +329,8 @@ async function askKennisgraaf(question) {
       item.addEventListener('click', () => showOnMap(n, item));
       list.appendChild(item);
     });
+    document.getElementById('analyze-btn').addEventListener('click', () =>
+      analyzeResultsOnMap(ranked.map(([dsId]) => dsId)));
   }
 
   btn.disabled = false;
@@ -436,7 +454,8 @@ function clearMapLayers() {
 const COVERAGE_RES = 5;
 const COVERAGE_AREA_CAP = 50;
 let coverageMode = false;
-let coverageData = null; // { fc, included, excluded } — eenmalig berekend (~3 sec), daarna hergebruikt
+let coverageData = null;   // { fc, included, excluded, cellDatasets } — landelijke berekening, eenmalig (~3 sec), daarna hergebruikt
+let activeCoverage = null; // welke coverage-data er nu op de kaart staat (landelijk óf gescoped op zoekresultaten) — klik/legenda-logica leest hiervan, niet rechtstreeks van coverageData
 
 function extentIsSane(w, s, e, n) {
   if (![w, s, e, n].every(Number.isFinite)) return false;
@@ -446,15 +465,22 @@ function extentIsSane(w, s, e, n) {
   return true;
 }
 
-function computeCoverageData() {
+// datasetIds: optioneel — beperk de aggregatie tot deze datasets (bv. de
+// resultaten van de huidige vraag) i.p.v. de hele catalogus. Zelfde logica,
+// gewoon een kleinere input — een gescoped analyse van 15 resultaten is
+// vrijwel instant, geen aparte code-paden nodig.
+function computeCoverageData(datasetIds = null) {
   // h3-index -> Set<datasetId>, niet alleen een telling — zo kan een klik op een
   // hexagon straks de daadwerkelijke datasets tonen (KnowWhereGraph-patroon:
   // cel als knoop met edges naar de entiteiten erin, i.p.v. de cel alleen als
   // rendering-laag te gebruiken).
   const cellDatasets = new Map();
   let included = 0, excluded = 0;
-  GRAPH.nodes.forEach(node => {
-    if (node.type !== 'dataset' || !node.extent) return;
+  const nodes = datasetIds
+    ? datasetIds.map(id => nodeById.get(id)).filter(x => x && x.type === 'dataset')
+    : GRAPH.nodes.filter(x => x.type === 'dataset');
+  nodes.forEach(node => {
+    if (!node.extent) { excluded++; return; }
     const [w, s, e, n] = node.extent.split(',').map(Number);
     if (!extentIsSane(w, s, e, n)) { excluded++; return; }
     const ring = [[w, s], [e, s], [e, n], [w, n], [w, s]];
@@ -477,6 +503,29 @@ function computeCoverageData() {
     return { type: 'Feature', properties: { h3: idx, count: dsIds.size }, geometry: { type: 'Polygon', coordinates: [boundary] } };
   });
   return { fc: { type: 'FeatureCollection', features }, included, excluded, cellDatasets };
+}
+
+// Gescoped analyse: "graaf eerst" — dit aggregeert alleen wat de huidige
+// vraag al opleverde, niet de hele catalogus. Geen paneel-overname (de
+// resultatenlijst blijft zichtbaar), geen "eenmalig ~3 sec"-melding nodig —
+// bij hooguit 15 datasets is dit altijd vrijwel instant.
+function analyzeResultsOnMap(datasetIds) {
+  const statusEl = document.getElementById('analyze-status');
+  const data = computeCoverageData(datasetIds);
+
+  if (!data.fc.features.length) {
+    statusEl.className = 'result-status error';
+    statusEl.textContent = 'Geen van deze resultaten heeft een bruikbare locatie.';
+    return;
+  }
+
+  clearMapLayers();
+  renderCoverageLayer(data, 'scoped');
+  const bounds = boundsOf(data.fc);
+  if (bounds) window.map.fitBounds(bounds, { padding: 60, maxZoom: 10, duration: 600 });
+
+  statusEl.className = 'result-status ok';
+  statusEl.textContent = `✓ ${data.fc.features.length.toLocaleString('nl-NL')} hexagons getoond — klik een hexagon voor details`;
 }
 
 function toggleCoverageMode() {
@@ -506,7 +555,7 @@ function exitCoverageMode() {
   coverageMode = false;
   const toggle = document.getElementById('coverage-toggle');
   toggle.classList.remove('active');
-  toggle.textContent = '📊 Dekkingskaart';
+  toggle.textContent = '📊 Landelijke dekkingskaart';
   document.getElementById('ask-form').style.display = '';
   clearMapLayers();
   document.getElementById('map-legend').style.display = 'none';
@@ -515,7 +564,10 @@ function exitCoverageMode() {
   window.map.flyTo({ center: [5.3, 52.15], zoom: 6.7, duration: 600 });
 }
 
-function renderCoverageMap(data) {
+// Tekent alleen de kaartlaag — gebruikt door zowel de landelijke dekkingskaart
+// (volledig paneel-overname) als de gescoped "analyseer deze resultaten"
+// (paneel blijft de zoekresultaten tonen, alleen de kaart verandert).
+function renderCoverageLayer(data, mode) {
   const map = window.map;
   const maxCount = data.fc.features.reduce((m, f) => Math.max(m, f.properties.count), 1);
 
@@ -542,8 +594,12 @@ function renderCoverageMap(data) {
   map.on('mouseenter', 'coverage-fill', () => { map.getCanvas().style.cursor = 'pointer'; });
   map.on('mouseleave', 'coverage-fill', () => { map.getCanvas().style.cursor = ''; });
 
-  map.flyTo({ center: [5.6, 52.1], zoom: 6.3, duration: 600 });
+  activeCoverage = { ...data, mode };
+}
 
+function renderCoverageMap(data) {
+  renderCoverageLayer(data, 'global');
+  window.map.flyTo({ center: [5.6, 52.1], zoom: 6.3, duration: 600 });
   renderCoverageStatsPanel(data);
 }
 
@@ -571,8 +627,33 @@ const HEX_LIST_CAP = 100;
 
 function onCoverageClick(e) {
   const idx = e.features[0].properties.h3;
-  const dsIds = [...(coverageData.cellDatasets.get(idx) || [])];
-  showHexDatasets(dsIds);
+  const dsIds = [...(activeCoverage.cellDatasets.get(idx) || [])];
+  if (activeCoverage.mode === 'global') {
+    showHexDatasets(dsIds);
+  } else {
+    showHexPopup(e.lngLat, dsIds);
+  }
+}
+
+// Gescoped variant: het paneel toont al de zoekresultaten, dus geen paneel-
+// overname zoals bij de landelijke kaart — een lichte popup op de kaart zelf
+// volstaat. Klik op een titel = precies hetzelfde als in de resultatenlijst
+// klikken (zoekt het bestaande .result-item op en hergebruikt showOnMap()).
+function showHexPopup(lngLat, dsIds) {
+  const nodes = dsIds.map(id => nodeById.get(id)).filter(Boolean);
+  const rows = nodes.map(n =>
+    `<div class="popup-hex-item" data-id="${esc(n.id)}">${esc(n.label)}</div>`).join('');
+  const popup = new maplibregl.Popup({ maxWidth: '260px' })
+    .setLngLat(lngLat)
+    .setHTML(`<div class="popup-hex-list"><b>${nodes.length} dataset${nodes.length === 1 ? '' : 's'}</b>${rows}</div>`)
+    .addTo(window.map);
+  popup.getElement().querySelectorAll('.popup-hex-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const node = nodeById.get(el.dataset.id);
+      const itemEl = document.getElementById('status-' + cssId(el.dataset.id))?.closest('.result-item');
+      if (node && itemEl) { popup.remove(); showOnMap(node, itemEl); }
+    });
+  });
 }
 
 function showHexDatasets(dsIds) {
