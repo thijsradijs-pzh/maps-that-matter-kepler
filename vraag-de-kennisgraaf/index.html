@@ -351,6 +351,7 @@ async function askKennisgraaf(question) {
   } else {
     const rankedNodes = ranked.map(([dsId]) => nodeById.get(dsId));
     filterAreaBbox = null;
+    clearTimeout(filterAreaDebounce); // anders kan een oud gebied-filter, gedebouncet vóór de nieuwe vraag, alsnog vuren tegen een inmiddels vervangen resultatenlijst
     body.innerHTML = `<div class="reasoning">${esc(ai.reasoning || '')}</div>
       ${locationNote}
       <div class="terms">${termsHtml}</div>
