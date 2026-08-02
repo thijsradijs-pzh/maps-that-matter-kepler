@@ -824,14 +824,21 @@ function coverageFillColorExpr(colorMode, maxCount) {
       26,  '#ff9d7c',
     ];
   }
-  return [
-    'interpolate', ['linear'], ['ln', ['+', ['get', 'count'], 1]],
-    Math.log(2),   '#1a2f52',
-    Math.log(11),  '#2d4a7a',
-    Math.log(51),  '#5b8cff',
-    Math.log(501), '#a78bfa',
-    Math.log(maxCount + 1), '#ff7cc3',
-  ];
+  // Stops schalen mee met maxCount i.p.v. vaste absolute grenzen (2/11/51/501).
+  // Bug gevonden via een browser-stacktrace: bij een gescoped analyse (≤15
+  // datasets) is maxCount vaak < 501, waardoor de laatste vaste stop
+  // (log(maxCount+1)) KLEINER werd dan eerdere stops — MapLibre eist strikt
+  // oplopende interpolate-stops en addLayer gooide een exception. Omdat die
+  // exception in dezelfde functie vóór de map.on('click', ...)-registratie
+  // zat, werd de klik-handler nooit gezet: hexagons toonden prima kleur, maar
+  // klikken deed zichtbaar niets. Dynamische schaling lost het bij de bron op
+  // i.p.v. per-geval te patchen.
+  const colors = ['#1a2f52', '#2d4a7a', '#5b8cff', '#a78bfa', '#ff7cc3'];
+  if (maxCount < 2) return colors[colors.length - 1]; // alle hexagons gelijk (vaak 1) — vlakke kleur, geen zinvolle schaal
+  const lo = Math.log(2), hi = Math.log(maxCount + 1);
+  const expr = ['interpolate', ['linear'], ['ln', ['+', ['get', 'count'], 1]]];
+  colors.forEach((c, i) => expr.push(lo + (hi - lo) * (i / (colors.length - 1)), c));
+  return expr;
 }
 
 function coverageLegendHTML(colorMode) {
