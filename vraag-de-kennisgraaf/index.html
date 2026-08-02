@@ -122,6 +122,13 @@
   .result-status.error { color:#ff9d7c; }
   .result-status a { color:var(--accent); }
   .result-status.ok { color:var(--trefwoord); }
+  .related-toggle { margin-top:8px; background:none; border:none; color:var(--accent);
+    font-size:11px; font-weight:600; cursor:pointer; padding:0; }
+  .related-toggle:hover { text-decoration:underline; }
+  .related-list { margin:8px -18px -11px; padding:2px 18px 4px; background:rgba(255,255,255,0.02);
+    border-top:1px solid var(--border); }
+  .related-list .result-item:first-child { border-top:none; }
+  .related-list .result-item { padding:9px 0; }
 
   .empty { font-size:12px; color:var(--muted); line-height:1.6; }
 
@@ -365,7 +372,33 @@ function badgeFor(rec) {
 // bijna-identieke innerHTML-blokken). NGR-link staat er nu altijd bij, niet
 // alleen in de foutstatus — je moet altijd naar de bron kunnen doorklikken,
 // ook als de kaartweergave prima lukt.
-function buildResultItem(n) {
+// Pure graph traversal, geen fetch: datasets die minstens één topic/trefwoord
+// delen met n, gerangschikt op aantal gedeelde buren. adj bevat alleen
+// dataset<->topic/trefwoord-kanten (geen directe dataset-dataset-kanten in
+// deze graph), dus de type-check hieronder is defensief, niet strikt nodig.
+function relatedDatasets(node, limit = 5) {
+  const scores = new Map(); // datasetId -> aantal gedeelde topic/trefwoord-buren
+  (adj.get(node.id) || []).forEach(neighborId => {
+    const neighbor = nodeById.get(neighborId);
+    if (!neighbor || (neighbor.type !== 'topic' && neighbor.type !== 'trefwoord')) return;
+    (adj.get(neighborId) || []).forEach(otherId => {
+      if (otherId === node.id) return;
+      const other = nodeById.get(otherId);
+      if (!other || other.type !== 'dataset') return;
+      scores.set(otherId, (scores.get(otherId) || 0) + 1);
+    });
+  });
+  return [...scores.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([id]) => nodeById.get(id));
+}
+
+// depth=0 (zoekresultaten/hexagon-lijst) krijgt een "Gerelateerd"-toggle;
+// depth=1 (de gerelateerde items zelf) niet — voorkomt een oneindig
+// uitklapbare accordeon, maar gerelateerde items blijven verder volledig
+// functioneel (eigen badge, NGR-link, status, klik = op de kaart).
+function buildResultItem(n, depth = 0) {
   const b = badgeFor(recordFor(n));
   const item = document.createElement('div');
   item.className = 'result-item';
@@ -375,9 +408,37 @@ function buildResultItem(n) {
       <a class="ngr-link" href="${esc(n.url_opendata)}" target="_blank" rel="noopener" title="Bekijk in Nationaal Georegister">NGR ↗</a>
     </div>
     <div class="result-sam">${esc(n.sam || '')}</div>
+    ${depth === 0 ? '<button class="related-toggle" type="button">▸ Gerelateerd</button><div class="related-list" style="display:none"></div>' : ''}
     <div class="result-status" id="status-${cssId(n.id)}"></div>`;
   item.querySelector('.ngr-link').addEventListener('click', e => e.stopPropagation());
   item.addEventListener('click', () => showOnMap(n, item));
+
+  if (depth === 0) {
+    const toggle = item.querySelector('.related-toggle');
+    const relatedList = item.querySelector('.related-list');
+    let loaded = false;
+    toggle.addEventListener('click', e => {
+      e.stopPropagation();
+      const isOpen = relatedList.style.display !== 'none';
+      if (isOpen) {
+        relatedList.style.display = 'none';
+        toggle.textContent = '▸ Gerelateerd';
+        return;
+      }
+      if (!loaded) {
+        const related = relatedDatasets(n);
+        if (!related.length) {
+          relatedList.innerHTML = '<div class="empty" style="padding:4px 0 2px">Geen gerelateerde datasets gevonden.</div>';
+        } else {
+          related.forEach(rn => relatedList.appendChild(buildResultItem(rn, depth + 1)));
+        }
+        loaded = true;
+      }
+      relatedList.style.display = 'block';
+      toggle.textContent = '▾ Gerelateerd';
+    });
+  }
+
   return item;
 }
 
