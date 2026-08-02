@@ -1,5 +1,5 @@
 // shared/mca-criteria.js — Single source of truth for MCA criteria
-// Used by both gebiedsviewer and multi-criteria-analysis
+// Used by gebiedsviewer
 
 const MCA_CRITERIA = [
   { key: 'verzilting',       label: 'Verzilting',       color: [0, 150, 136],  weightKey: 'w_verzilting' },

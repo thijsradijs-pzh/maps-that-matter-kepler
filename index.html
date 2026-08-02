@@ -414,10 +414,10 @@
         </div>
       </div>
 
-      <!-- AI tools -->
+      <!-- Toolbox -->
       <div class="section">
         <p class="toolbox-note" style="margin-top: -4px;">The toolbox behind those stories — actively evolving experiments, and where the next one gets built.</p>
-        <div class="section-title">AI-powered tools</div>
+        <div class="section-title">The toolbox</div>
         <div class="cards-grid">
 
           <a href="/pdok-viewer" class="card featured">
@@ -434,42 +434,6 @@
               <span class="tag blue">CBS Vierkantstatistieken</span>
               <span class="tag blue">BAG</span>
               <span class="tag green">Gemini 2.5</span>
-            </div>
-          </a>
-
-          <a href="/scenario-viewer" class="card featured">
-            <div class="card-top">
-              <div class="card-icon-wrap">
-                <span class="card-icon">🔭</span>
-                <span class="ai-badge">Scenarios</span>
-              </div>
-              <span class="card-arrow">↗</span>
-            </div>
-            <h3>Ruimtelijke Verkenner</h3>
-            <p>Van beschrijven naar verkennen: stel wat-als vragen, identificeer conflictzones en vergelijk gebieden op H3-hexagonkaarten. Geo-GraphRAG aanpak met expliciete aannames en Woo-conform redeneerlog.</p>
-            <div class="card-tags">
-              <span class="tag blue">Wat-als · Conflict · Vergelijking</span>
-              <span class="tag green">Gemini 2.5</span>
-              <span class="tag">DuckDB WASM</span>
-              <span class="tag">Geo-GraphRAG</span>
-            </div>
-          </a>
-
-          <a href="/buurt-verkenner" class="card featured">
-            <div class="card-top">
-              <div class="card-icon-wrap">
-                <span class="card-icon">🏘️</span>
-                <span class="ai-badge">Normen</span>
-              </div>
-              <span class="card-arrow">↗</span>
-            </div>
-            <h3>Buurtverkenner</h3>
-            <p>Stel zelf ruimtelijke normen in voor groen, geluid, overstroming en bouwkansen. Zie direct welke gebieden in uw gemeente voldoen — zonder AI, volledig transparant en stap voor stap.</p>
-            <div class="card-tags">
-              <span class="tag blue">Groen · Geluid · Overstroming</span>
-              <span class="tag">DuckDB WASM</span>
-              <span class="tag">H3 res-8</span>
-              <span class="tag">Transparant</span>
             </div>
           </a>
 
@@ -491,14 +455,6 @@
             </div>
           </a>
 
-        </div>
-      </div>
-
-      <!-- Map viewers -->
-      <div class="section">
-        <div class="section-title">Map viewers</div>
-        <div class="cards-grid">
-
           <a href="/gebiedsviewer" class="card">
             <div class="card-top">
               <span class="card-icon">🗺</span>
@@ -512,101 +468,12 @@
             </div>
           </a>
 
-          <a href="/agro-viewer" class="card">
+          <a href="/kennisgraaf-viewer" class="card featured">
             <div class="card-top">
-              <span class="card-icon">🌾</span>
-              <span class="card-arrow">↗</span>
-            </div>
-            <h3>Agro &amp; Satelliet Viewer</h3>
-            <p>Agricultural WMS layers with NGR keyword search, satellite imagery toggle, and time-series data from the agricultural datacube.</p>
-            <div class="card-tags">
-              <span class="tag blue">WMS</span>
-              <span class="tag blue">NGR</span>
-              <span class="tag">Satellite</span>
-            </div>
-          </a>
-
-          <a href="/multi-criteria-analysis" class="card">
-            <div class="card-top">
-              <span class="card-icon">⚖️</span>
-              <span class="card-arrow">↗</span>
-            </div>
-            <h3>Multi-Criteria Analyse</h3>
-            <p>Weighted spatial analysis using CSW/WMS layers from the Dutch national geo register for the ZH-PLG planning framework.</p>
-            <div class="card-tags">
-              <span class="tag blue">CSW</span>
-              <span class="tag blue">WMS</span>
-              <span class="tag">Zuid-Holland</span>
-            </div>
-          </a>
-
-        </div>
-      </div>
-
-      <!-- Spatial analysis -->
-      <div class="section">
-        <div class="section-title">Spatial analysis</div>
-        <div class="cards-grid">
-
-          <a href="/population-3d" class="card">
-            <div class="card-top">
-              <span class="card-icon">📊</span>
-              <span class="card-arrow">↗</span>
-            </div>
-            <h3>Population vs Built-up Over Time</h3>
-            <p>3D H3 hexagon map comparing population growth against built-up area change across Dutch municipalities, 2018–2023. Built with Kepler.gl.</p>
-            <div class="card-tags">
-              <span class="tag blue">CBS</span>
-              <span class="tag">Kepler.gl</span>
-              <span class="tag">H3</span>
-            </div>
-          </a>
-
-          <a href="/geluid-groen-viewer" class="card">
-            <div class="card-top">
-              <span class="card-icon">🌿</span>
-              <span class="card-arrow">↗</span>
-            </div>
-            <h3>Geluid &amp; Groen</h3>
-            <p>Noise exposure versus green space access for Dutch municipalities — hexagon-level analysis of environmental quality trade-offs.</p>
-            <div class="card-tags">
-              <span class="tag blue">CBS</span>
-              <span class="tag">H3</span>
-              <span class="tag">Municipalities</span>
-            </div>
-          </a>
-
-          <a href="/som-viewer" class="card">
-            <div class="card-top">
-              <span class="card-icon">🧠</span>
-              <span class="card-arrow">↗</span>
-            </div>
-            <h3>Ruimtelijke Intelligentie</h3>
-            <p>Self-organizing map (SOM) visualization for Zuid-Holland — clusters H3 hexagons by spatial similarity across multiple indicators, with story overlay.</p>
-            <div class="card-tags">
-              <span class="tag purple">SOM</span>
-              <span class="tag">Zuid-Holland</span>
-              <span class="tag">H3</span>
-            </div>
-          </a>
-
-          <a href="/groundheight" class="card">
-            <div class="card-top">
-              <span class="card-icon">⛰️</span>
-              <span class="card-arrow">↗</span>
-            </div>
-            <h3>Ground Height (AHN)</h3>
-            <p>Ground height visualization for the Netherlands using the Actueel Hoogtebestand Nederland (AHN) elevation model, aggregated to H3 hexagons.</p>
-            <div class="card-tags">
-              <span class="tag blue">AHN</span>
-              <span class="tag">H3</span>
-              <span class="tag">Elevation</span>
-            </div>
-          </a>
-
-          <a href="/kennisgraaf-viewer" class="card">
-            <div class="card-top">
-              <span class="card-icon">🕸️</span>
+              <div class="card-icon-wrap">
+                <span class="card-icon">🕸️</span>
+                <span class="ai-badge">Graph</span>
+              </div>
               <span class="card-arrow">↗</span>
             </div>
             <h3>Kennisgraaf Nationaal Georegister</h3>
@@ -618,9 +485,12 @@
             </div>
           </a>
 
-          <a href="/vraag-de-kennisgraaf" class="card">
+          <a href="/vraag-de-kennisgraaf" class="card featured">
             <div class="card-top">
-              <span class="card-icon">💬</span>
+              <div class="card-icon-wrap">
+                <span class="card-icon">💬</span>
+                <span class="ai-badge">AI</span>
+              </div>
               <span class="card-arrow">↗</span>
             </div>
             <h3>Vraag de Kennisgraaf</h3>
@@ -629,48 +499,6 @@
               <span class="tag purple">Kennisgraaf</span>
               <span class="tag">NGR</span>
               <span class="tag">AI</span>
-            </div>
-          </a>
-
-          <a href="/ufo-viewer" class="card">
-            <div class="card-top">
-              <span class="card-icon">🛸</span>
-              <span class="card-arrow">↗</span>
-            </div>
-            <h3>UFO Meldingen Nederland</h3>
-            <p>18,291 UFO meldingen van ufomeldpunt.nl als H3-hexagoonkaart. Correleer met windmolens en coffeeshops per gemeente.</p>
-            <div class="card-tags">
-              <span class="tag purple">UFO</span>
-              <span class="tag">H3</span>
-              <span class="tag">Correlatie</span>
-            </div>
-          </a>
-
-          <a href="/schiedam-bos" class="card">
-            <div class="card-top">
-              <span class="card-icon">🌲</span>
-              <span class="card-arrow">↗</span>
-            </div>
-            <h3>Bos rond Schiedam</h3>
-            <p>Forest accessibility analysis around Schiedam — isochrone-style hexagon map showing walking distance to green areas from residential zones.</p>
-            <div class="card-tags">
-              <span class="tag">Schiedam</span>
-              <span class="tag">H3</span>
-              <span class="tag">Accessibility</span>
-            </div>
-          </a>
-
-          <a href="/explorer-3d" class="card">
-            <div class="card-top">
-              <span class="card-icon">🔍</span>
-              <span class="card-arrow">↗</span>
-            </div>
-            <h3>Data Explorer (Parquet)</h3>
-            <p>Generic 3D Parquet file explorer — load any H3 hexagon dataset directly in the browser using DuckDB WASM, no server needed.</p>
-            <div class="card-tags">
-              <span class="tag">DuckDB WASM</span>
-              <span class="tag">Parquet</span>
-              <span class="tag">H3</span>
             </div>
           </a>
 

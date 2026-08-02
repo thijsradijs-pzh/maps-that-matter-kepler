@@ -39,18 +39,11 @@ bash new-example.sh
 Each visualization lives in its own directory as a standalone app. The `/shared/` directory holds utilities reused across examples.
 
 Current examples:
-- `population-3d/` — 3D population time-series over Dutch H3 hexagons (Kepler.gl)
-- `agro-viewer/` — Agricultural WMS layer browser with NGR search (Deck.gl, most complex)
-- `multi-criteria-analysis/` — Multi-criteria spatial analysis with CSW/WMS layer search
-- `explorer-3d/` — Generic Parquet data explorer using DuckDB WASM + Deck.gl
-- `geluid-groen-viewer/` — Noise & green space analysis for Dutch municipalities (Deck.gl, H3)
-- `groundheight/` — Ground height (AHN) visualization over H3 hexagons (Deck.gl)
-- `schiedam-bos/` — Forest accessibility analysis around Schiedam (Deck.gl, H3)
-- `som-viewer/` — Self-organizing map / spatial intelligence viewer for Zuid-Holland with story overlay (Deck.gl, H3)
+- `population-3d/` — 3D population time-series over Dutch H3 hexagons (Kepler.gl). Kept deployed solely as a live embed target for `blog-h3-examples`; not linked from the landing page.
+- `groundheight/` — Ground height (AHN) visualization over H3 hexagons (Deck.gl). Kept deployed solely as a live embed target for `blog-h3-examples`; not linked from the landing page.
 - `gebiedsviewer/` — Zuid-Holland Gebiedsviewer: WMS layer browser for 6 thematic categories (Grenzen, Landelijk Gebied, Bodem, Klimaat, Water, Milieu) sourced from geoservices.zuid-holland.nl (Deck.gl, no H3)
 - `pdok-viewer/` — AI-powered natural language interface for Dutch geodata (CBS/BAG/NGR). 2-step flow: draw bbox → ask question. AI picks WFS dataset → data fetched live as H3 res-9 hexagons (~174m). Two-click bbox drawing. Panel is a floating draggable/resizable chat window that snaps right after results load. (Deck.gl, H3 res 9)
 - `vraag-de-kaart/` — AI-powered natural language queries over a pre-built H3 datacube (225,684 hexagons, CBS + LGN, 2018–2023). Uses DuckDB WASM to query a 11MB Parquet file in-browser. NL & EN. (Deck.gl, H3, DuckDB WASM)
-- `ufo-viewer/` — 18,291 UFO meldingen (ufomeldpunt.nl) als H3-hexagoonkaart; correlatie met windmolens (PDOK WFS) en coffeeshops (bundled JSON); client-side H3 aggregation van GeoJSON punten
 - `kennisgraaf-viewer/` — 5,824 datasets uit het landelijke Nationaal Georegister (CSW-harvest) als interactieve force-directed graph (force-graph CDN); knopen = dataset/topic/trefwoord, data uit `/data/kennisgraaf_ngr.json`. "Vraag de kennisgraaf"-balk: NL vraag → `api/ask-kennisgraaf.js` (Gemini) stelt kandidaat-zoektermen voor → client-side fuzzy matching (Levenshtein) grondt die tegen de écht geoogste trefwoorden/topics, dus een gehallucineerde term levert gewoon geen match op i.p.v. nepdata. Harvest-tooling leeft in het aparte repo `graph-geonetwork` (niet in dit repo)
 - `vraag-de-kennisgraaf/` — chat-eerste ingang tot dezelfde kennisgraaf-data, zonder graafvisualisatie: vraag stellen → gegronde datasets als lijst (zelfde grounding-logica als kennisgraaf-viewer, geëxtraheerd naar `shared/kennisgraaf-vocab.js`) → klik = laad de data van die dataset **as-is** (ruwe geometrie, MapLibre, geen H3-aggregatie) op de kaart. Voorkeur WFS boven WMS: `api/ngr-record.js` haalt beide serviceURLs uit NGR's ISO19139-metadata; WMS is de fallback (van de datasets heeft ~15% alleen WMS, ~72% geen van beide — pure metadata zonder kaartservice, een eigenschap van NGR zelf). Noemt de vraag een plaatsnaam (`ask-kennisgraaf.js`'s `location`-veld), dan scoped `api/pdok-location.js` de kaart + WFS-bbox naar die plek (PDOK Location API, niet de oudere Locatieserver). `kennisgraaf-viewer` en `pdok-viewer` blijven ongewijzigd
 - `blog-h3-examples/` — Static article page ("From Hexagons to Foresight"), not a map app
@@ -58,17 +51,12 @@ Current examples:
 ### Shared Utilities (`/shared/`)
 - `deckgl-utils.js` — Color scales, color mapping functions, Carto basemap layer factory
 - `duckdb-loader.js` — DuckDB WASM integration for in-browser data loading
-- `wms-layer.js` — Standard WMS TileLayer via proxy (`createWMSLayer()`). Used by multi-criteria-analysis and agro-viewer. For ArcGIS MapServer export endpoint, see `gebiedsviewer/js/wms-layer.js`.
 - `kennisgraaf-vocab.js` — Pure grounding functions (`kgNormalize`, `kgLevenshtein`, `kgBuildVocabIndex`, `kgMatchTerm`) over the kennisgraaf graph, no DOM dependency. Used by vraag-de-kennisgraaf; kennisgraaf-viewer keeps its own inline copy (untouched).
 
 ### Backend (`/api/`)
 Vercel serverless functions used as CORS proxies and AI endpoints:
 - `proxy.js` — Generic proxy for external WMS/geospatial services
-- `agro-proxy.js` — Agricultural data cube proxy
-- `search-ngr.js` — Dutch National Geo Register (NGR) search
-- `ask-wfs.js` — POST `{ question }` → calls Gemini 2.5 Flash to select the right PDOK WFS source and metric column; returns full query params for the frontend (used by pdok-viewer)
-- `wfs-proxy.js` — GET proxy for PDOK WFS requests; supports pagination via `startIndex`; caps at 1000 features per page and sets `X-Truncated: 1` header when truncated (used by pdok-viewer)
-- `search-wms.js` — Searches NGR for WMS layers by keyword; used by pdok-viewer to suggest related layers after a WFS result
+- `search-wms.js` — Searches NGR for WMS layers by keyword; used by vraag-de-kaart
 - `suggest-location.js` — Proxies to PDOK Locatieserver; supports two modes:
   - `GET ?q=...` → autocomplete suggestions (gemeente, wijk, buurt, woonplaats)
   - `GET ?id=<locatieserver_id>` → lookup returning `{ doc: { weergavenaam, type, gemeentenaam, centroide_ll } }` where `centroide_ll` is WKT `POINT(lon lat)` in WGS84
@@ -136,12 +124,6 @@ Key JS patterns:
 - `SUPPRESSION_PRONE` set + `SUPPRESSION_ALTS` map — pre-warn users and offer retry alternatives
 - `switchYear(year)` — replaces year in WFS URL and re-fetches for same bbox
 - `pixelToLatLon(cx, cy)` — converts screen pixels to WGS84 using current viewport state
-
-## Example: Agro Viewer
-Key files:
-- `agro-viewer/index.html` — entry point
-- `agro-viewer/app.js` — main application logic (560 lines): handles WMS layers, NGR search, satellite toggle, Deck.gl rendering
-- `agro-viewer/config.js` — layer/source configuration
 
 ## AI Workflow
 

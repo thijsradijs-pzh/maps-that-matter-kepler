@@ -107,6 +107,49 @@
   #search-results .sr-label { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
   #search-results .sr-type { font-size:11px; color:var(--muted); flex-shrink:0 }
 
+  /* ── Ask bar ── */
+  #ask-row { position:fixed; top:58px; left:150px; right:12px; z-index:10; display:flex; gap:8px;
+    background:rgba(11,11,26,0.85); backdrop-filter:blur(8px); padding:8px 10px;
+    border:1px solid var(--border); border-radius:10px }
+  #ask-row input[type=text] { flex:1; background:#0a0a16; border:1px solid var(--border); color:var(--fg);
+    border-radius:6px; padding:7px 10px; font-size:13px }
+  #ask-row input[type=text]:focus { outline:1px solid var(--accent) }
+  #ask-row button { background:var(--accent); border:none; color:#16162b; font-weight:700;
+    border-radius:6px; padding:7px 14px; cursor:pointer; font-size:12px; white-space:nowrap }
+  #ask-row button:hover { opacity:.9 }
+  #ask-row button:disabled { opacity:.5; cursor:default }
+
+  /* ── Ask results panel (left) ── */
+  #ask-panel { position:fixed; top:0; left:0; height:100%; width:340px; max-width:85vw; z-index:11;
+    background:var(--panel); border-right:1px solid var(--border); padding:20px; overflow-y:auto;
+    transform:translateX(-100%); transition:transform .25s ease }
+  #ask-panel.open { transform:none }
+  #ask-panel .close { position:absolute; top:14px; right:16px; cursor:pointer; color:var(--muted);
+    font-size:20px; border:none; background:none }
+  #ask-panel h2 { font-size:15px; margin:0 24px 10px 0; color:#fff }
+  #ask-panel .reasoning { font-size:12px; color:#c2c2d2; margin-bottom:12px; line-height:1.5 }
+  #ask-panel .terms { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:16px }
+  #ask-panel .term-chip { font-size:11px; padding:3px 9px; border-radius:12px;
+    border:1px solid var(--trefwoord); color:var(--trefwoord); background:rgba(63,191,159,0.1);
+    cursor:pointer }
+  #ask-panel .term-chip.no-match { border-color:var(--border); color:var(--muted); background:none;
+    text-decoration:line-through; cursor:default }
+  #ask-panel .result-count { font-size:11px; color:var(--muted); text-transform:uppercase;
+    letter-spacing:.5px; margin-bottom:8px }
+  #ask-panel .result-item { padding:10px 0; border-top:1px solid var(--border); cursor:pointer }
+  #ask-panel .result-item:hover .result-title { color:var(--accent) }
+  #ask-panel .result-title { font-size:13px; font-weight:600; color:var(--fg); margin-bottom:3px }
+  #ask-panel .result-sam { font-size:11px; color:var(--muted); line-height:1.4;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden }
+  #ask-panel .ask-empty { font-size:12px; color:var(--muted); line-height:1.6 }
+  #ask-panel .ask-spinner { width:22px; height:22px; border:3px solid rgba(167,139,250,0.15);
+    border-top-color:var(--accent); border-radius:50%; animation:kg-spin 0.8s linear infinite;
+    margin:20px auto }
+
+  @media (max-width: 640px) {
+    #ask-row { left:12px; top:100px; }
+  }
+
   /* ── Loading / error ── */
   #loading, #error {
     position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
@@ -145,6 +188,19 @@
   <span class="sep"></span>
   <button id="reset" aria-label="Graph centreren en passend zoomen">Fit</button>
   <span id="count"></span>
+</div>
+
+<div id="ask-row" style="display:none">
+  <input id="ask-input" type="text" placeholder="Stel een vraag, bijv. “waar vind ik data over bodemvervuiling”" aria-label="Stel een vraag aan de kennisgraaf" />
+  <button id="ask-submit" aria-label="Vraag versturen">Vraag</button>
+</div>
+
+<div id="ask-panel">
+  <button class="close" id="closeAskPanel" aria-label="Zoekresultaten sluiten">×</button>
+  <h2 id="askTitle"></h2>
+  <div class="reasoning" id="askReasoning"></div>
+  <div class="terms" id="askTerms"></div>
+  <div id="askBody"></div>
 </div>
 
 <div id="legenda" style="display:none">
@@ -197,6 +253,7 @@ async function init() {
   GRAPH = data;
   document.getElementById('loading').style.display = 'none';
   document.getElementById('bar').style.display = 'flex';
+  document.getElementById('ask-row').style.display = 'flex';
   document.getElementById('legenda').style.display = 'flex';
   document.getElementById('hint').style.display = 'block';
   buildGraph();
@@ -209,6 +266,7 @@ function buildGraph() {
   GRAPH.nodes.forEach(n => adj.set(n.id, new Set()));
   GRAPH.links.forEach(l => { adj.get(l.source)?.add(l.target); adj.get(l.target)?.add(l.source); });
   nodeById = new Map(GRAPH.nodes.map(n => [n.id, n]));
+  buildVocabIndex();
 
   function vr(n) {
     if (n.type === 'topic')     return 9;
@@ -382,12 +440,18 @@ function updateCount() {
 }
 
 function setHighlight(n) {
-  highlight = new Set(); highlightLinks = new Set();
-  if (n) {
-    highlight.add(n.id); (adj.get(n.id)||[]).forEach(id => highlight.add(id));
+  if (!n) { setHighlightSet(new Set()); return; }
+  const ids = new Set([n.id]);
+  (adj.get(n.id)||[]).forEach(id => ids.add(id));
+  setHighlightSet(ids);
+}
+
+function setHighlightSet(ids) {
+  highlight = ids; highlightLinks = new Set();
+  if (highlight.size) {
     Graph.graphData().links.forEach(l => {
       const s = l.source.id ?? l.source, t = l.target.id ?? l.target;
-      if (s === n.id || t === n.id) highlightLinks.add(l);
+      if (highlight.has(s) && highlight.has(t)) highlightLinks.add(l);
     });
   }
   Graph.nodeColor(nd => {
@@ -464,6 +528,159 @@ function openPanel(n) {
 }
 function closePanel() { panel.classList.remove('open'); }
 document.getElementById('closePanel').onclick = () => { closePanel(); selected = null; setHighlight(null); };
+
+// ── Vraag-de-kennisgraaf: NL vraag -> gegronde termen -> gerangschikte datasets ──
+
+let vocab = []; // [{ id, norm, node }] voor alle topic- en trefwoord-knopen
+
+function normalize(s) {
+  return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+}
+
+function levenshtein(a, b) {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    for (let j = 1; j <= b.length; j++) {
+      row[j] = a[i - 1] === b[j - 1]
+        ? prev[j - 1]
+        : 1 + Math.min(prev[j - 1], prev[j], row[j - 1]);
+    }
+    prev = row;
+  }
+  return prev[b.length];
+}
+
+function buildVocabIndex() {
+  vocab = GRAPH.nodes
+    .filter(n => n.type === 'topic' || n.type === 'trefwoord')
+    .map(n => ({ id: n.id, norm: normalize(n.label), node: n }));
+}
+
+// Zoekt echte graph-termen die overeenkomen met een (mogelijk gehallucineerde) AI-term.
+// Alleen termen die daadwerkelijk in de catalogus voorkomen worden ooit teruggegeven.
+function matchTerm(term, maxResults = 5) {
+  const q = normalize(term);
+  if (!q) return [];
+  const scored = [];
+  for (const v of vocab) {
+    let score = 0;
+    if (v.norm === q) score = 1.0;
+    else if (v.norm.includes(q) || q.includes(v.norm)) score = 0.75;
+    else {
+      const dist = levenshtein(q, v.norm);
+      const maxLen = Math.max(q.length, v.norm.length);
+      if (maxLen > 3 && dist <= Math.ceil(maxLen * 0.3)) score = 0.55 * (1 - dist / maxLen);
+    }
+    if (score > 0.3) scored.push({ ...v, score });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, maxResults);
+}
+
+async function askKennisgraaf(question) {
+  const askPanel  = document.getElementById('ask-panel');
+  const bodyEl    = document.getElementById('askBody');
+  const termsEl   = document.getElementById('askTerms');
+  const reasonEl  = document.getElementById('askReasoning');
+  const submitBtn = document.getElementById('ask-submit');
+
+  document.getElementById('askTitle').textContent = question;
+  reasonEl.textContent = '';
+  termsEl.innerHTML = '';
+  bodyEl.innerHTML = '<div class="ask-spinner"></div>';
+  askPanel.classList.add('open');
+  submitBtn.disabled = true;
+
+  let ai;
+  try {
+    const res = await fetch('/api/ask-kennisgraaf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question }),
+    });
+    ai = await res.json();
+    if (!res.ok || ai.error) throw new Error(ai.error || 'Onbekende fout');
+  } catch (err) {
+    bodyEl.innerHTML = `<div class="ask-empty">Kon de vraag niet verwerken: ${String(err.message||err).replace(/</g,'&lt;')}</div>`;
+    submitBtn.disabled = false;
+    return;
+  }
+
+  reasonEl.textContent = ai.reasoning || '';
+
+  // Gronden: elke AI-term koppelen aan echte graph-knopen; ongematchte termen tonen we
+  // doorgestreept zodat duidelijk is dat de AI iets voorstelde dat niet in de catalogus zit.
+  const matchedTermIds = new Set();
+  const datasetScores  = new Map(); // datasetId -> { score, viaTerms:Set }
+
+  ai.keywords.forEach(kw => {
+    const matches = matchTerm(kw);
+    const chip = document.createElement('span');
+    chip.className = 'term-chip' + (matches.length ? '' : ' no-match');
+    chip.textContent = kw;
+    termsEl.appendChild(chip);
+    if (!matches.length) return;
+
+    chip.onclick = () => navigateTo(matches[0].id);
+    matches.forEach(m => {
+      matchedTermIds.add(m.id);
+      (adj.get(m.id) || []).forEach(dsId => {
+        const dsNode = nodeById.get(dsId);
+        if (!dsNode || dsNode.type !== 'dataset') return;
+        const entry = datasetScores.get(dsId) || { score: 0, viaTerms: new Set() };
+        entry.score += m.score;
+        entry.viaTerms.add(m.id);
+        datasetScores.set(dsId, entry);
+      });
+    });
+  });
+
+  const ranked = [...datasetScores.entries()]
+    .sort((a, b) => (b[1].viaTerms.size - a[1].viaTerms.size) || (b[1].score - a[1].score))
+    .slice(0, 15);
+
+  if (!ranked.length) {
+    bodyEl.innerHTML = matchedTermIds.size
+      ? '<div class="ask-empty">Deze termen komen voor in de catalogus, maar zijn niet aan datasets gekoppeld.</div>'
+      : '<div class="ask-empty">Geen van de voorgestelde termen komt voor in de kennisgraaf. Probeer de vraag anders te formuleren.</div>';
+  } else {
+    bodyEl.innerHTML = `<div class="result-count">${ranked.length} datasets gevonden</div>`;
+    ranked.forEach(([dsId, info]) => {
+      const n = nodeById.get(dsId);
+      const item = document.createElement('div');
+      item.className = 'result-item';
+      item.innerHTML = `<div class="result-title">${n.label.replace(/</g,'&lt;')}</div>
+        <div class="result-sam">${(n.sam||'').replace(/</g,'&lt;')}</div>`;
+      item.onclick = () => navigateTo(dsId);
+      bodyEl.appendChild(item);
+    });
+  }
+
+  const highlightIds = new Set([...matchedTermIds, ...ranked.map(([id]) => id)]);
+  setHighlightSet(highlightIds);
+  if (highlightIds.size) {
+    Graph.zoomToFit(600, 100, node => highlightIds.has(node.id));
+  }
+
+  submitBtn.disabled = false;
+}
+
+document.getElementById('closeAskPanel').onclick = () => {
+  document.getElementById('ask-panel').classList.remove('open');
+  setHighlightSet(new Set());
+};
+
+(function setupAsk() {
+  const input = document.getElementById('ask-input');
+  const btn   = document.getElementById('ask-submit');
+  const submit = () => { const q = input.value.trim(); if (q) askKennisgraaf(q); };
+  btn.addEventListener('click', submit);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+})();
 
 init();
 </script>
