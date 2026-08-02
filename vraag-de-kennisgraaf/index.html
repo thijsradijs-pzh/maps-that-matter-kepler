@@ -106,6 +106,9 @@
   .result-item.active { background:rgba(167,139,250,0.08); margin:0 -18px; padding:11px 18px; }
   .result-title { font-size:13px; font-weight:600; color:var(--fg); margin-bottom:3px;
     display:flex; align-items:center; gap:7px; }
+  .result-title > span:first-child { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ngr-link { margin-left:auto; font-size:10px; font-weight:600; color:var(--muted); text-decoration:none; flex-shrink:0; }
+  .ngr-link:hover { color:var(--accent); text-decoration:underline; }
   .avail-badge { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.3px;
     padding:2px 6px; border-radius:8px; flex-shrink:0; border:1px solid transparent; }
   .avail-badge.wfs { background:rgba(63,191,159,0.12); border-color:var(--trefwoord); color:var(--trefwoord); }
@@ -139,8 +142,12 @@
   .popup-inner b { color:var(--muted); margin-right:4px; }
   .popup-hex-list { max-height:220px; overflow-y:auto; font-size:12px; }
   .popup-hex-list b { display:block; color:var(--fg); margin-bottom:4px; }
-  .popup-hex-item { padding:5px 0; border-top:1px solid var(--border); cursor:pointer; line-height:1.4; }
-  .popup-hex-item:hover { color:var(--accent); }
+  .popup-hex-item { padding:5px 0; border-top:1px solid var(--border); line-height:1.4;
+    display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .popup-hex-title { cursor:pointer; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .popup-hex-title:hover { color:var(--accent); }
+  .popup-hex-ngr { font-size:10px; color:var(--muted); text-decoration:none; flex-shrink:0; }
+  .popup-hex-ngr:hover { color:var(--accent); text-decoration:underline; }
 
   @media (max-width: 720px) {
     #map { right:0; bottom:45vh; }
@@ -326,17 +333,7 @@ async function askKennisgraaf(question) {
       <div class="result-status" id="analyze-status"></div>
       <div id="result-list"></div>`;
     const list = document.getElementById('result-list');
-    ranked.forEach(([dsId]) => {
-      const n = nodeById.get(dsId);
-      const b = badgeFor(recordFor(n));
-      const item = document.createElement('div');
-      item.className = 'result-item';
-      item.innerHTML = `<div class="result-title"><span>${esc(n.label)}</span><span class="avail-badge ${b.cls}">${esc(b.label)}</span></div>
-        <div class="result-sam">${esc(n.sam || '')}</div>
-        <div class="result-status" id="status-${cssId(dsId)}"></div>`;
-      item.addEventListener('click', () => showOnMap(n, item));
-      list.appendChild(item);
-    });
+    ranked.forEach(([dsId]) => list.appendChild(buildResultItem(nodeById.get(dsId))));
     document.getElementById('analyze-btn').addEventListener('click', () =>
       analyzeResultsOnMap(ranked.map(([dsId]) => dsId)));
   }
@@ -362,6 +359,26 @@ function badgeFor(rec) {
   if (rec.wms) return { cls: 'wms', label: 'WMS' };
   if (rec.extent) return { cls: 'extent', label: 'gebied' };
   return { cls: 'none', label: '' };
+}
+
+// Gedeeld door de zoekresultatenlijst en de hexagon-datasetlijst (was twee
+// bijna-identieke innerHTML-blokken). NGR-link staat er nu altijd bij, niet
+// alleen in de foutstatus — je moet altijd naar de bron kunnen doorklikken,
+// ook als de kaartweergave prima lukt.
+function buildResultItem(n) {
+  const b = badgeFor(recordFor(n));
+  const item = document.createElement('div');
+  item.className = 'result-item';
+  item.innerHTML = `<div class="result-title">
+      <span>${esc(n.label)}</span>
+      <span class="avail-badge ${b.cls}">${esc(b.label)}</span>
+      <a class="ngr-link" href="${esc(n.url_opendata)}" target="_blank" rel="noopener" title="Bekijk in Nationaal Georegister">NGR ↗</a>
+    </div>
+    <div class="result-sam">${esc(n.sam || '')}</div>
+    <div class="result-status" id="status-${cssId(n.id)}"></div>`;
+  item.querySelector('.ngr-link').addEventListener('click', e => e.stopPropagation());
+  item.addEventListener('click', () => showOnMap(n, item));
+  return item;
 }
 
 function cssId(id) { return id.replace(/[^a-zA-Z0-9]/g, ''); }
@@ -729,13 +746,15 @@ function onCoverageClick(e) {
 // klikken (zoekt het bestaande .result-item op en hergebruikt showOnMap()).
 function showHexPopup(lngLat, dsIds) {
   const nodes = dsIds.map(id => nodeById.get(id)).filter(Boolean);
-  const rows = nodes.map(n =>
-    `<div class="popup-hex-item" data-id="${esc(n.id)}">${esc(n.label)}</div>`).join('');
+  const rows = nodes.map(n => `<div class="popup-hex-item">
+      <span class="popup-hex-title" data-id="${esc(n.id)}">${esc(n.label)}</span>
+      <a href="${esc(n.url_opendata)}" target="_blank" rel="noopener" class="popup-hex-ngr">NGR ↗</a>
+    </div>`).join('');
   const popup = new maplibregl.Popup({ maxWidth: '260px' })
     .setLngLat(lngLat)
     .setHTML(`<div class="popup-hex-list"><b>${nodes.length} dataset${nodes.length === 1 ? '' : 's'}</b>${rows}</div>`)
     .addTo(window.map);
-  popup.getElement().querySelectorAll('.popup-hex-item').forEach(el => {
+  popup.getElement().querySelectorAll('.popup-hex-title').forEach(el => {
     el.addEventListener('click', () => {
       const node = nodeById.get(el.dataset.id);
       const itemEl = document.getElementById('status-' + cssId(el.dataset.id))?.closest('.result-item');
@@ -757,16 +776,7 @@ function showHexDatasets(dsIds) {
   document.getElementById('hex-back').addEventListener('click', () => renderCoverageStatsPanel(coverageData));
 
   const list = document.getElementById('hex-result-list');
-  shown.forEach(n => {
-    const b = badgeFor(recordFor(n));
-    const item = document.createElement('div');
-    item.className = 'result-item';
-    item.innerHTML = `<div class="result-title"><span>${esc(n.label)}</span><span class="avail-badge ${b.cls}">${esc(b.label)}</span></div>
-      <div class="result-sam">${esc(n.sam || '')}</div>
-      <div class="result-status" id="status-${cssId(n.id)}"></div>`;
-    item.addEventListener('click', () => showOnMap(n, item));
-    list.appendChild(item);
-  });
+  shown.forEach(n => list.appendChild(buildResultItem(n)));
 }
 
 function renderExtentOnMap(node, extent) {
