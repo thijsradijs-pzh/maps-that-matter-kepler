@@ -26,13 +26,15 @@ function asArray(v) {
 
 // ISO19139-as-JSON wraps most values in { "gco:<Type>": { "#text": "..." } }
 // (CharacterString for text, Decimal for numbers, ...), but some converters
-// flatten that to a plain string. Handle both, for any gco: wrapper.
+// flatten that to a plain string. protocol/name fields can also come as
+// gmx:Anchor (INSPIRE-style: xlink:href to a codelist URI, readable text
+// still as "#text") instead of gco:CharacterString — handle both wrappers.
 function text(v) {
   if (v == null) return '';
   if (typeof v === 'string') return v;
   if (v['#text'] != null) return String(v['#text']);
-  const gcoKey = Object.keys(v).find(k => k.startsWith('gco:'));
-  if (gcoKey) return text(v[gcoKey]);
+  const wrapperKey = Object.keys(v).find(k => k.startsWith('gco:') || k.startsWith('gmx:'));
+  if (wrapperKey) return text(v[wrapperKey]);
   return '';
 }
 
