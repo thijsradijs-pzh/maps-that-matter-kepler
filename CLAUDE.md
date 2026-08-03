@@ -62,7 +62,7 @@ Vercel serverless functions used as CORS proxies and AI endpoints:
   - `GET ?id=<locatieserver_id>` → lookup returning `{ doc: { weergavenaam, type, gemeentenaam, centroide_ll } }` where `centroide_ll` is WKT `POINT(lon lat)` in WGS84
 - `ask-map.js` — AI endpoint used by vraag-de-kaart (separate from ask-wfs.js)
 - `ask-kennisgraaf.js` — POST `{ question }` → Gemini proposes 3–6 Dutch search terms for kennisgraaf-viewer's "vraag de kennisgraaf" bar; terms are grounded client-side against the real harvested vocabulary, never trusted as-is (also used by vraag-de-kennisgraaf)
-- `ngr-record.js` — GET `?id=<uuid>` → fetches a dataset's full ISO19139 metadata from NGR's GeoNetwork API and extracts its OGC:WFS/OGC:WMS distribution links **and** its geographic bounding box; returns `{ wfs: {url, typeName, description}|null, wms: {url, layer, description}|null, extent: [minLon,minLat,maxLon,maxLat]|null }`, `null`/missing values are a normal (not error) response. `extent` comes from a depth-first search for `EX_GeographicBoundingBox` (mandatory ISO19115 field, present on nearly every record regardless of service availability). Same extraction logic is now also baked into the harvest pipeline (see below) — this endpoint is kept as a live/fresh lookup but vraag-de-kennisgraaf no longer calls it on the hot path.
+- `ngr-record.js` — GET `?id=<uuid>` → fetches a dataset's full ISO19139 metadata from NGR's GeoNetwork API and extracts its OGC:WFS/OGC:WMS distribution links **and** its geographic bounding box; returns `{ wfs: {url, typeName, description}|null, wms: {url, layer, description}|null, extent: [minLon,minLat,maxLon,maxLat]|null }`, `null`/missing values are a normal (not error) response. `extent` comes from a depth-first search for `EX_GeographicBoundingBox` (mandatory ISO19115 field, present on nearly every record regardless of service availability). Same extraction logic is now also baked into the harvest pipeline (see below) — this endpoint is kept as a live/fresh lookup but vraag-de-kennisgraaf no longer calls it on the hot path. Its `text()` helper got the same `gmx:Anchor`-unwrap fix as `build_graph.py` (2026-08-03) — was latent since nothing calls this endpoint on the hot path, but would've reproduced the same silent-empty-protocol bug the moment it was used live.
 - `ngr-wfs-proxy.js` — GET proxy for WFS GetFeature requests (`wfsUrl, typeName, bbox, pageSize, startIndex`), accepts any `https` host (not just pdok.nl/nationaalgeoregister.nl) since NGR indexes services from many hosts (provinces, gemeentes); blocks private/loopback/link-local hostnames. Caps at 1000 features, sets `X-Truncated: 1`. Used by vraag-de-kennisgraaf.
 - `ngr-wms-tile.js` — GET proxy for a single WMS GetMap tile (`wmsUrl, layer, bbox` in EPSG:3857 — MapLibre's `{bbox-epsg-3857}` raster tile token), WMS 1.1.1 to sidestep 1.3.0's CRS-dependent axis-order issues. Same host validation as `ngr-wfs-proxy.js`. Used by vraag-de-kennisgraaf as the WMS fallback when a dataset has no WFS (or its WFS is GML-only, e.g. many ArcGIS-hosted services — common enough in NGR that the frontend falls back mid-request, not just up front).
 - `pdok-location.js` — GET `?q=<place name>` → resolves a Dutch place name to a real bounding box via the **PDOK Location API** (`api.pdok.nl/kadaster/location-api/v1`, the successor to the legacy Locatieserver v3 used by `suggest-location.js` — that one only returns a centroid point). Queries `gemeentegebied`/`woonplaats`/`plaats`/`provinciegebied` collections. Picks the best match by exact-name priority (gemeentegebied > woonplaats > plaats > provinciegebied) before falling back to raw relevance score — the API's own score alone can rank a same-named neighbourhood above the actual city (e.g. "Utrecht" scoring a wijk called "Utrechtseweg" above the municipality). Used by vraag-de-kennisgraaf to scope map view + WFS `bbox` filter when a question names a place (`ask-kennisgraaf.js`'s `location` field).
@@ -158,6 +158,16 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 
 ---
 
+### Open loose ends (as of 2026-08-03)
+
+- `graph-geonetwork`'s commits (bronhouder extraction, WMS "0"-layer skip, `gmx:Anchor` fix) are **local-only, never pushed** to its remote — never explicitly confirmed by the user, don't push without asking.
+- `vraag-de-kennisgraaf` mobile/bottom-sheet layout has never actually been tested in a browser (no browser tool available this session) — worth a real device/DevTools pass.
+- `bronhouder` coverage is 73% (4,246/5,824) — not yet checked whether the remaining gap is genuine data absence or another `gmx:Anchor`-style silent miss in `_extract_bronhouder()`.
+- Checked whether extent-only datasets (the 26.9%) could be recovered via URL-pattern sniffing (`/wfs`, `/wms` in the URL when `gmd:protocol` is missing entirely) — only 12 of 1,567 are recoverable this way, not worth pursuing further.
+- Next up per the backlog above: **Biodiversiteit viewer** (P1, new) or **colorblind palette validation** (P3) — whichever the user wants to start with.
+
+---
+
 ### ✅ Done
 - Meta descriptions, Open Graph tags, favicon on all 12 apps
 - "← Maps That Matter" home link on all 12 apps
@@ -204,6 +214,7 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 - `ask-map.js` SQL safety: frontend (`vraag-de-kaart/index.html` lines 784–791) independently validates SQL before DuckDB execution; risk acceptable in WASM sandbox context
 - `agro-viewer`: NSO satellite layers moved to `VIZ_CONFIG.nsoLayers` in config.js; `<select>` populated dynamically at init — no more hardcoded HTML options
 - `population-3d` + `groundheight`: removed "Click to Activate" overlay (~160 lines CSS/HTML/JS each); map controller now starts enabled immediately
+- `graph-geonetwork`/`build_graph.py` + `api/ngr-record.js`: fixed `gmx:Anchor`-wrapped `gmd:protocol`/`gmd:name` extraction gap (INSPIRE codelist style, missed by both the harvest pipeline and the live fallback lookup) — see `vraag-de-kennisgraaf` entry above for root cause and coverage numbers *(done 2026-08-03)*
 
 ---
 
