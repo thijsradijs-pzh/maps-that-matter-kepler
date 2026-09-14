@@ -28,6 +28,8 @@
     { "source": "/api/ngr-wfs-proxy", "destination": "/api/ngr-wfs-proxy.js" },
     { "source": "/api/pdok-location", "destination": "/api/pdok-location.js" },
     { "source": "/api/ngr-wms-tile", "destination": "/api/ngr-wms-tile.js" },
+    { "source": "/fenologie", "destination": "/fenologie/index.html" },
+    { "source": "/api/ndvi-series", "destination": "/api/ndvi-series.js" },
     { "source": "/", "destination": "/index.html" }
   ]
 }
