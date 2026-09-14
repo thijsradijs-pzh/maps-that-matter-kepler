@@ -90,7 +90,15 @@
     $('meta-block').innerHTML = badge +
       Cube.data.cells.length + ' hexagonen (H3 res ' + m.h3_res + ') &middot; ' +
       m.period[0].slice(0, 4) + '–' + m.period[1].slice(0, 4) + ' &middot; ' + m.index + '<br>' +
-      m.boundary + '.<br>' + m.method + '.' +
+      m.boundary + '.<br>' +
+      (m.sampling === 'zonal'
+        ? 'Per cel de mediaan over alle Sentinel-2 pixels'
+          + (m.min_pixels ? ' (minimaal ' + m.min_pixels + ' geldige pixels)' : '') + '.<br>'
+        : m.sampling === 'centroid'
+          ? '<strong>Let op:</strong> per cel is alleen het middelpunt bemonsterd, '
+            + '\u00e9\u00e9n pixel van 10 bij 10 m.<br>'
+          : '') +
+      m.method + '.' +
       (m.demo ? '<br><strong>Let op:</strong> gesimuleerde reeksen. Draai ' +
         '<code>build_fenologie_cube.py --from-grass</code> voor de echte kubus.' : '');
   }
@@ -119,7 +127,8 @@
       statRow('waarnemingen', cell.n, '') +
       statRow('trend', (cell.slope > 0 ? '+' : '−') + nl(Math.abs(cell.slope), 4), idx + '/jaar') +
       statRow('z ≤ −2', cell.zlow, 'keer') +
-      statRow('z ≥ +2', cell.zhigh, 'keer');
+      statRow('z ≥ +2', cell.zhigh, 'keer') +
+      (cell.npix ? statRow('pixels', cell.npix, 'per cel') : '');
 
     var v = $('d-verdict');
     if (!sig) {

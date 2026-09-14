@@ -226,13 +226,95 @@ def cells_for_ring(ring, res):
 
 
 # ---------------------------------------------------------------- GRASS-modus
-def sample_from_grass(cells, strds, epsg):
-    """Bemonster elk celcentroide uit de STRDS met een enkele t.rast.what."""
+#
+# Twee manieren om een cel te bemonsteren:
+#
+#   centroid  een enkele t.rast.what op het middelpunt. Snel, maar op res 10
+#             zit er ruim 150 pixels in een cel en toon je er dus een van.
+#   zonal     de hexagonen als zone-raster en t.rast.univar eroverheen, wat
+#             per datum per cel een mediaan plus een pixeltelling geeft.
+#
+# LET OP: dit deel is nooit tegen een echte GRASS-sessie gedraaid. Draai eerst
+# --verify op een handvol cellen voordat je de uitkomst vertrouwt.
+
+HEX_VECTOR = "fenologie_hexagons"
+HEX_RASTER = "fenologie_zones"
+
+
+def _gs():
     import grass.script as gs
+    return gs
+
+
+def write_hex_geojson(cells, path):
+    """Hexagonen als GeoJSON in WGS84, met een oplopende cat per cel."""
+    import h3
+
+    feats = []
+    for i, c in enumerate(cells, start=1):
+        ring = [[round(lon, 7), round(lat, 7)]
+                for lat, lon in h3.cell_to_boundary(c)]
+        ring.append(ring[0])
+        feats.append({
+            "type": "Feature",
+            "properties": {"cat": i, "h3": c},
+            "geometry": {"type": "Polygon", "coordinates": [ring]},
+        })
+    with open(path, "w") as fh:
+        json.dump({"type": "FeatureCollection", "features": feats}, fh)
+    return {i: c for i, c in enumerate(cells, start=1)}
+
+
+def build_zone_raster(cells, res_m=10):
+    """Importeer de hexagonen en rasteriseer ze tot een zone-raster."""
+    gs = _gs()
+    tmp = Path(gs.tempfile()).with_suffix(".geojson")
+    cat_of = write_hex_geojson(cells, tmp)
+
+    gs.run_command("v.import", input=str(tmp), output=HEX_VECTOR,
+                   overwrite=True, quiet=True)
+    # regio op de hexagonen, uitgelijnd op de resolutie van de beelden
+    gs.run_command("g.region", vector=HEX_VECTOR, res=res_m, flags="a")
+    gs.run_command("v.to.rast", input=HEX_VECTOR, output=HEX_RASTER,
+                   use="cat", overwrite=True, quiet=True)
+    tmp.unlink(missing_ok=True)
+    gs.message("zone-raster %s gebouwd (%d cellen, %d m)"
+               % (HEX_RASTER, len(cells), res_m))
+    return cat_of
+
+
+def _parse_table(text, sep="|"):
+    """Regels naar dicts op basis van de kopregel; robuust tegen kolomvolgorde."""
+    lines = [l for l in text.splitlines() if l.strip()]
+    if not lines:
+        return []
+    header = [h.strip().lower() for h in lines[0].split(sep)]
+    if "zone" not in header and "start" not in header:
+        raise RuntimeError("onverwachte uitvoer, geen kopregel gevonden:\n"
+                           + lines[0][:200])
+    out = []
+    for line in lines[1:]:
+        f = line.split(sep)
+        if len(f) != len(header):
+            continue
+        out.append(dict(zip(header, f)))
+    return out
+
+
+def _as_date(text):
+    stamp = text.split(" ")[0].replace("T", " ").strip()
+    try:
+        return date.fromisoformat(stamp[:10])
+    except ValueError:
+        return None
+
+
+def sample_centroid(cells, strds):
+    """Een enkele t.rast.what op alle celmiddelpunten."""
+    gs = _gs()
     import h3
 
     pts = [h3.cell_to_latlng(c) for c in cells]  # (lat, lon)
-    # projecteer in een keer naar de project-CRS
     stdin = "\n".join("%.7f %.7f" % (lon, lat) for lat, lon in pts)
     proj = gs.read_command("m.proj", flags="i", input="-", stdin=stdin,
                            proj_in="+init=epsg:4326", separator="space").strip()
@@ -251,13 +333,11 @@ def sample_from_grass(cells, strds, epsg):
         if not line or line.startswith("start"):
             continue
         f = line.split("|")
-        stamp = f[0].split(" ")[0].replace("T", " ").strip()
-        try:
-            d = date.fromisoformat(stamp[:10])
-        except ValueError:
+        d = _as_date(f[0])
+        if d is None:
             continue
         dates.append(d)
-        rows.append(f[2:])  # kolom 0/1 = start/end
+        rows.append(f[2:])          # kolom 0/1 = start/end
     series = []
     for i in range(len(cells)):
         col = []
@@ -265,7 +345,120 @@ def sample_from_grass(cells, strds, epsg):
             v = r[i] if i < len(r) else "*"
             col.append(np.nan if v in ("*", "", "None", "nan") else float(v))
         series.append(np.array(col, float))
-    return dates, series, epsg
+    counts = [np.ones(len(dates)) for _ in cells]
+    return dates, series, counts
+
+
+def sample_zonal(cells, strds, cat_of, min_pixels=1):
+    """Per datum per cel de mediaan over alle pixels, plus de pixeltelling.
+
+    t.rast.univar -e geeft de uitgebreide statistiek (inclusief mediaan);
+    zones= laat het per hexagon rekenen in plaats van over de hele regio.
+    """
+    gs = _gs()
+    txt = gs.read_command("t.rast.univar", input=strds, zones=HEX_RASTER,
+                          flags="e", separator="|", quiet=True)
+    rows = _parse_table(txt)
+    if not rows:
+        raise RuntimeError("t.rast.univar gaf geen rijen terug")
+
+    key_med = "median" if "median" in rows[0] else "mean"
+    if key_med == "mean":
+        gs.warning("t.rast.univar gaf geen mediaan terug; val terug op mean. "
+                   "Draait deze GRASS de -e vlag wel?")
+
+    by_date = {}
+    for r in rows:
+        d = _as_date(r.get("start", ""))
+        if d is None:
+            continue
+        try:
+            cat = int(float(r["zone"]))
+        except (KeyError, ValueError):
+            continue
+        cells_n = float(r.get("non_null_cells") or r.get("cells") or 0)
+        try:
+            val = float(r[key_med])
+        except (KeyError, ValueError):
+            continue
+        by_date.setdefault(d, {})[cat] = (val, cells_n)
+
+    dates = sorted(by_date)
+    index_of = {c: i for i, c in enumerate(cells)}
+    series = [np.full(len(dates), np.nan) for _ in cells]
+    counts = [np.zeros(len(dates)) for _ in cells]
+    for j, d in enumerate(dates):
+        for cat, (val, n) in by_date[d].items():
+            h3id = cat_of.get(cat)
+            if h3id is None:
+                continue
+            i = index_of[h3id]
+            counts[i][j] = n
+            if n >= min_pixels:
+                series[i][j] = val
+    return dates, series, counts
+
+
+def habitat_by_zone(cat_of, habitat_path, field):
+    """Dominant habitat- of beheertype per hexagon, op oppervlak."""
+    gs = _gs()
+    gs.run_command("v.import", input=habitat_path, output="fenologie_hab",
+                   overwrite=True, quiet=True)
+    gs.run_command("v.to.rast", input="fenologie_hab", output="fenologie_hab_r",
+                   use="attr", attribute_column=field, label_column=field,
+                   overwrite=True, quiet=True)
+    txt = gs.read_command("r.stats", flags="cln",
+                          input="%s,fenologie_hab_r" % HEX_RASTER,
+                          separator="|", quiet=True)
+    best = {}
+    for line in txt.splitlines():
+        f = line.split("|")
+        if len(f) < 3:
+            continue
+        try:
+            cat = int(float(f[0]))
+            count = int(float(f[-1]))
+        except ValueError:
+            continue
+        label = f[1].strip()
+        if not label or label in ("*", "no data"):
+            continue
+        if count > best.get(cat, (0, None))[0]:
+            best[cat] = (count, label)
+    return {cat_of[c]: v[1] for c, v in best.items() if c in cat_of}
+
+
+def verify_cells(cells, series, dates, strds, n_check=8, seed=0):
+    """Vergelijk een steekproef met een losse t.rast.what op het middelpunt.
+
+    Bij --sampling centroid horen de verschillen nul te zijn. Bij zonal is het
+    verschil informatief: het zegt hoe ver het middelpunt van de celmediaan
+    afligt, en dus hoe heterogeen een cel is.
+    """
+    gs = _gs()
+    rng = np.random.default_rng(seed)
+    pick = rng.choice(len(cells), size=min(n_check, len(cells)), replace=False)
+    sub = [cells[i] for i in pick]
+    d2, s2, _ = sample_centroid(sub, strds)
+    lut = {d: j for j, d in enumerate(d2)}
+
+    print("\nverificatie (%d cellen, centroide t.o.v. de gebouwde reeks)"
+          % len(sub), file=sys.stderr)
+    print("%-18s %8s %9s %9s" % ("h3", "n", "max|dv|", "mediaan|dv|"),
+          file=sys.stderr)
+    for k, i in enumerate(pick):
+        a = series[i]
+        b = s2[k]
+        diffs = []
+        for j, d in enumerate(dates):
+            if d in lut and not np.isnan(a[j]) and not np.isnan(b[lut[d]]):
+                diffs.append(abs(a[j] - b[lut[d]]))
+        if not diffs:
+            print("%-18s %8s %9s %9s" % (cells[i], 0, "-", "-"), file=sys.stderr)
+            continue
+        print("%-18s %8d %9.4f %9.4f"
+              % (cells[i], len(diffs), max(diffs), float(np.median(diffs))),
+              file=sys.stderr)
 
 
 # ---------------------------------------------------------------- demo-modus
@@ -355,6 +548,17 @@ def main():
     ap.add_argument("--index", default="ndvi")
     ap.add_argument("--res", type=int, default=10)
     ap.add_argument("--epsg", default="32631")
+    ap.add_argument("--sampling", choices=["zonal", "centroid"], default="zonal",
+                    help="zonal = mediaan over alle pixels in de hexagon "
+                         "(aanbevolen); centroid = een enkele pixel")
+    ap.add_argument("--min-pixels", type=int, default=8,
+                    help="minimaal aantal geldige pixels voor een zonale waarde")
+    ap.add_argument("--habitat", default=None,
+                    help="vector met habitat- of beheertypen (GeoJSON, GPKG, shp)")
+    ap.add_argument("--habitat-field", default="beheertype",
+                    help="kolom in --habitat met de typenaam")
+    ap.add_argument("--verify", type=int, default=0,
+                    help="vergelijk N willekeurige cellen met een losse t.rast.what")
     ap.add_argument("--no-wfs", action="store_true",
                     help="sla het ophalen van de N2000-begrenzing over")
     ap.add_argument("--out-dir", default="data/fenologie",
@@ -372,8 +576,21 @@ def main():
     print("%d H3-cellen op resolutie %d" % (len(cells), args.res), file=sys.stderr)
 
     habs = None
+    counts = None
     if args.from_grass:
-        dates, series, _ = sample_from_grass(cells, args.strds, args.epsg)
+        if args.sampling == "zonal":
+            cat_of = build_zone_raster(cells, res_m=10)
+            dates, series, counts = sample_zonal(
+                cells, args.strds, cat_of, min_pixels=args.min_pixels)
+            if args.habitat:
+                hab_map = habitat_by_zone(cat_of, args.habitat, args.habitat_field)
+                habs = [hab_map.get(c) for c in cells]
+        else:
+            dates, series, counts = sample_centroid(cells, args.strds)
+            if args.habitat:
+                print("--habitat werkt alleen met --sampling zonal", file=sys.stderr)
+        if args.verify:
+            verify_cells(cells, series, dates, args.strds, n_check=args.verify)
     else:
         dates, series, habs = build_demo(cells)
 
@@ -391,10 +608,16 @@ def main():
         stats = analyse(d_ok, v_ok, targets, base, sd)
         if stats is None:
             continue
+        npix = None
+        if counts is not None:
+            valid = counts[i][ok]
+            if valid.size:
+                npix = int(round(float(np.median(valid))))
         out_cells.append({
             "h3": c,
             "hab": habs[i] if habs else None,
             "n": int(ok.sum()),
+            "npix": npix,
             "slope": stats["slope"], "tau": stats["tau"], "p": stats["p"],
             "zlow": stats["zlow"], "zhigh": stats["zhigh"],
             "ymed": stats["ymed"], "ymax": stats["ymax"], "ymin": stats["ymin"],
@@ -423,6 +646,8 @@ def main():
                       else "gesimuleerd (demo)",
             "demo": bool(args.demo),
             "h3_res": args.res,
+            "sampling": args.sampling if args.from_grass else "demo",
+            "min_pixels": args.min_pixels if args.from_grass else None,
             "shard_res": shard_res,
             "years": years_shared,
             "boundary": ring_src,

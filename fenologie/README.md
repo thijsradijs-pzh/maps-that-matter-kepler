@@ -33,9 +33,46 @@ grass /pad/naar/GRASSdb/UTM_NLD/NDVI --exec \
     --out-dir data/fenologie
 ```
 
-Dat bemonstert per hexagon het centroïde-punt met één `t.rast.what`-aanroep,
-haalt de Natura 2000-begrenzing bij PDOK op, en schrijft klimatologie, reeks,
-z-tellingen en trend per cel weg.
+Dat rasteriseert de hexagonen tot zones, draait `t.rast.univar -e` over de
+STRDS en neemt per datum per cel de **mediaan over alle pixels**, plus de
+pixeltelling als kwaliteitsmaat. Het haalt de Natura 2000-begrenzing bij PDOK
+op en schrijft klimatologie, reeks, z-tellingen en trend per cel weg.
+
+## Bemonstering: zonal of centroid
+
+Op res 10 zitten er ruim 150 Sentinel-2 pixels in een hexagon.
+
+- `--sampling zonal` (default) neemt de mediaan van al die pixels en bewaart
+  hoeveel er meededen (`npix` in de index, zichtbaar in het paneel).
+  `--min-pixels 8` laat een datum vallen als er te weinig wolkvrije pixels over
+  zijn.
+- `--sampling centroid` bemonstert alleen het middelpunt. Sneller, maar dan
+  toont een cel van 1,5 ha het verhaal van 100 m². De viewer zet er dan zelf
+  een waarschuwing bij.
+
+Verifiëren voordat je iets gelooft:
+
+```bash
+grass ... --exec python3 scripts/build_fenologie_cube.py --from-grass \
+    --strds S2_ndvi --res 10 --verify 8 --out-dir /tmp/probe
+```
+
+Dat trekt acht willekeurige cellen na met een losse `t.rast.what` op het
+middelpunt. Bij `centroid` horen de verschillen nul te zijn; bij `zonal` zegt
+het verschil hoe heterogeen een cel is.
+
+## Habitat- of beheertype
+
+```bash
+  --habitat pad/naar/beheertypen.gpkg --habitat-field beheertype
+```
+
+Vult `hab` per cel met het type dat het meeste oppervlak beslaat. PDOK heeft
+hiervoor niets bruikbaars: de Natura 2000-service van RVO geeft alleen
+gebiedsgrenzen, en "Habitatrichtlijn verspreiding van habitattypen" is het
+EU-rapportageraster van 10 bij 10 km. De habitattypenkaart zelf zit in de NDVH
+bij BIJ12. Publiek bruikbaar alternatief: de beheertypen uit het
+Natuurbeheerplan van de provincie, per jaar beschikbaar.
 
 Zonder GRASS-database, voor ontwikkelen en voor de publieke demo:
 
