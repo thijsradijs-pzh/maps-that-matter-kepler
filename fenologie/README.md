@@ -17,7 +17,7 @@ van 0,02, en Theil-Sen + Mann-Kendall op de jaarmedianen.
 | bron | voorberekende kubus uit GRASS | openEO op Copernicus Data Space |
 | snelheid | direct, alles zit in het JSON-bestand | 10–40 s, daarna een dag gecachet |
 | dekking | Nieuwkoopse Plassen, H3 res 9 | heel Nederland, per punt |
-| nodig | `data/fenologie-nieuwkoop.json` | `CDSE_CLIENT_ID` + `CDSE_CLIENT_SECRET` |
+| nodig | `data/fenologie/` | `CDSE_CLIENT_ID` + `CDSE_CLIENT_SECRET` |
 
 Zonder die twee env-vars valt de live-knop stil weg; de kubus blijft werken.
 
@@ -29,8 +29,8 @@ van de pipeline staan:
 ```bash
 grass /pad/naar/GRASSdb/UTM_NLD/NDVI --exec \
   python3 scripts/build_fenologie_cube.py --from-grass \
-    --strds S2_ndvi --res 9 \
-    --out data/fenologie-nieuwkoop.json
+    --strds S2_ndvi --res 10 \
+    --out-dir data/fenologie
 ```
 
 Dat bemonstert per hexagon het centroïde-punt met één `t.rast.what`-aanroep,
@@ -40,15 +40,30 @@ z-tellingen en trend per cel weg.
 Zonder GRASS-database, voor ontwikkelen en voor de publieke demo:
 
 ```bash
-python3 scripts/build_fenologie_cube.py --demo --res 9 \
-  --out data/fenologie-nieuwkoop.json
+python3 scripts/build_fenologie_cube.py --demo --res 10 \
+  --out-dir data/fenologie
 ```
 
 De viewer zet dan zelf een `demo-data`-badge in het paneel — de reeksen zijn
 gesimuleerd, de verwerking erna is dezelfde code.
 
-Resolutie kiezen: res 9 geeft ~626 cellen van ~0,1 km² en een bestand van
-1,7 MB (756 kB gzipped). Res 10 vervijfvoudigt beide.
+## Index en shards
+
+De uitvoer is gesplitst, anders wordt res 10 een download van megabytes
+voordat er iets op het scherm staat:
+
+- `data/fenologie/index.json` — alles wat de kaart nodig heeft (trend,
+  z-tellingen, jaarstatistieken). 1,4 MB, 319 kB gzipped, laadt direct.
+- `data/fenologie/s/<h3-ouder>.json` — de reeksen, gegroepeerd per H3-cel
+  twee resoluties grover. 108 stuks, gemiddeld 92 kB (35 kB gzipped).
+  Komen pas binnen als je een cel aanklikt, en blijven daarna in het geheugen.
+
+`lat`/`lon` en de jarenreeks staan bewust niet in de index; de browser leidt
+die af uit de H3-id en uit `meta.years`. Dat scheelt een derde.
+
+Resolutie kiezen: res 10 geeft 4.353 cellen van 152 m breed (1,5 ha), res 9
+geeft er 626 van 402 m. Met de splitsing schaalt res 10 prima; res 11 zou
+~31.000 cellen geven en dan is de index zelf aan de beurt om te splitsen.
 
 ## Bestanden
 

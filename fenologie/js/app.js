@@ -6,6 +6,7 @@
   var CFG = window.FENO_CONFIG;
   var C = CFG.colors;
   var map, selected = null, metric = 'slope', onlySig = false, liveAvailable = null;
+  var seriesToken = 0;
 
   var $ = function (id) { return document.getElementById(id); };
   var nl = window.Charts.nl;
@@ -106,7 +107,6 @@
 
   function showCell(cell) {
     selected = cell;
-    var series = cell._series ? cell._series : Cube.series(cell);
     var idx = Cube.data.meta.index;
 
     $('d-title').textContent = cell.live
@@ -140,19 +140,35 @@
         + 'leg dit naast beheerregistraties en waterstanden voordat je het als achteruitgang leest.';
     }
 
-    Charts.timeseries($('c-ts'), $('tt-ts'), series, idx);
-    Charts.season($('c-season'), series);
-    Charts.decomposition($('c-decomp'), cell.live
-      ? { obs: series.obs,
-          seasonal: series.obs.map(function (o) { return o.baseline === null ? NaN : o.baseline; }),
-          trend: series.obs.map(function () { return NaN; }),
-          remainder: series.obs.map(function () { return NaN; }) }
-      : Cube.decompose(cell));
     Charts.annual($('c-annual'), cell);
-
     $('grass-cmd').hidden = true;
     $('d-verdict').hidden = false;
     $('btn-close').hidden = false;
+
+    // De reeks zit in een shard en komt apart binnen. Tot die tijd blijven
+    // de drie reeksgrafieken leeg in plaats van een oude cel te tonen.
+    ['c-ts', 'c-season', 'c-decomp'].forEach(function (id) { $(id).innerHTML = ''; });
+    $('chart-status').textContent = 'reeks laden\u2026';
+    $('chart-status').hidden = false;
+
+    var token = ++seriesToken;
+    Cube.ensureSeries(cell).then(function () {
+      if (token !== seriesToken) return;   // er is inmiddels een andere cel gekozen
+      var series = Cube.series(cell);
+      $('chart-status').hidden = true;
+      Charts.timeseries($('c-ts'), $('tt-ts'), series, idx);
+      Charts.season($('c-season'), series);
+      Charts.decomposition($('c-decomp'), cell.live
+        ? { obs: series.obs,
+            seasonal: series.obs.map(function (o) { return o.baseline === null ? NaN : o.baseline; }),
+            trend: series.obs.map(function () { return NaN; }),
+            remainder: series.obs.map(function () { return NaN; }) }
+        : Cube.decompose(cell));
+    }).catch(function (e) {
+      if (token !== seriesToken) return;
+      $('chart-status').textContent = 'De reeks van deze cel kon niet geladen worden: ' + e.message;
+      $('chart-status').hidden = false;
+    });
     if (cell.h3) {
       map.setFilter('cells-selected', ['==', ['get', 'h3'], cell.h3]);
     } else {
@@ -172,7 +188,7 @@
   }
 
   function downloadCSV(cell) {
-    var series = cell._series || Cube.series(cell);
+    var series = Cube.series(cell);
     var idx = Cube.data.meta.index.toLowerCase();
     var lines = ['datum,doy,' + idx + ',referentie,robuuste_sd,z'];
     series.obs.forEach(function (o) {
@@ -397,9 +413,11 @@
       $('d-stats').innerHTML = '';
       $('d-verdict').hidden = true;
       $('grass-cmd').hidden = true;
+      seriesToken++;
       ['c-ts', 'c-season', 'c-decomp', 'c-annual'].forEach(function (id) {
         $(id).innerHTML = '';
       });
+      $('chart-status').hidden = true;
       this.hidden = true;
       map.setFilter('cells-selected', ['==', ['get', 'h3'], '__none__']);
       updateURL();
@@ -410,7 +428,10 @@
         setTimeout(function () { $('toast').hidden = true; }, 2200);
       });
     };
-    $('btn-csv').onclick = function () { if (selected) downloadCSV(selected); };
+    $('btn-csv').onclick = function () {
+      if (!selected) return;
+      Cube.ensureSeries(selected).then(function () { downloadCSV(selected); });
+    };
     $('btn-grass').onclick = function () {
       if (!selected) return;
       var pre = $('grass-cmd');

@@ -67,6 +67,7 @@
     dates: null,     // Date[]
     doyOfDate: null, // Int16Array
     byH3: null,
+    shards: {},      // h3-ouder -> { <h3>: {v,b,s} }, of een Promise tijdens het laden
 
     load: function (url) {
       return fetch(url).then(function (r) {
@@ -77,18 +78,62 @@
         Cube.dates = json.dates.map(function (s) { return new Date(s + 'T00:00:00Z'); });
         Cube.doyOfDate = Cube.dates.map(noLeapDoy);
         Cube.byH3 = {};
-        json.cells.forEach(function (c) { Cube.byH3[c.h3] = c; });
+        var years = json.meta.years || [];
+        json.cells.forEach(function (c) {
+          // lat/lon en de jarenreeks staan niet in de index: die leidt de
+          // browser zelf af, dat scheelt ruim een derde van het bestand.
+          var ll = h3.h3ToGeo(c.h3);
+          c.lat = ll[0];
+          c.lon = ll[1];
+          c.years = years;
+          Cube.byH3[c.h3] = c;
+        });
         return json;
       });
+    },
+
+    /** Naam van de shard waar een cel in zit. */
+    shardFor: function (h3index) {
+      return h3.h3ToParent(h3index, Cube.data.meta.shard_res);
+    },
+
+    /**
+     * Zorg dat de reeks van deze cel beschikbaar is. De index bevat alleen
+     * wat de kaart nodig heeft; de reeksen komen per shard binnen, zodat
+     * een klik een bestand van tientallen kB kost in plaats van megabytes.
+     */
+    ensureSeries: function (cell) {
+      if (cell._series || cell._raw) return Promise.resolve(cell);
+      var key = Cube.shardFor(cell.h3);
+      if (!Cube.shards[key]) {
+        Cube.shards[key] = fetch(FENO_CONFIG.shardBase + key + '.json')
+          .then(function (r) {
+            if (!r.ok) throw new Error('shard ' + key + ' niet gevonden (' + r.status + ')');
+            return r.json();
+          })
+          .then(function (payload) {
+            Object.keys(payload).forEach(function (id) {
+              if (Cube.byH3[id]) Cube.byH3[id]._raw = payload[id];
+            });
+            Cube.shards[key] = payload;
+            return payload;
+          })
+          .catch(function (e) {
+            delete Cube.shards[key];   // laat een volgende klik het opnieuw proberen
+            throw e;
+          });
+      }
+      return Promise.resolve(Cube.shards[key]).then(function () { return cell; });
     },
 
     /** Volledige, gedecodeerde reeks voor een cel (of voor een live antwoord). */
     series: function (cell) {
       if (cell._series) return cell._series;
+      if (!cell._raw) throw new Error('reeks nog niet geladen; roep ensureSeries aan');
       var meta = Cube.data.meta;
-      var v = decodeInt16(cell.v, meta.scale, meta.nodata);
-      var base = decodeInt16(cell.b, meta.scale, meta.nodata);
-      var sd = decodeInt16(cell.s, meta.scale, meta.nodata);
+      var v = decodeInt16(cell._raw.v, meta.scale, meta.nodata);
+      var base = decodeInt16(cell._raw.b, meta.scale, meta.nodata);
+      var sd = decodeInt16(cell._raw.s, meta.scale, meta.nodata);
       var doys = Cube.data.doys;
 
       var obs = [];

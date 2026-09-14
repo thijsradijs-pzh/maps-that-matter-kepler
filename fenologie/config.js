@@ -1,7 +1,9 @@
 // Fenologie Nieuwkoop — configuratie
 window.FENO_CONFIG = {
-  // De kubus die scripts/build_fenologie_cube.py schrijft.
-  cubeUrl: '/data/fenologie-nieuwkoop.json',
+  // De index die scripts/build_fenologie_cube.py schrijft. De reeksen zelf
+  // staan in shards onder shardBase en komen pas bij een klik binnen.
+  cubeUrl: '/data/fenologie/index.json',
+  shardBase: '/data/fenologie/s/',
 
   // Serverless endpoint voor punten buiten de kubus (live openEO op CDSE).
   // Zonder CDSE_CLIENT_ID / CDSE_CLIENT_SECRET geeft het endpoint 503 en

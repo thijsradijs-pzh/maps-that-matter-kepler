@@ -20,21 +20,28 @@ Twee modi:
                    python3 scripts/build_fenologie_cube.py --demo \
                      --res 10 --out data/fenologie-nieuwkoop.json
 
-Uitvoerschema (JSON, gzip't door Vercel):
+Uitvoer: een lichte index plus shards met de reeksen.
 
-  {
-    "meta": {...},
-    "dates": ["2016-01-06", ...],          // gedeelde tijdas
-    "doys":  [1, 6, 11, ...],              // gedeelde DOY-as van de referentie
-    "cells": [
-      { "h3": "8a1fb...", "lat":.., "lon":.., "hab": "H7140B",
-        "n": 253, "slope": -0.0047, "tau": -0.69, "p": 0.0073,
-        "zlow": 6, "zhigh": 5,
-        "v":  "<base64 Int16, NDVI*10000, -32768 = geen waarneming>",
-        "b":  "<base64 Int16, referentiecurve per DOY>",
-        "s":  "<base64 Int16, robuuste SD per DOY>" }
-    ]
-  }
+  <out-dir>/index.json
+    {
+      "meta": {...},                       // incl. "shard_res"
+      "ring": [[lon, lat], ...],
+      "dates": ["2016-01-06", ...],        // gedeelde tijdas
+      "doys":  [1, 6, 11, ...],            // gedeelde DOY-as van de referentie
+      "cells": [                           // alles wat de KAART nodig heeft
+        { "h3": "8a1fb...", "lat":.., "lon":.., "hab": "H7140B",
+          "n": 253, "slope": -0.0047, "tau": -0.69, "p": 0.0073,
+          "zlow": 6, "zhigh": 5, "years": [...], "ymed": [...], ... }
+      ]
+    }
+
+  <out-dir>/s/<h3-ouder>.json              // pas opgehaald bij een klik
+    { "<h3>": { "v": "<b64 Int16, index*10000, -32768 = geen waarneming>",
+                "b": "<b64 Int16, referentiecurve per DOY>",
+                "s": "<b64 Int16, robuuste SD per DOY>" }, ... }
+
+De index blijft daardoor klein genoeg om direct te laden, ook op res 10,
+en per klik komt er maar een enkele shard van tientallen kB bij.
 """
 
 import argparse
@@ -43,6 +50,7 @@ import json
 import math
 import sys
 from datetime import date, timedelta
+from pathlib import Path
 
 import numpy as np
 
@@ -181,10 +189,9 @@ def analyse(dates, vals, targets, base, sd, sd_floor=0.02):
         "zlow": int(np.nansum(z <= -2)),
         "zhigh": int(np.nansum(z >= 2)),
         "years": uniq,
-        "ymed": [None if math.isnan(q) else round(q, 4) for q in ymed],
-        "ymax": [None if math.isnan(q) else round(q, 4) for q in ymax],
-        "ymin": [None if math.isnan(q) else round(q, 4) for q in ymin],
-        "ylvl": [None if math.isnan(q) else round(q, 4) for q in yrng],
+        "ymed": [None if math.isnan(q) else round(q, 3) for q in ymed],
+        "ymax": [None if math.isnan(q) else round(q, 3) for q in ymax],
+        "ymin": [None if math.isnan(q) else round(q, 3) for q in ymin],
     }
 
 
@@ -350,7 +357,10 @@ def main():
     ap.add_argument("--epsg", default="32631")
     ap.add_argument("--no-wfs", action="store_true",
                     help="sla het ophalen van de N2000-begrenzing over")
-    ap.add_argument("--out", default="data/fenologie-nieuwkoop.json")
+    ap.add_argument("--out-dir", default="data/fenologie",
+                    help="map voor index.json en de shards")
+    ap.add_argument("--shard-res", type=int, default=None,
+                    help="H3-resolutie waarop de shards groeperen (default: res - 2)")
     args = ap.parse_args()
     if args.from_grass == args.demo:
         ap.error("kies --from-grass of --demo")
@@ -368,6 +378,7 @@ def main():
         dates, series, habs = build_demo(cells)
 
     doys_shared = list(range(1, YEAR_LENGTH + 1, 5))
+    years_shared = sorted({d.year for d in dates})
     out_cells = []
     for i, c in enumerate(cells):
         vals = series[i]
@@ -380,27 +391,40 @@ def main():
         stats = analyse(d_ok, v_ok, targets, base, sd)
         if stats is None:
             continue
-        lat, lon = h3.cell_to_latlng(c)
         out_cells.append({
-            "h3": c, "lat": round(lat, 6), "lon": round(lon, 6),
+            "h3": c,
             "hab": habs[i] if habs else None,
             "n": int(ok.sum()),
             "slope": stats["slope"], "tau": stats["tau"], "p": stats["p"],
             "zlow": stats["zlow"], "zhigh": stats["zhigh"],
-            "years": stats["years"], "ymed": stats["ymed"],
-            "ymax": stats["ymax"], "ymin": stats["ymin"], "ylvl": stats["ylvl"],
+            "ymed": stats["ymed"], "ymax": stats["ymax"], "ymin": stats["ymin"],
             "v": b64_int16(vals), "b": b64_int16(base), "s": b64_int16(sd),
         })
         if (i + 1) % 100 == 0:
             print("  %d/%d" % (i + 1, len(cells)), file=sys.stderr)
 
-    payload = {
+    shard_res = args.shard_res if args.shard_res is not None else max(0, args.res - 2)
+    out_dir = Path(args.out_dir)
+    (out_dir / "s").mkdir(parents=True, exist_ok=True)
+
+    shards = {}
+    index_cells = []
+    for cell in out_cells:
+        parent = h3.cell_to_parent(cell["h3"], shard_res)
+        shards.setdefault(parent, {})[cell["h3"]] = {
+            "v": cell.pop("v"), "b": cell.pop("b"), "s": cell.pop("s"),
+        }
+        index_cells.append(cell)
+
+    index = {
         "meta": {
             "index": args.index.upper(),
             "source": "GRASS STRDS %s" % args.strds if args.from_grass
                       else "gesimuleerd (demo)",
             "demo": bool(args.demo),
             "h3_res": args.res,
+            "shard_res": shard_res,
+            "years": years_shared,
             "boundary": ring_src,
             "period": [dates[0].isoformat(), dates[-1].isoformat()],
             "scale": SCALE, "nodata": NODATA,
@@ -411,12 +435,25 @@ def main():
         "ring": [[round(x, 6), round(y, 6)] for x, y in ring],
         "dates": [d.isoformat() for d in dates],
         "doys": doys_shared,
-        "cells": out_cells,
+        "cells": index_cells,
     }
-    with open(args.out, "w") as fh:
-        json.dump(payload, fh, separators=(",", ":"))
-    print("%s geschreven: %d cellen, %d tijdstappen"
-          % (args.out, len(out_cells), len(dates)), file=sys.stderr)
+    with open(out_dir / "index.json", "w") as fh:
+        json.dump(index, fh, separators=(",", ":"))
+
+    # oude shards opruimen, anders blijven cellen van een vorige resolutie staan
+    for stale in (out_dir / "s").glob("*.json"):
+        stale.unlink()
+    for parent, payload in shards.items():
+        with open(out_dir / "s" / (parent + ".json"), "w") as fh:
+            json.dump(payload, fh, separators=(",", ":"))
+
+    idx_bytes = (out_dir / "index.json").stat().st_size
+    shard_bytes = sum(f.stat().st_size for f in (out_dir / "s").glob("*.json"))
+    print("%s: index %.1f MB, %d shards samen %.1f MB (gemiddeld %.0f kB)"
+          % (out_dir, idx_bytes / 1e6, len(shards), shard_bytes / 1e6,
+             shard_bytes / max(1, len(shards)) / 1e3), file=sys.stderr)
+    print("%d cellen, %d tijdstappen, shard-resolutie %d"
+          % (len(index_cells), len(dates), shard_res), file=sys.stderr)
 
 
 if __name__ == "__main__":
