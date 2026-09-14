@@ -28,114 +28,99 @@
 </head>
 <body>
 
-<div class="app">
+<a class="home-link" href="/">← Maps That Matter</a>
 
-  <!-- ── kaartkolom ──────────────────────────────────────── -->
-  <div class="mapcol">
-    <div id="map"></div>
+<div id="map"></div>
 
-    <div class="toolbar">
-      <a class="home" href="/" title="Terug naar Maps That Matter">←</a>
-      <span class="brand">Fenologie Nieuwkoop</span>
+<!-- ── Kaartbediening (links) ───────────────────────────────── -->
+<div class="control-card" id="controls">
+  <div class="control-head">
+    <h1>Fenologie Nieuwkoop</h1>
+    <button class="collapse" id="btn-collapse" aria-label="Paneel in- of uitklappen">−</button>
+  </div>
+  <div class="control-body" id="control-body">
+    <p class="lede">Tien jaar Sentinel-2 per hexagon. Klik een cel voor het NDVI-verloop, de eigen seizoensreferentie en de trend.</p>
 
-      <span class="sep" aria-hidden="true"></span>
+    <label class="field-label" for="metric">Kaartlaag</label>
+    <select id="metric">
+      <option value="slope">Trend in het seizoensniveau (NDVI/jaar)</option>
+      <option value="zlow">Aantal uitzonderlijk lage waarnemingen (z ≤ −2)</option>
+      <option value="zhigh">Aantal uitzonderlijk hoge waarnemingen (z ≥ +2)</option>
+      <option value="n">Aantal bruikbare waarnemingen</option>
+    </select>
 
-      <label class="ctl">
-        <span>Kaartlaag</span>
-        <select id="metric">
-          <option value="slope">Trend in seizoensniveau</option>
-          <option value="zlow">Uitzonderlijk laag (z ≤ −2)</option>
-          <option value="zhigh">Uitzonderlijk hoog (z ≥ +2)</option>
-          <option value="n">Aantal waarnemingen</option>
-        </select>
-      </label>
-
-      <label class="ctl">
-        <span>Ondergrond</span>
-        <select id="basemap">
-          <option value="brtGrijs">BRT grijs</option>
-          <option value="brtStandaard">BRT standaard</option>
-          <option value="luchtfoto">Luchtfoto</option>
-        </select>
-      </label>
-
-      <label class="ctl narrow">
-        <span>Dekking <b id="opacity-val">80%</b></span>
-        <input id="opacity" type="range" min="10" max="100" step="5" value="80" />
-      </label>
-
-      <label class="check">
-        <input type="checkbox" id="only-sig" />
-        <span>alleen p &lt; 0,05</span>
-      </label>
-
-      <span class="spacer"></span>
-      <span class="badge" id="source-badge" hidden></span>
-      <button class="btn" id="btn-share" title="Kopieer een link naar deze weergave">🔗 Deel</button>
+    <div class="check-row">
+      <label><input type="checkbox" id="only-sig" /> alleen significante trends (p &lt; 0,05)</label>
     </div>
 
-    <div class="legend-card">
-      <div class="bar" id="legend-bar"></div>
-      <div class="ends"><span id="legend-lo"></span><span id="legend-hi"></span></div>
-      <p class="unit" id="legend-unit"></p>
-      <p class="note" id="legend-note"></p>
+    <label class="field-label" for="basemap">Ondergrond</label>
+    <select id="basemap">
+      <option value="brtGrijs">PDOK BRT grijs</option>
+      <option value="brtStandaard">PDOK BRT standaard</option>
+      <option value="luchtfoto">PDOK luchtfoto (actueel)</option>
+    </select>
+
+    <label class="field-label" for="opacity">Dekking hexagonen <span id="opacity-val">80%</span></label>
+    <input type="range" id="opacity" min="10" max="100" step="5" value="80" />
+
+    <div class="legend" id="legend"></div>
+
+    <div class="meta-block" id="meta-block"></div>
+
+    <div class="btn-row">
+      <button class="btn" id="btn-share">🔗 Deel deze weergave</button>
     </div>
   </div>
-
-  <!-- ── detailkolom ─────────────────────────────────────── -->
-  <aside class="detail" id="detail">
-    <div class="detail-head">
-      <div>
-        <h1 id="d-title">Klik een hexagon</h1>
-        <p class="d-sub" id="d-sub">Elke cel is één Sentinel-2 pixel, 2016 tot 2025.</p>
-      </div>
-      <button class="close" id="btn-close" title="Sluiten" hidden>×</button>
-    </div>
-
-    <div class="detail-body" id="detail-body">
-      <dl class="stats" id="d-stats"></dl>
-      <p class="verdict" id="d-verdict" hidden></p>
-
-      <p class="chart-status" id="chart-status" hidden></p>
-
-      <section class="block">
-        <h2>Tijdreeks tegen de eigen referentie</h2>
-        <div class="chart"><svg id="c-ts" viewBox="0 0 640 300" role="img" aria-label="NDVI-tijdreeks met z-anomalieën"></svg><div class="tt" id="tt-ts"></div></div>
-        <p class="cap">Band = referentiecurve ± 1 robuuste SD. Balken onder = gestandaardiseerde anomalie; |z| ≥ 2 is uitzonderlijk.</p>
-      </section>
-
-      <section class="block">
-        <h2>Seizoensprofiel</h2>
-        <div class="chart"><svg id="c-season" viewBox="0 0 640 190" role="img" aria-label="Seizoensprofiel per dag van het jaar"></svg></div>
-        <p class="cap">Alle jaren over elkaar, per dag van het jaar.</p>
-      </section>
-
-      <details class="block">
-        <summary><h2>Decompositie</h2></summary>
-        <div class="chart"><svg id="c-decomp" viewBox="0 0 640 250" role="img" aria-label="Decompositie in trend, seizoen en rest"></svg></div>
-        <p class="cap">Seizoen = de referentiecurve; trend = lopende mediaan van wat er na aftrek overblijft; rest = het verschil.</p>
-      </details>
-
-      <details class="block">
-        <summary><h2>Jaarcurve samengevat</h2></summary>
-        <div class="chart"><svg id="c-annual" viewBox="0 0 640 180" role="img" aria-label="Jaarstatistieken met trend"></svg></div>
-        <p class="cap">p90, mediaan en p10 per jaar. Theil-Sen en Mann-Kendall draaien op de mediaanreeks.</p>
-      </details>
-
-      <div class="btn-row">
-        <button class="btn" id="btn-csv">⬇ CSV van deze reeks</button>
-        <button class="btn" id="btn-grass">⌨ GRASS-commando</button>
-      </div>
-      <pre class="grass-cmd" id="grass-cmd" hidden></pre>
-
-      <details class="about">
-        <summary>Over deze kaart</summary>
-        <div class="meta-block" id="meta-block"></div>
-      </details>
-    </div>
-  </aside>
 </div>
 
+<!-- ── Detailpaneel (rechts / bottom sheet) ─────────────────── -->
+<aside class="detail" id="detail" hidden>
+  <div class="detail-head">
+    <div>
+      <h2 id="d-title">—</h2>
+      <p class="d-sub" id="d-sub">—</p>
+    </div>
+    <button class="close" id="btn-close" aria-label="Sluiten">×</button>
+  </div>
+
+  <div class="detail-body">
+    <dl class="stats" id="d-stats"></dl>
+    <p class="verdict" id="d-verdict"></p>
+    <p class="chart-status" id="chart-status" hidden></p>
+
+    <section class="chart-block">
+      <h3>Tijdreeks tegen de eigen referentie</h3>
+      <div class="chart"><svg id="c-ts" viewBox="0 0 640 300" role="img" aria-label="NDVI-tijdreeks met z-anomalieën"></svg><div class="tt" id="tt-ts"></div></div>
+      <p class="cap">Band = referentiecurve ± 1 robuuste SD. Balken onder = gestandaardiseerde anomalie; |z| ≥ 2 is uitzonderlijk.</p>
+    </section>
+
+    <section class="chart-block">
+      <h3>Seizoensprofiel</h3>
+      <div class="chart"><svg id="c-season" viewBox="0 0 640 190" role="img" aria-label="Seizoensprofiel per dag van het jaar"></svg></div>
+      <p class="cap">Alle jaren over elkaar, per dag van het jaar (365-daagse kalender).</p>
+    </section>
+
+    <section class="chart-block">
+      <h3>Decompositie</h3>
+      <div class="chart"><svg id="c-decomp" viewBox="0 0 640 250" role="img" aria-label="Decompositie in trend, seizoen en rest"></svg></div>
+      <p class="cap">Seizoen = de referentiecurve; trend = lopende mediaan van wat er na aftrek overblijft; rest = het verschil.</p>
+    </section>
+
+    <section class="chart-block">
+      <h3>Jaarcurve samengevat</h3>
+      <div class="chart"><svg id="c-annual" viewBox="0 0 640 180" role="img" aria-label="Jaarstatistieken met trend"></svg></div>
+      <p class="cap">p90, mediaan en p10 per jaar. Theil-Sen en Mann-Kendall draaien op de mediaanreeks, n = 10.</p>
+    </section>
+
+    <div class="btn-row">
+      <button class="btn" id="btn-csv">⬇ CSV van deze reeks</button>
+      <button class="btn" id="btn-grass">⌨ GRASS-commando</button>
+    </div>
+    <pre class="grass-cmd" id="grass-cmd" hidden></pre>
+  </div>
+</aside>
+
+<!-- ── Live openEO buiten de kubus ──────────────────────────── -->
 <div class="toast" id="toast" hidden>
   <span id="toast-text"></span>
   <button class="btn btn-sm" id="btn-live">Live ophalen</button>

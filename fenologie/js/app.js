@@ -65,6 +65,7 @@
   /* ── legenda ────────────────────────────────────────────── */
   function renderLegend() {
     var spec = CFG.metrics[metric];
+    var box = $('legend');
     var grad, lo, hi;
     if (spec.type === 'diverging') {
       grad = 'linear-gradient(90deg,' + C.neg + ',' + C.mid + ',' + C.pos + ')';
@@ -75,27 +76,22 @@
       lo = '0';
       hi = String(window.__metricMax[metric]);
     }
-    $('legend-bar').style.background = grad;
-    $('legend-lo').textContent = lo;
-    $('legend-hi').textContent = hi;
-    $('legend-unit').textContent = spec.unit;
-    $('legend-note').textContent = spec.note;
+    box.innerHTML =
+      '<div class="bar" style="background:' + grad + '"></div>' +
+      '<div class="ends"><span>' + lo + '</span><span>' + spec.unit + '</span><span>' + hi + '</span></div>' +
+      '<div class="note">' + spec.note + '</div>';
   }
 
   function renderMeta() {
     var m = Cube.data.meta;
-    var badge = $('source-badge');
-    badge.textContent = m.demo ? 'demo-data' : m.source;
-    badge.className = m.demo ? 'badge' : 'badge live';
-    badge.title = m.demo
-      ? 'Gesimuleerde reeksen; de verwerking erna is de productiecode.'
-      : 'Echte kubus uit ' + m.source;
-    badge.hidden = false;
-    $('meta-block').innerHTML =
+    var badge = m.demo
+      ? '<span class="badge">demo-data</span><br>'
+      : '<span class="badge live">' + m.source + '</span><br>';
+    $('meta-block').innerHTML = badge +
       Cube.data.cells.length + ' hexagonen (H3 res ' + m.h3_res + ') &middot; ' +
-      m.period[0].slice(0, 4) + '–' + m.period[1].slice(0, 4) + ' &middot; ' + m.index + '.<br>' +
+      m.period[0].slice(0, 4) + '–' + m.period[1].slice(0, 4) + ' &middot; ' + m.index + '<br>' +
       m.boundary + '.<br>' + m.method + '.' +
-      (m.demo ? '<br><strong>Let op:</strong> de reeksen zijn gesimuleerd. Draai ' +
+      (m.demo ? '<br><strong>Let op:</strong> gesimuleerde reeksen. Draai ' +
         '<code>build_fenologie_cube.py --from-grass</code> voor de echte kubus.' : '');
   }
 
@@ -142,8 +138,7 @@
 
     Charts.annual($('c-annual'), cell);
     $('grass-cmd').hidden = true;
-    $('d-verdict').hidden = false;
-    $('btn-close').hidden = false;
+    $('detail').hidden = false;
 
     // De reeks zit in een shard en komt apart binnen. Tot die tijd blijven
     // de drie reeksgrafieken leeg in plaats van een oude cel te tonen.
@@ -289,8 +284,16 @@
       return [Math.min(acc[0], p[0]), Math.min(acc[1], p[1]),
               Math.max(acc[2], p[0]), Math.max(acc[3], p[1])];
     }, [Infinity, Infinity, -Infinity, -Infinity]);
+    // Het bedieningspaneel zweeft links over de kaart; houd daar ruimte voor
+    // vrij zodat het gebied er niet achter verdwijnt.
+    var wide = window.innerWidth > 820;
     map.fitBounds([[b[0], b[1]], [b[2], b[3]]], {
-      padding: { top: 62, bottom: 34, left: 22, right: 22 },
+      padding: {
+        top: wide ? 24 : 56,
+        bottom: wide ? 40 : 30,
+        left: wide ? 340 : 18,
+        right: wide ? 32 : 18,
+      },
       duration: 0,
     });
   }
@@ -402,23 +405,20 @@
         map.setPaintProperty('cells-fill', 'fill-opacity', +e.target.value / 100);
       }
     };
+    $('btn-collapse').onclick = function () {
+      var card = $('controls');
+      card.classList.toggle('collapsed');
+      this.textContent = card.classList.contains('collapsed') ? '+' : '\u2212';
+    };
     $('basemap').onchange = function (e) {
       // style.load hangt de hexagonen er daarna weer aan
       map.setStyle(basemapStyle(e.target.value));
     };
     $('btn-close').onclick = function () {
+      $('detail').hidden = true;
       selected = null;
-      $('d-title').textContent = 'Klik een hexagon';
-      $('d-sub').textContent = 'Elke cel is \u00e9\u00e9n Sentinel-2 pixel, 2016 tot 2025.';
-      $('d-stats').innerHTML = '';
-      $('d-verdict').hidden = true;
-      $('grass-cmd').hidden = true;
       seriesToken++;
-      ['c-ts', 'c-season', 'c-decomp', 'c-annual'].forEach(function (id) {
-        $(id).innerHTML = '';
-      });
       $('chart-status').hidden = true;
-      this.hidden = true;
       map.setFilter('cells-selected', ['==', ['get', 'h3'], '__none__']);
       updateURL();
     };
