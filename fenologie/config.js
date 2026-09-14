@@ -15,21 +15,31 @@ window.FENO_CONFIG = {
     maxZoom: 16,
   },
 
+  // Alle drie PDOK, geen sleutel nodig, geen CARTO.
   basemaps: {
-    positron: {
-      tiles: ['https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'],
-      attribution: '© OpenStreetMap · © CARTO',
+    brtGrijs: {
+      tiles: ['https://service.pdok.nl/kadaster/brt-achtergrondkaart/wmts/v2_0/grijs/EPSG:3857/{z}/{x}/{y}.png'],
+      attribution: '&copy; Kadaster / PDOK &mdash; BRT Achtergrondkaart',
       tileSize: 256,
+      maxzoom: 16,
     },
-    // PDOK WMTS, CORS-open, geen sleutel nodig
+    brtStandaard: {
+      tiles: ['https://service.pdok.nl/kadaster/brt-achtergrondkaart/wmts/v2_0/standaard/EPSG:3857/{z}/{x}/{y}.png'],
+      attribution: '&copy; Kadaster / PDOK &mdash; BRT Achtergrondkaart',
+      tileSize: 256,
+      maxzoom: 16,
+    },
     luchtfoto: {
       tiles: ['https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/{z}/{x}/{y}.jpeg'],
-      attribution: '© Kadaster / PDOK — luchtfoto Actueel_orthoHR',
+      attribution: '&copy; Kadaster / PDOK &mdash; luchtfoto Actueel_orthoHR',
       tileSize: 256,
+      maxzoom: 19,
     },
   },
 
   // Kaartlagen: welk veld, welke schaal, welke legenda
+  defaultBasemap: 'brtGrijs',
+
   metrics: {
     slope: {
       label: 'Trend in het seizoensniveau',

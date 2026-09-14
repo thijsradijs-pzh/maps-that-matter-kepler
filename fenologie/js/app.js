@@ -64,7 +64,6 @@
   /* ── legenda ────────────────────────────────────────────── */
   function renderLegend() {
     var spec = CFG.metrics[metric];
-    var box = $('legend');
     var grad, lo, hi;
     if (spec.type === 'diverging') {
       grad = 'linear-gradient(90deg,' + C.neg + ',' + C.mid + ',' + C.pos + ')';
@@ -75,22 +74,27 @@
       lo = '0';
       hi = String(window.__metricMax[metric]);
     }
-    box.innerHTML =
-      '<div class="bar" style="background:' + grad + '"></div>' +
-      '<div class="ends"><span>' + lo + '</span><span>' + spec.unit + '</span><span>' + hi + '</span></div>' +
-      '<div class="note">' + spec.note + '</div>';
+    $('legend-bar').style.background = grad;
+    $('legend-lo').textContent = lo;
+    $('legend-hi').textContent = hi;
+    $('legend-unit').textContent = spec.unit;
+    $('legend-note').textContent = spec.note;
   }
 
   function renderMeta() {
     var m = Cube.data.meta;
-    var badge = m.demo
-      ? '<span class="badge">demo-data</span><br>'
-      : '<span class="badge live">' + m.source + '</span><br>';
-    $('meta-block').innerHTML = badge +
-      Cube.data.cells.length + ' hexagonen (H3 res ' + m.h3_res + ') · ' +
-      m.period[0].slice(0, 4) + '–' + m.period[1].slice(0, 4) + ' · ' + m.index + '<br>' +
+    var badge = $('source-badge');
+    badge.textContent = m.demo ? 'demo-data' : m.source;
+    badge.className = m.demo ? 'badge' : 'badge live';
+    badge.title = m.demo
+      ? 'Gesimuleerde reeksen; de verwerking erna is de productiecode.'
+      : 'Echte kubus uit ' + m.source;
+    badge.hidden = false;
+    $('meta-block').innerHTML =
+      Cube.data.cells.length + ' hexagonen (H3 res ' + m.h3_res + ') &middot; ' +
+      m.period[0].slice(0, 4) + '–' + m.period[1].slice(0, 4) + ' &middot; ' + m.index + '.<br>' +
       m.boundary + '.<br>' + m.method + '.' +
-      (m.demo ? '<br><strong>Let op:</strong> gesimuleerde reeksen. Draai ' +
+      (m.demo ? '<br><strong>Let op:</strong> de reeksen zijn gesimuleerd. Draai ' +
         '<code>build_fenologie_cube.py --from-grass</code> voor de echte kubus.' : '');
   }
 
@@ -147,7 +151,8 @@
     Charts.annual($('c-annual'), cell);
 
     $('grass-cmd').hidden = true;
-    $('detail').hidden = false;
+    $('d-verdict').hidden = false;
+    $('btn-close').hidden = false;
     if (cell.h3) {
       map.setFilter('cells-selected', ['==', ['get', 'h3'], cell.h3]);
     } else {
@@ -240,18 +245,38 @@
     var h = p.get('h3');
     if (h && Cube.byH3[h]) {
       showCell(Cube.byH3[h]);
-      map.flyTo({ center: [Cube.byH3[h].lon, Cube.byH3[h].lat], zoom: 13.5 });
+      map.jumpTo({ center: [Cube.byH3[h].lon, Cube.byH3[h].lat], zoom: 13.8 });
     }
   }
 
   /* ── kaart ──────────────────────────────────────────────── */
   function basemapStyle(key) {
-    var b = CFG.basemaps[key];
+    var b = CFG.basemaps[key] || CFG.basemaps[CFG.defaultBasemap];
     return {
       version: 8,
-      sources: { base: { type: 'raster', tiles: b.tiles, tileSize: b.tileSize, attribution: b.attribution } },
+      sources: {
+        base: {
+          type: 'raster', tiles: b.tiles, tileSize: b.tileSize,
+          attribution: b.attribution, maxzoom: b.maxzoom || 19,
+        },
+      },
       layers: [{ id: 'base', type: 'raster', source: 'base' }],
     };
+  }
+
+  /** Zoom naar de kubus, zodat het gebied op elk schermformaat past. */
+  function fitToCube() {
+    var pts = (Cube.data.ring && Cube.data.ring.length)
+      ? Cube.data.ring
+      : Cube.data.cells.map(function (c) { return [c.lon, c.lat]; });
+    var b = pts.reduce(function (acc, p) {
+      return [Math.min(acc[0], p[0]), Math.min(acc[1], p[1]),
+              Math.max(acc[2], p[0]), Math.max(acc[3], p[1])];
+    }, [Infinity, Infinity, -Infinity, -Infinity]);
+    map.fitBounds([[b[0], b[1]], [b[2], b[3]]], {
+      padding: { top: 62, bottom: 34, left: 22, right: 22 },
+      duration: 0,
+    });
   }
 
   function addDataLayers() {
@@ -312,9 +337,10 @@
       }, 1);
     });
 
+    $('basemap').value = CFG.defaultBasemap;
     map = new maplibregl.Map({
       container: 'map',
-      style: basemapStyle('positron'),
+      style: basemapStyle(CFG.defaultBasemap),
       center: CFG.map.center,
       zoom: CFG.map.zoom,
       minZoom: CFG.map.minZoom,
@@ -335,6 +361,7 @@
       }
       if (!firstStyle) return;
       firstStyle = false;
+      fitToCube();
       renderLegend();
       renderMeta();
       $('loader').hidden = true;
@@ -363,14 +390,17 @@
       // style.load hangt de hexagonen er daarna weer aan
       map.setStyle(basemapStyle(e.target.value));
     };
-    $('btn-collapse').onclick = function () {
-      var card = $('controls');
-      card.classList.toggle('collapsed');
-      this.textContent = card.classList.contains('collapsed') ? '+' : '−';
-    };
     $('btn-close').onclick = function () {
-      $('detail').hidden = true;
       selected = null;
+      $('d-title').textContent = 'Klik een hexagon';
+      $('d-sub').textContent = 'Elke cel is \u00e9\u00e9n Sentinel-2 pixel, 2016 tot 2025.';
+      $('d-stats').innerHTML = '';
+      $('d-verdict').hidden = true;
+      $('grass-cmd').hidden = true;
+      ['c-ts', 'c-season', 'c-decomp', 'c-annual'].forEach(function (id) {
+        $(id).innerHTML = '';
+      });
+      this.hidden = true;
       map.setFilter('cells-selected', ['==', ['get', 'h3'], '__none__']);
       updateURL();
     };
