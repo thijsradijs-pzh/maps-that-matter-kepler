@@ -1,14 +1,17 @@
 // Fenologie Nieuwkoop — configuratie
 window.FENO_CONFIG = {
-  // De index die scripts/build_fenologie_cube.py schrijft. De reeksen zelf
-  // staan in shards onder shardBase en komen pas bij een klik binnen.
-  cubeUrl: '/data/fenologie/index.json',
-  shardBase: '/data/fenologie/s/',
+  // De per-pixel trendkaarten die scripts/export_fenologie_raster.py schrijft
+  // uit de GRASS-uitvoer van hoofdstuk 11. Geen H3, geen kubus: een raster in
+  // EPSG:3857 dat als image-source op de kaart ligt.
+  rasterBase: '/data/fenologie/raster',
 
-  // Serverless endpoint voor punten buiten de kubus (live openEO op CDSE).
-  // Zonder CDSE_CLIENT_ID / CDSE_CLIENT_SECRET geeft het endpoint 503 en
-  // verbergt de viewer de knop.
+  // Serverless endpoint voor de reeks achter een klik (live openEO op CDSE).
+  // Zonder CDSE_CLIENT_ID / CDSE_CLIENT_SECRET geeft het endpoint 503; de
+  // viewer toont dan wel de trendcijfers uit het raster, maar geen grafieken.
   liveUrl: '/api/ndvi-series',
+
+  // Benjamini-Hochberg-niveau, gelijk aan fdr_alpha in de rasterexport.
+  alpha: 0.05,
 
   map: {
     center: [4.838, 52.150],
@@ -42,38 +45,46 @@ window.FENO_CONFIG = {
   // Kaartlagen: welk veld, welke schaal, welke legenda
   defaultBasemap: 'brtGrijs',
 
+  // Kaartlagen: elk verwijst naar een band uit de rasterexport.
   metrics: {
     slope: {
+      band: 'slope',
       label: 'Trend in het seizoensniveau',
       unit: 'NDVI/jaar',
       type: 'diverging',
       domain: 0.010,
       fmt: function (v) { return (v > 0 ? '+' : '−') + Math.abs(v).toFixed(4).replace('.', ','); },
-      note: 'Theil-Sen op de jaarmedianen. Bruin = afname, groen = toename.',
+      note: 'Theil-Sen op de jaarmedianen van de HANTS-jaarcurven. Bruin = afname, groen = toename.',
     },
-    zlow: {
-      label: 'Uitzonderlijk lage waarnemingen',
-      unit: 'waarnemingen met z ≤ −2',
-      type: 'sequential',
-      color: '#9a5b1f',
-      fmt: function (v) { return String(v); },
-      note: 'Hoe donkerder, hoe vaker de index ver onder de eigen referentie zakte.',
+    tau: {
+      band: 'tau',
+      label: 'Sterkte van de monotone trend',
+      unit: "Kendall's tau-b",
+      type: 'diverging',
+      domain: 1.0,
+      fmt: function (v) { return (v > 0 ? '+' : '−') + Math.abs(v).toFixed(2).replace('.', ','); },
+      note: 'Gestandaardiseerde effectmaat: −1 is strikt dalend, +1 strikt stijgend.',
     },
-    zhigh: {
-      label: 'Uitzonderlijk hoge waarnemingen',
-      unit: 'waarnemingen met z ≥ +2',
-      type: 'sequential',
-      color: '#1e7a45',
-      fmt: function (v) { return String(v); },
-      note: 'Hoe donkerder, hoe vaker de index ver boven de eigen referentie lag.',
-    },
-    n: {
-      label: 'Bruikbare waarnemingen',
-      unit: 'wolkvrije dagcomposieten',
+    qvalue: {
+      band: 'qvalue',
+      label: 'Significantie (FDR-gecorrigeerd)',
+      unit: 'q-waarde',
       type: 'sequential',
       color: '#0d6675',
-      fmt: function (v) { return String(v); },
-      note: 'Dekking van de reeks: lage waarden maken elke conclusie zwakker.',
+      invert: true,
+      domain: 1.0,
+      fmt: function (v) { return v < 0.001 ? '< 0,001' : v.toFixed(3).replace('.', ','); },
+      note: 'Donker = klein, dus sterker bewijs. Gecorrigeerd voor het aantal getoetste pixels.',
+    },
+    count: {
+      band: 'count',
+      label: 'Bruikbare jaren',
+      unit: 'jaren met een curve',
+      type: 'sequential',
+      color: '#55564f',
+      domain: null,
+      fmt: function (v) { return String(Math.round(v)); },
+      note: 'Dekking van de reeks: minder jaren maakt elke conclusie zwakker.',
     },
   },
 

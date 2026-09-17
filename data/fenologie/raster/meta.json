@@ -1,0 +1,76 @@
+{
+ "source": "gesimuleerd (demo)",
+ "demo": true,
+ "index": "NDVI",
+ "stat": "median",
+ "crs": "EPSG:3857",
+ "width": 843,
+ "height": 856,
+ "bounds_3857": [
+  531580.4,
+  6820320.39,
+  545324.35,
+  6834271.39
+ ],
+ "corners": [
+  [
+   4.775268,
+   52.1884488
+  ],
+  [
+   4.898732,
+   52.1884488
+  ],
+  [
+   4.898732,
+   52.1115505
+  ],
+  [
+   4.775268,
+   52.1115505
+  ]
+ ],
+ "nodata": -32768,
+ "bands": {
+  "slope": {
+   "file": "slope.png",
+   "scale": 1e-05,
+   "label": "Theil-Sen-helling",
+   "unit": "index/jaar",
+   "min": -0.022843,
+   "max": 0.018852
+  },
+  "tau": {
+   "file": "tau.png",
+   "scale": 0.0001,
+   "label": "Kendall's tau-b",
+   "unit": "",
+   "min": -1.0,
+   "max": 1.0
+  },
+  "qvalue": {
+   "file": "qvalue.png",
+   "scale": 0.0001,
+   "label": "FDR-gecorrigeerde q",
+   "unit": "",
+   "min": 0.0005,
+   "max": 1.0
+  },
+  "count": {
+   "file": "count.png",
+   "scale": 1.0,
+   "label": "geldige jaren",
+   "unit": "jaar",
+   "min": 10.0,
+   "max": 10.0
+  }
+ },
+ "pixels_valid": 552922,
+ "pixels_significant": 587,
+ "fdr_alpha": 0.05,
+ "period": [
+  "2016-01-01",
+  "2025-12-31"
+ ],
+ "method": "Per pixel Theil-Sen + Mann-Kendall op de jaarstatistiek 'median' van de HANTS-jaarcurven, q via Benjamini-Hochberg over alle pixels (hoofdstuk 11). Dit script rekent niets uit, het exporteert alleen."
+}

@@ -5,7 +5,7 @@
 // GET /api/ndvi-series?probe=1        -> 200 als de credentials er zijn, anders 503
 //
 // Gebruikt door /fenologie voor punten buiten de voorberekende kubus. De kubus
-// zelf komt uit GRASS (scripts/build_fenologie_cube.py); dit endpoint is het
+// zelf komt uit GRASS (scripts/export_fenologie_raster.py); dit endpoint is het
 // tweede pad, zodat een klik overal in Nederland iets oplevert.
 //
 // Vereist twee env-vars in Vercel (CDSE service account, gratis):

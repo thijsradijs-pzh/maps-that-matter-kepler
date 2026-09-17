@@ -4,16 +4,16 @@
   <meta charset="utf-8" />
   <title>Fenologie Nieuwkoop — Maps That Matter</title>
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <meta name="description" content="Tien jaar Sentinel-2 NDVI per hexagon in de Nieuwkoopse Plassen: seizoensreferentie, anomalieën en trend, klikbaar per locatie." />
+  <meta name="description" content="Tien jaar Sentinel-2 NDVI per pixel in de Nieuwkoopse Plassen: per-pixel trendkaart uit de GRASS-pipeline, klikbaar tot op 10 meter." />
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://maps.mapsthatmatter.io/fenologie" />
   <meta property="og:title" content="Fenologie Nieuwkoop — Maps That Matter" />
-  <meta property="og:description" content="Tien jaar Sentinel-2 NDVI per hexagon in de Nieuwkoopse Plassen: seizoensreferentie, anomalieën en trend, klikbaar per locatie." />
+  <meta property="og:description" content="Tien jaar Sentinel-2 NDVI per pixel in de Nieuwkoopse Plassen: per-pixel trendkaart uit de GRASS-pipeline, klikbaar tot op 10 meter." />
   <meta property="og:image" content="https://maps.mapsthatmatter.io/assets/thijs.jpg" />
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="Fenologie Nieuwkoop" />
-  <meta name="twitter:description" content="Tien jaar Sentinel-2 NDVI per hexagon: seizoensreferentie, anomalieën en trend." />
+  <meta name="twitter:description" content="Tien jaar Sentinel-2 NDVI per pixel: trend, significantie en seizoensverloop." />
   <meta name="twitter:image" content="https://maps.mapsthatmatter.io/assets/thijs.jpg" />
 
   <script async src="https://plausible.io/js/pa-unGG15m6r6ufvAQNAPz3f.js"></script>
@@ -39,18 +39,19 @@
     <button class="collapse" id="btn-collapse" aria-label="Paneel in- of uitklappen">−</button>
   </div>
   <div class="control-body" id="control-body">
-    <p class="lede">Tien jaar Sentinel-2 per hexagon. Klik een cel voor het NDVI-verloop, de eigen seizoensreferentie en de trend.</p>
+    <p class="lede">Tien jaar Sentinel-2, per pixel van 10 meter. Klik ergens in het gebied voor de trend van die pixel; de tijdreeks eronder haal je er los bij.</p>
 
     <label class="field-label" for="metric">Kaartlaag</label>
     <select id="metric">
       <option value="slope">Trend in het seizoensniveau (NDVI/jaar)</option>
-      <option value="zlow">Aantal uitzonderlijk lage waarnemingen (z ≤ −2)</option>
-      <option value="zhigh">Aantal uitzonderlijk hoge waarnemingen (z ≥ +2)</option>
-      <option value="n">Aantal bruikbare waarnemingen</option>
+      <option value="tau">Sterkte van de trend (Kendall’s tau)</option>
+      <option value="qvalue">Significantie (FDR-gecorrigeerde q)</option>
+      <option value="count">Bruikbare jaren</option>
     </select>
 
     <div class="check-row">
-      <label><input type="checkbox" id="only-sig" /> alleen significante trends (p &lt; 0,05)</label>
+      <label><input type="checkbox" id="only-sig" /> alleen significante trends (q &lt; 0,05)</label>
+      <p class="check-hint" id="sig-hint" hidden></p>
     </div>
 
     <label class="field-label" for="basemap">Ondergrond</label>
@@ -60,7 +61,7 @@
       <option value="luchtfoto">PDOK luchtfoto (actueel)</option>
     </select>
 
-    <label class="field-label" for="opacity">Dekking hexagonen <span id="opacity-val">80%</span></label>
+    <label class="field-label" for="opacity">Dekking trendkaart <span id="opacity-val">80%</span></label>
     <input type="range" id="opacity" min="10" max="100" step="5" value="80" />
 
     <div class="legend" id="legend"></div>
@@ -120,7 +121,7 @@
   </div>
 </aside>
 
-<!-- ── Live openEO buiten de kubus ──────────────────────────── -->
+<!-- ── Meldingen (buiten het gebied, link gekopieerd) ── -->
 <div class="toast" id="toast" hidden>
   <span id="toast-text"></span>
   <button class="btn btn-sm" id="btn-live">Live ophalen</button>
@@ -130,9 +131,9 @@
 <div class="loader" id="loader"><div class="spinner"></div><span id="loader-text">Kubus laden…</span></div>
 
 <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
-<script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
 <script src="/fenologie/config.js"></script>
-<script src="/fenologie/js/cube.js"></script>
+<script src="/fenologie/js/raster.js"></script>
+<script src="/fenologie/js/series.js"></script>
 <script src="/fenologie/js/charts.js"></script>
 <script src="/fenologie/js/app.js"></script>
 </body>

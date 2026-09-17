@@ -1,136 +1,151 @@
 # Fenologie Nieuwkoop
 
-Tien jaar Sentinel-2 per H3-hexagon over de Nieuwkoopse Plassen & De Haeck.
-Klik een cel en je krijgt de reeks, de eigen seizoensreferentie, de
-z-anomalieën, een decompositie en de trend. Buiten de kubus haalt een
-serverless functie de reeks live op bij Copernicus.
+Tien jaar Sentinel-2 per **pixel** over de Nieuwkoopse Plassen & De Haeck.
+De kaart toont de per-pixel trend uit de GRASS-pipeline van het rapport; klik
+ergens in het gebied en je krijgt de trendcijfers van die ene pixel, met de
+tijdreeks eronder op verzoek.
 
 Methodiek volgt *Monitoring habitatveranderingen Nieuwkoop* (HAS green academy
 en Provincie Zuid-Holland, 2026): DOY-klimatologie in stappen van 5 dagen op een
 365-daagse kalender, spreiding als 1,4826 × MAD, z-anomalie met een SD-drempel
-van 0,02, en Theil-Sen + Mann-Kendall op de jaarmedianen.
+van 0,02, en Theil-Sen + Mann-Kendall op de jaarstatistieken van de
+HANTS-jaarcurven — met Benjamini-Hochberg over alle pixels, zoals hoofdstuk 11
+voorschrijft.
 
-## Twee databronnen achter één klik
+> **Geen H3 meer.** Tot september 2026 aggregeerde deze viewer naar H3-hexagonen
+> (res 10) met een voorberekende kubus. Dat was onze eigen toevoeging, niet die
+> van het rapport: de pipeline is van begin tot eind pixel-gebaseerd. De
+> hexagonen, `build_fenologie_cube.py` en de shards zijn verwijderd; ze staan
+> nog wel in de git-historie tot en met commit `498cc49`.
 
-| | binnen het gebied | daarbuiten |
+## Wat waar vandaan komt
+
+| | de kaart | een klik |
 |---|---|---|
-| bron | voorberekende kubus uit GRASS | openEO op Copernicus Data Space |
-| snelheid | direct, alles zit in het JSON-bestand | 10–40 s, daarna een dag gecachet |
-| dekking | Nieuwkoopse Plassen, H3 res 9 | heel Nederland, per punt |
-| nodig | `data/fenologie/` | `CDSE_CLIENT_ID` + `CDSE_CLIENT_SECRET` |
+| bron | GRASS-rasters uit hoofdstuk 11 | openEO op Copernicus Data Space |
+| wat | slope, tau, q, aantal jaren | de ruwe NDVI-reeks van dat punt |
+| snelheid | direct, alles zit in vier PNG's | 10–40 s, daarna een dag gecachet |
+| nodig | `data/fenologie/raster/` | `CDSE_CLIENT_ID` + `CDSE_CLIENT_SECRET` |
 
-Zonder die twee env-vars valt de live-knop stil weg; de kubus blijft werken.
+Zonder die twee env-vars zegt het paneel dat de reeks niet op te halen is; de
+trendkaart zelf blijft gewoon werken.
 
-## De kubus bouwen
+De reeks is bewust **niet** voorberekend: 550.000 pixels × tien jaar past niet
+in een statische download. De trend per pixel wél, want dat zijn vier getallen.
 
-De echte variant draait binnen een GRASS-sessie op de mapset waar de STRDS'en
-van de pipeline staan:
+## De trendkaart maken
+
+Draai eerst notebook 11 (Seizoensdecompositie) uit het rapport. Dat schrijft
+per jaarstatistiek zes rasters weg, `<index>_decomp_<stat>_trend_<grootheid>`.
+Daarna exporteert dit script ze naar de viewer:
 
 ```bash
 grass /pad/naar/GRASSdb/UTM_NLD/NDVI --exec \
-  python3 scripts/build_fenologie_cube.py --from-grass \
-    --strds S2_ndvi --res 10 \
-    --out-dir data/fenologie
+  python3 scripts/export_fenologie_raster.py --from-grass \
+    --index ndvi --stat median
 ```
 
-Dat rasteriseert de hexagonen tot zones, draait `t.rast.univar -e` over de
-STRDS en neemt per datum per cel de **mediaan over alle pixels**, plus de
-pixeltelling als kwaliteitsmaat. Het haalt de Natura 2000-begrenzing bij PDOK
-op en schrijft klimatologie, reeks, z-tellingen en trend per cel weg.
+`--stat` kiest welke trend je toont: `median` is de niveautrend, `max` de
+piektrend, `min` de daltrend en `range` het groter of kleiner worden van het
+seizoensbereik.
 
-## Bemonstering: zonal of centroid
-
-Op res 10 zitten er ruim 150 Sentinel-2 pixels in een hexagon.
-
-- `--sampling zonal` (default) neemt de mediaan van al die pixels en bewaart
-  hoeveel er meededen (`npix` in de index, zichtbaar in het paneel).
-  `--min-pixels 8` laat een datum vallen als er te weinig wolkvrije pixels over
-  zijn.
-- `--sampling centroid` bemonstert alleen het middelpunt. Sneller, maar dan
-  toont een cel van 1,5 ha het verhaal van 100 m². De viewer zet er dan zelf
-  een waarschuwing bij.
+Het script **rekent niets uit**. Het leest de rasters, herprojecteert ze naar
+EPSG:3857 met `gdalwarp` en pakt ze in. Alle statistiek blijft waar hij hoort:
+in de notebooks.
 
 Verifiëren voordat je iets gelooft:
 
 ```bash
-grass ... --exec python3 scripts/build_fenologie_cube.py --from-grass \
-    --strds S2_ndvi --res 10 --verify 8 --out-dir /tmp/probe
+grass ... --exec python3 scripts/export_fenologie_raster.py --from-grass \
+    --index ndvi --stat median --verify 8
 ```
 
-Dat trekt acht willekeurige cellen na met een losse `t.rast.what` op het
-middelpunt. Bij `centroid` horen de verschillen nul te zijn; bij `zonal` zegt
-het verschil hoe heterogeen een cel is.
-
-## Habitat- of beheertype
-
-```bash
-  --habitat pad/naar/beheertypen.gpkg --habitat-field beheertype
-```
-
-Vult `hab` per cel met het type dat het meeste oppervlak beslaat. PDOK heeft
-hiervoor niets bruikbaars: de Natura 2000-service van RVO geeft alleen
-gebiedsgrenzen, en "Habitatrichtlijn verspreiding van habitattypen" is het
-EU-rapportageraster van 10 bij 10 km. De habitattypenkaart zelf zit in de NDVH
-bij BIJ12. Publiek bruikbaar alternatief: de beheertypen uit het
-Natuurbeheerplan van de provincie, per jaar beschikbaar.
+Dat leest acht willekeurige pixels rechtstreeks met `r.what`, buiten de
+exportketen om, zodat je ziet of `r.out.gdal` → `gdalwarp` → Int16 onderweg
+iets stukmaakt.
 
 Zonder GRASS-database, voor ontwikkelen en voor de publieke demo:
 
 ```bash
-python3 scripts/build_fenologie_cube.py --demo --res 10 \
-  --out-dir data/fenologie
+python3 scripts/export_fenologie_raster.py --demo
 ```
 
-De viewer zet dan zelf een `demo-data`-badge in het paneel — de reeksen zijn
-gesimuleerd, de verwerking erna is dezelfde code.
+De viewer zet dan zelf een `demo-data`-badge in het paneel — het trendveld is
+gesimuleerd, de weergave erna is dezelfde code.
 
-## Index en shards
+## Het bestandsformaat
 
-De uitvoer is gesplitst, anders wordt res 10 een download van megabytes
-voordat er iets op het scherm staat:
+Vier PNG's plus een `meta.json`, samen ~2,9 MB:
 
-- `data/fenologie/index.json` — alles wat de kaart nodig heeft (trend,
-  z-tellingen, jaarstatistieken). 1,4 MB, 319 kB gzipped, laadt direct.
-- `data/fenologie/s/<h3-ouder>.json` — de reeksen, gegroepeerd per H3-cel
-  twee resoluties grover. 108 stuks, gemiddeld 92 kB (35 kB gzipped).
-  Komen pas binnen als je een cel aanklikt, en blijven daarna in het geheugen.
+```
+data/fenologie/raster/meta.json     bounds, afmeting, per band schaal + bereik
+data/fenologie/raster/slope.png     Theil-Sen-helling (NDVI/jaar)
+data/fenologie/raster/tau.png       Kendall's tau-b
+data/fenologie/raster/qvalue.png    FDR-gecorrigeerde q
+data/fenologie/raster/count.png     aantal jaren met een curve
+```
 
-`lat`/`lon` en de jarenreeks staan bewust niet in de index; de browser leidt
-die af uit de H3-id en uit `meta.years`. Dat scheelt een derde.
+De waarde zit **verliesloos als Int16 in de PNG**: R is de hoge byte, G de lage,
+en alpha is het nodata-masker. De browser decodeert dat met een gewone `<img>`
+plus canvas, dus zonder geotiff.js, GDAL of tegelserver — dat past bij de
+CDN-first-opzet van dit repo. Terugrekenen is `int16(R<<8 | G) × scale`, met
+`scale` per band in `meta.json`.
 
-Resolutie kiezen: res 10 geeft 4.353 cellen van 152 m breed (1,5 ha), res 9
-geeft er 626 van 402 m. Met de splitsing schaalt res 10 prima; res 11 zou
-~31.000 cellen geven en dan is de index zelf aan de beurt om te splitsen.
+Het raster staat in EPSG:3857, zodat MapLibre het als image-source met vier
+hoekcoördinaten precies op zijn plek legt zonder in de browser te
+herprojecteren. `raster-resampling` staat op `nearest`: elke pixel is een
+meetwaarde, en interpolatie zou waarden suggereren die niet berekend zijn.
+
+## Significantie
+
+Het vinkje "alleen significante trends" toetst op **q, niet op p**. Over een
+half miljoen pixels levert p < 0,05 anders vanzelf tienduizenden valse
+positieven; hoofdstuk 11 corrigeert daarom met Benjamini-Hochberg en schrijft
+de q al als raster weg. Houdt geen enkele pixel stand, dan zegt de viewer dat
+er expliciet bij in plaats van een lege kaart te tonen.
+
+Een losse klik is iets anders: dat is één toets, zonder
+meervoudigheidsprobleem. Daar rapporteert het paneel de q uit het raster, en de
+live opgehaalde reeks krijgt alleen een ruwe p.
 
 ## Bestanden
 
 ```
 fenologie/index.html          markup, meta/OG, CDN-scripts
-fenologie/config.js           kubus-URL, basemaps, kaartlagen, kleuren
+fenologie/config.js           raster-URL, basemaps, kaartlagen, kleuren
 fenologie/css/style.css       licht thema, bottom sheet op mobiel
-fenologie/js/cube.js          base64-Int16 decoderen, decompositie, Theil-Sen, Mann-Kendall
+fenologie/js/raster.js        PNG decoderen, georeferentie, inkleuren
+fenologie/js/series.js        klimatologie, z, decompositie, Theil-Sen, MK
 fenologie/js/charts.js        vier SVG-grafieken, geen chartbibliotheek
 fenologie/js/app.js           MapLibre, interactie, permalink, CSV-export
 api/ndvi-series.js            live openEO-punt (CDSE), server-side credentials
-scripts/build_fenologie_cube.py   GRASS -> kubus, en de demo-generator
-data/fenologie-nieuwkoop.json     de kubus zelf
+scripts/export_fenologie_raster.py  GRASS-rasters -> PNG's, en de demo-generator
+data/fenologie/raster/        de trendkaart zelf
 ```
 
 ## Verwant
 
-De GRASS-addon `t.rast.pointseries` doet hetzelfde voor één punt op de
-commandline en kan de JSON leveren waarop dit viewer-ontwerp gebaseerd is.
-De knop "⌨ GRASS-commando" in het detailpaneel drukt de aanroep af voor de
-geselecteerde cel.
+De knop "⌨ GRASS-commando" in het detailpaneel drukt een `t.rast.what`-aanroep
+af waarmee je de ruwe reeks van het gekozen punt uit de STRDS haalt, zodat je
+de cijfers in het paneel kunt natrekken.
+
+Voor een echte additieve STL-decompositie (trend, seizoen en restterm op de
+oorspronkelijke tijdas) is er de GRASS-addon `t.rast.stl`, genoemd in
+hoofdstuk 11 van het rapport. Die werkt per locatie; de parameters staan niet
+in het rapport, dus de aanroep is hier niet ingevuld.
 
 ## Nog open
 
-- De habitatlabels komen in de demo uit het simulatieprofiel. Voor de echte
-  kubus moet `build_fenologie_cube.py` nog joinen op de habitatkartering
-  (NDVH) in plaats van `hab` leeg te laten.
+- **Het GRASS-pad is nooit tegen een echte sessie gedraaid.** Dat gold al voor
+  de oude kubus en geldt ook voor deze export: `r.out.gdal` → `gdalwarp` →
+  `osgeo.gdal` is op papier geschreven. Draai `--verify` op de eerste echte
+  export voordat je de kaart vertrouwt.
 - De decompositie in de browser is bewust simpel (seizoen = referentiecurve,
-  trend = lopende mediaan). Een echte STL hoort in `t.rast.pointseries`, waar
-  de volledige reeks beschikbaar is.
+  trend = lopende mediaan). Een echte STL hoort in `t.rast.stl`, waar de
+  volledige reeks beschikbaar is.
 - Het live-pad is tegen CDSE geschreven maar nooit tegen een echte
   service-account gedraaid; de process graph is de eerste plek om te kijken
   als er iets misgaat.
+- De viewer toont één jaarstatistiek tegelijk, die je bij de export kiest met
+  `--stat`. Hoofdstuk 11 berekent er vier; alle vier tegelijk tonen zou vier
+  keer zoveel PNG's betekenen.

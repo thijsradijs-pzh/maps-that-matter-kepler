@@ -1,106 +1,124 @@
 // app.js — kaart, interactie en het detailpaneel.
+//
+// Per pixel, niet per hexagon: de trendkaart is een raster uit de GRASS-
+// pipeline (zie scripts/export_fenologie_raster.py) dat als image-source in
+// EPSG:3857 op de kaart ligt. Een klik leest de waarde van die ene pixel uit
+// het al gedecodeerde raster -- geen netwerk, dus meteen. De onderliggende
+// tijdreeks is niet voorberekend en komt op verzoek live van Copernicus.
 
 (function () {
   'use strict';
 
   var CFG = window.FENO_CONFIG;
   var C = CFG.colors;
-  var map, selected = null, metric = 'slope', onlySig = false, liveAvailable = null;
-  var seriesToken = 0;
+  var ALPHA = CFG.alpha || 0.05;
+
+  var map, metric = 'slope', onlySig = false, liveAvailable = null;
+  var picked = null;      // { lon, lat, slope, tau, qvalue, count }
+  var livePoint = null;   // resultaat van Series.fromLive voor het gekozen punt
+  var liveToken = 0;
 
   var $ = function (id) { return document.getElementById(id); };
   var nl = window.Charts.nl;
 
   /* ── kleurschalen ───────────────────────────────────────── */
   function hex2rgb(h) {
-    return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)];
+    return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16),
+            parseInt(h.substr(5, 2), 16)];
   }
-  function mix(a, b, t) {
-    var A = hex2rgb(a), B = hex2rgb(b);
-    return 'rgb(' + Math.round(A[0] + (B[0] - A[0]) * t) + ','
-                  + Math.round(A[1] + (B[1] - A[1]) * t) + ','
-                  + Math.round(A[2] + (B[2] - A[2]) * t) + ')';
-  }
-  function colorFor(cell) {
-    var spec = CFG.metrics[metric];
-    var v = cell[metric];
-    if (v === null || v === undefined || isNaN(v)) return 'rgba(0,0,0,0)';
+
+  /** Kleurverloop voor een metriek, als stops die Raster.colorize begrijpt. */
+  function rampFor(spec) {
     if (spec.type === 'diverging') {
-      var t = Math.max(-1, Math.min(1, v / spec.domain));
-      return t < 0 ? mix(C.mid, C.neg, -t) : mix(C.mid, C.pos, t);
+      return [[0, hex2rgb(C.neg)], [0.5, hex2rgb(C.mid)], [1, hex2rgb(C.pos)]];
     }
-    var max = window.__metricMax[metric] || 1;
-    return mix('#f2f0e8', spec.color, Math.min(1, v / max));
-  }
-  function visible(cell) {
-    if (!onlySig) return true;
-    if (metric !== 'slope') return true;
-    return cell.p !== null && cell.p !== undefined && cell.p < 0.05;
+    var a = hex2rgb('#f2f0e8'), b = hex2rgb(spec.color);
+    return spec.invert ? [[0, b], [1, a]] : [[0, a], [1, b]];
   }
 
-  /* ── geometrie ──────────────────────────────────────────── */
-  function buildGeoJSON() {
-    var feats = Cube.data.cells.map(function (cell) {
-      var ring = h3.h3ToGeoBoundary(cell.h3, true);
-      ring.push(ring[0]);
-      return {
-        type: 'Feature',
-        id: cell.h3,
-        properties: {
-          h3: cell.h3,
-          color: visible(cell) ? colorFor(cell) : 'rgba(0,0,0,0)',
-          value: cell[metric],
-        },
-        geometry: { type: 'Polygon', coordinates: [ring] },
-      };
+  function domainFor(spec) {
+    if (spec.type === 'diverging') return [-spec.domain, spec.domain];
+    if (spec.domain) return [0, spec.domain];
+    var band = Raster.bands[spec.band];
+    var hi = Raster.meta.bands[spec.band].max || 1;
+    return [0, hi];
+  }
+
+  /* ── rasterlaag ─────────────────────────────────────────── */
+  function paintRaster() {
+    var spec = CFG.metrics[metric];
+    var canvas = Raster.colorize({
+      band: spec.band,
+      ramp: rampFor(spec),
+      domain: domainFor(spec),
+      // Het significantiefilter slaat alleen ergens op bij een trendmetriek:
+      // bij 'bruikbare jaren' zou het de kaart om niets leegmaken.
+      onlySig: onlySig && (spec.band === 'slope' || spec.band === 'tau'),
+      alpha: ALPHA,
     });
-    return { type: 'FeatureCollection', features: feats };
+    var src = map.getSource('trend');
+    if (src) src.updateImage({ url: canvas.toDataURL() });
+    renderLegend();
+    updateSigHint();
   }
 
-  function refreshFill() {
-    map.getSource('cells').setData(buildGeoJSON());
-    renderLegend();
+  /* Na FDR-correctie kan het filter alle pixels wegnemen. Dat is een geldige
+     uitkomst, geen laadfout, dus zeg het er expliciet bij. */
+  function updateSigHint() {
+    var el = $('sig-hint');
+    if (!el) return;
+    var spec = CFG.metrics[metric];
+    if (!onlySig || (spec.band !== 'slope' && spec.band !== 'tau')) {
+      el.hidden = true;
+      return;
+    }
+    var n = Raster.countSignificant(ALPHA);
+    var tot = Raster.countValid();
+    el.hidden = false;
+    el.textContent = n === 0
+      ? 'Geen enkele pixel houdt stand na correctie voor ' + tot
+        + ' gelijktijdige toetsen. Bij tien jaar data is dat een normale uitkomst.'
+      : n.toLocaleString('nl-NL') + ' van ' + tot.toLocaleString('nl-NL')
+        + ' pixels, na FDR-correctie.';
   }
 
   /* ── legenda ────────────────────────────────────────────── */
   function renderLegend() {
     var spec = CFG.metrics[metric];
-    var box = $('legend');
+    var d = domainFor(spec);
     var grad, lo, hi;
     if (spec.type === 'diverging') {
       grad = 'linear-gradient(90deg,' + C.neg + ',' + C.mid + ',' + C.pos + ')';
-      lo = spec.fmt(-spec.domain);
-      hi = spec.fmt(spec.domain);
+    } else if (spec.invert) {
+      grad = 'linear-gradient(90deg,' + spec.color + ',#f2f0e8)';
     } else {
       grad = 'linear-gradient(90deg,#f2f0e8,' + spec.color + ')';
-      lo = '0';
-      hi = String(window.__metricMax[metric]);
     }
-    box.innerHTML =
+    lo = spec.fmt(d[0]);
+    hi = spec.fmt(d[1]);
+    $('legend').innerHTML =
       '<div class="bar" style="background:' + grad + '"></div>' +
-      '<div class="ends"><span>' + lo + '</span><span>' + spec.unit + '</span><span>' + hi + '</span></div>' +
+      '<div class="ends"><span>' + lo + '</span><span>' + spec.unit
+      + '</span><span>' + hi + '</span></div>' +
       '<div class="note">' + spec.note + '</div>';
   }
 
   function renderMeta() {
-    var m = Cube.data.meta;
+    var m = Raster.meta;
     var badge = m.demo
       ? '<span class="badge">demo-data</span><br>'
       : '<span class="badge live">' + m.source + '</span><br>';
+    var px = Raster.countValid();
     $('meta-block').innerHTML = badge +
-      Cube.data.cells.length + ' hexagonen (H3 res ' + m.h3_res + ') &middot; ' +
-      m.period[0].slice(0, 4) + '–' + m.period[1].slice(0, 4) + ' &middot; ' + m.index + '<br>' +
-      m.boundary + '.<br>' +
-      (m.sampling === 'zonal'
-        ? 'Per cel de mediaan over alle Sentinel-2 pixels'
-          + (m.min_pixels ? ' (minimaal ' + m.min_pixels + ' geldige pixels)' : '') + '.<br>'
-        : m.sampling === 'centroid'
-          ? '<strong>Let op:</strong> per cel is alleen het middelpunt bemonsterd, '
-            + '\u00e9\u00e9n pixel van 10 bij 10 m.<br>'
-          : '') +
-      m.method + '.' +
-      (m.demo ? '<br><strong>Let op:</strong> gesimuleerde reeksen. Draai ' +
-        '<code>build_fenologie_cube.py --from-grass</code> voor de echte kubus.' : '');
+      px.toLocaleString('nl-NL') + ' pixels &middot; ' + m.width + '&times;' + m.height
+      + ' &middot; ' + m.period[0].slice(0, 4) + '–' + m.period[1].slice(0, 4)
+      + ' &middot; ' + m.index + '<br>' +
+      'Jaarstatistiek: <code>' + m.stat + '</code>. ' + m.method + '<br>' +
+      m.pixels_significant.toLocaleString('nl-NL') + ' pixels significant bij q &lt; '
+      + nl(m.fdr_alpha, 2) + '.' +
+      (m.demo ? '<br><strong>Let op:</strong> gesimuleerd trendveld. Draai '
+        + '<code>export_fenologie_raster.py --from-grass</code> voor de echte kaart.'
+        : '');
   }
 
   /* ── detailpaneel ───────────────────────────────────────── */
@@ -109,93 +127,169 @@
       (unit ? ' <span class="unit">' + unit + '</span>' : '') + '</dd></div>';
   }
 
-  function showCell(cell) {
-    selected = cell;
-    var idx = Cube.data.meta.index;
+  function fmtP(v) {
+    if (v === null || v === undefined || isNaN(v)) return '–';
+    return v < 0.001 ? '< 0,001' : '= ' + nl(v, 3);
+  }
 
-    $('d-title').textContent = cell.live
-      ? 'Live punt (buiten de kubus)'
-      : (cell.hab ? cell.hab + ' — hexagon' : 'Hexagon');
-    $('d-sub').textContent = nl(cell.lat, 5) + ' N, ' + nl(cell.lon, 5) + ' E'
-      + (cell.h3 ? '  ·  ' + cell.h3 : '  ·  openEO / CDSE');
+  /** Toont de rastercijfers van een pixel. De reeks komt pas op verzoek. */
+  function showPixel(lon, lat) {
+    var vals = Raster.valuesAt(lon, lat);
+    if (!vals) {
+      showToast('Buiten het onderzoeksgebied — hier is geen trend berekend.', null);
+      return;
+    }
+    picked = { lon: lon, lat: lat, slope: vals.slope, tau: vals.tau,
+               qvalue: vals.qvalue, count: vals.count };
+    livePoint = null;
+    liveToken++;
 
-    var sig = cell.p !== null && cell.p !== undefined && cell.p < 0.05;
-    var toets = 'τ = ' + nl(cell.tau, 2) + ', p '
-      + (cell.p < 0.001 ? '< 0,001' : '= ' + nl(cell.p, 3)) + ' (Mann-Kendall, n = '
-      + (cell.years ? cell.years.length : '?') + ')';
+    var idx = Raster.meta.index;
+    $('d-title').textContent = 'Pixel — ' + Math.round(pixelMetres()) + ' m';
+    $('d-sub').textContent = nl(lat, 5) + ' N, ' + nl(lon, 5) + ' E  ·  '
+      + Raster.meta.crs;
+
+    var sig = vals.qvalue !== null && vals.qvalue < ALPHA;
+    var toets = 'τ = ' + nl(vals.tau, 2) + ', q ' + fmtP(vals.qvalue)
+      + ' (Mann-Kendall + FDR, n = ' + (vals.count === null ? '?' : Math.round(vals.count)) + ')';
+
     $('d-stats').innerHTML =
-      statRow('waarnemingen', cell.n, '') +
-      statRow('trend', (cell.slope > 0 ? '+' : '−') + nl(Math.abs(cell.slope), 4), idx + '/jaar') +
-      statRow('z ≤ −2', cell.zlow, 'keer') +
-      statRow('z ≥ +2', cell.zhigh, 'keer') +
-      (cell.npix ? statRow('pixels', cell.npix, 'per cel') : '');
+      statRow('trend', (vals.slope > 0 ? '+' : '−')
+        + nl(Math.abs(vals.slope), 4), idx + '/jaar') +
+      statRow('τ', nl(vals.tau, 2), '') +
+      statRow('q', vals.qvalue === null ? '–'
+        : (vals.qvalue < 0.001 ? '< 0,001' : nl(vals.qvalue, 3)), '') +
+      statRow('jaren', vals.count === null ? '–' : Math.round(vals.count), 'met curve');
 
     var v = $('d-verdict');
     if (!sig) {
       v.className = 'verdict flat';
-      v.textContent = 'Geen significante trend: ' + toets + '. De variatie tussen jaren '
-        + 'overheerst — met tien jaar data is dat de normale uitkomst.';
-    } else if (cell.slope > 0) {
+      v.textContent = 'Geen significante trend: ' + toets + '. De variatie tussen '
+        + 'jaren overheerst — met tien jaar data is dat de normale uitkomst.';
+    } else if (vals.slope > 0) {
       v.className = 'verdict up';
-      v.textContent = 'Het seizoensniveau loopt op (' + toets + '). Denk aan verlanding, '
-        + 'opslag, gestopt maaibeheer of een verandering in waterpeil.';
+      v.textContent = 'Het seizoensniveau loopt op (' + toets + '). Denk aan '
+        + 'verlanding, opslag, gestopt maaibeheer of een verandering in waterpeil.';
     } else {
       v.className = 'verdict down';
-      v.textContent = 'Het seizoensniveau daalt (' + toets + '). Kandidaat voor veldbezoek: '
-        + 'leg dit naast beheerregistraties en waterstanden voordat je het als achteruitgang leest.';
+      v.textContent = 'Het seizoensniveau daalt (' + toets + '). Kandidaat voor '
+        + 'veldbezoek: leg dit naast beheerregistraties en waterstanden voordat '
+        + 'je het als achteruitgang leest.';
     }
 
-    Charts.annual($('c-annual'), cell);
+    ['c-annual', 'c-ts', 'c-season', 'c-decomp'].forEach(function (id) {
+      $(id).innerHTML = '';
+    });
     $('grass-cmd').hidden = true;
     $('detail').hidden = false;
-
-    // De reeks zit in een shard en komt apart binnen. Tot die tijd blijven
-    // de drie reeksgrafieken leeg in plaats van een oude cel te tonen.
-    ['c-ts', 'c-season', 'c-decomp'].forEach(function (id) { $(id).innerHTML = ''; });
-    $('chart-status').textContent = 'reeks laden\u2026';
-    $('chart-status').hidden = false;
-
-    var token = ++seriesToken;
-    Cube.ensureSeries(cell).then(function () {
-      if (token !== seriesToken) return;   // er is inmiddels een andere cel gekozen
-      var series = Cube.series(cell);
-      $('chart-status').hidden = true;
-      Charts.timeseries($('c-ts'), $('tt-ts'), series, idx);
-      Charts.season($('c-season'), series);
-      Charts.decomposition($('c-decomp'), cell.live
-        ? { obs: series.obs,
-            seasonal: series.obs.map(function (o) { return o.baseline === null ? NaN : o.baseline; }),
-            trend: series.obs.map(function () { return NaN; }),
-            remainder: series.obs.map(function () { return NaN; }) }
-        : Cube.decompose(cell));
-    }).catch(function (e) {
-      if (token !== seriesToken) return;
-      $('chart-status').textContent = 'De reeks van deze cel kon niet geladen worden: ' + e.message;
-      $('chart-status').hidden = false;
-    });
-    if (cell.h3) {
-      map.setFilter('cells-selected', ['==', ['get', 'h3'], cell.h3]);
-    } else {
-      map.setFilter('cells-selected', ['==', ['get', 'h3'], '__none__']);
-    }
+    markPixel(lon, lat);
+    updateSeriesPrompt();
     updateURL();
   }
 
-  function grassCommand(cell) {
-    var idx = Cube.data.meta.index.toLowerCase();
-    return 't.rast.pointseries input=S2_' + idx + ' \\\n'
-      + '  baseline=' + idx + '_xyr_median_hants \\\n'
-      + '  baseline_sd=' + idx + '_xyr_robust_sd \\\n'
-      + '  coordinates=' + cell.lon.toFixed(5) + ',' + cell.lat.toFixed(5) + ' \\\n'
-      + '  coordinates_crs=4326 trend=theilsen,ols period=73 \\\n'
-      + '  plot=' + (cell.h3 || 'punt') + '.png json=' + (cell.h3 || 'punt') + '.json';
+  /** Ruwe pixelgrootte op de grond, uit de 3857-bounds gedeeld door de breedte. */
+  function pixelMetres() {
+    var m = Raster.meta;
+    var b = m.bounds_3857;
+    var lat = (m.corners[0][1] + m.corners[2][1]) / 2;
+    return ((b[2] - b[0]) / m.width) * Math.cos(lat * Math.PI / 180);
   }
 
-  function downloadCSV(cell) {
-    var series = Cube.series(cell);
-    var idx = Cube.data.meta.index.toLowerCase();
+  /* De reeks is niet voorberekend: 550.000 pixels x tien jaar past niet in een
+     statische download. Een klik geeft dus meteen de trendcijfers uit het
+     raster, en de reeks eronder alleen op verzoek. */
+  function updateSeriesPrompt() {
+    var box = $('chart-status');
+    box.hidden = false;
+    if (livePoint) { box.hidden = true; return; }
+    if (liveAvailable === false) {
+      box.innerHTML = 'De tijdreeks achter deze pixel is niet voorberekend en '
+        + 'live ophalen staat uit. Zet <code>CDSE_CLIENT_ID</code> en '
+        + '<code>CDSE_CLIENT_SECRET</code> in Vercel om dat aan te zetten.';
+      return;
+    }
+    box.innerHTML = '';
+    var b = document.createElement('button');
+    b.className = 'btn';
+    b.textContent = '↓ Reeks ophalen bij Copernicus (10–40 s)';
+    b.onclick = function () { fetchSeries(picked.lon, picked.lat); };
+    box.appendChild(b);
+  }
+
+  function fetchSeries(lon, lat) {
+    var token = ++liveToken;
+    var period = Raster.meta.period;
+    $('chart-status').textContent = 'Reeks ophalen bij Copernicus… '
+      + 'dit duurt 10–40 seconden.';
+    return fetch(CFG.liveUrl + '?lon=' + lon.toFixed(5) + '&lat=' + lat.toFixed(5)
+                 + '&start=' + period[0] + '&end=' + period[1])
+      .then(function (r) {
+        if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || r.status); });
+        return r.json();
+      })
+      .then(function (payload) {
+        if (token !== liveToken) return;
+        if (!payload.observations || payload.observations.length < 20) {
+          throw new Error('te weinig wolkvrije waarnemingen op dit punt');
+        }
+        livePoint = Series.fromLive(payload, lon, lat);
+        renderCharts();
+      })
+      .catch(function (e) {
+        if (token !== liveToken) return;
+        $('chart-status').hidden = false;
+        $('chart-status').textContent = 'De reeks kon niet opgehaald worden: ' + e.message;
+      });
+  }
+
+  function renderCharts() {
+    var idx = Raster.meta.index;
+    var series = livePoint._series;
+    $('chart-status').hidden = true;
+    Charts.annual($('c-annual'), livePoint);
+    Charts.timeseries($('c-ts'), $('tt-ts'), series, idx);
+    Charts.season($('c-season'), series);
+    Charts.decomposition($('c-decomp'), Series.decompose(livePoint));
+  }
+
+  /* ── markering van de gekozen pixel ─────────────────────── */
+  function pickGeoJSON() {
+    if (!picked) return { type: 'FeatureCollection', features: [] };
+    return {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature', properties: {},
+        geometry: { type: 'Point', coordinates: [picked.lon, picked.lat] },
+      }],
+    };
+  }
+
+  function markPixel(lon, lat) {
+    var src = map.getSource('pick');
+    if (src) src.setData(pickGeoJSON());
+  }
+
+  /* Haalt de ruwe reeks van dit punt uit de STRDS. t.rast.what verwacht
+     coordinaten in het CRS van de location, vandaar de m.proj-stap. Voor een
+     echte additieve STL bestaat de add-on t.rast.stl (hoofdstuk 11 van het
+     rapport); die werkt per locatie en de aanroep is hier bewust niet
+     ingevuld, omdat het rapport alleen de naam noemt en niet de parameters. */
+  function grassCommand(p) {
+    var idx = Raster.meta.index.toLowerCase();
+    var ll = p.lon.toFixed(5) + ' ' + p.lat.toFixed(5);
+    return 'xy=$(echo "' + ll + '" \\\n'
+      + '  | m.proj -i input=- proj_in=EPSG:4326 separator=space \\\n'
+      + '  | cut -d" " -f1,2 | tr " " ",")\n\n'
+      + 't.rast.what strds=S2_' + idx + ' coordinates="$xy" \\\n'
+      + '  layout=col null_value="*" separator="|" \\\n'
+      + '  output=punt.csv';
+  }
+
+  function downloadCSV() {
+    if (!livePoint) return;
+    var idx = Raster.meta.index.toLowerCase();
     var lines = ['datum,doy,' + idx + ',referentie,robuuste_sd,z'];
-    series.obs.forEach(function (o) {
+    livePoint._series.obs.forEach(function (o) {
       lines.push([o.iso, o.doy, o.value.toFixed(4),
         o.baseline === null ? '' : o.baseline.toFixed(4),
         o.sd === null ? '' : o.sd.toFixed(4),
@@ -204,7 +298,7 @@
     var blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'fenologie_' + (cell.h3 || 'punt') + '.csv';
+    a.download = 'fenologie_' + picked.lat.toFixed(5) + '_' + picked.lon.toFixed(5) + '.csv';
     a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
@@ -213,30 +307,13 @@
   function checkLive() {
     return fetch(CFG.liveUrl + '?probe=1').then(function (r) {
       liveAvailable = r.ok;
+      if (picked) updateSeriesPrompt();
       return liveAvailable;
-    }).catch(function () { liveAvailable = false; return false; });
-  }
-
-  function fetchLive(lon, lat) {
-    $('loader').hidden = false;
-    $('loader-text').textContent = 'Live reeks ophalen bij Copernicus… dit duurt 10–40 seconden.';
-    var period = Cube.data.meta.period;
-    return fetch(CFG.liveUrl + '?lon=' + lon.toFixed(5) + '&lat=' + lat.toFixed(5)
-                 + '&start=' + period[0] + '&end=' + period[1])
-      .then(function (r) {
-        if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || r.status); });
-        return r.json();
-      })
-      .then(function (payload) {
-        if (!payload.observations || payload.observations.length < 20) {
-          throw new Error('te weinig wolkvrije waarnemingen op dit punt');
-        }
-        showCell(Cube.fromLive(payload, lon, lat));
-      })
-      .catch(function (e) {
-        showToast('Live ophalen lukte niet: ' + e.message, null);
-      })
-      .then(function () { $('loader').hidden = true; });
+    }).catch(function () {
+      liveAvailable = false;
+      if (picked) updateSeriesPrompt();
+      return false;
+    });
   }
 
   function showToast(text, action) {
@@ -251,7 +328,10 @@
     var p = new URLSearchParams();
     p.set('metric', metric);
     if (onlySig) p.set('sig', '1');
-    if (selected && selected.h3) p.set('h3', selected.h3);
+    if (picked) {
+      p.set('lon', picked.lon.toFixed(5));
+      p.set('lat', picked.lat.toFixed(5));
+    }
     history.replaceState(null, '', location.pathname + '?' + p.toString());
   }
 
@@ -262,10 +342,10 @@
       $('metric').value = metric;
     }
     if (p.get('sig') === '1') { onlySig = true; $('only-sig').checked = true; }
-    var h = p.get('h3');
-    if (h && Cube.byH3[h]) {
-      showCell(Cube.byH3[h]);
-      map.jumpTo({ center: [Cube.byH3[h].lon, Cube.byH3[h].lat], zoom: 13.8 });
+    var lon = parseFloat(p.get('lon')), lat = parseFloat(p.get('lat'));
+    if (!isNaN(lon) && !isNaN(lat)) {
+      showPixel(lon, lat);
+      map.jumpTo({ center: [lon, lat], zoom: 14.2 });
     }
   }
 
@@ -284,87 +364,72 @@
     };
   }
 
-  /** Zoom naar de kubus, zodat het gebied op elk schermformaat past. */
-  function fitToCube() {
-    var pts = (Cube.data.ring && Cube.data.ring.length)
-      ? Cube.data.ring
-      : Cube.data.cells.map(function (c) { return [c.lon, c.lat]; });
-    var b = pts.reduce(function (acc, p) {
-      return [Math.min(acc[0], p[0]), Math.min(acc[1], p[1]),
-              Math.max(acc[2], p[0]), Math.max(acc[3], p[1])];
-    }, [Infinity, Infinity, -Infinity, -Infinity]);
+  /** Zoom naar het raster, zodat het gebied op elk schermformaat past. */
+  function fitToRaster() {
+    var c = Raster.meta.corners;
+    var lons = c.map(function (p) { return p[0]; });
+    var lats = c.map(function (p) { return p[1]; });
     // Het bedieningspaneel zweeft links over de kaart; houd daar ruimte voor
     // vrij zodat het gebied er niet achter verdwijnt.
     var wide = window.innerWidth > 820;
-    map.fitBounds([[b[0], b[1]], [b[2], b[3]]], {
-      padding: {
-        top: wide ? 24 : 56,
-        bottom: wide ? 40 : 30,
-        left: wide ? 340 : 18,
-        right: wide ? 32 : 18,
-      },
-      duration: 0,
-    });
+    map.fitBounds(
+      [[Math.min.apply(null, lons), Math.min.apply(null, lats)],
+       [Math.max.apply(null, lons), Math.max.apply(null, lats)]],
+      {
+        padding: {
+          top: wide ? 24 : 56,
+          bottom: wide ? 40 : 30,
+          left: wide ? 340 : 18,
+          right: wide ? 32 : 18,
+        },
+        duration: 0,
+      });
   }
 
   function addDataLayers() {
-    if (map.getSource('cells')) return;
-    map.addSource('cells', { type: 'geojson', data: buildGeoJSON() });
-    map.addLayer({
-      id: 'cells-fill', type: 'fill', source: 'cells',
-      paint: { 'fill-color': ['get', 'color'], 'fill-opacity': +$('opacity').value / 100 },
+    if (map.getSource('trend')) return;
+    var spec = CFG.metrics[metric];
+    var canvas = Raster.colorize({
+      band: spec.band,
+      ramp: rampFor(spec),
+      domain: domainFor(spec),
+      onlySig: onlySig && (spec.band === 'slope' || spec.band === 'tau'),
+      alpha: ALPHA,
+    });
+    map.addSource('trend', {
+      type: 'image',
+      url: canvas.toDataURL(),
+      coordinates: Raster.meta.corners,
     });
     map.addLayer({
-      id: 'cells-line', type: 'line', source: 'cells',
-      paint: { 'line-color': 'rgba(26,26,26,.16)', 'line-width': 0.5 },
+      id: 'trend', type: 'raster', source: 'trend',
+      paint: {
+        'raster-opacity': +$('opacity').value / 100,
+        // Nearest: elke pixel is een meetwaarde, geen plaatje. Interpolatie
+        // zou waarden suggereren die niet berekend zijn.
+        'raster-resampling': 'nearest',
+        'raster-fade-duration': 0,
+      },
     });
+    map.addSource('pick', { type: 'geojson', data: pickGeoJSON() });
     map.addLayer({
-      id: 'cells-selected', type: 'line', source: 'cells',
-      filter: ['==', ['get', 'h3'], '__none__'],
-      paint: { 'line-color': '#1a1a1a', 'line-width': 2.4 },
+      id: 'pick', type: 'circle', source: 'pick',
+      paint: {
+        'circle-radius': 5,
+        'circle-color': 'rgba(0,0,0,0)',
+        'circle-stroke-color': C.ink,
+        'circle-stroke-width': 2,
+      },
     });
-    if (Cube.data.ring && Cube.data.ring.length) {
-      var ring = Cube.data.ring.slice();
-      ring.push(ring[0]);
-      map.addSource('n2000', {
-        type: 'geojson',
-        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: ring } },
-      });
-      map.addLayer({
-        id: 'n2000-line', type: 'line', source: 'n2000',
-        paint: { 'line-color': C.accent, 'line-width': 1.6, 'line-dasharray': [3, 2] },
-      });
-    }
   }
 
   function onMapClick(ev) {
-    var hits = map.queryRenderedFeatures(ev.point, { layers: ['cells-fill'] });
-    if (hits.length) {
-      var cell = Cube.byH3[hits[0].properties.h3];
-      if (cell) { $('toast').hidden = true; showCell(cell); }
-      return;
-    }
-    var ll = ev.lngLat;
-    if (liveAvailable) {
-      showToast('Buiten de kubus. Live ophalen bij Copernicus voor dit punt?', function () {
-        $('toast').hidden = true;
-        fetchLive(ll.lng, ll.lat);
-      });
-    } else {
-      showToast('Buiten de kubus. Live ophalen staat uit — zet CDSE_CLIENT_ID '
-        + 'en CDSE_CLIENT_SECRET in Vercel om dat aan te zetten.', null);
-    }
+    $('toast').hidden = true;
+    showPixel(ev.lngLat.lng, ev.lngLat.lat);
   }
 
   /* ── start ──────────────────────────────────────────────── */
   function boot() {
-    window.__metricMax = {};
-    ['zlow', 'zhigh', 'n'].forEach(function (k) {
-      window.__metricMax[k] = Cube.data.cells.reduce(function (m, c) {
-        return Math.max(m, c[k] || 0);
-      }, 1);
-    });
-
     $('basemap').value = CFG.defaultBasemap;
     map = new maplibregl.Map({
       container: 'map',
@@ -378,57 +443,52 @@
     map.addControl(new maplibregl.ScaleControl({ maxWidth: 90, unit: 'metric' }), 'bottom-left');
 
     // 'style.load' in plaats van 'load': dat laatste wacht ook op de tegels van
-    // de ondergrond, en een trage of haperende tegelserver mag de hexagonen niet
-    // tegenhouden. Vuurt ook opnieuw na elke setStyle, dus de basemap-wissel
-    // hangt er vanzelf aan.
+    // de ondergrond, en een trage tegelserver mag de trendkaart niet ophouden.
+    // Vuurt ook opnieuw na elke setStyle, dus de basemap-wissel hangt er
+    // vanzelf aan.
     var firstStyle = true;
     map.on('style.load', function () {
       addDataLayers();
-      if (selected && selected.h3) {
-        map.setFilter('cells-selected', ['==', ['get', 'h3'], selected.h3]);
-      }
+      if (picked) markPixel(picked.lon, picked.lat);
       if (!firstStyle) return;
       firstStyle = false;
-      fitToCube();
+      fitToRaster();
       renderLegend();
       renderMeta();
+      updateSigHint();
       $('loader').hidden = true;
       restoreURL();
-      if (!selected) {
-        // open met een cel die iets te vertellen heeft
-        var pick = Cube.data.cells.slice().sort(function (a, b) {
-          return Math.abs(b.slope || 0) - Math.abs(a.slope || 0);
-        })[0];
-        if (pick) showCell(pick);
-      }
     });
     map.on('click', onMapClick);
-    map.on('mousemove', 'cells-fill', function () { map.getCanvas().style.cursor = 'pointer'; });
-    map.on('mouseleave', 'cells-fill', function () { map.getCanvas().style.cursor = ''; });
+    map.on('mousemove', function (ev) {
+      var over = Raster.indexAt(ev.lngLat.lng, ev.lngLat.lat) >= 0;
+      map.getCanvas().style.cursor = over ? 'crosshair' : '';
+    });
 
-    $('metric').onchange = function (e) { metric = e.target.value; refreshFill(); updateURL(); };
-    $('only-sig').onchange = function (e) { onlySig = e.target.checked; refreshFill(); updateURL(); };
+    $('metric').onchange = function (e) { metric = e.target.value; paintRaster(); updateURL(); };
+    $('only-sig').onchange = function (e) { onlySig = e.target.checked; paintRaster(); updateURL(); };
     $('opacity').oninput = function (e) {
       $('opacity-val').textContent = e.target.value + '%';
-      if (map.getLayer('cells-fill')) {
-        map.setPaintProperty('cells-fill', 'fill-opacity', +e.target.value / 100);
+      if (map.getLayer('trend')) {
+        map.setPaintProperty('trend', 'raster-opacity', +e.target.value / 100);
       }
     };
     $('btn-collapse').onclick = function () {
       var card = $('controls');
       card.classList.toggle('collapsed');
-      this.textContent = card.classList.contains('collapsed') ? '+' : '\u2212';
+      this.textContent = card.classList.contains('collapsed') ? '+' : '−';
     };
     $('basemap').onchange = function (e) {
-      // style.load hangt de hexagonen er daarna weer aan
+      // style.load hangt de trendlaag er daarna weer aan
       map.setStyle(basemapStyle(e.target.value));
     };
     $('btn-close').onclick = function () {
       $('detail').hidden = true;
-      selected = null;
-      seriesToken++;
+      picked = null;
+      livePoint = null;
+      liveToken++;
       $('chart-status').hidden = true;
-      map.setFilter('cells-selected', ['==', ['get', 'h3'], '__none__']);
+      markPixel();
       updateURL();
     };
     $('btn-share').onclick = function () {
@@ -438,13 +498,17 @@
       });
     };
     $('btn-csv').onclick = function () {
-      if (!selected) return;
-      Cube.ensureSeries(selected).then(function () { downloadCSV(selected); });
+      if (!picked) return;
+      if (!livePoint) {
+        showToast('Haal eerst de reeks op; zonder reeks valt er niets te exporteren.', null);
+        return;
+      }
+      downloadCSV();
     };
     $('btn-grass').onclick = function () {
-      if (!selected) return;
+      if (!picked) return;
       var pre = $('grass-cmd');
-      pre.textContent = grassCommand(selected);
+      pre.textContent = grassCommand(picked);
       pre.hidden = !pre.hidden;
     };
     $('btn-toast-close').onclick = function () { $('toast').hidden = true; };
@@ -452,12 +516,12 @@
     checkLive();
   }
 
-  $('loader-text').textContent = 'Kubus laden…';
-  Cube.load(CFG.cubeUrl).then(boot).catch(function (e) {
-    $('loader').innerHTML = '<div style="max-width:380px;text-align:center">'
-      + '<strong>De fenologie-kubus kon niet geladen worden.</strong><br>'
+  $('loader-text').textContent = 'Trendkaart laden…';
+  Raster.load(CFG.rasterBase).then(boot).catch(function (e) {
+    $('loader').innerHTML = '<div style="max-width:420px;text-align:center">'
+      + '<strong>De trendkaart kon niet geladen worden.</strong><br>'
       + '<span style="font-size:12px;color:#8b8d83">' + e.message
-      + '<br>Genereer hem met <code>python3 scripts/build_fenologie_cube.py --demo</code>'
-      + ' en zet het resultaat in <code>data/</code>.</span></div>';
+      + '<br>Genereer hem met <code>python3 scripts/export_fenologie_raster.py --demo</code>'
+      + ' of, met een GRASS-sessie, <code>--from-grass</code>.</span></div>';
   });
 })();
