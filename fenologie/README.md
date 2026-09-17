@@ -111,6 +111,45 @@ verdedigbaar — beide zijn robuuste centrummaten. Voor piek, dal en bereik
 niet: de extremen van een gladgestreken curve zijn iets heel anders dan die
 van ruwe waarnemingen. Daarom berekent dit script alleen de niveautrend.
 
+### Drie valkuilen bij CDSE openEO
+
+Alle drie kosten een 403 of een 500 die iets anders suggereert dan er aan de
+hand is. Ze zaten alle drie ook in `api/ndvi-series.js`, wat verklaart waarom
+dat endpoint nooit tegen een echte service-account werkte.
+
+**1. Het token heeft `scope=openid` nodig.** Zonder die scope geeft CDSE
+gewoon een geldig token terug — de aanvraag slaagt, de claims kloppen — maar
+antwoordt openEO met:
+
+```
+403 {"code":"TokenInvalid","message":"Authorization token has expired or is invalid."}
+```
+
+Dat leest als een verlopen of verkeerde sleutel en is het niet. Te zien door
+het token te decoderen: `scope` staat dan op `email profile user-context`.
+
+**2. De header is `Bearer oidc/<provider>/<token>`**, niet een kaal
+`Bearer <token>`. De provider-id staat in `/credentials/oidc` en is hier
+`CDSE`. Alleen scope óf alleen header goed hebben helpt niet; het moet allebei.
+
+**3. `if` met `accept: null` wordt geweigerd.** De voor de hand liggende
+manier om bewolkte waarnemingen op nodata te zetten is
+`{"value": cloudy, "accept": null, "reject": nd}`. De backend laat het
+null-argument vallen en klaagt dan dat het verplichte argument ontbreekt:
+
+```
+500 Process [if] expects a accept argument. These arguments were found: reject, value
+```
+
+Draai het om: toets met `not` op *niet*-bewolkt, geef de index als `accept`
+en laat `reject` weg — die is vanzelf null en dus nodata.
+
+**En een vierde, minder gemeen:** `POST /jobs` geeft een 201 zonder id in de
+body. Het id staat in de `OpenEO-Identifier`-header, of anders achteraan
+`Location`. Pak je `body["id"]`, dan valt het script om nádat de job is
+aangemaakt en blijft er een weesjob in status `created` staan die nooit
+gestart wordt.
+
 ### De detectiegrens, lees dit voordat je conclusies trekt
 
 Mann-Kendall op tien jaarwaarden heeft een **harde ondergrens** voor de
