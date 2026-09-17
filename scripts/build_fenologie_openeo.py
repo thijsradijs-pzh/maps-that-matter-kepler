@@ -348,14 +348,22 @@ def download_results(job_id, token, out_dir, keep=False):
     for name, href in sorted(tifs):
         dest = out_dir / name
         print("  download %s" % name, file=sys.stderr)
-        req = urllib.request.Request(href, headers=hdr)
-        with urllib.request.urlopen(req, timeout=600) as r, open(dest, "wb") as fh:
-            while True:
-                chunk = r.read(1 << 20)
-                if not chunk:
-                    break
-                fh.write(chunk)
-        paths.append(dest)
+
+        def fetch(href=href, dest=dest):
+            # De asset-URL's zijn voorondertekende S3-links. Stuur je daar de
+            # openEO-Bearer bij, dan weigert S3 met
+            # "InternalError: Invalid authorization header" (HTTP 500) -- wat
+            # eruitziet als een kapotte server en het niet is.
+            req = urllib.request.Request(href)
+            with urllib.request.urlopen(req, timeout=600) as r, open(dest, "wb") as fh:
+                while True:
+                    chunk = r.read(1 << 20)
+                    if not chunk:
+                        break
+                    fh.write(chunk)
+            return dest
+
+        paths.append(_with_retry(fetch, "download " + name))
     return paths
 
 
