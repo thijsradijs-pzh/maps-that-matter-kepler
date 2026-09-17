@@ -94,23 +94,50 @@ FDR_ALPHA = 0.05
 
 
 # ---------------------------------------------------------------- http
+# Uitgaande verbindingen zijn hier niet altijd betrouwbaar (losse timeouts,
+# vermoedelijk een proxy ertussen). Een enkele hapering mag een job van een
+# half uur niet omgooien, dus elke aanroep krijgt een paar pogingen.
+RETRIES = 4
+
+
+def _with_retry(fn, what):
+    delay = 3
+    for attempt in range(1, RETRIES + 1):
+        try:
+            return fn()
+        except urllib.error.HTTPError:
+            raise                      # echte foutcode: niet opnieuw proberen
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            if attempt == RETRIES:
+                raise
+            print("  netwerkhapering bij %s (%s), poging %d/%d over %ds"
+                  % (what, type(e).__name__, attempt, RETRIES, delay),
+                  file=sys.stderr)
+            time.sleep(delay)
+            delay *= 2
+
+
 def _post(url, data, headers=None, timeout=120):
     body = json.dumps(data).encode() if not isinstance(data, bytes) else data
     req = urllib.request.Request(url, data=body, method="POST")
     req.add_header("Content-Type", "application/json")
     for k, v in (headers or {}).items():
         req.add_header(k, v)
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        raw = r.read()
-        return json.loads(raw) if raw else {}, dict(r.headers)
+    def go():
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            raw = r.read()
+            return json.loads(raw) if raw else {}, dict(r.headers)
+    return _with_retry(go, "POST " + url.rsplit("/", 1)[-1])
 
 
 def _get(url, headers=None, timeout=120):
     req = urllib.request.Request(url)
     for k, v in (headers or {}).items():
         req.add_header(k, v)
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read())
+    def go():
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read())
+    return _with_retry(go, "GET " + url.rsplit("/", 1)[-1])
 
 
 def _load_env_file(path=None):
@@ -160,12 +187,31 @@ def get_token():
     }).encode()
     req = urllib.request.Request(TOKEN_URL, data=form, method="POST")
     req.add_header("Content-Type", "application/x-www-form-urlencoded")
-    try:
+    def go():
         with urllib.request.urlopen(req, timeout=60) as r:
             return json.loads(r.read())["access_token"]
+    try:
+        return _with_retry(go, "token")
     except urllib.error.HTTPError as e:
         raise SystemExit("CDSE weigerde de credentials (HTTP %s). Controleer of "
                          "de OAuth-client nog geldig is." % e.code)
+
+
+def job_id_from(body, headers):
+    """openEO geeft bij POST /jobs een 201 terug zonder id in de body.
+
+    Het id staat in de OpenEO-Identifier-header, of anders achteraan de
+    Location-header. Headernamen zijn hoofdletterongevoelig.
+    """
+    if isinstance(body, dict) and body.get("id"):
+        return body["id"]
+    low = {k.lower(): v for k, v in (headers or {}).items()}
+    if low.get("openeo-identifier"):
+        return low["openeo-identifier"].strip()
+    loc = low.get("location")
+    if loc:
+        return loc.rstrip("/").rsplit("/", 1)[-1]
+    return None
 
 
 def auth_header(token):
@@ -252,13 +298,14 @@ def build_graph(bbox, years, index, resolution):
 # ---------------------------------------------------------------- job
 def run_job(graph, token, poll=20):
     hdr = auth_header(token)
-    job, _ = _post(OPENEO_URL + "/jobs",
-                   {"process": {"process_graph": graph},
-                    "title": "fenologie Nieuwkoop jaarmedianen"},
-                   hdr)
-    job_id = job.get("id")
+    job, headers = _post(OPENEO_URL + "/jobs",
+                         {"process": {"process_graph": graph},
+                          "title": "fenologie Nieuwkoop jaarmedianen"},
+                         hdr)
+    job_id = job_id_from(job, headers)
     if not job_id:
-        raise SystemExit("openEO gaf geen job-id terug: %s" % job)
+        raise SystemExit("openEO gaf geen job-id terug: body=%s headers=%s"
+                         % (job, list(headers or {})))
     print("job aangemaakt: %s" % job_id, file=sys.stderr)
 
     _post(OPENEO_URL + "/jobs/%s/results" % job_id, {}, hdr)
@@ -485,6 +532,8 @@ def main():
                     help="doelresolutie in meter (EPSG:3857)")
     ap.add_argument("--dry-run", action="store_true",
                     help="print de process graph en stop")
+    ap.add_argument("--submit-only", action="store_true",
+                    help="dien de job in, print het id en stop (niet pollen)")
     ap.add_argument("--job-id", default=None,
                     help="sla indienen over, haal een eerdere job op")
     ap.add_argument("--keep-tif", action="store_true")
@@ -510,6 +559,21 @@ def main():
 
     token = get_token()
     tif_dir = Path(args.tif_dir)
+    if args.submit_only:
+        hdr = auth_header(token)
+        job, headers = _post(OPENEO_URL + "/jobs",
+                             {"process": {"process_graph": graph},
+                              "title": "fenologie Nieuwkoop jaarmedianen"}, hdr)
+        jid = job_id_from(job, headers)
+        if not jid:
+            raise SystemExit("openEO gaf geen job-id terug: body=%s headers=%s"
+                             % (job, list(headers or {})))
+        _post(OPENEO_URL + "/jobs/%s/results" % jid, {}, hdr)
+        print(jid)
+        print("ingediend en gestart. Volgen met:", file=sys.stderr)
+        print("  python3 scripts/build_fenologie_openeo.py --job-id %s"
+              % jid, file=sys.stderr)
+        return
     job_id = args.job_id or run_job(graph, token)
     paths = download_results(job_id, token, tif_dir, keep=args.keep_tif)
 

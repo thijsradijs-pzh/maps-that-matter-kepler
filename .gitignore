@@ -35,3 +35,4 @@ __pycache__/
 
 # Tussentijdse openEO-downloads
 data/fenologie/_openeo/
+.openeo-job-id
