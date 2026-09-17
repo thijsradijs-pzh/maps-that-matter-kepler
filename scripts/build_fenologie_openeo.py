@@ -248,10 +248,17 @@ def build_graph(bbox, years, index, resolution):
         "process_id": "any",
         "arguments": {"data": [{"from_node": "c%d" % i} for i in range(len(SCL_DROP))],
                       "ignore_nodata": True}}
+    # CDSE's backend laat een null-argument vallen en klaagt dan dat `accept`
+    # ontbreekt: {"value": cloudy, "accept": null, "reject": nd} geeft
+    # "Process [if] expects a accept argument". Dus omgedraaid -- toets op
+    # NIET-bewolkt, geef de index als `accept` en laat `reject` weg, dat is
+    # vanzelf null en daarmee nodata.
+    reducer["clear"] = {"process_id": "not",
+                        "arguments": {"x": {"from_node": "cloudy"}}}
     reducer["out"] = {
         "process_id": "if",
-        "arguments": {"value": {"from_node": "cloudy"}, "accept": None,
-                      "reject": {"from_node": "nd"}},
+        "arguments": {"value": {"from_node": "clear"},
+                      "accept": {"from_node": "nd"}},
         "result": True}
 
     return {
