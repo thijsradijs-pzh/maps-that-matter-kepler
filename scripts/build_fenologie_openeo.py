@@ -104,15 +104,43 @@ def _get(url, headers=None, timeout=120):
         return json.loads(r.read())
 
 
+def _load_env_file(path=None):
+    """Lees CDSE_* uit .env.local als ze niet al in de omgeving staan.
+
+    Bedoeld zodat de sleutels in een gitignored bestand kunnen staan in plaats
+    van in je shell-geschiedenis of in een commando dat iemand over je schouder
+    meeleest. Formaat is simpel: KEY=waarde per regel, # is commentaar,
+    aanhalingstekens eromheen mogen.
+    """
+    if path is None:
+        path = Path(__file__).resolve().parent.parent / ".env.local"
+    if not Path(path).exists():
+        return
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key = key.strip()
+        val = val.strip().strip('"').strip("'")
+        if key.startswith("CDSE_") and key not in os.environ:
+            os.environ[key] = val
+
+
 def get_token():
+    _load_env_file()
     cid = os.environ.get("CDSE_CLIENT_ID")
     secret = os.environ.get("CDSE_CLIENT_SECRET")
     if not cid or not secret:
         raise SystemExit(
-            "CDSE_CLIENT_ID en CDSE_CLIENT_SECRET staan niet in de omgeving.\n"
+            "CDSE_CLIENT_ID en CDSE_CLIENT_SECRET ontbreken.\n\n"
             "Aanmaken: https://shapps.dataspace.copernicus.eu/dashboard\n"
             "  -> User Settings -> OAuth clients -> Create\n"
             "De secret is daarna niet meer op te halen, dus bewaar hem meteen.\n\n"
+            "Zet ze daarna in .env.local in de repo-root (staat in .gitignore):\n"
+            "  CDSE_CLIENT_ID=...\n"
+            "  CDSE_CLIENT_SECRET=...\n\n"
+            "Of als omgevingsvariabele:\n"
             "  export CDSE_CLIENT_ID='...'\n"
             "  export CDSE_CLIENT_SECRET='...'")
     form = urllib.parse.urlencode({

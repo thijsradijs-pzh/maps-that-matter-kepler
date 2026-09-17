@@ -25,3 +25,13 @@ npm-debug.log*
 
 # Local Claude context (private — never push)
 CLAUDE.local.md
+
+# Credentials (nooit committen) — gelezen door scripts/build_fenologie_openeo.py
+.env.local
+
+# Python
+__pycache__/
+*.pyc
+
+# Tussentijdse openEO-downloads
+data/fenologie/_openeo/
