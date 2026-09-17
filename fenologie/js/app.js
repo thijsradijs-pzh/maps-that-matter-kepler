@@ -82,6 +82,57 @@
         + ' pixels, na FDR-correctie.';
   }
 
+  /* ── "Waar moet ik kijken?" ─────────────────────────────── */
+  /* Het rapport (par. 5.1) zegt dat de meerwaarde van deze methode zit in het
+     selecteren van locaties waar veldbezoek het meest relevant is. Een kaart
+     alleen doet dat niet: je moet de gekleurde vlekken zelf zien te vinden en
+     onderling wegen. Deze lijst doet dat wegen expliciet. */
+  function renderShortlist() {
+    var box = $('shortlist');
+    if (!box) return;
+    var cfg = CFG.shortlist || { aantal: 6, minPixels: 12 };
+    var all = Raster.clusters({ alpha: ALPHA, minPixels: cfg.minPixels });
+    var top = all.slice(0, cfg.aantal);
+
+    if (!all.length) {
+      box.hidden = false;
+      $('shortlist-sub').textContent = 'Geen enkele aaneengesloten plek houdt '
+        + 'stand na correctie voor het aantal getoetste pixels. Dat is bij tien '
+        + 'jaar data een normale uitkomst, geen storing.';
+      $('shortlist-items').innerHTML = '';
+      return;
+    }
+
+    var dalend = all.filter(function (c) { return c.meanSlope < 0; }).length;
+    box.hidden = false;
+    $('shortlist-sub').textContent = all.length + ' aaneengesloten plek'
+      + (all.length === 1 ? '' : 'ken') + ' van minstens ' + cfg.minPixels
+      + ' pixels, ' + dalend + ' dalend. Gesorteerd op oppervlak × sterkte '
+      + 'van de trend.';
+
+    var ol = $('shortlist-items');
+    ol.innerHTML = '';
+    top.forEach(function (c, i) {
+      var li = document.createElement('li');
+      li.className = 'shortlist-item ' + (c.meanSlope < 0 ? 'down' : 'up');
+      li.innerHTML =
+        '<span class="sl-rank">' + (i + 1) + '</span>'
+        + '<span class="sl-body">'
+        + '<span class="sl-main">' + (c.meanSlope < 0 ? 'Afname' : 'Toename')
+        + ' · ' + nl(c.hectare, c.hectare < 1 ? 2 : 1) + ' ha</span>'
+        + '<span class="sl-sub">' + (c.meanSlope > 0 ? '+' : '−')
+        + nl(Math.abs(c.meanSlope), 4) + ' ' + Raster.meta.index + '/jaar gemiddeld'
+        + ' · ' + nl(c.lat, 4) + ' N, ' + nl(c.lon, 4) + ' E</span>'
+        + '</span>';
+      li.title = 'Zoom naar deze plek en open de sterkste pixel erin';
+      li.onclick = function () {
+        map.jumpTo({ center: [c.lon, c.lat], zoom: 15 });
+        showPixel(c.lon, c.lat);
+      };
+      ol.appendChild(li);
+    });
+  }
+
   /* ── legenda ────────────────────────────────────────────── */
   function renderLegend() {
     var spec = CFG.metrics[metric];
@@ -168,11 +219,11 @@
         + 'jaren overheerst — met tien jaar data is dat de normale uitkomst.';
     } else if (vals.slope > 0) {
       v.className = 'verdict up';
-      v.textContent = 'Het seizoensniveau loopt op (' + toets + '). Denk aan '
+      v.textContent = 'Het seizoensniveau loopt op. ' + toets + '. Denk aan '
         + 'verlanding, opslag, gestopt maaibeheer of een verandering in waterpeil.';
     } else {
       v.className = 'verdict down';
-      v.textContent = 'Het seizoensniveau daalt (' + toets + '). Kandidaat voor '
+      v.textContent = 'Het seizoensniveau daalt. ' + toets + '. Kandidaat voor '
         + 'veldbezoek: leg dit naast beheerregistraties en waterstanden voordat '
         + 'je het als achteruitgang leest.';
     }
@@ -183,8 +234,41 @@
     $('grass-cmd').hidden = true;
     $('detail').hidden = false;
     markPixel(lon, lat);
+    renderIngrepen(lon, lat);
     updateSeriesPrompt();
     updateURL();
+  }
+
+  /* Beheeringrepen die op deze pixel van toepassing zijn. Zonder die context
+     is een dip in de reeks een raadsel (hoofdstuk 5.3.2 van het rapport). */
+  function renderIngrepen(lon, lat) {
+    var ul = $('ingrepen-list');
+    if (!ul) return;
+    var lijst = Ingrepen.near(lon, lat);
+    if (!lijst.length) { ul.hidden = true; ul.innerHTML = ''; return; }
+    ul.hidden = false;
+    ul.innerHTML = (Ingrepen.voorbeeld
+      ? '<li class="ingreep-waarschuwing">Onderstaande ingrepen zijn '
+        + '<strong>verzonnen voorbeelddata</strong>, net als de trendkaart. '
+        + 'Vervang ze door de echte beheerregistraties in '
+        + '<code>ingrepen.json</code>.</li>'
+      : '')
+      + lijst.map(function (g) {
+        var d = g.start.toISOString().slice(0, 10).split('-').reverse().join('-');
+        var per = g.eind
+          ? d + ' t/m ' + g.eind.toISOString().slice(0, 10).split('-').reverse().join('-')
+          : d;
+        return '<li><span class="ingreep-dot" style="background:' + g.kleur + '"></span>'
+          + '<span><strong>' + esc(g.type) + '</strong> · ' + per
+          + (g.omschrijving ? '<br><span class="ingreep-om">' + esc(g.omschrijving)
+             + '</span>' : '') + '</span></li>';
+      }).join('');
+  }
+
+  function esc(t) {
+    return String(t).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
   }
 
   /** Ruwe pixelgrootte op de grond, uit de 3857-bounds gedeeld door de breedte. */
@@ -247,7 +331,8 @@
     var series = livePoint._series;
     $('chart-status').hidden = true;
     Charts.annual($('c-annual'), livePoint);
-    Charts.timeseries($('c-ts'), $('tt-ts'), series, idx);
+    Charts.timeseries($('c-ts'), $('tt-ts'), series, idx,
+      Ingrepen.near(picked.lon, picked.lat));
     Charts.season($('c-season'), series);
     Charts.decomposition($('c-decomp'), Series.decompose(livePoint));
   }
@@ -442,6 +527,14 @@
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     map.addControl(new maplibregl.ScaleControl({ maxWidth: 90, unit: 'metric' }), 'bottom-left');
 
+    // Deze vier lezen alleen uit Raster, niet uit de kaart. Ze hingen eerst aan
+    // 'style.load' en verdwenen dus zodra de tegelserver haperde, terwijl de
+    // cijfers al lang in het geheugen stonden.
+    renderLegend();
+    renderMeta();
+    updateSigHint();
+    renderShortlist();
+
     // 'style.load' in plaats van 'load': dat laatste wacht ook op de tegels van
     // de ondergrond, en een trage tegelserver mag de trendkaart niet ophouden.
     // Vuurt ook opnieuw na elke setStyle, dus de basemap-wissel hangt er
@@ -453,9 +546,6 @@
       if (!firstStyle) return;
       firstStyle = false;
       fitToRaster();
-      renderLegend();
-      renderMeta();
-      updateSigHint();
       $('loader').hidden = true;
       restoreURL();
     });
@@ -514,6 +604,10 @@
     $('btn-toast-close').onclick = function () { $('toast').hidden = true; };
 
     checkLive();
+    // Voorbeelddata alleen bij een demo-kaart, zodat verzonnen ingrepen nooit
+    // naast echte metingen komen te staan.
+    Ingrepen.load(Raster.meta.demo ? CFG.ingrepenVoorbeeldUrl : CFG.ingrepenUrl)
+      .then(function () { if (picked) renderIngrepen(picked.lon, picked.lat); });
   }
 
   $('loader-text').textContent = 'Trendkaart laden…';

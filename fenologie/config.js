@@ -10,8 +10,18 @@ window.FENO_CONFIG = {
   // viewer toont dan wel de trendcijfers uit het raster, maar geen grafieken.
   liveUrl: '/api/ndvi-series',
 
+  // Beheeringrepen op de tijdas (hoofdstuk 5.3.2 van het rapport). Het
+  // voorbeeldbestand wordt alleen geladen als de trendkaart zelf demo-data is,
+  // zodat verzonnen ingrepen nooit naast echte metingen staan.
+  ingrepenUrl: '/data/fenologie/ingrepen.json',
+  ingrepenVoorbeeldUrl: '/data/fenologie/ingrepen.voorbeeld.json',
+
   // Benjamini-Hochberg-niveau, gelijk aan fdr_alpha in de rasterexport.
   alpha: 0.05,
+
+  // "Waar moet ik kijken?": hoeveel vlekken tonen, en hoe klein mag een vlek
+  // zijn voordat we hem als ruis beschouwen.
+  shortlist: { aantal: 6, minPixels: 12 },
 
   map: {
     center: [4.838, 52.150],

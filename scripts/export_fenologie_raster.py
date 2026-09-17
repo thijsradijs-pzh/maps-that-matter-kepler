@@ -234,6 +234,33 @@ def verify_pixels(gs, prefix, n_check):
 
 
 # ---------------------------------------------------------------- demo
+def _correlated_noise(rng, shape, sigma, scale=25):
+    """Ruimtelijk samenhangende ruis, via bilineair opgeschaalde grove ruis.
+
+    Per-pixel onafhankelijke ruis is voor dit doel onbruikbaar: de significante
+    pixels worden dan peper-en-zout in plaats van vlekken, en juist die vlekken
+    zijn wat de viewer in "Waar moet ik kijken?" rangschikt. Echte trends uit
+    Sentinel-2 zijn wel ruimtelijk samenhangend, want buurpixels delen hun
+    vegetatie, beheer en hydrologie.
+    """
+    h, w = shape
+    ch, cw = max(2, h // scale), max(2, w // scale)
+    small = rng.normal(0.0, 1.0, (ch, cw))
+
+    yi = np.linspace(0, ch - 1, h)
+    xi = np.linspace(0, cw - 1, w)
+    y0 = np.floor(yi).astype(int)
+    y1 = np.minimum(y0 + 1, ch - 1)
+    x0 = np.floor(xi).astype(int)
+    x1 = np.minimum(x0 + 1, cw - 1)
+    fy = (yi - y0)[:, None]
+    fx = (xi - x0)[None, :]
+
+    top = small[y0][:, x0] * (1 - fx) + small[y0][:, x1] * fx
+    bot = small[y1][:, x0] * (1 - fx) + small[y1][:, x1] * fx
+    return (top * (1 - fy) + bot * fy) * sigma
+
+
 def build_demo(px=10.0):
     """Een gesimuleerd trendveld over de Nieuwkoop-omtrek, direct in 3857.
 
@@ -266,13 +293,14 @@ def build_demo(px=10.0):
 
     slope = (blob(4.815, 52.155, 900, -0.016)   # verlanding: daling
              + blob(4.865, 52.132, 700, 0.011)  # herstel na beheer: stijging
-             + rng.normal(0, 0.0022, (h, w)))
+             + _correlated_noise(rng, (h, w), 0.0030, scale=30))
     # tau loopt mee met de helling maar is begrensd
-    tau = np.clip(slope / 0.02, -0.95, 0.95) + rng.normal(0, 0.12, (h, w))
+    tau = np.clip(slope / 0.014, -0.95, 0.95) + _correlated_noise(rng, (h, w), 0.10, scale=30)
     tau = np.clip(tau, -1, 1)
     # q: sterk signaal -> klein; ruis -> uniform hoog
     strength = np.abs(tau)
-    q = np.clip(1.05 - strength ** 2.2 + rng.normal(0, 0.12, (h, w)), 0.0005, 1.0)
+    q = np.clip(1.05 - strength ** 2.2 + _correlated_noise(rng, (h, w), 0.08, scale=22),
+                0.0005, 1.0)
     count = np.full((h, w), 10.0)
 
     out = {}
@@ -355,7 +383,11 @@ def main():
                merc_to_lonlat(x1, y0), merc_to_lonlat(x0, y0)]
 
     valid = np.isfinite(bands["slope"])
-    q = bands["qvalue"]
+    # Tel op de GEKWANTISEERDE q, niet op de ruwe float: de viewer leest de
+    # Int16 uit het PNG terug en zou anders net een andere telling geven voor
+    # pixels die vlak tegen de drempel aan liggen.
+    qscale = BANDS["qvalue"]["scale"]
+    q = np.round(bands["qvalue"] / qscale) * qscale
     n_sig = int(np.sum(np.isfinite(q) & (q < 0.05)))
 
     meta = {

@@ -17,7 +17,11 @@
   function clear(svg) { while (svg.firstChild) svg.removeChild(svg.firstChild); }
   function nl(v, d) {
     if (v === null || v === undefined || isNaN(v)) return '–';
-    return v.toFixed(d === undefined ? 3 : d).replace('.', ',');
+    // Nederlandse notatie: decimale komma en een echt minteken (U+2212),
+    // niet het ASCII-koppelteken dat toFixed() teruggeeft.
+    return v.toFixed(d === undefined ? 3 : d)
+            .replace('.', ',')
+            .replace(/^-/, '−');
   }
   function extent(values, padFrac) {
     var lo = Infinity, hi = -Infinity;
@@ -47,7 +51,7 @@
   }
 
   /* ── 1. tijdreeks + z-anomalie ──────────────────────────── */
-  function timeseries(svg, tip, series, indexName) {
+  function timeseries(svg, tip, series, indexName, ingrepen) {
     clear(svg);
     var obs = series.obs;
     if (obs.length < 5) return;
@@ -113,6 +117,30 @@
       svg.appendChild(t);
     });
     caption(svg, L, zy0 - 4, 'z-anomalie');
+
+    /* Beheeringrepen op de tijdas (hoofdstuk 5.3.2). Een losse datum wordt
+       een streepje, een periode een bandje. Bewust achter de meetpunten
+       getekend: het is context, niet de meting zelf. */
+    if (ingrepen && ingrepen.length) {
+      var gLayer = el('g', { 'pointer-events': 'none' });
+      ingrepen.forEach(function (g) {
+        var x0 = X(g.start.getTime());
+        if (x0 < L - 2 || x0 > L + pw + 2) return;
+        if (g.eind) {
+          var x1 = Math.min(L + pw, X(g.eind.getTime()));
+          gLayer.appendChild(el('rect', { x: x0, y: T, width: Math.max(1.5, x1 - x0),
+            height: topH, fill: g.kleur, 'fill-opacity': 0.12 }));
+        }
+        gLayer.appendChild(el('line', { x1: x0, x2: x0, y1: T, y2: T + topH,
+          stroke: g.kleur, 'stroke-width': 1.2, 'stroke-opacity': 0.75,
+          'stroke-dasharray': '3 2' }));
+        gLayer.appendChild(el('path', {
+          d: 'M' + (x0 - 3.2) + ' ' + (T - 1) + 'L' + (x0 + 3.2) + ' ' + (T - 1)
+             + 'L' + x0 + ' ' + (T + 4.5) + 'Z',
+          fill: g.kleur }));
+      });
+      svg.insertBefore(gLayer, svg.firstChild);
+    }
 
     // hover
     var line = el('line', { y1: T, y2: T + topH + gap + botH, stroke: C.muted,

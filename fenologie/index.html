@@ -66,6 +66,12 @@
 
     <div class="legend" id="legend"></div>
 
+    <section class="shortlist" id="shortlist" hidden>
+      <h2 class="shortlist-head">Waar moet ik kijken?</h2>
+      <p class="shortlist-sub" id="shortlist-sub"></p>
+      <ol class="shortlist-items" id="shortlist-items"></ol>
+    </section>
+
     <div class="meta-block" id="meta-block"></div>
 
     <div class="btn-row">
@@ -93,6 +99,7 @@
       <h3>Tijdreeks tegen de eigen referentie</h3>
       <div class="chart"><svg id="c-ts" viewBox="0 0 640 300" role="img" aria-label="NDVI-tijdreeks met z-anomalieën"></svg><div class="tt" id="tt-ts"></div></div>
       <p class="cap">Band = referentiecurve ± 1 robuuste SD. Balken onder = gestandaardiseerde anomalie; |z| ≥ 2 is uitzonderlijk.</p>
+      <ul class="ingrepen" id="ingrepen-list" hidden></ul>
     </section>
 
     <section class="chart-block">
@@ -128,12 +135,13 @@
   <button class="btn btn-sm ghost" id="btn-toast-close">Sluiten</button>
 </div>
 
-<div class="loader" id="loader"><div class="spinner"></div><span id="loader-text">Kubus laden…</span></div>
+<div class="loader" id="loader"><div class="spinner"></div><span id="loader-text">Trendkaart laden…</span></div>
 
 <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
 <script src="/fenologie/config.js"></script>
 <script src="/fenologie/js/raster.js"></script>
 <script src="/fenologie/js/series.js"></script>
+<script src="/fenologie/js/ingrepen.js"></script>
 <script src="/fenologie/js/charts.js"></script>
 <script src="/fenologie/js/app.js"></script>
 </body>

@@ -1,0 +1,43 @@
+{
+  "voorbeeld": true,
+  "bron": "VERZONNEN VOORBEELDDATA. Alleen geladen als de trendkaart zelf ook demo-data is (meta.demo), zodat dit nooit naast echte metingen komt te staan. Bedoeld om te laten zien hoe beheerregistraties in de reeksgrafiek landen; vervang door de echte registraties in ingrepen.json.",
+  "ingrepen": [
+    {
+      "datum": "2018-07-10",
+      "type": "maaibeheer",
+      "omschrijving": "voorbeeld: eerste maaironde noordelijke percelen",
+      "bbox": [4.80, 52.145, 4.84, 52.168]
+    },
+    {
+      "datum": "2019-07-08",
+      "type": "maaibeheer",
+      "omschrijving": "voorbeeld: eerste maaironde noordelijke percelen",
+      "bbox": [4.80, 52.145, 4.84, 52.168]
+    },
+    {
+      "start": "2019-01-15",
+      "eind": "2019-03-01",
+      "type": "petgat",
+      "omschrijving": "voorbeeld: petgaten opgeschoond",
+      "bbox": [4.80, 52.145, 4.84, 52.168]
+    },
+    {
+      "datum": "2021-09-20",
+      "type": "rietoogst",
+      "omschrijving": "voorbeeld: rietoogst zuidoostelijk deel",
+      "bbox": [4.845, 52.120, 4.885, 52.145]
+    },
+    {
+      "datum": "2023-09-18",
+      "type": "rietoogst",
+      "omschrijving": "voorbeeld: rietoogst zuidoostelijk deel",
+      "bbox": [4.845, 52.120, 4.885, 52.145]
+    },
+    {
+      "start": "2020-02-01",
+      "eind": "2020-04-15",
+      "type": "waterpeil",
+      "omschrijving": "voorbeeld: periode met afwijkend hoog water, gebiedsbreed"
+    }
+  ]
+}

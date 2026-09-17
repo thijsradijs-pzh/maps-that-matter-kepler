@@ -37,8 +37,8 @@
    "scale": 1e-05,
    "label": "Theil-Sen-helling",
    "unit": "index/jaar",
-   "min": -0.022843,
-   "max": 0.018852
+   "min": -0.019128,
+   "max": 0.018348
   },
   "tau": {
    "file": "tau.png",
@@ -66,7 +66,7 @@
   }
  },
  "pixels_valid": 552922,
- "pixels_significant": 587,
+ "pixels_significant": 2397,
  "fdr_alpha": 0.05,
  "period": [
   "2016-01-01",

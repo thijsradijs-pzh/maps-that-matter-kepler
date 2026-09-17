@@ -149,6 +149,107 @@
       return n;
     },
 
+    /** Lon/lat van het midden van een pixel, de omkering van indexAt(). */
+    lonLatAt: function (i) {
+      var m = Raster.meta, b = m.bounds_3857;
+      var px = i % m.width, py = Math.floor(i / m.width);
+      var x = b[0] + (px + 0.5) / m.width * (b[2] - b[0]);
+      var y = b[3] - (py + 0.5) / m.height * (b[3] - b[1]);
+      return [x / WEB_MERCATOR_R * 180 / Math.PI,
+              (2 * Math.atan(Math.exp(y / WEB_MERCATOR_R)) - Math.PI / 2) * 180 / Math.PI];
+    },
+
+    /** Grondoppervlak van een pixel in m2. */
+    pixelArea: function () {
+      var m = Raster.meta, b = m.bounds_3857;
+      var lat = (m.corners[0][1] + m.corners[2][1]) / 2;
+      var k = Math.cos(lat * Math.PI / 180);   // Mercator rekt op met 1/cos(lat)
+      var w = (b[2] - b[0]) / m.width * k;
+      var h = (b[3] - b[1]) / m.height * k;
+      return w * h;
+    },
+
+    /**
+     * Aaneengesloten vlekken van significante pixels, gesorteerd op hoe
+     * dringend ze zijn.
+     *
+     * Het rapport (par. 5.1) noemt als kern van de methode dat je er
+     * "locaties mee selecteert waar veldbezoek het meest relevant is". Een
+     * kaart vol losse gekleurde pixels doet dat niet; een gerangschikte lijst
+     * van samenhangende vlekken wel. Losse pixels vallen af via minPixels,
+     * want een enkele significante pixel tussen duizenden is precies wat de
+     * FDR-correctie nog net doorlaat.
+     *
+     * Iteratieve flood fill met 8-verbondenheid over een expliciete stack --
+     * recursie loopt op 700.000 pixels de call stack over.
+     */
+    clusters: function (opts) {
+      opts = opts || {};
+      var alpha = opts.alpha || 0.05;
+      var minPixels = opts.minPixels || 8;
+      var q = Raster.bands.qvalue, slope = Raster.bands.slope;
+      if (!q || !slope) return [];
+
+      var w = Raster.width, h = Raster.height, n = w * h;
+      var seen = new Uint8Array(n);
+      var stack = new Int32Array(n);
+      var area = Raster.pixelArea();
+      var out = [];
+
+      for (var start = 0; start < n; start++) {
+        if (seen[start]) continue;
+        seen[start] = 1;
+        if (isNaN(q[start]) || q[start] >= alpha) continue;
+
+        var sign = slope[start] >= 0 ? 1 : -1;
+        var top = 0, count = 0, sum = 0;
+        var peak = start, peakAbs = -1;
+        stack[top++] = start;
+
+        while (top > 0) {
+          var i = stack[--top];
+          var v = slope[i];
+          count++;
+          sum += v;
+          if (Math.abs(v) > peakAbs) { peakAbs = Math.abs(v); peak = i; }
+
+          var px = i % w, py = (i - px) / w;
+          for (var dy = -1; dy <= 1; dy++) {
+            for (var dx = -1; dx <= 1; dx++) {
+              if (!dx && !dy) continue;
+              var nx = px + dx, ny = py + dy;
+              if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+              var j = ny * w + nx;
+              if (seen[j]) continue;
+              // Een vlek is eenduidig stijgend of dalend; een dalende en een
+              // stijgende plek die elkaar raken zijn twee bevindingen.
+              if (isNaN(q[j]) || q[j] >= alpha) { seen[j] = 1; continue; }
+              if ((slope[j] >= 0 ? 1 : -1) !== sign) continue;
+              seen[j] = 1;
+              stack[top++] = j;
+            }
+          }
+        }
+
+        if (count < minPixels) continue;
+        var ll = Raster.lonLatAt(peak);
+        var mean = sum / count;
+        out.push({
+          n: count,
+          hectare: count * area / 10000,
+          meanSlope: mean,
+          peakSlope: slope[peak],
+          lon: ll[0], lat: ll[1],
+          // Rangschikking: een grote vlek met een matige helling verdient een
+          // veldbezoek eerder dan een paar pixels met een steile helling.
+          score: (count * area / 10000) * Math.abs(mean),
+        });
+      }
+
+      out.sort(function (a, b) { return b.score - a.score; });
+      return out;
+    },
+
     countValid: function () {
       var s = Raster.bands.slope;
       var n = 0;

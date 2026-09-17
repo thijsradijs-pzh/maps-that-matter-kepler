@@ -96,6 +96,63 @@ hoekcoördinaten precies op zijn plek legt zonder in de browser te
 herprojecteren. `raster-resampling` staat op `nearest`: elke pixel is een
 meetwaarde, en interpolatie zou waarden suggereren die niet berekend zijn.
 
+## Waar moet ik kijken?
+
+Paragraaf 5.1 van het rapport zegt dat de meerwaarde van deze methode zit in
+het *"locaties selecteren waar veldbezoek het meest relevant is"*. Een kaart
+alleen doet dat niet: je moet de gekleurde vlekken zelf vinden en onderling
+wegen. Het paneel doet dat wegen expliciet.
+
+`Raster.clusters()` zoekt aaneengesloten vlekken van significante pixels
+(8-verbonden, iteratieve flood fill — recursie loopt op 700.000 pixels de call
+stack over). Een vlek is eenduidig stijgend of dalend; een dalende en een
+stijgende plek die elkaar raken zijn twee bevindingen, geen één.
+
+De rangschikking is oppervlak × |gemiddelde helling|. Een vlek van 16 ha met
+een matige helling verdient eerder een veldbezoek dan drie pixels met een
+steile helling. Vlekken onder `shortlist.minPixels` (standaard 12, dus 0,12 ha)
+vallen af: een enkele significante pixel tussen honderdduizenden is precies wat
+de FDR-correctie nog nét doorlaat.
+
+Klik een regel en de kaart springt naar de sterkste pixel in die vlek.
+
+## Beheeringrepen op de tijdas
+
+Paragraaf 5.3.2 noemt maaibeheer, rietoogst, het opschonen van petgaten en
+perioden met afwijkend hoog water als een beter eerste aangrijpingspunt dan
+droogte, juist omdat ze locatiegebonden zijn en in de tijd te plaatsen. Zonder
+die context is een dip in de reeks een raadsel; met een streepje erbij is het
+een maaibeurt.
+
+Die registraties heeft het rapport zelf nog niet — er staat letterlijk *"met
+PZH overleggen of we een kaart met ingrepen, inclusief wanneer deze hebben
+plaatsgevonden, kunnen krijgen"*. `data/fenologie/ingrepen.json` is de
+aansluiting, klaar voor het moment dat ze er zijn:
+
+```json
+{
+  "voorbeeld": false,
+  "ingrepen": [
+    {
+      "datum": "2021-07-15",
+      "type": "maaibeheer",
+      "omschrijving": "eerste maaironde noordelijke percelen",
+      "bbox": [4.80, 52.145, 4.84, 52.168]
+    }
+  ]
+}
+```
+
+`start` + `eind` in plaats van `datum` maakt er een periode van (een bandje in
+plaats van een streepje). Zonder `bbox` geldt een ingreep voor het hele gebied;
+mét bbox alleen voor pixels erbinnen. `type` stuurt de kleur en mag groeien —
+onbekende types krijgen gewoon de neutrale kleur.
+
+`ingrepen.voorbeeld.json` bevat verzonnen entries en wordt **alleen** geladen
+als de trendkaart zelf ook demo-data is (`meta.demo`), zodat verzonnen ingrepen
+nooit naast echte metingen komen te staan. De viewer zet er bovendien een
+waarschuwing boven.
+
 ## Significantie
 
 Het vinkje "alleen significante trends" toetst op **q, niet op p**. Over een
@@ -116,11 +173,13 @@ fenologie/config.js           raster-URL, basemaps, kaartlagen, kleuren
 fenologie/css/style.css       licht thema, bottom sheet op mobiel
 fenologie/js/raster.js        PNG decoderen, georeferentie, inkleuren
 fenologie/js/series.js        klimatologie, z, decompositie, Theil-Sen, MK
+fenologie/js/ingrepen.js      beheerregistraties laden en op locatie filteren
 fenologie/js/charts.js        vier SVG-grafieken, geen chartbibliotheek
 fenologie/js/app.js           MapLibre, interactie, permalink, CSV-export
 api/ndvi-series.js            live openEO-punt (CDSE), server-side credentials
 scripts/export_fenologie_raster.py  GRASS-rasters -> PNG's, en de demo-generator
 data/fenologie/raster/        de trendkaart zelf
+data/fenologie/ingrepen.json  beheerregistraties (leeg tot PZH ze aanlevert)
 ```
 
 ## Verwant
