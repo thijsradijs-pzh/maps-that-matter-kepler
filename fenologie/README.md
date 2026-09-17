@@ -73,6 +73,73 @@ python3 scripts/export_fenologie_raster.py --demo
 De viewer zet dan zelf een `demo-data`-badge in het paneel — het trendveld is
 gesimuleerd, de weergave erna is dezelfde code.
 
+## Zonder GRASS: de openEO-route
+
+Geen toegang tot de GRASS-database van HAS/PZH? Dan bouwt
+`scripts/build_fenologie_openeo.py` dezelfde PNG's uit echte Sentinel-2 data.
+De zware temporele reductie gebeurt op Copernicus, de trendberekening hier:
+
+| openEO (CDSE) | lokaal |
+|---|---|
+| laden, wolken maskeren (SCL 3/8/9/10/11), NDVI | Theil-Sen + Mann-Kendall per pixel |
+| mediaan per jaar, herprojectie naar EPSG:3857 | Benjamini-Hochberg over alle pixels |
+| → 10 rasters, ~26 MB | → dezelfde vier PNG's |
+
+```bash
+export CDSE_CLIENT_ID='...'
+export CDSE_CLIENT_SECRET='...'
+python3 scripts/build_fenologie_openeo.py            # ~10-40 min
+python3 scripts/build_fenologie_openeo.py --dry-run  # alleen de process graph
+```
+
+Credentials maak je op het [Sentinel Hub-dashboard](https://shapps.dataspace.copernicus.eu/dashboard)
+→ User Settings → OAuth clients → Create. De secret is daarna niet meer op te
+halen. Ze komen uit de omgeving en worden nergens weggeschreven.
+
+`theilsen_mk()` en `fdr_pvalue()` zijn een portering van notebook 11, bewust
+een kopie en geen eigen variant. Getoetst tegen `scipy.stats.theilslopes` en
+`scipy.stats.kendalltau`: de helling en tau-b komen exact overeen. De
+p-waarden wijken af omdat het rapport de normaal-benadering met
+continuïteitscorrectie gebruikt waar scipy bij n = 10 de exacte
+permutatieverdeling neemt — maximaal 0,010 verschil, en bij de drempel die
+wij gebruiken (q < 0,05) geeft het precies hetzelfde aantal.
+
+**Afwijking van het rapport.** Notebook 11 vat per jaar de *HANTS-gladgestreken*
+jaarcurve samen; openEO kent geen HANTS, dus dit script neemt de mediaan van
+de waarnemingen in dat jaar. Voor de niveautrend (`median`) is dat
+verdedigbaar — beide zijn robuuste centrummaten. Voor piek, dal en bereik
+niet: de extremen van een gladgestreken curve zijn iets heel anders dan die
+van ruwe waarnemingen. Daarom berekent dit script alleen de niveautrend.
+
+### De detectiegrens, lees dit voordat je conclusies trekt
+
+Mann-Kendall op tien jaarwaarden heeft een **harde ondergrens** voor de
+p-waarde: een reeks kan niet monotoner dan perfect. Bij n = 10 is dat
+p = 8,3 × 10⁻⁵. Benjamini-Hochberg verwerpt de k-de kleinste p als
+p ≤ k/N × α, dus er moeten er minstens `k = p_min × N / α` op die ondergrens
+zitten voordat er ook maar één significant heet.
+
+Omdat N = gebied / pixeloppervlak valt het pixeloppervlak tegen elkaar weg:
+**de minimale oppervlakte is onafhankelijk van de resolutie.**
+
+| reeks | kleinste p | minimaal aaneengesloten |
+|---|---|---|
+| 10 jaar | 8,3 × 10⁻⁵ | **9,2 ha** |
+| 12 jaar | 8,3 × 10⁻⁶ | 0,92 ha |
+| 15 jaar | 2,7 × 10⁻⁷ | 0,03 ha |
+
+Over Nieuwkoop (55 km² binnen de omtrek) kan een sterk dalend perceel van
+2 ha bij tien jaar data dus **nooit** significant heten, hoe overtuigend de
+reeks ook is. Dat is geen fout in de data of de code, het is wat deze toets
+op deze schaal kan.
+
+Fijner bemonsteren helpt niet. Een langere reeks wel, en hard: p_min daalt
+ruwweg een factor tien per twee extra jaren. Dat geeft een concreet getal bij
+wat §5.3.3 van het rapport voorstelt — Landsat-harmonisatie om de reeks te
+verlengen. Twee jaar erbij is al een factor tien in gevoeligheid.
+
+Het script drukt deze grens na afloop af, juist als de uitkomst nul is.
+
 ## Het bestandsformaat
 
 Vier PNG's plus een `meta.json`, samen ~2,9 MB:
@@ -178,6 +245,7 @@ fenologie/js/charts.js        vier SVG-grafieken, geen chartbibliotheek
 fenologie/js/app.js           MapLibre, interactie, permalink, CSV-export
 api/ndvi-series.js            live openEO-punt (CDSE), server-side credentials
 scripts/export_fenologie_raster.py  GRASS-rasters -> PNG's, en de demo-generator
+scripts/build_fenologie_openeo.py   openEO -> jaarmedianen -> trend -> dezelfde PNG's
 data/fenologie/raster/        de trendkaart zelf
 data/fenologie/ingrepen.json  beheerregistraties (leeg tot PZH ze aanlevert)
 ```
