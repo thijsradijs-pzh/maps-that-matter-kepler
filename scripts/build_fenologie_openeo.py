@@ -71,6 +71,15 @@ TOKEN_URL = ("https://identity.dataspace.copernicus.eu/auth/realms/CDSE"
              "/protocol/openid-connect/token")
 OPENEO_URL = "https://openeo.dataspace.copernicus.eu/openeo/1.2"
 
+# openEO verlangt twee dingen die niet vanzelf goed gaan:
+#  1. het token moet met scope=openid aangevraagd zijn -- zonder die scope
+#     geeft CDSE wel een geldig token, maar antwoordt openEO met 403
+#     "TokenInvalid", wat naar een verlopen sleutel lijkt en het niet is;
+#  2. de Authorization-header is "Bearer oidc/<provider>/<token>", niet een
+#     kaal "Bearer <token>". De provider-id staat in /credentials/oidc.
+OIDC_PROVIDER = "CDSE"
+OIDC_SCOPE = "openid"
+
 # Zelfde maskering als api/ndvi-series.js: 3 schaduw, 8/9 wolk, 10 cirrus,
 # 11 sneeuw/ijs. Gelijk houden, anders wijkt de kaart af van wat je krijgt
 # als je in de viewer op een pixel klikt.
@@ -147,6 +156,7 @@ def get_token():
         "grant_type": "client_credentials",
         "client_id": cid,
         "client_secret": secret,
+        "scope": OIDC_SCOPE,
     }).encode()
     req = urllib.request.Request(TOKEN_URL, data=form, method="POST")
     req.add_header("Content-Type", "application/x-www-form-urlencoded")
@@ -156,6 +166,11 @@ def get_token():
     except urllib.error.HTTPError as e:
         raise SystemExit("CDSE weigerde de credentials (HTTP %s). Controleer of "
                          "de OAuth-client nog geldig is." % e.code)
+
+
+def auth_header(token):
+    """openEO-conventie voor een OIDC-token: Bearer oidc/<provider>/<token>."""
+    return {"Authorization": "Bearer %s/%s/%s" % ("oidc", OIDC_PROVIDER, token)}
 
 
 # ---------------------------------------------------------------- graph
@@ -236,7 +251,7 @@ def build_graph(bbox, years, index, resolution):
 
 # ---------------------------------------------------------------- job
 def run_job(graph, token, poll=20):
-    hdr = {"Authorization": "Bearer " + token}
+    hdr = auth_header(token)
     job, _ = _post(OPENEO_URL + "/jobs",
                    {"process": {"process_graph": graph},
                     "title": "fenologie Nieuwkoop jaarmedianen"},
@@ -266,7 +281,7 @@ def run_job(graph, token, poll=20):
 
 
 def download_results(job_id, token, out_dir, keep=False):
-    hdr = {"Authorization": "Bearer " + token}
+    hdr = auth_header(token)
     res = _get(OPENEO_URL + "/jobs/%s/results" % job_id, hdr)
     assets = res.get("assets", {})
     tifs = [(n, a["href"]) for n, a in assets.items()

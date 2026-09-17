@@ -43,6 +43,10 @@ async function getToken() {
     grant_type: 'client_credentials',
     client_id: id,
     client_secret: secret,
+    // Zonder scope=openid geeft CDSE wel een geldig token, maar antwoordt
+    // openEO met 403 "TokenInvalid" -- wat op een verlopen sleutel lijkt en
+    // het niet is.
+    scope: 'openid',
   });
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
@@ -224,7 +228,9 @@ export default async function handler(req, res) {
     const result = await fetch(OPENEO_URL + '/result', {
       method: 'POST',
       headers: {
-        Authorization: 'Bearer ' + token,
+        // openEO-conventie voor OIDC: Bearer oidc/<provider>/<token>,
+        // niet een kaal Bearer <token>. Provider-id uit /credentials/oidc.
+        Authorization: 'Bearer oidc/CDSE/' + token,
         'Content-Type': 'application/json',
       },
       body,
