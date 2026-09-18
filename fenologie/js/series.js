@@ -72,6 +72,19 @@
     return a[i];
   }
 
+  /** base64 Int16 -> Float64Array, met NaN voor ontbrekende waarnemingen. */
+  function decodeInt16(b64, scale, nodata) {
+    var bin = atob(b64);
+    var n = bin.length >> 1;
+    var out = new Float64Array(n);
+    for (var i = 0; i < n; i++) {
+      var v = (bin.charCodeAt(i * 2 + 1) << 8) | bin.charCodeAt(i * 2);
+      if (v > 32767) v -= 65536;
+      out[i] = v === nodata ? NaN : v / scale;
+    }
+    return out;
+  }
+
   var Series = {
     /** Bouwt de DOY-klimatologie uit de reeks zelf en hangt z aan elke obs. */
     climatology: function (obs) {
@@ -169,6 +182,65 @@
       // Een losse klik is een enkele toets: geen meervoudigheidsprobleem, dus
       // geen FDR-correctie. De q op de kaart komt uit de rasterexport, waar
       // hoofdstuk 11 wel over alle pixels tegelijk corrigeert.
+      point.q = null;
+      return point;
+    },
+
+
+    /* Vooraf opgehaalde reeksen per zone (scripts/build_fenologie_series.py).
+       Per pixel past zoiets niet in een download, per zone wel: 17
+       beheertypen over tien jaar is 39 kB. Daardoor is een klik in een
+       zoneweergave meteen raak, zonder op Copernicus te wachten. */
+    zones: null,
+
+    loadZones: function (url) {
+      return fetch(url)
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          Series.zones = (j && j.zones && j.dates) ? j : null;
+          return Series.zones;
+        })
+        .catch(function () { Series.zones = null; return null; });
+    },
+
+    /** Bouwt hetzelfde object als fromLive(), maar uit het zonebestand. */
+    fromZone: function (index, lon, lat) {
+      var z = Series.zones;
+      if (!z || !z.zones[index - 1]) return null;
+      var entry = z.zones[index - 1];
+      var vals = decodeInt16(entry.v, z.meta.scale, z.meta.nodata);
+
+      var obs = [];
+      for (var i = 0; i < z.dates.length; i++) {
+        if (isNaN(vals[i])) continue;
+        var d = new Date(z.dates[i] + 'T00:00:00Z');
+        obs.push({ date: d, iso: z.dates[i], doy: noLeapDoy(d), value: vals[i] });
+      }
+      if (obs.length < 20) return null;
+
+      var series = Series.climatology(obs);
+      var byYear = {};
+      obs.forEach(function (o) {
+        var y = o.date.getUTCFullYear();
+        (byYear[y] = byYear[y] || []).push(o.value);
+      });
+      var ys = Object.keys(byYear).map(Number).sort(function (a, b) { return a - b; });
+
+      var point = {
+        lon: lon, lat: lat, live: false, zone: entry.zone,
+        n: obs.length,
+        years: ys,
+        ymed: ys.map(function (y) { return quantile(byYear[y], 0.5); }),
+        ymax: ys.map(function (y) { return quantile(byYear[y], 0.9); }),
+        ymin: ys.map(function (y) { return quantile(byYear[y], 0.1); }),
+        zlow: obs.filter(function (o) { return o.z !== null && o.z <= -2; }).length,
+        zhigh: obs.filter(function (o) { return o.z !== null && o.z >= 2; }).length,
+        _series: series,
+      };
+      point.slope = Series.theilSen(ys, point.ymed).slope;
+      var mk = Series.mannKendall(point.ymed);
+      point.tau = mk.tau;
+      point.p = mk.p;
       point.q = null;
       return point;
     },

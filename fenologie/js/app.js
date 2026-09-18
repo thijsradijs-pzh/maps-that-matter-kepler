@@ -272,7 +272,17 @@
     $('detail').hidden = false;
     markPixel(lon, lat);
     renderIngrepen(lon, lat);
-    updateSeriesPrompt();
+
+    // In een zoneweergave is de reeks al meegeleverd: direct tekenen in plaats
+    // van een knop tonen die tien tot veertig seconden op Copernicus wacht.
+    var zoneIdx = (agg && vals.zone) ? Math.round(vals.zone) : null;
+    livePoint = zoneIdx ? Series.fromZone(zoneIdx, lon, lat) : null;
+    if (livePoint) {
+      renderCharts();
+      if (livePoint.zone) $('d-title').textContent += ' · ' + livePoint.zone;
+    } else {
+      updateSeriesPrompt();
+    }
     updateURL();
   }
 
@@ -323,6 +333,11 @@
     var box = $('chart-status');
     box.hidden = false;
     if (livePoint) { box.hidden = true; return; }
+    if (Raster.meta.aggregation && !Series.zones) {
+      box.innerHTML = 'De reeksen van deze weergave konden niet geladen worden. '
+        + 'Draai <code>scripts/build_fenologie_series.py</code> om ze te maken.';
+      return;
+    }
     if (liveAvailable === false) {
       box.innerHTML = 'De tijdreeks achter deze pixel is niet voorberekend en '
         + 'live ophalen staat uit. Zet <code>CDSE_CLIENT_ID</code> en '
@@ -465,15 +480,25 @@
       $('metric').value = metric;
     }
     if (p.get('sig') === '1') { onlySig = true; $('only-sig').checked = true; }
+
+    var lon = parseFloat(p.get('lon')), lat = parseFloat(p.get('lat'));
+    var hasPoint = !isNaN(lon) && !isNaN(lat);
+    function openPoint() {
+      if (!hasPoint) return;
+      showPixel(lon, lat);
+      map.jumpTo({ center: [lon, lat], zoom: 14.2 });
+    }
+
+    // Een weergavewissel laadt asynchroon. Het punt pas openen als die klaar
+    // is, anders wordt het tegen de nog geladen pixelkaart getoetst en meldt
+    // de viewer "buiten het onderzoeksgebied" voor een punt dat in een zone
+    // ligt.
     var vw = p.get('view');
     if (vw && vw !== view && (CFG.views || []).some(function (x) { return x.id === vw; })) {
       $('view').value = vw;
-      switchView(vw);
-    }
-    var lon = parseFloat(p.get('lon')), lat = parseFloat(p.get('lat'));
-    if (!isNaN(lon) && !isNaN(lat)) {
-      showPixel(lon, lat);
-      map.jumpTo({ center: [lon, lat], zoom: 14.2 });
+      switchView(vw, openPoint);
+    } else {
+      openPoint();
     }
   }
 
@@ -559,7 +584,7 @@
   /* Wissel van analyse-eenheid: zelfde reeks, andere schaal waarop getoetst
      wordt. Alle weergaven delen hetzelfde grid, dus alleen de banden en de
      meta veranderen -- de image-source hoeft niet opnieuw aangemaakt. */
-  function switchView(id) {
+  function switchView(id, done) {
     var v = (CFG.views || []).filter(function (x) { return x.id === id; })[0];
     if (!v) return;
     var prev = view;
@@ -567,12 +592,16 @@
     $('loader').hidden = false;
     $('loader-text').textContent = 'Trendkaart laden…';
     Raster.bands = {};
-    Raster.load(v.base).then(function () {
+    Series.zones = null;
+    var jobs = [Raster.load(v.base)];
+    if (v.series) jobs.push(Series.loadZones(v.series));
+    Promise.all(jobs).then(function () {
       $('loader').hidden = true;
       paintRaster();
       renderMeta();
       renderShortlist();
       if (picked) showPixel(picked.lon, picked.lat);
+      if (done) done();
       updateURL();
     }).catch(function (e) {
       view = prev;
@@ -605,6 +634,14 @@
     updateSigHint();
     renderShortlist();
 
+    // De loader hoort bij het laden van de DATA, niet van de ondergrond. Hij
+    // hing eerst aan 'style.load' en bleef daardoor staan zodra de
+    // PDOK-tegelserver haperde -- terwijl de trendkaart al in het geheugen
+    // stond. Hetzelfde geldt voor de permalink: die heeft de kaart alleen
+    // nodig voor jumpTo, en dat verdraagt een nog niet geladen stijl.
+    $('loader').hidden = true;
+    restoreURL();
+
     // 'style.load' in plaats van 'load': dat laatste wacht ook op de tegels van
     // de ondergrond, en een trage tegelserver mag de trendkaart niet ophouden.
     // Vuurt ook opnieuw na elke setStyle, dus de basemap-wissel hangt er
@@ -615,9 +652,8 @@
       if (picked) markPixel(picked.lon, picked.lat);
       if (!firstStyle) return;
       firstStyle = false;
-      fitToRaster();
-      $('loader').hidden = true;
-      restoreURL();
+      // Niet de uitsnede overschrijven als de permalink al een plek koos.
+      if (!picked) fitToRaster();
     });
     map.on('click', onMapClick);
     map.on('mousemove', function (ev) {

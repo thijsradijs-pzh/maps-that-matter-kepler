@@ -276,6 +276,10 @@ def main():
     lut = lambda v: np.concatenate([[np.nan], v])[zones]   # noqa: E731
     bands = {"slope": lut(slope), "tau": lut(tau),
              "qvalue": lut(q), "count": lut(count)}
+    # Extra band met de zone-index (1-based, 0 = buiten elke zone). Daarmee
+    # weet een klik in de viewer bij welke zone hij hoort, en kan de vooraf
+    # opgehaalde tijdreeks er direct bij gezocht worden.
+    bands["zone"] = np.where(zones > 0, zones.astype("float64"), np.nan)
 
     # buiten de Natura 2000-omtrek niets tonen, net als de pixelkaart
     gx = transform.c + (np.arange(w) + 0.5) * transform.a
@@ -287,8 +291,10 @@ def main():
 
     out_dir = Path(args.out_dir or ("data/fenologie/raster-" + args.by))
     out_dir.mkdir(parents=True, exist_ok=True)
+    specs = dict(BANDS)
+    specs["zone"] = {"scale": 1.0, "label": "zone-index", "unit": ""}
     band_meta = {}
-    for name, spec in BANDS.items():
+    for name, spec in specs.items():
         write_value_png(out_dir / ("%s.png" % name), bands[name], spec["scale"])
         finite = bands[name][np.isfinite(bands[name])]
         band_meta[name] = {
@@ -317,6 +323,7 @@ def main():
         if not np.isfinite(slope[i]):
             continue
         table.append({
+            "index": int(i) + 1,
             "zone": names[i],
             "pixels": int(px_per_zone[i]),
             "slope": round(float(slope[i]), 6),

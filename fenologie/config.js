@@ -11,8 +11,10 @@ window.FENO_CONFIG = {
   // middelt het aggregeren ook signaal weg. Zie scripts/aggregate_fenologie_zones.py.
   views: [
     { id: 'pixel', label: 'Per pixel', base: '/data/fenologie/raster' },
-    { id: 'type', label: 'Per beheertype', base: '/data/fenologie/raster-type' },
-    { id: 'polygon', label: 'Per beheerperceel', base: '/data/fenologie/raster-polygon' },
+    { id: 'type', label: 'Per beheertype', base: '/data/fenologie/raster-type',
+      series: '/data/fenologie/series-type.json' },
+    { id: 'polygon', label: 'Per beheerperceel', base: '/data/fenologie/raster-polygon',
+      series: '/data/fenologie/series-polygon.json' },
   ],
   defaultView: 'pixel',
 
