@@ -440,7 +440,10 @@ def read_stack(paths):
 
     shapes = {l.shape for l in layers}
     if len(shapes) != 1:
-        raise SystemExit("jaarrasters hebben verschillende afmetingen: %s" % shapes)
+        raise SystemExit(
+            "jaarrasters hebben verschillende afmetingen: %s\n"
+            "Waarschijnlijk staan er nog rasters van een eerdere run met een "
+            "andere resolutie in de map. Leeg hem en download opnieuw." % shapes)
     return np.stack(layers, axis=0), transform, reader
 
 

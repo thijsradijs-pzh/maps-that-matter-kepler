@@ -37,3 +37,4 @@ __pycache__/
 data/fenologie/_openeo/
 .openeo-job-id
 data/fenologie/_zones.geojson
+data/fenologie/_openeo-6m/
