@@ -53,6 +53,7 @@ daarnaast een tabel met alle zones, zodat de cijfers na te lezen zijn.
 
 import argparse
 import json
+import math
 import sys
 import urllib.parse
 import urllib.request
@@ -72,7 +73,8 @@ from build_fenologie_openeo import (  # noqa: E402
 NBP_QUERY = ("https://geoservices.zuid-holland.nl/arcgis/rest/services"
              "/Landelijk_gebied/Landelijk_gebied_NBP_2026/MapServer/0/query")
 ZONE_FIELD = "beheerType"
-MIN_ZONE_PIXELS = 25     # kleiner dan ~0,1 ha zegt niets over een trend
+MIN_ZONE_AREA_HA = 0.25   # kleiner zegt niets over een trend
+MIN_ZONE_PIXELS = 10      # harde ondergrens voor een stabiele mediaan
 
 
 def fetch_zones(bbox_ll, out_sr=3857, field=ZONE_FIELD, url=NBP_QUERY,
@@ -190,7 +192,12 @@ def main():
     ap.add_argument("--tif-dir", default="data/fenologie/_openeo")
     ap.add_argument("--out-dir", default=None,
                     help="standaard data/fenologie/raster-<by>")
-    ap.add_argument("--min-pixels", type=int, default=MIN_ZONE_PIXELS)
+    ap.add_argument("--min-area", type=float, default=MIN_ZONE_AREA_HA,
+                    help="kleinste zone in hectare (default 0,25), in oppervlakte "
+                         "en niet in pixels zodat runs bij verschillende "
+                         "resoluties vergelijkbaar blijven")
+    ap.add_argument("--min-pixels", type=int, default=MIN_ZONE_PIXELS,
+                    help="harde ondergrens voor een stabiele mediaan (default 10)")
     args = ap.parse_args()
 
     tifs = sorted(Path(args.tif_dir).glob("*.tif"))
@@ -243,15 +250,26 @@ def main():
     pval = res["pvalue"][0]
     count = res["count"][0]
 
-    too_small = px_per_zone < args.min_pixels
+    # Drempel in OPPERVLAKTE, niet in pixels: een pixeldrempel schuift mee met
+    # de resolutie en maakt twee runs onvergelijkbaar. Bij 6,14 m was 25 px
+    # 945 m2 en bij 10 m 2.500 m2, waardoor precies de kleine percelen met de
+    # sterkste trends uit de tweede run vielen.
+    lat_mid = (merc_to_lonlat(transform.c, transform.f)[1]
+               + merc_to_lonlat(transform.c, transform.f + transform.e * h)[1]) / 2
+    px_area = abs(transform.a * transform.e) * math.cos(math.radians(lat_mid)) ** 2
+    min_px = max(args.min_pixels, int(round(args.min_area * 1e4 / px_area)))
+
+    too_small = px_per_zone < min_px
     for arr in (slope, tau, pval, count):
         arr[too_small] = np.nan
     q = fdr_pvalue(pval)
 
     n_tested = int(np.isfinite(pval).sum())
     n_sig = int(np.sum(np.isfinite(q) & (q < FDR_ALPHA)))
-    print("\n  getoetst: %d zones (%d te klein, < %d pixels)"
-          % (n_tested, int(too_small.sum()), args.min_pixels), file=sys.stderr)
+    print("\n  pixel %.1f m2, drempel %.2f ha = %d pixels"
+          % (px_area, args.min_area, min_px), file=sys.stderr)
+    print("  getoetst: %d zones (%d te klein)"
+          % (n_tested, int(too_small.sum())), file=sys.stderr)
     print("  significant: %d bij q < %g" % (n_sig, FDR_ALPHA), file=sys.stderr)
 
     # terugschilderen naar het raster: elke pixel krijgt de waarde van zijn zone
@@ -289,7 +307,11 @@ def main():
     qq = np.round(bands["qvalue"] / qs) * qs
     n_sig_px = int(np.sum(np.isfinite(qq) & (qq < FDR_ALPHA)))
 
-    order = np.argsort(np.where(np.isfinite(q), q, 2.0))
+    # Bij gelijke q -- heel gewoon, BH geeft hele groepen dezelfde waarde --
+    # sorteert een enkele sleutel willekeurig. Dan het sterkste effect eerst.
+    keyq = np.where(np.isfinite(q), q, 2.0)
+    keyt = np.where(np.isfinite(tau), -np.abs(tau), 0.0)
+    order = np.lexsort((keyt, keyq))
     table = []
     for i in order:
         if not np.isfinite(slope[i]):
@@ -328,7 +350,9 @@ def main():
             "zones_total": n_zones,
             "zones_tested": n_tested,
             "zones_significant": n_sig,
-            "min_pixels": args.min_pixels,
+            "min_area_ha": args.min_area,
+            "min_pixels": min_px,
+            "pixel_m2": round(px_area, 1),
             "detection_floor_p": p_min,
             "zones_needed_at_floor": round(k_min, 1),
             "table": table,
