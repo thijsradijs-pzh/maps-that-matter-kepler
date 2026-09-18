@@ -225,6 +225,37 @@ verlengen. Twee jaar erbij is al een factor tien in gevoeligheid.
 
 Het script drukt deze grens na afloop af, juist als de uitkomst nul is.
 
+## Tijdreeksen paraat in de viewer
+
+Een klik levert de tijdreeks direct, zonder op Copernicus te wachten.
+`scripts/build_fenologie_series.py` haalt die vooraf op met
+`aggregate_spatial`: de ruimtelijke samenvatting gebeurt op de backend, dus
+er komt alleen het eindresultaat over de lijn.
+
+```bash
+python3 scripts/build_fenologie_series.py --by type            # 17 beheertypen, 39 kB
+python3 scripts/build_fenologie_series.py --by grid --cell 200 # 1.386 cellen, ~2,4 MB
+```
+
+Per pixel kan dit niet — 500.000 pixels maal 644 datums is honderden
+miljoenen getallen — maar per zone of gridcel wel. De viewer zoekt in
+volgorde: eerst de zone waar de klik in valt (fijnste wat er is), anders de
+gridcel, en pas als allebei niets opleveren het live-pad.
+
+Het gridbestand wordt **lui geladen**, pas bij de eerste klik, zodat de
+kaart er niet op hoeft te wachten. Het grid dekt ook de ~75% van het gebied
+zonder beheertype-polygoon.
+
+| celmaat | cellen | payload naar openEO | bestand |
+|---|---|---|---|
+| 100 m | 5.533 | 1,24 MB | ~9,5 MB |
+| 150 m | 2.462 | 0,55 MB | ~4,2 MB |
+| **200 m** | **1.386** | **0,31 MB** | **~2,4 MB** |
+| 250 m | 885 | 0,20 MB | ~1,5 MB |
+
+Een grid is geometrisch spotgoedkoop (vijf punten per cel), waar de
+beheertypenkaart met 140.000 punten tegen de 413-limiet aanliep.
+
 ## Het bestandsformaat
 
 Vier PNG's plus een `meta.json`, samen ~2,9 MB:

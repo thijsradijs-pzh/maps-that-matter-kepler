@@ -45,6 +45,7 @@ verwerkt.
 import argparse
 import base64
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -132,6 +133,62 @@ def build_graph(bbox, years, index, geometries):
             "arguments": {"data": {"from_node": "agg"}, "format": "JSON"},
             "result": True},
     }
+
+
+def build_grid(ring_merc, cell_m, lat_mid):
+    """Regelmatig grid over het gebied, alleen de cellen binnen de omtrek.
+
+    Voor de 75% van Nieuwkoop zonder beheertype-polygoon is er anders geen
+    voorberekende reeks. Een grid dekt alles, en is geometrisch spotgoedkoop:
+    vijf punten per cel, dus de process graph blijft klein waar de
+    beheertypenkaart tegen de 413-limiet aanliep.
+
+    De celmaat is in grondmeters; Mercator rekt op 52 graden met 1/cos(lat) op.
+    """
+    step = cell_m / math.cos(math.radians(lat_mid))
+    xs = [p[0] for p in ring_merc]
+    ys = [p[1] for p in ring_merc]
+    x0, y0 = min(xs), min(ys)
+    ncol = int(math.ceil((max(xs) - x0) / step))
+    nrow = int(math.ceil((max(ys) - y0) / step))
+
+    cells, index = [], []
+    for r in range(nrow):
+        for c in range(ncol):
+            cx = x0 + (c + 0.5) * step
+            cy = y0 + (r + 0.5) * step
+            if not _inside(cx, cy, ring_merc):
+                continue
+            xa, xb = x0 + c * step, x0 + (c + 1) * step
+            ya, yb = y0 + r * step, y0 + (r + 1) * step
+            corners = [merc_to_lonlat(xa, ya), merc_to_lonlat(xb, ya),
+                       merc_to_lonlat(xb, yb), merc_to_lonlat(xa, yb)]
+            ringc = [[round(lo, 6), round(la, 6)] for lo, la in corners]
+            ringc.append(ringc[0])
+            cells.append({
+                "type": "Feature",
+                "properties": {"zone": "cel %d,%d" % (c, r)},
+                "geometry": {"type": "Polygon", "coordinates": [ringc]},
+            })
+            index.append(r * ncol + c)
+
+    meta = {"x0": x0, "y0": y0, "step": step, "ncol": ncol, "nrow": nrow,
+            "cell_m": cell_m, "index": index}
+    return cells, meta
+
+
+def _inside(x, y, ring):
+    """Punt-in-polygoon (even-odd) op de omtrek in 3857."""
+    inside = False
+    n = len(ring)
+    for i in range(n):
+        x1, y1 = ring[i]
+        x2, y2 = ring[(i + 1) % n]
+        if (y1 > y) != (y2 > y):
+            xint = (x2 - x1) * (y - y1) / (y2 - y1) + x1
+            if x < xint:
+                inside = not inside
+    return inside
 
 
 def dissolve_by_type(feats, field, tolerance=0.0):
@@ -240,7 +297,9 @@ def b64_int16(values):
 def main():
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--by", choices=["type", "polygon"], default="type")
+    ap.add_argument("--by", choices=["type", "polygon", "grid"], default="type")
+    ap.add_argument("--cell", type=float, default=200.0,
+                    help="celmaat in grondmeters voor --by grid (default 200)")
     ap.add_argument("--index", default="ndvi", choices=sorted(INDICES))
     ap.add_argument("--field", default=ZONE_FIELD)
     ap.add_argument("--zones-url", default=NBP_QUERY)
@@ -261,19 +320,26 @@ def main():
     ne = merc_to_lonlat(max(p[0] for p in ring), max(p[1] for p in ring))
     bbox = [round(sw[0], 6), round(sw[1], 6), round(ne[0], 6), round(ne[1], 6)]
 
-    feats = fetch_zones(bbox, out_sr=4326, field=args.field, url=args.zones_url,
-                        cache=Path("data/fenologie/_zones-4326.geojson"))
-    if args.by == "type":
-        zones = dissolve_by_type(feats, args.field,
-                                 tolerance=10 ** -args.simplify if args.simplify else 0.0)
+    grid_meta = None
+    if args.by == "grid":
+        zones, grid_meta = build_grid(ring, args.cell, (bbox[1] + bbox[3]) / 2)
+        names = [z["properties"]["zone"] for z in zones]
     else:
-        zones = [{"type": "Feature",
-                  "properties": {"zone": "%s #%d" % (f["properties"].get(args.field), i + 1)},
-                  "geometry": f["geometry"]}
-                 for i, f in enumerate(feats)]
-    names = [z["properties"]["zone"] for z in zones]
-    if args.by != "type":
-        zones = simplify(zones, args.simplify)
+        feats = fetch_zones(bbox, out_sr=4326, field=args.field, url=args.zones_url,
+                            cache=Path("data/fenologie/_zones-4326.geojson"))
+        if args.by == "type":
+            zones = dissolve_by_type(
+                feats, args.field,
+                tolerance=10 ** -args.simplify if args.simplify else 0.0)
+            names = [z["properties"]["zone"] for z in zones]
+        else:
+            zones = [{"type": "Feature",
+                      "properties": {"zone": "%s #%d"
+                                     % (f["properties"].get(args.field), i + 1)},
+                      "geometry": f["geometry"]}
+                     for i, f in enumerate(feats)]
+            names = [z["properties"]["zone"] for z in zones]
+            zones = simplify(zones, args.simplify)
     fc = {"type": "FeatureCollection", "features": zones}
     print("  %d zones, payload %.2f MB"
           % (len(names), len(json.dumps(fc)) / 1e6), file=sys.stderr)
@@ -325,13 +391,19 @@ def main():
             "scale": SCALE,
             "nodata": NODATA,
             "period": ["%d-01-01" % years[0], "%d-12-31" % years[-1]],
+            "grid": ({"x0": round(grid_meta["x0"], 2), "y0": round(grid_meta["y0"], 2),
+                      "step": round(grid_meta["step"], 4),
+                      "ncol": grid_meta["ncol"], "nrow": grid_meta["nrow"],
+                      "cell_m": grid_meta["cell_m"], "crs": "EPSG:3857"}
+                     if grid_meta else None),
             "note": ("Mediaan over de pixels van de zone, per opnamedatum. "
                      "Wolken gemaskeerd op SCL 3/8/9/10/11, scenes met meer dan "
                      "85% bewolking overgeslagen."),
         },
         "dates": dates,
-        "zones": [{"zone": names[i], "n": int(np.isfinite(table[:, i]).sum()),
-                   "v": b64_int16(table[:, i])}
+        "zones": [dict({"zone": names[i], "n": int(np.isfinite(table[:, i]).sum()),
+                        "v": b64_int16(table[:, i])},
+                       **({"cell": grid_meta["index"][i]} if grid_meta else {}))
                   for i in range(table.shape[1])],
     }
     dest = Path(args.out or ("data/fenologie/series-%s.json" % args.by))

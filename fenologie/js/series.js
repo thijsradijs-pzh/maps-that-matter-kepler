@@ -203,11 +203,59 @@
         .catch(function () { Series.zones = null; return null; });
     },
 
+
+    /* Grid-reeksen: dekt ook de 75% van het gebied zonder beheertype-polygoon.
+       Lui geladen -- pas bij de eerste klik -- want 1.386 cellen maal 644
+       datums is ~2,4 MB en dat hoeft de kaart niet op te houden. */
+    grid: null,
+    _gridPromise: null,
+
+    loadGrid: function (url) {
+      if (Series.grid) return Promise.resolve(Series.grid);
+      if (Series._gridPromise) return Series._gridPromise;
+      Series._gridPromise = fetch(url)
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          Series.grid = (j && j.zones && j.dates && j.meta && j.meta.grid) ? j : null;
+          if (Series.grid) {
+            // celindex -> plek in de zonelijst, want lege cellen ontbreken
+            var lut = {};
+            j.zones.forEach(function (z, i) { lut[z.cell] = i; });
+            Series.grid._lut = lut;
+          }
+          return Series.grid;
+        })
+        .catch(function () { Series.grid = null; return null; });
+      return Series._gridPromise;
+    },
+
+    /** Reeks van de gridcel waar dit punt in valt, of null. */
+    fromGrid: function (lon, lat) {
+      var g = Series.grid;
+      if (!g) return null;
+      var m = g.meta.grid;
+      var x = lon * Math.PI / 180 * 6378137.0;
+      var y = Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) * 6378137.0;
+      var c = Math.floor((x - m.x0) / m.step);
+      var r = Math.floor((y - m.y0) / m.step);
+      if (c < 0 || r < 0 || c >= m.ncol || r >= m.nrow) return null;
+      var i = g._lut[r * m.ncol + c];
+      if (i === undefined) return null;
+      return Series._buildPoint(g, i, lon, lat,
+                                'gridcel ' + m.cell_m + ' m');
+    },
+
     /** Bouwt hetzelfde object als fromLive(), maar uit het zonebestand. */
     fromZone: function (index, lon, lat) {
       var z = Series.zones;
       if (!z || !z.zones[index - 1]) return null;
-      var entry = z.zones[index - 1];
+      return Series._buildPoint(z, index - 1, lon, lat, null);
+    },
+
+    /** Gedeelde opbouw voor een reeks uit een voorberekend bestand. */
+    _buildPoint: function (file, i, lon, lat, label) {
+      var z = file;
+      var entry = z.zones[i];
       var vals = decodeInt16(entry.v, z.meta.scale, z.meta.nodata);
 
       var obs = [];
@@ -227,7 +275,7 @@
       var ys = Object.keys(byYear).map(Number).sort(function (a, b) { return a - b; });
 
       var point = {
-        lon: lon, lat: lat, live: false, zone: entry.zone,
+        lon: lon, lat: lat, live: false, zone: label || entry.zone,
         n: obs.length,
         years: ys,
         ymed: ys.map(function (y) { return quantile(byYear[y], 0.5); }),

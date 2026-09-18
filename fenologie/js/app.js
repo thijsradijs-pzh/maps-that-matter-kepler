@@ -273,16 +273,31 @@
     markPixel(lon, lat);
     renderIngrepen(lon, lat);
 
-    // In een zoneweergave is de reeks al meegeleverd: direct tekenen in plaats
-    // van een knop tonen die tien tot veertig seconden op Copernicus wacht.
+    // De reeks is vooraf opgehaald: direct tekenen in plaats van een knop die
+    // tien tot veertig seconden op Copernicus wacht. Eerst de zone (fijnst wat
+    // we hebben), anders de gridcel die het gebied dekkend afdekt.
     var zoneIdx = (agg && vals.zone) ? Math.round(vals.zone) : null;
     livePoint = zoneIdx ? Series.fromZone(zoneIdx, lon, lat) : null;
     if (livePoint) {
       renderCharts();
       if (livePoint.zone) $('d-title').textContent += ' · ' + livePoint.zone;
-    } else {
-      updateSeriesPrompt();
+      updateURL();
+      return;
     }
+
+    var token = ++liveToken;
+    $('chart-status').hidden = false;
+    $('chart-status').textContent = 'Reeks laden…';
+    Series.loadGrid(CFG.gridSeriesUrl).then(function () {
+      if (token !== liveToken) return;
+      livePoint = Series.fromGrid(lon, lat);
+      if (livePoint) {
+        renderCharts();
+        $('d-title').textContent += ' · ' + livePoint.zone;
+      } else {
+        updateSeriesPrompt();
+      }
+    });
     updateURL();
   }
 

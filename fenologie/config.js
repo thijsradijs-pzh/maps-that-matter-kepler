@@ -29,6 +29,11 @@ window.FENO_CONFIG = {
   ingrepenUrl: '/data/fenologie/ingrepen.json',
   ingrepenVoorbeeldUrl: '/data/fenologie/ingrepen.voorbeeld.json',
 
+  // Reeksen op een grof grid, voor het deel van het gebied zonder
+  // beheertype-polygoon. Lui geladen: pas bij de eerste klik, want het is
+  // ~2,4 MB en de kaart hoeft er niet op te wachten.
+  gridSeriesUrl: '/data/fenologie/series-grid.json',
+
   // Benjamini-Hochberg-niveau, gelijk aan fdr_alpha in de rasterexport.
   alpha: 0.05,
 
