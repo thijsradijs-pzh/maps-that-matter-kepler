@@ -336,6 +336,25 @@ als de trendkaart zelf ook demo-data is (`meta.demo`), zodat verzonnen ingrepen
 nooit naast echte metingen komen te staan. De viewer zet er bovendien een
 waarschuwing boven.
 
+## Luchtfoto door de jaren heen
+
+Bij de ondergrond "PDOK luchtfoto" verschijnt een jaarstrip: nu, en 2016 t/m
+2025. Zelfde archief en zelfde laaglijst als `pdok-viewer` gebruikt
+(`service.pdok.nl/hwh/luchtfotorgb`), maar via het REST-pad dat de andere
+basemaps hier ook gebruiken — dat geeft byte-identieke tegels als de
+KVP-vorm en scheelt een tweede URL-patroon.
+
+De reeks dekt precies de periode van de trendkaart, dus je kunt een trend
+visueel narekenen: zet de dekking van de trendkaart op ~25% en vergelijk
+2016 met 2025 op een perceel dat volgens de kaart daalt.
+
+Let op de opnames: t/m 2020 zomer op 25 cm, vanaf 2021 winter op 8 cm.
+2021 heeft geen zomeropname. Een zomer- en een winterbeeld naast elkaar
+leggen zegt dus weinig over vegetatieverandering — dat verschil is seizoen,
+geen trend.
+
+Jaar en ondergrond zitten in de permalink (`?base=luchtfoto&jaar=2018`).
+
 ## Significantie
 
 Het vinkje "alleen significante trends" toetst op **q, niet op p**. Over een

@@ -70,6 +70,25 @@ window.FENO_CONFIG = {
     },
   },
 
+  // Historische luchtfoto's uit hetzelfde PDOK-archief, dezelfde lijst als
+  // pdok-viewer gebruikt. De reeks loopt 2016-2025 en dekt daarmee precies de
+  // periode van de trendkaart, dus je kunt een trend visueel narekenen.
+  // 2021 heeft geen zomeropname; vanaf 2021 is er een winteropname van 8 cm.
+  aerial: [
+    { id: 'actueel', label: 'nu', layer: 'Actueel_orthoHR', res: '8cm' },
+    { id: '2016', label: '2016', year: 2016, season: 'zomer', layer: '2016_ortho25', res: '25cm' },
+    { id: '2017', label: '2017', year: 2017, season: 'zomer', layer: '2017_ortho25', res: '25cm' },
+    { id: '2018', label: '2018', year: 2018, season: 'zomer', layer: '2018_ortho25', res: '25cm' },
+    { id: '2019', label: '2019', year: 2019, season: 'zomer', layer: '2019_ortho25', res: '25cm' },
+    { id: '2020', label: '2020', year: 2020, season: 'zomer', layer: '2020_ortho25', res: '25cm' },
+    { id: '2021w', label: '2021', year: 2021, season: 'winter', layer: '2021_orthoHR', res: '8cm' },
+    { id: '2022', label: '2022', year: 2022, season: 'zomer', layer: '2022_ortho25', res: '25cm' },
+    { id: '2023', label: '2023', year: 2023, season: 'zomer', layer: '2023_ortho25', res: '25cm' },
+    { id: '2024', label: '2024', year: 2024, season: 'zomer', layer: '2024_ortho25', res: '25cm' },
+    { id: '2025', label: '2025', year: 2025, season: 'zomer', layer: '2025_ortho25', res: '25cm' },
+  ],
+  aerialBase: 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/%LAYER%/EPSG:3857/{z}/{x}/{y}.jpeg',
+
   // Kaartlagen: welk veld, welke schaal, welke legenda
   defaultBasemap: 'brtGrijs',
 

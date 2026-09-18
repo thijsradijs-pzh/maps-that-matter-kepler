@@ -61,8 +61,14 @@
     <select id="basemap">
       <option value="brtGrijs">PDOK BRT grijs</option>
       <option value="brtStandaard">PDOK BRT standaard</option>
-      <option value="luchtfoto">PDOK luchtfoto (actueel)</option>
+      <option value="luchtfoto">PDOK luchtfoto</option>
     </select>
+
+    <div class="aerial" id="aerial" hidden>
+      <div class="aerial-head">Opnamejaar <span id="aerial-info"></span></div>
+      <div class="aerial-strip" id="aerial-strip" role="group"
+           aria-label="Jaar van de luchtfoto"></div>
+    </div>
 
     <label class="field-label" for="opacity">Dekking trendkaart <span id="opacity-val">80%</span></label>
     <input type="range" id="opacity" min="10" max="100" step="5" value="80" />

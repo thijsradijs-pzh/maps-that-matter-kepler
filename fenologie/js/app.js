@@ -13,6 +13,7 @@
   var C = CFG.colors;
   var ALPHA = CFG.alpha || 0.05;
   var view = CFG.defaultView || 'pixel';
+  var aerialId = 'actueel';
 
   var map, metric = 'slope', onlySig = false, liveAvailable = null;
   var picked = null;      // { lon, lat, slope, tau, qvalue, count }
@@ -480,6 +481,8 @@
     var p = new URLSearchParams();
     p.set('metric', metric);
     if (view !== (CFG.defaultView || 'pixel')) p.set('view', view);
+    if ($('basemap').value !== CFG.defaultBasemap) p.set('base', $('basemap').value);
+    if (aerialId !== 'actueel') p.set('jaar', aerialId);
     if (onlySig) p.set('sig', '1');
     if (picked) {
       p.set('lon', picked.lon.toFixed(5));
@@ -495,6 +498,15 @@
       $('metric').value = metric;
     }
     if (p.get('sig') === '1') { onlySig = true; $('only-sig').checked = true; }
+    if (p.get('jaar') && (CFG.aerial || []).some(function (a) { return a.id === p.get('jaar'); })) {
+      aerialId = p.get('jaar');
+    }
+    var base = p.get('base');
+    if (base && CFG.basemaps[base]) {
+      $('basemap').value = base;
+      map.setStyle(basemapStyle(base));
+    }
+    renderAerialStrip();
 
     var lon = parseFloat(p.get('lon')), lat = parseFloat(p.get('lat'));
     var hasPoint = !isNaN(lon) && !isNaN(lat);
@@ -518,8 +530,26 @@
   }
 
   /* ── kaart ──────────────────────────────────────────────── */
+  /* De luchtfoto kan een ander opnamejaar zijn dan "nu". Zelfde PDOK-archief
+     als pdok-viewer gebruikt; de reeks 2016-2025 dekt precies de periode van
+     de trendkaart, zodat je een trend visueel kunt narekenen. */
+  function aerialSpec() {
+    var list = CFG.aerial || [];
+    for (var i = 0; i < list.length; i++) if (list[i].id === aerialId) return list[i];
+    return list[0];
+  }
+
   function basemapStyle(key) {
     var b = CFG.basemaps[key] || CFG.basemaps[CFG.defaultBasemap];
+    if (key === 'luchtfoto' && CFG.aerialBase) {
+      var a = aerialSpec();
+      b = {
+        tiles: [CFG.aerialBase.replace('%LAYER%', a.layer)],
+        tileSize: b.tileSize,
+        maxzoom: b.maxzoom,
+        attribution: '&copy; Kadaster / PDOK &mdash; luchtfoto ' + a.layer,
+      };
+    }
     return {
       version: 8,
       sources: {
@@ -627,6 +657,43 @@
     });
   }
 
+  /* Jaarstrip onder de ondergrondkeuze, alleen zichtbaar bij de luchtfoto. */
+  function renderAerialStrip() {
+    var box = $('aerial');
+    if (!box) return;
+    var isAerial = $('basemap').value === 'luchtfoto';
+    box.hidden = !isAerial;
+    if (!isAerial) return;
+
+    var strip = $('aerial-strip');
+    if (!strip.childElementCount) {
+      (CFG.aerial || []).forEach(function (a) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'aerial-pip';
+        b.dataset.id = a.id;
+        b.textContent = a.label;
+        b.title = a.year
+          ? a.year + ' ' + a.season + ', ' + a.res
+          : 'meest recente opname, ' + a.res;
+        b.onclick = function () {
+          aerialId = a.id;
+          map.setStyle(basemapStyle('luchtfoto'));
+          renderAerialStrip();
+          updateURL();
+        };
+        strip.appendChild(b);
+      });
+    }
+    var cur = aerialSpec();
+    Array.prototype.forEach.call(strip.children, function (el) {
+      el.classList.toggle('on', el.dataset.id === aerialId);
+    });
+    $('aerial-info').textContent = cur.year
+      ? '· ' + cur.season + ', ' + cur.res
+      : '· ' + cur.res;
+  }
+
   /* ── start ──────────────────────────────────────────────── */
   function boot() {
     $('basemap').value = CFG.defaultBasemap;
@@ -648,6 +715,7 @@
     renderMeta();
     updateSigHint();
     renderShortlist();
+    renderAerialStrip();
 
     // De loader hoort bij het laden van de DATA, niet van de ondergrond. Hij
     // hing eerst aan 'style.load' en bleef daardoor staan zodra de
@@ -701,6 +769,8 @@
     $('basemap').onchange = function (e) {
       // style.load hangt de trendlaag er daarna weer aan
       map.setStyle(basemapStyle(e.target.value));
+      renderAerialStrip();
+      updateURL();
     };
     $('btn-close').onclick = function () {
       $('detail').hidden = true;
