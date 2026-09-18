@@ -357,6 +357,60 @@ geen trend.
 
 Jaar en ondergrond zitten in de permalink (`?base=luchtfoto&jaar=2018`).
 
+## Vier trends, niet één
+
+Hoofdstuk 11 berekent per pixel vier trends: niveau (mediaan), piek (max),
+dal (min) en bereik (max − min). De hoofdkaart toont alleen het niveau.
+`scripts/build_fenologie_seasonstats.py` levert alle vier voor het grid van
+200 m, waar de volledige waarnemingsreeks per cel beschikbaar is:
+
+```bash
+python3 scripts/build_fenologie_seasonstats.py     # geen openEO-job nodig
+```
+
+De bereiktrend is niet zomaar een extra laag. Paragraaf 4.5 doet één
+concrete ecologische interpretatie, en die gaat hierover: bij een perceel
+verdwijnt na 2021 de zomerdip, wat op gestopt maaibeheer wijst. Dat lees je
+af aan het bereik, niet aan de mediaan.
+
+**Wat we vonden, gebiedsbreed over 1.386 cellen:**
+
+| statistiek | mediane helling | |
+|---|---|---|
+| niveau | −0,0001 | vlak |
+| piek | −0,0009 | pieken zakken |
+| dal | **+0,0031** | dalen stijgen |
+| bereik | **−0,0039** | seizoensverschil krimpt |
+
+Dat is precies het patroon dat §4.5 bij één locatie beschrijft — "de
+piekwaarden worden lager, terwijl de dalwaarden minder laag worden" — maar
+dan over het hele gebied. De piektrend is bovendien de enige met cellen die
+significantie naderen: twaalf onder q = 0,10, beste 0,078. Bij 1.386 cellen
+zijn 2,3 cellen op de p-ondergrens nodig, dus dat scheelt nog een factor 1,5.
+
+### Waarom p90/p10 en niet max/min
+
+Het rapport neemt max en min van de HANTS-gladgestreken jaarcurve. Twee
+metingen deden daarvan afzien:
+
+1. Een kale harmonische fit (nf = 4, zoals het rapport) is op deze data
+   instabiel: 3% van de jaarcurves fit buiten [−1, 1] en ~1% geeft een bereik
+   groter dan 1,0 NDVI, wat fysiek onmogelijk is. Dat komt door gaten in de
+   reeks, tot 60 dagen in 2016. `r.hants` vangt dat op met outlier-rejectie
+   via `fet`, maar notebook 8 noemt die parameter niet — dus niet te
+   reproduceren.
+2. Echte max/min zouden een **schijntrend** opleveren. Het aantal
+   waarnemingen per jaar groeit hard (+1,17 per jaar, van 22 in 2016 naar 58
+   in 2025, doordat Sentinel-2B pas in 2017 ging vliegen). Meer opnames
+   vinden vanzelf een hogere piek en een lager dal, dus het bereik zou
+   stijgen zonder dat er in het veld iets gebeurt.
+
+   p90/p10 is daar ongevoelig voor: over de tien jaren is de correlatie
+   tussen aantal waarnemingen en gemeten bereik −0,10, terwijl het aantal
+   waarnemingen met +1,17/jaar stijgt.
+
+Vergelijk de getallen dus niet een-op-een met hoofdstuk 11.
+
 ## Significantie
 
 Het vinkje "alleen significante trends" toetst op **q, niet op p**. Over een

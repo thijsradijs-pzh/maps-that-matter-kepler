@@ -1,0 +1,193 @@
+{
+ "source": "openEO / Copernicus Data Space, jaarstatistieken per gridcel van 200 m",
+ "demo": false,
+ "index": "NDVI",
+ "stat": "p50/p90/p10 per jaar",
+ "crs": "EPSG:3857",
+ "width": 42,
+ "height": 43,
+ "bounds_3857": [
+  531661.89,
+  6820401.88,
+  545351.67,
+  6834417.61
+ ],
+ "corners": [
+  [
+   4.776,
+   52.189254
+  ],
+  [
+   4.8989774,
+   52.189254
+  ],
+  [
+   4.8989774,
+   52.112
+  ],
+  [
+   4.776,
+   52.112
+  ]
+ ],
+ "nodata": -32768,
+ "bands": {
+  "slope": {
+   "file": "slope.png",
+   "scale": 1e-05,
+   "label": "helling seizoensniveau",
+   "unit": "index/jaar",
+   "min": -0.035357,
+   "max": 0.026983
+  },
+  "tau": {
+   "file": "tau.png",
+   "scale": 0.0001,
+   "label": "tau seizoensniveau",
+   "unit": "",
+   "min": -0.822222,
+   "max": 0.911111
+  },
+  "qvalue": {
+   "file": "qvalue.png",
+   "scale": 0.0001,
+   "label": "q seizoensniveau",
+   "unit": "",
+   "min": 0.240207,
+   "max": 1.0
+  },
+  "slope_peak": {
+   "file": "slope_peak.png",
+   "scale": 1e-05,
+   "label": "helling seizoenspiek",
+   "unit": "index/jaar",
+   "min": -0.0236,
+   "max": 0.02276
+  },
+  "tau_peak": {
+   "file": "tau_peak.png",
+   "scale": 0.0001,
+   "label": "tau seizoenspiek",
+   "unit": "",
+   "min": -0.911111,
+   "max": 0.911111
+  },
+  "qvalue_peak": {
+   "file": "qvalue_peak.png",
+   "scale": 0.0001,
+   "label": "q seizoenspiek",
+   "unit": "",
+   "min": 0.078166,
+   "max": 1.0
+  },
+  "slope_trough": {
+   "file": "slope_trough.png",
+   "scale": 1e-05,
+   "label": "helling seizoensdal",
+   "unit": "index/jaar",
+   "min": -0.053589,
+   "max": 0.035233
+  },
+  "tau_trough": {
+   "file": "tau_trough.png",
+   "scale": 0.0001,
+   "label": "tau seizoensdal",
+   "unit": "",
+   "min": -0.777778,
+   "max": 0.955556
+  },
+  "qvalue_trough": {
+   "file": "qvalue_trough.png",
+   "scale": 0.0001,
+   "label": "q seizoensdal",
+   "unit": "",
+   "min": 0.238727,
+   "max": 1.0
+  },
+  "slope_range": {
+   "file": "slope_range.png",
+   "scale": 1e-05,
+   "label": "helling seizoensbereik",
+   "unit": "index/jaar",
+   "min": -0.034275,
+   "max": 0.037551
+  },
+  "tau_range": {
+   "file": "tau_range.png",
+   "scale": 0.0001,
+   "label": "tau seizoensbereik",
+   "unit": "",
+   "min": -0.822222,
+   "max": 0.733333
+  },
+  "qvalue_range": {
+   "file": "qvalue_range.png",
+   "scale": 0.0001,
+   "label": "q seizoensbereik",
+   "unit": "",
+   "min": 0.360873,
+   "max": 1.0
+  },
+  "count": {
+   "file": "count.png",
+   "scale": 1.0,
+   "label": "geldige jaren",
+   "unit": "jaar",
+   "min": 10.0,
+   "max": 10.0
+  },
+  "zone": {
+   "file": "zone.png",
+   "scale": 1.0,
+   "label": "celindex",
+   "unit": "",
+   "min": 1.0,
+   "max": 1386.0
+  }
+ },
+ "pixels_valid": 1386,
+ "pixels_significant": 0,
+ "fdr_alpha": 0.05,
+ "period": [
+  "2016-01-01",
+  "2025-12-31"
+ ],
+ "aggregation": {
+  "by": "grid",
+  "field": "cel",
+  "cell_m": 200.0,
+  "zones_total": 1806,
+  "zones_tested": 1386,
+  "zones_significant": 0,
+  "min_years": 5,
+  "min_obs_per_year": 12,
+  "stats": {
+   "level": {
+    "label": "seizoensniveau",
+    "tested": 1386,
+    "significant": 0,
+    "best_q": 0.24
+   },
+   "peak": {
+    "label": "seizoenspiek",
+    "tested": 1386,
+    "significant": 0,
+    "best_q": 0.0782
+   },
+   "trough": {
+    "label": "seizoensdal",
+    "tested": 1386,
+    "significant": 0,
+    "best_q": 0.239
+   },
+   "range": {
+    "label": "seizoensbereik",
+    "tested": 1386,
+    "significant": 0,
+    "best_q": 0.361
+   }
+  },
+  "table": []
+ },
+ "method": "Per gridcel de jaarlijkse p50, p90 en p10 van de waarnemingen, en het bereik als p90 - p10. Daarna per cel Theil-Sen + Mann-Kendall over de jaren en Benjamini-Hochberg over de cellen. LET OP: het rapport gebruikt max/min van de HANTS-gladgestreken jaarcurve. Hier percentielen van de ruwe waarnemingen, omdat een kale harmonische fit op deze data instabiel is (1% onmogelijke curves) en echte max/min een schijntrend zouden geven doordat het aantal waarnemingen per jaar met +1,17 groeit."
+}

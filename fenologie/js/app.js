@@ -55,7 +55,8 @@
       domain: domainFor(spec),
       // Het significantiefilter slaat alleen ergens op bij een trendmetriek:
       // bij 'bruikbare jaren' zou het de kaart om niets leegmaken.
-      onlySig: onlySig && (spec.band === 'slope' || spec.band === 'tau'),
+      onlySig: onlySig && !!spec.qband,
+      qband: spec.qband,
       alpha: ALPHA,
     });
     var src = map.getSource('trend');
@@ -70,12 +71,12 @@
     var el = $('sig-hint');
     if (!el) return;
     var spec = CFG.metrics[metric];
-    if (!onlySig || (spec.band !== 'slope' && spec.band !== 'tau')) {
+    if (!onlySig || !spec.qband) {
       el.hidden = true;
       return;
     }
-    var n = Raster.countSignificant(ALPHA);
-    var tot = Raster.countValid();
+    var n = Raster.countSignificant(ALPHA, spec.qband);
+    var tot = Raster.countValid(spec.band);
     el.hidden = false;
     el.textContent = n === 0
       ? 'Geen enkele pixel houdt stand na correctie voor ' + tot
@@ -163,6 +164,27 @@
     });
   }
 
+  /* De kaartlagen komen uit de config, niet uit de HTML: sommige bestaan
+     alleen op bepaalde weergaven (de piek-, dal- en bereiktrend vragen de
+     volledige waarnemingsreeks per eenheid, en die is er alleen op het grid). */
+  function renderMetricOptions() {
+    var sel = $('metric');
+    sel.innerHTML = '';
+    var beschikbaar = [];
+    Object.keys(CFG.metrics).forEach(function (id) {
+      var m = CFG.metrics[id];
+      if (m.views && m.views.indexOf(view) < 0) return;
+      if (!Raster.meta.bands[m.band]) return;   // band ontbreekt in deze weergave
+      beschikbaar.push(id);
+      var o = document.createElement('option');
+      o.value = id;
+      o.textContent = m.label + (m.unit ? ' (' + m.unit + ')' : '');
+      sel.appendChild(o);
+    });
+    if (beschikbaar.indexOf(metric) < 0) metric = beschikbaar[0] || 'slope';
+    sel.value = metric;
+  }
+
   /* ── legenda ────────────────────────────────────────────── */
   function renderLegend() {
     var spec = CFG.metrics[metric];
@@ -230,22 +252,36 @@
 
     var idx = Raster.meta.index;
     var agg = Raster.meta.aggregation;
+    var eenheid = { type: 'Beheertype', polygon: 'Beheerperceel',
+                    grid: 'Gridcel ' + (agg && agg.cell_m) + ' m' };
     $('d-title').textContent = agg
-      ? (agg.by === 'type' ? 'Beheertype' : 'Beheerperceel')
+      ? (eenheid[agg.by] || 'Zone')
       : 'Pixel — ' + Math.round(pixelMetres()) + ' m';
     $('d-sub').textContent = nl(lat, 5) + ' N, ' + nl(lon, 5) + ' E  ·  '
       + Raster.meta.crs;
 
-    var sig = vals.qvalue !== null && vals.qvalue < ALPHA;
-    var toets = 'τ = ' + nl(vals.tau, 2) + ', q ' + fmtP(vals.qvalue)
+    /* De tegels volgen de GEKOZEN kaartlaag. Op de gridweergave bestaan vier
+       trends naast elkaar (niveau, piek, dal, bereik); altijd het niveau tonen
+       terwijl je naar de bereikkaart kijkt is misleidend. */
+    var spec = CFG.metrics[metric];
+    var suffix = (spec.band || '').replace(/^slope/, '');
+    var sv = vals[spec.band] !== undefined && spec.qband ? vals[spec.band] : vals.slope;
+    var tv = vals['tau' + suffix] !== undefined ? vals['tau' + suffix] : vals.tau;
+    var qv = spec.qband && vals[spec.qband] !== undefined ? vals[spec.qband] : vals.qvalue;
+    var statNaam = spec.qband && suffix
+      ? spec.label.replace(/^Trend in (het|de) /, '')
+      : null;
+
+    var sig = qv !== null && qv < ALPHA;
+    var toets = 'τ = ' + nl(tv, 2) + ', q ' + fmtP(qv)
       + ' (Mann-Kendall + FDR, n = ' + (vals.count === null ? '?' : Math.round(vals.count)) + ')';
 
     $('d-stats').innerHTML =
-      statRow('trend', (vals.slope > 0 ? '+' : '−')
-        + nl(Math.abs(vals.slope), 4), idx + '/jaar') +
-      statRow('τ', nl(vals.tau, 2), '') +
-      statRow('q', vals.qvalue === null ? '–'
-        : (vals.qvalue < 0.001 ? '< 0,001' : nl(vals.qvalue, 3)), '') +
+      statRow(statNaam || 'trend', (sv > 0 ? '+' : '−')
+        + nl(Math.abs(sv), 4), idx + '/jaar') +
+      statRow('τ', nl(tv, 2), '') +
+      statRow('q', qv === null ? '–'
+        : (qv < 0.001 ? '< 0,001' : nl(qv, 3)), '') +
       statRow('jaren', vals.count === null ? '–' : Math.round(vals.count), 'met curve') +
       (agg ? statRow('eenheid', agg.zones_tested + ' van ' + agg.zones_total,
                      'zones getoetst') : '');
@@ -257,11 +293,11 @@
         + 'jaren overheerst — met tien jaar data is dat de normale uitkomst.';
     } else if (vals.slope > 0) {
       v.className = 'verdict up';
-      v.textContent = 'Het seizoensniveau loopt op. ' + toets + '. Denk aan '
+      v.textContent = 'Het ' + (statNaam || 'seizoensniveau') + ' loopt op. ' + toets + '. Denk aan '
         + 'verlanding, opslag, gestopt maaibeheer of een verandering in waterpeil.';
     } else {
       v.className = 'verdict down';
-      v.textContent = 'Het seizoensniveau daalt. ' + toets + '. Kandidaat voor '
+      v.textContent = 'Het ' + (statNaam || 'seizoensniveau') + ' daalt. ' + toets + '. Kandidaat voor '
         + 'veldbezoek: leg dit naast beheerregistraties en waterstanden voordat '
         + 'je het als achteruitgang leest.';
     }
@@ -605,7 +641,8 @@
       band: spec.band,
       ramp: rampFor(spec),
       domain: domainFor(spec),
-      onlySig: onlySig && (spec.band === 'slope' || spec.band === 'tau'),
+      onlySig: onlySig && !!spec.qband,
+      qband: spec.qband,
       alpha: ALPHA,
     });
     map.addSource('trend', {
@@ -676,6 +713,7 @@
     if (v.series) jobs.push(Series.loadZones(v.series));
     Promise.all(jobs).then(function () {
       $('loader').hidden = true;
+      renderMetricOptions();
       paintRaster();
       renderMeta();
       renderShortlist();
@@ -775,6 +813,7 @@
     // Deze vier lezen alleen uit Raster, niet uit de kaart. Ze hingen eerst aan
     // 'style.load' en verdwenen dus zodra de tegelserver haperde, terwijl de
     // cijfers al lang in het geheugen stonden.
+    renderMetricOptions();
     renderLegend();
     renderMeta();
     updateSigHint();
@@ -828,7 +867,12 @@
     vsel.value = view;
     vsel.onchange = function (e) { switchView(e.target.value); };
 
-    $('metric').onchange = function (e) { metric = e.target.value; paintRaster(); updateURL(); };
+    $('metric').onchange = function (e) {
+      metric = e.target.value;
+      paintRaster();
+      if (picked) showPixel(picked.lon, picked.lat);   // tegels volgen de kaartlaag
+      updateURL();
+    };
     $('only-sig').onchange = function (e) { onlySig = e.target.checked; paintRaster(); updateURL(); };
     $('opacity').oninput = function (e) {
       $('opacity-val').textContent = e.target.value + '%';

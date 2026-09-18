@@ -114,7 +114,7 @@
     colorize: function (opts) {
       var w = Raster.width, h = Raster.height;
       var data = Raster.bands[opts.band];
-      var q = opts.onlySig ? Raster.bands.qvalue : null;
+      var q = opts.onlySig ? Raster.bands[opts.qband || 'qvalue'] : null;
       var lo = opts.domain[0], hi = opts.domain[1];
       var span = (hi - lo) || 1;
 
@@ -141,8 +141,8 @@
     },
 
     /** Hoeveel pixels houden de FDR-drempel? */
-    countSignificant: function (alpha) {
-      var q = Raster.bands.qvalue;
+    countSignificant: function (alpha, band) {
+      var q = Raster.bands[band || 'qvalue'];
       if (!q) return 0;
       var n = 0;
       for (var i = 0; i < q.length; i++) if (!isNaN(q[i]) && q[i] < alpha) n++;
@@ -250,8 +250,8 @@
       return out;
     },
 
-    countValid: function () {
-      var s = Raster.bands.slope;
+    countValid: function (band) {
+      var s = Raster.bands[band || 'slope'];
       var n = 0;
       for (var i = 0; i < s.length; i++) if (!isNaN(s[i])) n++;
       return n;
