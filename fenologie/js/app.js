@@ -728,6 +728,36 @@
       : '· ' + cur.res;
   }
 
+  /* ── uitleg ─────────────────────────────────────────────── */
+  /* Bij het eerste bezoek vanzelf, daarna via de ?-knop. De keuze staat in
+     localStorage: dat is per browser en overleeft geen andere machine, maar
+     voor "heb ik dit al gelezen" is dat precies genoeg. Blijft de opslag
+     ontoegankelijk (privémodus, geblokkeerde site-data), dan valt het terug op
+     "wel tonen" -- liever een keer te veel uitleg dan een viewer zonder. */
+  var INTRO_KEY = 'fenologie.intro.gezien';
+
+  function introSeen() {
+    try { return localStorage.getItem(INTRO_KEY) === '1'; }
+    catch (e) { return false; }
+  }
+
+  function openIntro() {
+    $('intro').hidden = false;
+    $('btn-intro-go').focus();
+    document.addEventListener('keydown', introKey);
+  }
+
+  function closeIntro() {
+    $('intro').hidden = true;
+    document.removeEventListener('keydown', introKey);
+    try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) { /* niet erg */ }
+    $('btn-help').focus();
+  }
+
+  function introKey(e) {
+    if (e.key === 'Escape') closeIntro();
+  }
+
   /* ── start ──────────────────────────────────────────────── */
   function boot() {
     $('basemap').value = CFG.defaultBasemap;
@@ -847,6 +877,12 @@
       pre.hidden = !pre.hidden;
     };
     $('btn-toast-close').onclick = function () { $('toast').hidden = true; };
+
+    $('btn-help').onclick = openIntro;
+    $('btn-intro-go').onclick = closeIntro;
+    $('btn-intro-close').onclick = closeIntro;
+    $('intro').onclick = function (e) { if (e.target === this) closeIntro(); };
+    if (!introSeen()) openIntro();
 
     checkLive();
     // Voorbeelddata alleen bij een demo-kaart, zodat verzonnen ingrepen nooit

@@ -36,6 +36,7 @@
 <div class="control-card" id="controls">
   <div class="control-head">
     <h1>Fenologie Nieuwkoop</h1>
+    <button class="collapse" id="btn-help" aria-label="Uitleg over deze kaart" title="Waar kijk ik naar?">?</button>
     <button class="collapse" id="btn-collapse" aria-label="Paneel in- of uitklappen">−</button>
   </div>
   <div class="control-body" id="control-body">
@@ -135,6 +136,50 @@
     <pre class="grass-cmd" id="grass-cmd" hidden></pre>
   </div>
 </aside>
+
+
+<!-- ── Uitleg bij eerste bezoek, daarna via de ?-knop ────── -->
+<div class="intro-backdrop" id="intro" hidden>
+  <div class="intro" role="dialog" aria-modal="true" aria-labelledby="intro-title">
+    <button class="intro-close" id="btn-intro-close" aria-label="Sluiten">×</button>
+    <h2 id="intro-title">Fenologie Nieuwkoop</h2>
+    <p class="intro-lede">Tien jaar Sentinel-2 over de Nieuwkoopse Plassen &amp; De Haeck,
+      per pixel van tien meter.</p>
+
+    <h3>Wat is fenologie?</h3>
+    <p>Het jaarritme van vegetatie: wanneer het groen begint, wanneer het piekt,
+      wanneer het afsterft. Sentinel-2 komt om de paar dagen over en meet hoe groen
+      het is — de NDVI. Tien jaar van die opnames laat zien of dat ritme verschuift.</p>
+
+    <h3>Wat je op de kaart ziet</h3>
+    <p>Per pixel de trend in het seizoensniveau, 2016–2025. <strong>Bruin</strong> is
+      minder groen geworden, <strong>groen</strong> is groener geworden. Klik ergens en
+      je krijgt de reeks van dat punt, afgezet tegen zijn eigen seizoensreferentie.</p>
+
+    <h3>Waar het voor bedoeld is</h3>
+    <p>Veldwerk levert de beste ecologische informatie, maar alleen op specifieke
+      plekken en momenten. Satellietbeelden vullen dat aan: ze signaleren veranderingen
+      daartussenin en helpen kiezen waar een veldbezoek het meest oplevert. Een
+      aanvulling op de habitatkartering, geen vervanging.</p>
+
+    <h3>Wat het niet zegt</h3>
+    <p>Een verandering in reflectie is geen verandering in soortensamenstelling.
+      Droogte, waterpeil, maaibeheer en rietoogst geven vergelijkbare signalen; die
+      uit elkaar houden vraagt veldkennis en beheergegevens.</p>
+    <p class="intro-warn">Zet je <em>alleen significante trends</em> aan, dan blijft de
+      kaart leeg. Dat is geen storing. Met tien jaarwaarden heeft de toets een harde
+      ondergrens, en na correctie voor een half miljoen gelijktijdige toetsen kan over
+      dit gebied geen vlek kleiner dan ongeveer 9 hectare ooit significant heten — hoe
+      overtuigend de trend ook is. Een langere reeks helpt daar hard: twee jaar erbij
+      scheelt ruwweg een factor tien.</p>
+
+    <p class="intro-bron">Methodiek uit <em>Monitoring habitatveranderingen Nieuwkoop</em>
+      (HAS green academy en Provincie Zuid-Holland, 2026). Beelden: Sentinel-2 via
+      Copernicus Data Space.</p>
+
+    <button class="btn intro-go" id="btn-intro-go">Aan de slag</button>
+  </div>
+</div>
 
 <!-- ── Meldingen (buiten het gebied, link gekopieerd) ── -->
 <div class="toast" id="toast" hidden>
