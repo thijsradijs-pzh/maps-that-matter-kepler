@@ -160,6 +160,51 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 
 ---
 
+### Stand van zaken fenologie (2026-09-18, einde sessie)
+
+Alles gecommit en gepusht t/m `e04ee63`; werkboom schoon. Live op
+https://maps-that-matter-kepler.vercel.app/fenologie
+
+**Wat er draait, op echte data.** Pixelkaart 835x847 op 10 m uit openEO
+(552.898 geldige pixels), plus twee aggregaties (16 beheertypen, 588
+beheerpercelen) en vooraf opgehaalde tijdreeksen per beheertype (39 kB) en op
+een grid van 200 m (2,5 MB, lui geladen). Standaardondergrond is de
+PDOK-luchtfoto met een jaarstrip 2016-2025.
+
+**Lokale werkbestanden die niet in git zitten maar wel nodig zijn om de
+aggregaties opnieuw te draaien** (allemaal gitignored):
+`data/fenologie/_openeo/*.tif` (10 jaarrasters, 23 MB),
+`data/fenologie/_zones.geojson` + `_zones-4326.geojson` (5,6 MB elk, cache van
+de beheertypenkaart), en `.env.local` met de CDSE-sleutels. Zijn die weg, dan
+kost een volledige rebuild ~40 min openEO + ~20 min download.
+
+**Direct oppakbaar, in volgorde van opbrengst:**
+1. **Verifieer de laagherstel-fix in een echte browser.** `ensureDataLayers()`
+   hangt nu aan styledata/idle/load/sourcedata, maar is NIET getest: het
+   renderproces liep hier vast, reproduceerbaar op een verse tab en ook op de
+   vorige commit, dus omgeving en niet de wijziging. Wissel een paar keer van
+   opnamejaar en ondergrond en kijk of de gekleurde pixels blijven staan.
+2. **Melden aan Paulo van Breugel**: `RSII_vegetation_indices` schrijft de
+   NDMI-formule in `index_expressions["NDWI"]` i.p.v. `["NDMI"]`. Vraag ook
+   welke index hun lopende run gebruikt -- notebook 8 staat op MSAVI met NDVI
+   uitgecommentarieerd.
+3. **Twee methodische afwijkingen dichten** (zie het fenologie-blok hierboven):
+   gepoolde i.p.v. jaargewogen klimatologie, en nergens HANTS. Raakt nu alleen
+   nog de live-reeks in `series.js`.
+4. **Beheerregistraties opvragen bij PZH** -- maaibeheer, rietoogst, petgaten,
+   peilafwijkingen. Viewer kan ze al tonen; `data/fenologie/ingrepen.json` is
+   leeg met het schema erin.
+5. **Beheertype-codes leesbaar maken** (N12.02 -> naam). De ArcGIS-service
+   heeft geen coded-value domein; moet uit de SNL-index komen, niet gokken.
+6. **Beslisregel-schuifje**: alpha laten verschuiven met een live telling van
+   hoeveel eenheden overblijven. Maakt de afweging uit par. 5.3 zichtbaar.
+
+**Niet doen zonder overleg:** een perceelreeks (`--by polygon` in
+`build_fenologie_series.py`) loopt tegen de payload-limiet en levert weinig op
+boven het 200 m-grid, want percelen zijn meestal groter dan 4 ha.
+
+---
+
 ### Open loose ends (as of 2026-08-03)
 
 - `graph-geonetwork`'s commits (bronhouder extraction, WMS "0"-layer skip, `gmx:Anchor` fix) are **local-only, never pushed** to its remote — never explicitly confirmed by the user, don't push without asking.
