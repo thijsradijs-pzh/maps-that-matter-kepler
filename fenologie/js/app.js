@@ -957,6 +957,13 @@
     $('btn-toast-close').onclick = function () { $('toast').hidden = true; };
 
     $('btn-help').onclick = openIntro;
+    // De voorbeeldlink herlaadt de pagina met de juiste toestand. Zonder dit
+    // opent de uitleg daarna opnieuw bovenop precies het resultaat waar je op
+    // klikte.
+    var vb = $('intro').querySelector('.intro-link');
+    if (vb) vb.onclick = function () {
+      try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) { /* niet erg */ }
+    };
     $('btn-intro-go').onclick = closeIntro;
     $('btn-intro-close').onclick = closeIntro;
     $('intro').onclick = function (e) { if (e.target === this) closeIntro(); };
