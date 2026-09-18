@@ -220,6 +220,20 @@ def auth_header(token):
 
 
 # ---------------------------------------------------------------- graph
+def merc_resolution(ground_m, lat_deg):
+    """Reken grondmeters om naar EPSG:3857-eenheden.
+
+    Web Mercator rekt met 1/cos(lat) op, dus op 52 graden is een "meter"
+    in 3857 maar 0,61 m op de grond. Vraag je openEO om resolution=10, dan
+    krijg je pixels van 6,1 m: 2,6x zoveel pixels als bedoeld, een bestand
+    dat 2,6x te groot is, en een viewer die "Pixel -- 6 m" meldt.
+
+    Dit verandert de detectiegrens niet: die is in OPPERVLAKTE
+    resolutie-onafhankelijk, zie detection_floor().
+    """
+    return ground_m / math.cos(math.radians(lat_deg))
+
+
 def build_graph(bbox, years, index, resolution):
     """Process graph: laden, maskeren, index, mediaan per jaar, als GeoTIFF.
 
@@ -544,7 +558,9 @@ def main():
     ap.add_argument("--start-year", type=int, default=2016)
     ap.add_argument("--end-year", type=int, default=2025)
     ap.add_argument("--resolution", type=float, default=10.0,
-                    help="doelresolutie in meter (EPSG:3857)")
+                    help="doelresolutie in meter OP DE GROND (default 10, de "
+                         "native Sentinel-2-resolutie); intern omgerekend naar "
+                         "EPSG:3857-eenheden, die op 52 graden 1,6x kleiner zijn")
     ap.add_argument("--dry-run", action="store_true",
                     help="print de process graph en stop")
     ap.add_argument("--submit-only", action="store_true",
@@ -564,12 +580,16 @@ def main():
     ne = merc_to_lonlat(max(xs), max(ys))
     bbox = [round(sw[0], 6), round(sw[1], 6), round(ne[0], 6), round(ne[1], 6)]
 
-    graph = build_graph(bbox, years, args.index, args.resolution)
+    lat_mid = (bbox[1] + bbox[3]) / 2.0
+    res_merc = merc_resolution(args.resolution, lat_mid)
+    graph = build_graph(bbox, years, args.index, res_merc)
 
     if args.dry_run:
         print(json.dumps({"process_graph": graph}, indent=1))
-        print("\nbbox %s, jaren %d-%d, resolutie %g m"
-              % (bbox, years[0], years[-1], args.resolution), file=sys.stderr)
+        print("\nbbox %s, jaren %d-%d" % (bbox, years[0], years[-1]),
+              file=sys.stderr)
+        print("resolutie %g m op de grond -> %.2f in EPSG:3857 (lat %.2f)"
+              % (args.resolution, res_merc, lat_mid), file=sys.stderr)
         return
 
     token = get_token()
