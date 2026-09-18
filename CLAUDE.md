@@ -178,7 +178,27 @@ aggregaties opnieuw te draaien** (allemaal gitignored):
 de beheertypenkaart), en `.env.local` met de CDSE-sleutels. Zijn die weg, dan
 kost een volledige rebuild ~40 min openEO + ~20 min download.
 
-**Direct oppakbaar, in volgorde van opbrengst:**
+**Afgesproken startpunt voor de volgende sessie** (2026-09-18, gebruiker):
+eerst de **bereiktrend**, daarna het **alpha-schuifje**. Samen maken die van de
+viewer iets waarmee je een gesprek met een ecoloog kunt voeren, in plaats van
+een kaart die vooral toont dat er niets significant is.
+
+A. **Bereiktrend** (max − min van de jaarcurve). Hoofdstuk 4.5 doet zíjn enige
+   concrete ecologische interpretatie hierop: bij een perceel verdwijnt na 2021
+   de zomerdip, wat op gestopt maaibeheer wijst. Dat lees je af aan het bereik,
+   niet aan de mediaan die wij tonen. **Kan lokaal, zonder nieuwe openEO-job**:
+   `data/fenologie/series-grid.json` bevat de volledige waarnemingsreeks per
+   cel van 200 m, dus per jaar max/min/bereik is een rekensom op wat er al ligt.
+   Let op de bekende afwijking: het rapport vat de HANTS-gladgestreken jaarcurve
+   samen, wij ruwe waarnemingen — voor extremen maakt dat wél uit (zie het
+   fenologie-blok hierboven), dus documenteer wat je toont.
+B. **Alpha-schuifje**: alpha laten verschuiven met een live telling van hoeveel
+   eenheden overblijven. Par. 5.3 stelt dat een beslisregel pas vast te stellen
+   is als duidelijk is welke verandering je wilt signaleren; een schuif maakt die
+   afweging zichtbaar in plaats van verstopt in een constante. Maakt ook het
+   "nul significant"-verhaal tastbaar.
+
+**Daarna, in volgorde van opbrengst:**
 1. **Melden aan Paulo van Breugel**: `RSII_vegetation_indices` schrijft de
    NDMI-formule in `index_expressions["NDWI"]` i.p.v. `["NDMI"]`. Vraag ook
    welke index hun lopende run gebruikt -- notebook 8 staat op MSAVI met NDVI
