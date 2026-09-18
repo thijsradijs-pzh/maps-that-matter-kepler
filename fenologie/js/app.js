@@ -621,6 +621,26 @@
     });
   }
 
+  /* setStyle() gooit alle sources en layers weg. Het opnieuw toevoegen hing
+     alleen aan 'style.load', en dat signaal is hier niet betrouwbaar: als de
+     tegelserver hapert komt de stijl soms nooit "klaar". Gevolg was dat de
+     trendkaart na een wissel van ondergrond of opnamejaar weg bleef tot je
+     herlaadde.
+
+     Geen isStyleLoaded()-guard: die is juist false op het moment dat het
+     misgaat, dus dan doet het herstel niets. In plaats daarvan gewoon
+     proberen en de "Style is not done loading"-fout opvangen -- een van de
+     volgende signalen probeert het dan opnieuw. Toevoegen is idempotent. */
+  function ensureDataLayers() {
+    if (!map || map.getSource('trend')) return;
+    try {
+      addDataLayers();
+      if (picked) markPixel(picked.lon, picked.lat);
+    } catch (e) {
+      // stijl nog niet zover; styledata / idle / load proberen het opnieuw
+    }
+  }
+
   function onMapClick(ev) {
     $('toast').hidden = true;
     showPixel(ev.lngLat.lng, ev.lngLat.lat);
@@ -738,6 +758,17 @@
       // Niet de uitsnede overschrijven als de permalink al een plek koos.
       if (!picked) fitToRaster();
     });
+    /* setStyle() gooit alle sources en layers weg; de trendlaag moet er daarna
+       weer bij. Dat hing alleen aan 'style.load', en die vuurt in de praktijk
+       niet altijd -- dezelfde oorzaak als de loader die bleef hangen. Gevolg:
+       na een wissel van ondergrond of opnamejaar was de trendkaart weg tot je
+       de pagina herlaadde. Daarom hangt het herstel nu aan meerdere signalen;
+       addDataLayers() is idempotent, dus vaker aanroepen kost niets. */
+    map.on('styledata', ensureDataLayers);
+    map.on('idle', ensureDataLayers);
+    map.on('load', ensureDataLayers);
+    map.on('sourcedata', ensureDataLayers);
+
     map.on('click', onMapClick);
     map.on('mousemove', function (ev) {
       var over = Raster.indexAt(ev.lngLat.lng, ev.lngLat.lat) >= 0;
