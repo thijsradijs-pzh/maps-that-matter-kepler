@@ -266,6 +266,10 @@ input[type=range] { accent-color: var(--accent); }
 .intro-backdrop { position: fixed; inset: 0; z-index: 1200; display: flex;
                   align-items: center; justify-content: center; padding: 20px;
                   background: rgba(26,26,26,.45); backdrop-filter: blur(2px); }
+/* Zonder deze regel wint `display: flex` van het hidden-attribuut en blijft de
+   uitleg in beeld staan, ook al staat hidden erop. Zelfde tegenhanger als
+   .detail, .toast en .loader hierboven hebben. */
+.intro-backdrop[hidden] { display: none; }
 .intro { position: relative; width: min(560px, 100%); max-height: calc(100vh - 40px);
          overflow-y: auto; background: #fbfaf7; border-radius: 10px; padding: 26px 28px 22px;
          box-shadow: 0 12px 40px rgba(0,0,0,.28); }
