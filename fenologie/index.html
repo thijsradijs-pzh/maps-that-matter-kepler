@@ -49,7 +49,12 @@
     <select id="metric"></select>
 
     <div class="check-row">
-      <label><input type="checkbox" id="only-sig" /> alleen significante trends (q &lt; 0,05)</label>
+      <label><input type="checkbox" id="only-sig" /> alleen significante trends</label>
+      <div class="alpha-row" id="alpha-row" hidden>
+        <label class="alpha-label" for="alpha">drempel q &lt; <span id="alpha-val">0,05</span></label>
+        <input type="range" id="alpha" min="1" max="50" step="1" value="5"
+               aria-label="Significantiedrempel q" />
+      </div>
       <p class="check-hint" id="sig-hint" hidden></p>
     </div>
 

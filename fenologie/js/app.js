@@ -11,7 +11,7 @@
 
   var CFG = window.FENO_CONFIG;
   var C = CFG.colors;
-  var ALPHA = CFG.alpha || 0.05;
+  var ALPHA = CFG.alpha || 0.05;   // verschuifbaar, zie het drempelschuifje
   var view = CFG.defaultView || 'pixel';
   var aerialId = 'actueel';
 
@@ -67,22 +67,38 @@
 
   /* Na FDR-correctie kan het filter alle pixels wegnemen. Dat is een geldige
      uitkomst, geen laadfout, dus zeg het er expliciet bij. */
+  /* Het drempelschuifje maakt de afweging uit par. 5.3 van het rapport
+     zichtbaar: te streng mist veranderingen, te los levert valse positieven.
+     Bij een FDR-correctie is die afweging uitzonderlijk goed uit te leggen,
+     want alpha IS de verwachte fractie onterechte vondsten onder wat je
+     markeert. Vandaar dat de hint niet alleen het aantal toont maar ook
+     hoeveel daarvan naar verwachting onterecht is. */
   function updateSigHint() {
     var el = $('sig-hint');
     if (!el) return;
     var spec = CFG.metrics[metric];
-    if (!onlySig || !spec.qband) {
-      el.hidden = true;
-      return;
-    }
+    var actief = onlySig && !!spec.qband;
+    $('alpha-row').hidden = !actief;
+    if (!actief) { el.hidden = true; return; }
+
+    var eenheid = Raster.meta.aggregation
+      ? (Raster.meta.aggregation.by === 'grid' ? 'cellen' : 'zones')
+      : 'pixels';
     var n = Raster.countSignificant(ALPHA, spec.qband);
     var tot = Raster.countValid(spec.band);
     el.hidden = false;
-    el.textContent = n === 0
-      ? 'Geen enkele pixel houdt stand na correctie voor ' + tot
-        + ' gelijktijdige toetsen. Bij tien jaar data is dat een normale uitkomst.'
-      : n.toLocaleString('nl-NL') + ' van ' + tot.toLocaleString('nl-NL')
-        + ' pixels, na FDR-correctie.';
+
+    if (n === 0) {
+      el.textContent = 'Geen enkele van de ' + tot.toLocaleString('nl-NL') + ' '
+        + eenheid + ' haalt q < ' + nl(ALPHA, 2) + '. Schuif de drempel omhoog '
+        + 'om te zien wat er dan verschijnt — en wat dat aan zekerheid kost.';
+      return;
+    }
+    var fout = Math.round(n * ALPHA);
+    el.textContent = n.toLocaleString('nl-NL') + ' van ' + tot.toLocaleString('nl-NL')
+      + ' ' + eenheid + ' bij q < ' + nl(ALPHA, 2) + '. Daarvan '
+      + (fout === 0 ? 'is er naar verwachting minder dan één onterecht.'
+                    : 'zijn er naar verwachting ~' + fout + ' onterecht.');
   }
 
   /* ── "Waar moet ik kijken?" ─────────────────────────────── */
@@ -520,6 +536,7 @@
     if ($('basemap').value !== CFG.defaultBasemap) p.set('base', $('basemap').value);
     if (aerialId !== 'actueel') p.set('jaar', aerialId);
     if (onlySig) p.set('sig', '1');
+    if (Math.abs(ALPHA - (CFG.alpha || 0.05)) > 1e-9) p.set('alpha', ALPHA.toFixed(2));
     if (picked) {
       p.set('lon', picked.lon.toFixed(5));
       p.set('lat', picked.lat.toFixed(5));
@@ -534,6 +551,12 @@
       $('metric').value = metric;
     }
     if (p.get('sig') === '1') { onlySig = true; $('only-sig').checked = true; }
+    var a = parseFloat(p.get('alpha'));
+    if (!isNaN(a) && a >= 0.01 && a <= 0.5) {
+      ALPHA = a;
+      $('alpha').value = Math.round(a * 100);
+      $('alpha-val').textContent = nl(a, 2);
+    }
     if (p.get('jaar') && (CFG.aerial || []).some(function (a) { return a.id === p.get('jaar'); })) {
       aerialId = p.get('jaar');
     }
@@ -873,7 +896,18 @@
       if (picked) showPixel(picked.lon, picked.lat);   // tegels volgen de kaartlaag
       updateURL();
     };
-    $('only-sig').onchange = function (e) { onlySig = e.target.checked; paintRaster(); updateURL(); };
+    $('only-sig').onchange = function (e) {
+      onlySig = e.target.checked;
+      paintRaster();
+      updateURL();
+    };
+    $('alpha').oninput = function (e) {
+      ALPHA = +e.target.value / 100;
+      $('alpha-val').textContent = nl(ALPHA, 2);
+      paintRaster();
+      if (picked) showPixel(picked.lon, picked.lat);   // verdict volgt de drempel
+      updateURL();
+    };
     $('opacity').oninput = function (e) {
       $('opacity-val').textContent = e.target.value + '%';
       if (map.getLayer('trend')) {

@@ -388,6 +388,33 @@ dan over het hele gebied. De piektrend is bovendien de enige met cellen die
 significantie naderen: twaalf onder q = 0,10, beste 0,078. Bij 1.386 cellen
 zijn 2,3 cellen op de p-ondergrens nodig, dus dat scheelt nog een factor 1,5.
 
+### 2016 weglaten maakt het slechter
+
+2016 is het dunste jaar: mediaan 22 waarnemingen per cel tegen 31–58 daarna,
+en gaten tot 60 dagen, doordat Sentinel-2B pas in 2017 ging vliegen. De
+verleiding is het weg te laten. Gemeten is dat een verslechtering:
+
+| | met 2016 (n=10) | zonder 2016 (n=9) |
+|---|---|---|
+| niveau | q 0,240 | 0,563 |
+| piek | **q 0,078**, 12 cellen < 0,10 | 0,247, 0 cellen |
+| dal | q 0,239 | 0,725 |
+| bereik | q 0,361 | 0,591 |
+
+De p-ondergrens van Mann-Kendall gaat van 8,3·10⁻⁵ bij n = 10 naar 2,6·10⁻⁴
+bij n = 9, dus je hebt 7,3 cellen op die bodem nodig in plaats van 2,3. Die
+prijs is groter dan wat het dunne jaar aan ruis toevoegt.
+
+**Let op de val**: de hellingen worden juist grόter zonder 2016 (bereik van
+−0,0039 naar −0,0064). Het effect lijkt dus sterker terwijl het bewijs
+zwakker wordt — minder punten, grotere schijnbare uitslag. 2016 zit bovendien
+aan het uiteinde van de reeks, waar het de hefboom van Theil-Sen het meest
+beïnvloedt.
+
+Wie toch wil filteren: `MIN_OBS_PER_YEAR` (nu 12) laat een jaar per cel
+vallen als er te weinig waarnemingen zijn. Dat is chirurgischer dan een heel
+jaar schrappen.
+
 ### Waarom p90/p10 en niet max/min
 
 Het rapport neemt max en min van de HANTS-gladgestreken jaarcurve. Twee
@@ -413,7 +440,35 @@ Vergelijk de getallen dus niet een-op-een met hoofdstuk 11.
 
 ## Significantie
 
-Het vinkje "alleen significante trends" toetst op **q, niet op p**. Over een
+Het vinkje "alleen significante trends" toetst op **q, niet op p**, en de
+drempel is verschuifbaar.
+
+### Het drempelschuifje
+
+Paragraaf 5.3 van het rapport stelt de vraag die geen enkele statistiek voor
+je beantwoordt: *"Welke grens bruikbaar is, hangt af van het doel van de
+monitoring en van de gevolgen van het missen of ten onrechte signaleren van
+een verandering."* Het schuifje maakt die afweging zichtbaar in plaats van
+haar in een constante te verstoppen.
+
+Bij een FDR-correctie is dat uitzonderlijk goed uit te leggen, want α *is* de
+verwachte fractie onterechte vondsten onder wat je markeert. De hint zegt dat
+dan ook met zoveel woorden. Voor de piektrend op het grid van 200 m:
+
+| drempel | cellen | waarvan naar verwachting onterecht |
+|---|---|---|
+| q < 0,05 | 0 | — |
+| q < 0,10 | 12 | ~1 |
+| q < 0,15 | 16 | ~2 |
+| q < 0,20 | 32 | ~6 |
+| q < 0,30 | 101 | ~30 |
+| q < 0,50 | 325 | ~163 |
+
+Bij q < 0,10 krijg je twaalf plekken waarvan er naar verwachting één loos
+alarm is. Dat is een lijst waar een veldbezoek op te plannen valt. Bij
+q < 0,50 is de helft ruis en heb je niets.
+
+De drempel zit in de permalink (`?sig=1&alpha=0.10`). Over een
 half miljoen pixels levert p < 0,05 anders vanzelf tienduizenden valse
 positieven; hoofdstuk 11 corrigeert daarom met Benjamini-Hochberg en schrijft
 de q al als raster weg. Houdt geen enkele pixel stand, dan zegt de viewer dat
