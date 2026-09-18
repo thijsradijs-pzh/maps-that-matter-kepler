@@ -294,19 +294,21 @@ boven het 200 m-grid, want percelen zijn meestal groter dan 4 ha.
 ---
 
 ### Template for new apps / when fixing existing ones
-When adding meta/OG tags to any app, use this pattern (swap in the app-specific values):
+When adding meta/OG tags to any app, use this pattern (swap in the app-specific values).
+
+**Host is `maps.mapsthatmatter.io`, niet `www.`** — `www.` en het kale domein serveren sinds medio 2026 de portfolio-site uit een ander repo, dus daar geeft elke app-slug een 404 en breekt elke gedeelde linkpreview. Het `maps.`-subdomein wijst via CNAME naar Vercel en serveert dit repo.
 ```html
 <meta name="description" content="…one sentence description…" />
 <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
 <meta property="og:type" content="website" />
-<meta property="og:url" content="https://www.mapsthatmatter.io/APP-SLUG" />
+<meta property="og:url" content="https://maps.mapsthatmatter.io/APP-SLUG" />
 <meta property="og:title" content="APP TITLE — Maps That Matter" />
 <meta property="og:description" content="…one sentence description…" />
-<meta property="og:image" content="https://www.mapsthatmatter.io/assets/thijs.jpg" />
+<meta property="og:image" content="https://maps.mapsthatmatter.io/assets/thijs.jpg" />
 <meta name="twitter:card" content="summary" />
 <meta name="twitter:title" content="APP TITLE" />
 <meta name="twitter:description" content="…one sentence description…" />
-<meta name="twitter:image" content="https://www.mapsthatmatter.io/assets/thijs.jpg" />
+<meta name="twitter:image" content="https://maps.mapsthatmatter.io/assets/thijs.jpg" />
 ```
 
 ---
