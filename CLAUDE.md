@@ -179,24 +179,19 @@ de beheertypenkaart), en `.env.local` met de CDSE-sleutels. Zijn die weg, dan
 kost een volledige rebuild ~40 min openEO + ~20 min download.
 
 **Direct oppakbaar, in volgorde van opbrengst:**
-1. **Verifieer de laagherstel-fix in een echte browser.** `ensureDataLayers()`
-   hangt nu aan styledata/idle/load/sourcedata, maar is NIET getest: het
-   renderproces liep hier vast, reproduceerbaar op een verse tab en ook op de
-   vorige commit, dus omgeving en niet de wijziging. Wissel een paar keer van
-   opnamejaar en ondergrond en kijk of de gekleurde pixels blijven staan.
-2. **Melden aan Paulo van Breugel**: `RSII_vegetation_indices` schrijft de
+1. **Melden aan Paulo van Breugel**: `RSII_vegetation_indices` schrijft de
    NDMI-formule in `index_expressions["NDWI"]` i.p.v. `["NDMI"]`. Vraag ook
    welke index hun lopende run gebruikt -- notebook 8 staat op MSAVI met NDVI
    uitgecommentarieerd.
-3. **Twee methodische afwijkingen dichten** (zie het fenologie-blok hierboven):
+2. **Twee methodische afwijkingen dichten** (zie het fenologie-blok hierboven):
    gepoolde i.p.v. jaargewogen klimatologie, en nergens HANTS. Raakt nu alleen
    nog de live-reeks in `series.js`.
-4. **Beheerregistraties opvragen bij PZH** -- maaibeheer, rietoogst, petgaten,
+3. **Beheerregistraties opvragen bij PZH** -- maaibeheer, rietoogst, petgaten,
    peilafwijkingen. Viewer kan ze al tonen; `data/fenologie/ingrepen.json` is
    leeg met het schema erin.
-5. **Beheertype-codes leesbaar maken** (N12.02 -> naam). De ArcGIS-service
+4. **Beheertype-codes leesbaar maken** (N12.02 -> naam). De ArcGIS-service
    heeft geen coded-value domein; moet uit de SNL-index komen, niet gokken.
-6. **Beslisregel-schuifje**: alpha laten verschuiven met een live telling van
+5. **Beslisregel-schuifje**: alpha laten verschuiven met een live telling van
    hoeveel eenheden overblijven. Maakt de afweging uit par. 5.3 zichtbaar.
 
 **Niet doen zonder overleg:** een perceelreeks (`--by polygon` in

@@ -504,7 +504,7 @@
     var base = p.get('base');
     if (base && CFG.basemaps[base]) {
       $('basemap').value = base;
-      map.setStyle(basemapStyle(base));
+      setBasemap(base);
     }
     renderAerialStrip();
 
@@ -537,6 +537,20 @@
     var list = CFG.aerial || [];
     for (var i = 0; i < list.length; i++) if (list[i].id === aerialId) return list[i];
     return list[0];
+  }
+
+  /* setStyle() doet standaard een DIFF: MapLibre vergelijkt de oude stijl met
+     de nieuwe en past alleen de verschillen toe. Onze `trend`- en `pick`-lagen
+     zitten niet in de nieuwe stijl, dus de diff besluit dat ze weg moeten --
+     en omdat het een diff is en geen volledige herlaadbeurt vuurt 'style.load'
+     niet, dus zet niets ze terug. Gevolg: na een wissel van ondergrond of
+     opnamejaar was de trendkaart weg tot je herlaadde.
+
+     diff: false dwingt een volledige herlaadbeurt af, en dan vuurt
+     'style.load' wel. Kost een korte flits van de ondergrond; dat is de prijs
+     voor lagen die blijven staan. */
+  function setBasemap(key) {
+    map.setStyle(basemapStyle(key), { diff: false });
   }
 
   function basemapStyle(key) {
@@ -698,7 +712,7 @@
           : 'meest recente opname, ' + a.res;
         b.onclick = function () {
           aerialId = a.id;
-          map.setStyle(basemapStyle('luchtfoto'));
+          setBasemap('luchtfoto');
           renderAerialStrip();
           updateURL();
         };
@@ -799,7 +813,7 @@
     };
     $('basemap').onchange = function (e) {
       // style.load hangt de trendlaag er daarna weer aan
-      map.setStyle(basemapStyle(e.target.value));
+      setBasemap(e.target.value);
       renderAerialStrip();
       updateURL();
     };
