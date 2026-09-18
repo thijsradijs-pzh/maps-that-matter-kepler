@@ -12,6 +12,7 @@
   var CFG = window.FENO_CONFIG;
   var C = CFG.colors;
   var ALPHA = CFG.alpha || 0.05;
+  var view = CFG.defaultView || 'pixel';
 
   var map, metric = 'slope', onlySig = false, liveAvailable = null;
   var picked = null;      // { lon, lat, slope, tau, qvalue, count }
@@ -90,6 +91,10 @@
   function renderShortlist() {
     var box = $('shortlist');
     if (!box) return;
+    // Bij een zoneweergave is "aaneengesloten vlekken zoeken" zinloos: de
+    // vlekken zijn de zones. Dan tonen we de sterkste zones uit de tabel die
+    // het aggregatiescript in meta.json heeft gezet.
+    if (Raster.meta.aggregation) { renderZoneList(); return; }
     var cfg = CFG.shortlist || { aantal: 6, minPixels: 12 };
     var all = Raster.clusters({ alpha: ALPHA, minPixels: cfg.minPixels });
     var top = all.slice(0, cfg.aantal);
@@ -133,6 +138,30 @@
     });
   }
 
+  /* De sterkste zones, op q gesorteerd door het aggregatiescript. */
+  function renderZoneList() {
+    var m = Raster.meta, agg = m.aggregation;
+    var rows = (agg.table || []).slice(0, (CFG.shortlist || {}).aantal || 6);
+    $('shortlist').hidden = false;
+    $('shortlist-sub').textContent = agg.zones_tested + ' zones getoetst van '
+      + agg.zones_total + ' (' + (agg.zones_total - agg.zones_tested)
+      + ' te klein). Gesorteerd op q; ' + agg.zones_significant + ' significant.';
+    var ol = $('shortlist-items');
+    ol.innerHTML = '';
+    rows.forEach(function (r, i) {
+      var li = document.createElement('li');
+      li.className = 'shortlist-item ' + (r.slope < 0 ? 'down' : 'up');
+      li.innerHTML = '<span class="sl-rank">' + (i + 1) + '</span>'
+        + '<span class="sl-body"><span class="sl-main">' + esc(r.zone)
+        + ' · ' + (r.slope < 0 ? 'afname' : 'toename') + '</span>'
+        + '<span class="sl-sub">' + (r.slope > 0 ? '+' : '−')
+        + nl(Math.abs(r.slope), 4) + ' ' + m.index + '/jaar · τ '
+        + nl(r.tau, 2) + ' · q ' + (r.q < 0.001 ? '< 0,001' : nl(r.q, 3))
+        + ' · ' + r.pixels.toLocaleString('nl-NL') + ' px</span></span>';
+      ol.appendChild(li);
+    });
+  }
+
   /* ── legenda ────────────────────────────────────────────── */
   function renderLegend() {
     var spec = CFG.metrics[metric];
@@ -165,8 +194,11 @@
       + ' &middot; ' + m.period[0].slice(0, 4) + '–' + m.period[1].slice(0, 4)
       + ' &middot; ' + m.index + '<br>' +
       'Jaarstatistiek: <code>' + m.stat + '</code>. ' + m.method + '<br>' +
-      m.pixels_significant.toLocaleString('nl-NL') + ' pixels significant bij q &lt; '
-      + nl(m.fdr_alpha, 2) + '.' +
+      (m.aggregation
+        ? m.aggregation.zones_significant + ' van ' + m.aggregation.zones_tested
+          + ' zones significant bij q &lt; ' + nl(m.fdr_alpha, 2) + '.'
+        : m.pixels_significant.toLocaleString('nl-NL')
+          + ' pixels significant bij q &lt; ' + nl(m.fdr_alpha, 2) + '.') +
       (m.demo ? '<br><strong>Let op:</strong> gesimuleerd trendveld. Draai '
         + '<code>export_fenologie_raster.py --from-grass</code> voor de echte kaart.'
         : '');
@@ -196,7 +228,10 @@
     liveToken++;
 
     var idx = Raster.meta.index;
-    $('d-title').textContent = 'Pixel — ' + Math.round(pixelMetres()) + ' m';
+    var agg = Raster.meta.aggregation;
+    $('d-title').textContent = agg
+      ? (agg.by === 'type' ? 'Beheertype' : 'Beheerperceel')
+      : 'Pixel — ' + Math.round(pixelMetres()) + ' m';
     $('d-sub').textContent = nl(lat, 5) + ' N, ' + nl(lon, 5) + ' E  ·  '
       + Raster.meta.crs;
 
@@ -210,7 +245,9 @@
       statRow('τ', nl(vals.tau, 2), '') +
       statRow('q', vals.qvalue === null ? '–'
         : (vals.qvalue < 0.001 ? '< 0,001' : nl(vals.qvalue, 3)), '') +
-      statRow('jaren', vals.count === null ? '–' : Math.round(vals.count), 'met curve');
+      statRow('jaren', vals.count === null ? '–' : Math.round(vals.count), 'met curve') +
+      (agg ? statRow('eenheid', agg.zones_tested + ' van ' + agg.zones_total,
+                     'zones getoetst') : '');
 
     var v = $('d-verdict');
     if (!sig) {
@@ -412,6 +449,7 @@
   function updateURL() {
     var p = new URLSearchParams();
     p.set('metric', metric);
+    if (view !== (CFG.defaultView || 'pixel')) p.set('view', view);
     if (onlySig) p.set('sig', '1');
     if (picked) {
       p.set('lon', picked.lon.toFixed(5));
@@ -427,6 +465,11 @@
       $('metric').value = metric;
     }
     if (p.get('sig') === '1') { onlySig = true; $('only-sig').checked = true; }
+    var vw = p.get('view');
+    if (vw && vw !== view && (CFG.views || []).some(function (x) { return x.id === vw; })) {
+      $('view').value = vw;
+      switchView(vw);
+    }
     var lon = parseFloat(p.get('lon')), lat = parseFloat(p.get('lat'));
     if (!isNaN(lon) && !isNaN(lat)) {
       showPixel(lon, lat);
@@ -513,6 +556,33 @@
     showPixel(ev.lngLat.lng, ev.lngLat.lat);
   }
 
+  /* Wissel van analyse-eenheid: zelfde reeks, andere schaal waarop getoetst
+     wordt. Alle weergaven delen hetzelfde grid, dus alleen de banden en de
+     meta veranderen -- de image-source hoeft niet opnieuw aangemaakt. */
+  function switchView(id) {
+    var v = (CFG.views || []).filter(function (x) { return x.id === id; })[0];
+    if (!v) return;
+    var prev = view;
+    view = id;
+    $('loader').hidden = false;
+    $('loader-text').textContent = 'Trendkaart laden…';
+    Raster.bands = {};
+    Raster.load(v.base).then(function () {
+      $('loader').hidden = true;
+      paintRaster();
+      renderMeta();
+      renderShortlist();
+      if (picked) showPixel(picked.lon, picked.lat);
+      updateURL();
+    }).catch(function (e) {
+      view = prev;
+      $('view').value = prev;
+      $('loader').hidden = true;
+      showToast('Deze weergave kon niet geladen worden: ' + e.message
+        + '. Draai scripts/aggregate_fenologie_zones.py om hem te maken.', null);
+    });
+  }
+
   /* ── start ──────────────────────────────────────────────── */
   function boot() {
     $('basemap').value = CFG.defaultBasemap;
@@ -554,6 +624,15 @@
       var over = Raster.indexAt(ev.lngLat.lng, ev.lngLat.lat) >= 0;
       map.getCanvas().style.cursor = over ? 'crosshair' : '';
     });
+
+    var vsel = $('view');
+    (CFG.views || []).forEach(function (v) {
+      var o = document.createElement('option');
+      o.value = v.id; o.textContent = v.label;
+      vsel.appendChild(o);
+    });
+    vsel.value = view;
+    vsel.onchange = function (e) { switchView(e.target.value); };
 
     $('metric').onchange = function (e) { metric = e.target.value; paintRaster(); updateURL(); };
     $('only-sig').onchange = function (e) { onlySig = e.target.checked; paintRaster(); updateURL(); };

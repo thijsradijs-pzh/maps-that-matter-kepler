@@ -150,6 +150,52 @@ body. Het id staat in de `OpenEO-Identifier`-header, of anders achteraan
 aangemaakt en blijft er een weesjob in status `created` staan die nooit
 gestart wordt.
 
+### Aggregeren naar beheertype of perceel
+
+`scripts/aggregate_fenologie_zones.py` toetst op gebiedseenheden in plaats
+van losse pixels — wat §5.3.1 van het rapport zelf voorstelt ("Resultaten
+kunnen eerst per habitattype worden samengevat").
+
+```bash
+python3 scripts/aggregate_fenologie_zones.py --by type      # 17 beheertypen
+python3 scripts/aggregate_fenologie_zones.py --by polygon   # 2.315 percelen
+```
+
+Zones komen uit de beheertypenkaart van het provinciale Natuurbeheerplan
+(dezelfde service die `gebiedsviewer` al ontsluit). PDOK heeft geen bruikbare
+habitattypenkaart: de Natura 2000-service van RVO geeft alleen begrenzing en
+"Habitatrichtlijn verspreiding van habitattypen" is het EU-rapportageraster
+van 10x10 km; de echte kaart zit in de NDVH bij BIJ12.
+
+**Dit middelt geen pixelhellingen.** Per zone wordt eerst de jaarreeks
+samengevat (mediaan over de pixels, per jaar), en daarna draait Theil-Sen +
+Mann-Kendall op die ene reeks van tien waarden. Dezelfde volgorde als
+hoofdstuk 11, en de enige die klopt: het gemiddelde van duizend hellingen
+heeft geen bruikbare toetsingsverdeling.
+
+De uitvoer is hetzelfde PNG-formaat, met per pixel de waarde van zijn zone,
+plus een zonetabel in `meta.json`. De viewer heeft er een keuzelijst
+"Analyse-eenheid" voor.
+
+**Uitkomst over Nieuwkoop: allebei nul significante zones**, maar om
+tegengestelde redenen, en dat is het leerzame deel:
+
+| eenheid | getoetst | beste tau | beste q | waarom het strandt |
+|---|---|---|---|---|
+| pixel | 1.468.511 | — | 0,350 | correctie veel te streng |
+| beheertype | 17 | −0,51 | 0,417 | correctie mild, maar aggregeren middelt het signaal weg |
+| beheerperceel | 828 | +0,82 | 0,755 | signaal sterk genoeg, correctie net te streng |
+
+De bindende beperking is overal **n = 10**. Met p_min = 8,3 x 10^-5 kan boven
+ongeveer **600 zones** niets ooit significant heten, hoe sterk de trend ook
+is. Daaronder kan het wel, maar dan moet de trend ook echt sterk zijn.
+
+Praktische consequentie: stel een afgebakende vraag. Toets 50 percelen van
+een enkel beheertype in plaats van alle 828, en het sterkste perceel dat we
+vonden (tau = +0,82, ruwe p = 0,0009) haalt de drempel wel. Dat sluit aan bij
+§5.3, dat stelt dat een beslisregel pas vast te stellen is nadat duidelijk is
+welke verandering je wilt signaleren.
+
 ### De detectiegrens, lees dit voordat je conclusies trekt
 
 Mann-Kendall op tien jaarwaarden heeft een **harde ondergrens** voor de

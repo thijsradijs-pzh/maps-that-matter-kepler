@@ -5,6 +5,17 @@ window.FENO_CONFIG = {
   // EPSG:3857 dat als image-source op de kaart ligt.
   rasterBase: '/data/fenologie/raster',
 
+  // Analyse-eenheid. Dezelfde reeks, andere schaal waarop getoetst wordt:
+  // per pixel is 1,5 miljoen toetsen en loopt vast op de meervoudigheids-
+  // correctie; per beheertype zijn het er 17 en is die correctie mild, maar
+  // middelt het aggregeren ook signaal weg. Zie scripts/aggregate_fenologie_zones.py.
+  views: [
+    { id: 'pixel', label: 'Per pixel', base: '/data/fenologie/raster' },
+    { id: 'type', label: 'Per beheertype', base: '/data/fenologie/raster-type' },
+    { id: 'polygon', label: 'Per beheerperceel', base: '/data/fenologie/raster-polygon' },
+  ],
+  defaultView: 'pixel',
+
   // Serverless endpoint voor de reeks achter een klik (live openEO op CDSE).
   // Zonder CDSE_CLIENT_ID / CDSE_CLIENT_SECRET geeft het endpoint 503; de
   // viewer toont dan wel de trendcijfers uit het raster, maar geen grafieken.

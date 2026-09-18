@@ -1,0 +1,224 @@
+{
+ "source": "openEO / Copernicus Data Space, jaarmedianen 2016-2025, geaggregeerd per beheertype uit het Natuurbeheerplan",
+ "demo": false,
+ "index": "NDVI",
+ "stat": "median per zone",
+ "crs": "EPSG:3857",
+ "width": 1359,
+ "height": 1380,
+ "bounds_3857": [
+  531659.4,
+  6820396.6,
+  545249.4,
+  6834196.6
+ ],
+ "corners": [
+  [
+   4.7759776,
+   52.1880369
+  ],
+  [
+   4.8980587,
+   52.1880369
+  ],
+  [
+   4.8980587,
+   52.1119709
+  ],
+  [
+   4.7759776,
+   52.1119709
+  ]
+ ],
+ "nodata": -32768,
+ "bands": {
+  "slope": {
+   "file": "slope.png",
+   "scale": 1e-05,
+   "label": "Theil-Sen-helling",
+   "unit": "index/jaar",
+   "min": -0.008856,
+   "max": 0.004112
+  },
+  "tau": {
+   "file": "tau.png",
+   "scale": 0.0001,
+   "label": "Kendall's tau-b",
+   "unit": "",
+   "min": -0.511111,
+   "max": 0.288889
+  },
+  "qvalue": {
+   "file": "qvalue.png",
+   "scale": 0.0001,
+   "label": "FDR-gecorrigeerde q",
+   "unit": "",
+   "min": 0.417284,
+   "max": 1.0
+  },
+  "count": {
+   "file": "count.png",
+   "scale": 1.0,
+   "label": "geldige jaren",
+   "unit": "jaar",
+   "min": 10.0,
+   "max": 10.0
+  }
+ },
+ "pixels_valid": 459162,
+ "pixels_significant": 0,
+ "fdr_alpha": 0.05,
+ "period": [
+  "2016-01-01",
+  "2025-12-31"
+ ],
+ "aggregation": {
+  "by": "type",
+  "field": "beheerType",
+  "zones_total": 17,
+  "zones_tested": 17,
+  "zones_significant": 0,
+  "min_pixels": 25,
+  "detection_floor_p": 8.303070332644974e-05,
+  "zones_needed_at_floor": 0.0,
+  "table": [
+   {
+    "zone": "N12.02",
+    "pixels": 46937,
+    "slope": -0.002844,
+    "tau": -0.467,
+    "p": 0.0736,
+    "q": 0.417
+   },
+   {
+    "zone": "N12.06",
+    "pixels": 254,
+    "slope": -0.007707,
+    "tau": -0.511,
+    "p": 0.0491,
+    "q": 0.417
+   },
+   {
+    "zone": "N12.01",
+    "pixels": 1459,
+    "slope": -0.008856,
+    "tau": -0.467,
+    "p": 0.0736,
+    "q": 0.417
+   },
+   {
+    "zone": "N13.01",
+    "pixels": 29317,
+    "slope": -0.003295,
+    "tau": -0.422,
+    "p": 0.107,
+    "q": 0.456
+   },
+   {
+    "zone": "N10.01",
+    "pixels": 9082,
+    "slope": -0.00343,
+    "tau": -0.333,
+    "p": 0.21,
+    "q": 0.716
+   },
+   {
+    "zone": "N06.02",
+    "pixels": 2376,
+    "slope": 0.003862,
+    "tau": 0.289,
+    "p": 0.283,
+    "q": 0.802
+   },
+   {
+    "zone": "N04.01",
+    "pixels": 84059,
+    "slope": 0.002528,
+    "tau": 0.2,
+    "p": 0.474,
+    "q": 0.896
+   },
+   {
+    "zone": "N10.02",
+    "pixels": 28375,
+    "slope": -0.001112,
+    "tau": -0.2,
+    "p": 0.474,
+    "q": 0.896
+   },
+   {
+    "zone": "N17.06",
+    "pixels": 28,
+    "slope": 0.004112,
+    "tau": 0.2,
+    "p": 0.474,
+    "q": 0.896
+   },
+   {
+    "zone": "N05.04",
+    "pixels": 51804,
+    "slope": 0.001806,
+    "tau": 0.022,
+    "p": 1.0,
+    "q": 1.0
+   },
+   {
+    "zone": "N05.02",
+    "pixels": 5265,
+    "slope": 0.003357,
+    "tau": 0.022,
+    "p": 1.0,
+    "q": 1.0
+   },
+   {
+    "zone": "N06.01",
+    "pixels": 96354,
+    "slope": 0.000694,
+    "tau": 0.067,
+    "p": 0.858,
+    "q": 1.0
+   },
+   {
+    "zone": "N04.02",
+    "pixels": 65941,
+    "slope": 0.000385,
+    "tau": 0.022,
+    "p": 1.0,
+    "q": 1.0
+   },
+   {
+    "zone": "N14.02",
+    "pixels": 28404,
+    "slope": 0.002984,
+    "tau": 0.111,
+    "p": 0.721,
+    "q": 1.0
+   },
+   {
+    "zone": "N14.03",
+    "pixels": 483,
+    "slope": -0.003306,
+    "tau": -0.156,
+    "p": 0.592,
+    "q": 1.0
+   },
+   {
+    "zone": "N05.03",
+    "pixels": 27024,
+    "slope": 0.000296,
+    "tau": 0.022,
+    "p": 1.0,
+    "q": 1.0
+   },
+   {
+    "zone": "N16.04",
+    "pixels": 239,
+    "slope": -0.000548,
+    "tau": -0.022,
+    "p": 1.0,
+    "q": 1.0
+   }
+  ]
+ },
+ "method": "Per zone eerst de mediaan over de pixels per jaar, daarna Theil-Sen + Mann-Kendall op die reeks van 10 jaarwaarden, en Benjamini-Hochberg over de 17 getoetste zones. Niet het gemiddelde van pixelhellingen: dat heeft geen bruikbare toetsingsverdeling. Zones uit de beheertypenkaart van het Natuurbeheerplan (provincie Zuid-Holland)."
+}
