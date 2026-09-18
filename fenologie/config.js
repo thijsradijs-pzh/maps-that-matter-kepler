@@ -48,14 +48,11 @@ window.FENO_CONFIG = {
     maxZoom: 16,
   },
 
-  // Alle drie PDOK, geen sleutel nodig, geen CARTO.
+  // Beide PDOK, geen sleutel nodig, geen CARTO. De luchtfoto is de standaard:
+  // die laat zien wat er op de grond staat, en met de jaarstrip erbij is een
+  // trend visueel na te rekenen. BRT grijs is eruit -- een grijze ondergrond
+  // onder een trendkaart voegt weinig toe boven de standaard BRT.
   basemaps: {
-    brtGrijs: {
-      tiles: ['https://service.pdok.nl/kadaster/brt-achtergrondkaart/wmts/v2_0/grijs/EPSG:3857/{z}/{x}/{y}.png'],
-      attribution: '&copy; Kadaster / PDOK &mdash; BRT Achtergrondkaart',
-      tileSize: 256,
-      maxzoom: 16,
-    },
     brtStandaard: {
       tiles: ['https://service.pdok.nl/kadaster/brt-achtergrondkaart/wmts/v2_0/standaard/EPSG:3857/{z}/{x}/{y}.png'],
       attribution: '&copy; Kadaster / PDOK &mdash; BRT Achtergrondkaart',
@@ -90,7 +87,7 @@ window.FENO_CONFIG = {
   aerialBase: 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/%LAYER%/EPSG:3857/{z}/{x}/{y}.jpeg',
 
   // Kaartlagen: welk veld, welke schaal, welke legenda
-  defaultBasemap: 'brtGrijs',
+  defaultBasemap: 'luchtfoto',
 
   // Kaartlagen: elk verwijst naar een band uit de rasterexport.
   metrics: {

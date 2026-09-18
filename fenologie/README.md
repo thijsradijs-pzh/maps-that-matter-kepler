@@ -338,8 +338,10 @@ waarschuwing boven.
 
 ## Luchtfoto door de jaren heen
 
-Bij de ondergrond "PDOK luchtfoto" verschijnt een jaarstrip: nu, en 2016 t/m
-2025. Zelfde archief en zelfde laaglijst als `pdok-viewer` gebruikt
+De luchtfoto is de standaardondergrond, met een jaarstrip eronder: nu, en
+2016 t/m 2025. BRT grijs is eruit; BRT standaard blijft als alternatief.
+De trendlaag staat standaard op 60% dekking, zodat de luchtfoto eronder
+leesbaar blijft. Zelfde archief en zelfde laaglijst als `pdok-viewer` gebruikt
 (`service.pdok.nl/hwh/luchtfotorgb`), maar via het REST-pad dat de andere
 basemaps hier ook gebruiken — dat geeft byte-identieke tegels als de
 KVP-vorm en scheelt een tweede URL-patroon.
