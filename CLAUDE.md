@@ -160,6 +160,96 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 
 ---
 
+### `fenologie-gebieden/` — multi-gebied, echte N2000-grens (2026-09-27)
+
+Aparte viewer naast `/fenologie`, die ongewijzigd in productie blijft. Route
+`/fenologie-gebieden`, data onder `data/fenologie-gebieden/<gebied>/`.
+
+**De gebiedsgrens is nu een parameter.** `scripts/fenologie_gebieden.py` haalt de
+omtrek uit de landelijke Natura 2000-service van RVO bij PDOK
+(`service.pdok.nl/rvo/natura2000/wfs/v1_0`) en cachet hem per gebied.
+`build_fenologie_openeo.py`, `aggregate_fenologie_zones.py` en
+`build_fenologie_series.py` hebben alle drie een `--gebied`. De oude
+`DEMO_RING`-weg blijft werken als er geen `--gebied` gegeven wordt, zodat
+`/fenologie` reproduceerbaar blijft.
+
+**Twee valkuilen bij die WFS.** `CQL_FILTER` wordt stilzwijgend genegeerd — een
+query mét filter geeft gewoon alle 209 gebieden terug (24 MB). De
+`bbox`-parameter werkt wel, mits je de CRS expliciet als
+`urn:ogc:def:crs:OGC:1.3:CRS84` meegeeft; zonder die URI valt de service terug
+op de EPSG:4326-asvolgorde (lat,lon) en krijg je nul features.
+
+**Masker met gaten.** `punt_in_gebied()` XOR't alle ringen van een polygoon
+(even-odd), dus petgaten en open water middenin vallen er terecht buiten. De
+oude `point_in_ring()` kende alleen een buitenring.
+
+**Oppervlak in EPSG:3857 moet met cos²(lat).** Zonder die correctie komt
+Nieuwkoop op ~5.300 ha uit in plaats van ~2.000.
+
+**De grensfix is empirisch bevestigd.** Nieuwkoop ging van 552.898 naar 200.559
+getoetste pixels en de detectiegrens van 9,2 naar **3,3 ha** — exact de
+voorspelling. Het weggevallen deel was boerenland en dorpen die wel meetelden in
+de FDR-correctie.
+
+**EERSTE SIGNIFICANTE UITKOMST VAN HET HELE PROJECT.** Coepelduynen, gridcel van
+100 m op 52,22434 N / 4,41510 E: trend in het **winterdal** (p10) van
+**+0,0093 NDVI/jaar, tau +0,96, q = 0,032**. Eén cel van 185. Gebiedsbreed gaat
+85% van de cellen dezelfde kant op (mediaan +0,0052/jaar). Meer groen in de
+winter in een duinsysteem is de klassieke signatuur van vergrassing of
+verstruiking — **hypothese, geen conclusie**; een verandering in reflectie is
+geen verandering in soortensamenstelling.
+
+**Waarom Coepelduynen het wél haalt en Nieuwkoop niet, en het is niet wat we
+dachten.** De detectiegrens is daar 0,31 ha in plaats van 3,3 ha, dus de
+correctie is mild. Maar op pixelniveau is Coepelduynen alsnog nul significant,
+met kleinste q = 0,102 — terwijl 87% van de pixels een positieve helling heeft
+(mediaan +0,0117/jaar). De bindende beperking is daar dus **niet** de
+meervoudigheidscorrectie maar de jaar-op-jaarruis: de reeksen zijn wel stijgend,
+niet monotoon genoeg voor Mann-Kendall bij n = 10. Twee gebieden, twee
+verschillende limieten — dat is een scherper verhaal dan "we hebben meer jaren
+nodig".
+
+Aggregaties bevestigen dat: per beheertype haalt de sterkste zone q = 0,356
+(Coepelduynen, N08.02, +0,0161/jaar), per perceel q = 0,18. Alleen de
+seizoensdal-metriek op het 100 m-grid komt eronder.
+
+**HET VOORBEELD IN `/fenologie`'s UITLEG WIJST NAAR BOERENLAND.** Die modal
+zegt: zet de drempel op 0,10 en er blijven "twaalf plekken" over. Nagerekend
+tegen de echte N2000-grens liggen **alle twaalf erbuiten** -- 0 van 12 binnen.
+Dat is ook precies wat je zou verwachten: landbouwgrond heeft door
+gewasrotatie en graslandvernieuwing veel sterkere monotone NDVI-trends dan
+natuur. Het paradepaardje van de huidige viewer toont dus de akkers naast het
+gebied. In `fenologie-gebieden` is dat voorbeeld vervangen door de
+Coepelduynen-cel hierboven. **`/fenologie` zelf is niet aangepast** -- dat zou
+zijn data en tekst uiteen laten lopen; de viewer hoort uitgefaseerd te worden
+zodra `fenologie-gebieden` bevalt.
+
+Bijkomend gevolg: met de juiste grens is Nieuwkoops beste q *slechter* geworden
+(0,133 voor het bereik, tegen 0,078 voor de piek in de oude run), ondanks de
+mildere correctie -- juist omdat die sterke akkercellen eruit zijn.
+
+**Celmaat per gebied.** 200 m over Nieuwkoop (507 cellen), 100 m over
+Coepelduynen (185 cellen) — bij 200 m zouden dat er nog geen 50 zijn. Mag: de
+detectiegrens hangt aan het getoetste oppervlak, niet aan de celmaat.
+
+**Asdomeinen bewust gelijk gehouden.** Coepelduynen heeft een heel andere
+NDVI-verdeling (mediaan 0,47 tegen 0,78; duin met zand tegen veen met water) en
+`[-0,2 .. 1]` klemt daar 0,00% tegen 1,0% bij Nieuwkoop. Een eigen strakker
+domein zou ruimte winnen maar de gebieden op het oog onvergelijkbaar maken, en
+daar is de vaste as juist voor. Ze staan wel per gebied in de config, zodat ze
+uit elkaar kúnnen lopen.
+
+**Praktisch.** `nohup ... &` vanuit de Bash-tool overleeft het afsluiten van de
+shell niet; de openEO-jobs draaien wel door bij CDSE, dus ophalen met
+`--job-id`. Resultaten opvragen van een nog lopende job geeft HTTP 400, geen
+nette foutmelding.
+
+**Nog open:** `charts.js` in deze viewer leest `CFG.axis` per aanroep (in
+`/fenologie` is het een momentopname bij laden) — die twee bestanden zijn dus
+niet meer identiek. Samenvoegen zodra `/fenologie` uitgefaseerd kan worden.
+
+---
+
 ### Fenologie: collegafeedback verwerkt (2026-09-27)
 
 Zes punten feedback van een collega. Vier zijn presentatie op bestaande data en

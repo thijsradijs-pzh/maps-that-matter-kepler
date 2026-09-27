@@ -66,6 +66,7 @@ from export_fenologie_raster import (  # noqa: E402
     BANDS, DEMO_RING, NODATA_I16, lonlat_to_merc, merc_to_lonlat,
     point_in_ring, write_value_png,
 )
+from fenologie_gebieden import GEBIEDEN, laad_gebied, punt_in_gebied  # noqa: E402
 
 TOKEN_URL = ("https://identity.dataspace.copernicus.eu/auth/realms/CDSE"
              "/protocol/openid-connect/token")
@@ -317,11 +318,10 @@ def build_graph(bbox, years, index, resolution):
 
 
 # ---------------------------------------------------------------- job
-def run_job(graph, token, poll=20):
+def run_job(graph, token, poll=20, titel="fenologie jaarmedianen"):
     hdr = auth_header(token)
     job, headers = _post(OPENEO_URL + "/jobs",
-                         {"process": {"process_graph": graph},
-                          "title": "fenologie Nieuwkoop jaarmedianen"},
+                         {"process": {"process_graph": graph}, "title": titel},
                          hdr)
     job_id = job_id_from(job, headers)
     if not job_id:
@@ -571,17 +571,27 @@ def main():
     ap.add_argument("--job-id", default=None,
                     help="sla indienen over, haal een eerdere job op")
     ap.add_argument("--keep-tif", action="store_true")
-    ap.add_argument("--tif-dir", default="data/fenologie/_openeo")
-    ap.add_argument("--out-dir", default="data/fenologie/raster")
+    ap.add_argument("--gebied", default="nieuwkoop", choices=sorted(GEBIEDEN),
+                    help="welk Natura 2000-gebied; de omtrek komt uit de "
+                         "RVO-service bij PDOK, niet uit de handgetekende ring")
+    ap.add_argument("--tif-dir", default=None,
+                    help="standaard data/fenologie-gebieden/<gebied>/_openeo")
+    ap.add_argument("--out-dir", default=None,
+                    help="standaard data/fenologie-gebieden/<gebied>/raster")
     args = ap.parse_args()
 
+    basis = "data/fenologie-gebieden/%s" % args.gebied
+    if args.tif_dir is None:
+        args.tif_dir = basis + "/_openeo"
+    if args.out_dir is None:
+        args.out_dir = basis + "/raster"
+
     years = list(range(args.start_year, args.end_year + 1))
-    ring = [lonlat_to_merc(lon, lat) for lon, lat in DEMO_RING]
-    xs = [p[0] for p in ring]
-    ys = [p[1] for p in ring]
-    sw = merc_to_lonlat(min(xs), min(ys))
-    ne = merc_to_lonlat(max(xs), max(ys))
-    bbox = [round(sw[0], 6), round(sw[1], 6), round(ne[0], 6), round(ne[1], 6)]
+    gebied = laad_gebied(args.gebied)
+    polys = gebied["polys"]
+    bbox = gebied["bbox"]
+    print("gebied %s: %s, %.0f ha" % (args.gebied, gebied["naam"],
+                                      gebied["oppervlak_ha"]), file=sys.stderr)
 
     lat_mid = (bbox[1] + bbox[3]) / 2.0
     res_merc = merc_resolution(args.resolution, lat_mid)
@@ -601,7 +611,7 @@ def main():
         hdr = auth_header(token)
         job, headers = _post(OPENEO_URL + "/jobs",
                              {"process": {"process_graph": graph},
-                              "title": "fenologie Nieuwkoop jaarmedianen"}, hdr)
+                              "title": "fenologie %s jaarmedianen" % args.gebied}, hdr)
         jid = job_id_from(job, headers)
         if not jid:
             raise SystemExit("openEO gaf geen job-id terug: body=%s headers=%s"
@@ -612,7 +622,8 @@ def main():
         print("  python3 scripts/build_fenologie_openeo.py --job-id %s"
               % jid, file=sys.stderr)
         return
-    job_id = args.job_id or run_job(graph, token)
+    titel = "fenologie %s jaarmedianen %d-%d" % (args.gebied, years[0], years[-1])
+    job_id = args.job_id or run_job(graph, token, titel=titel)
     paths = download_results(job_id, token, tif_dir, keep=args.keep_tif)
 
     cube, transform, reader = read_stack(paths)
@@ -638,7 +649,7 @@ def main():
     gx = x0 + (np.arange(w) + 0.5) * dx
     gy = y0 + (np.arange(h) + 0.5) * dy
     X, Y = np.meshgrid(gx, gy)
-    inside = point_in_ring(X, Y, ring)
+    inside = punt_in_gebied(X, Y, polys)
     for k in ("slope", "tau", "count"):
         res[k] = np.where(inside, res[k], np.nan)
     qvalue = np.where(inside, qvalue, np.nan)

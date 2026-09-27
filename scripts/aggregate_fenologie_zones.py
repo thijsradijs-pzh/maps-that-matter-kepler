@@ -66,6 +66,7 @@ from export_fenologie_raster import (  # noqa: E402
     BANDS, DEMO_RING, NODATA_I16, lonlat_to_merc, merc_to_lonlat,
     point_in_ring, write_value_png,
 )
+from fenologie_gebieden import GEBIEDEN, laad_gebied, punt_in_gebied  # noqa: E402
 from build_fenologie_openeo import (  # noqa: E402
     FDR_ALPHA, MIN_OBS, _with_retry, detection_floor, fdr_pvalue, theilsen_mk,
 )
@@ -189,6 +190,9 @@ def main():
     ap.add_argument("--zones-url", default=NBP_QUERY)
     ap.add_argument("--zones-file", default=None,
                     help="lokale GeoJSON in EPSG:3857 in plaats van de service")
+    ap.add_argument("--gebied", default=None, choices=sorted(GEBIEDEN),
+                    help="Natura 2000-gebied; zet tegelijk de standaardpaden "
+                         "onder data/fenologie-gebieden/<gebied>/")
     ap.add_argument("--tif-dir", default="data/fenologie/_openeo")
     ap.add_argument("--out-dir", default=None,
                     help="standaard data/fenologie/raster-<by>")
@@ -199,6 +203,17 @@ def main():
     ap.add_argument("--min-pixels", type=int, default=MIN_ZONE_PIXELS,
                     help="harde ondergrens voor een stabiele mediaan (default 10)")
     args = ap.parse_args()
+
+    # Met --gebied volgen de paden het gebied, tenzij ze expliciet gezet zijn.
+    gebied = None
+    if args.gebied:
+        gebied = laad_gebied(args.gebied)
+        basis = "data/fenologie-gebieden/%s" % args.gebied
+        if args.tif_dir == "data/fenologie/_openeo":
+            args.tif_dir = basis + "/_openeo"
+        if args.out_dir is None:
+            args.out_dir = "%s/raster-%s" % (basis, args.by)
+
 
     tifs = sorted(Path(args.tif_dir).glob("*.tif"))
     if len(tifs) < 5:
@@ -225,9 +240,13 @@ def main():
     if args.zones_file:
         feats = json.loads(Path(args.zones_file).read_text(encoding="utf-8"))["features"]
     else:
-        ring_m = [lonlat_to_merc(lo, la) for lo, la in DEMO_RING]
-        sw = merc_to_lonlat(min(p[0] for p in ring_m), min(p[1] for p in ring_m))
-        ne = merc_to_lonlat(max(p[0] for p in ring_m), max(p[1] for p in ring_m))
+        if gebied:
+            sw = (gebied["bbox"][0], gebied["bbox"][1])
+            ne = (gebied["bbox"][2], gebied["bbox"][3])
+        else:
+            ring_m = [lonlat_to_merc(lo, la) for lo, la in DEMO_RING]
+            sw = merc_to_lonlat(min(p[0] for p in ring_m), min(p[1] for p in ring_m))
+            ne = merc_to_lonlat(max(p[0] for p in ring_m), max(p[1] for p in ring_m))
         feats = fetch_zones([sw[0], sw[1], ne[0], ne[1]], field=args.field,
                             url=args.zones_url,
                             cache=Path(args.tif_dir).parent / "_zones.geojson")
@@ -285,7 +304,8 @@ def main():
     gx = transform.c + (np.arange(w) + 0.5) * transform.a
     gy = transform.f + (np.arange(h) + 0.5) * transform.e
     X, Y = np.meshgrid(gx, gy)
-    inside = point_in_ring(X, Y, [lonlat_to_merc(lo, la) for lo, la in DEMO_RING])
+    inside = (punt_in_gebied(X, Y, gebied["polys"]) if gebied
+              else point_in_ring(X, Y, [lonlat_to_merc(lo, la) for lo, la in DEMO_RING]))
     for k in bands:
         bands[k] = np.where(inside, bands[k], np.nan)
 

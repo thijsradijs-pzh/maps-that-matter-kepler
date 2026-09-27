@@ -53,6 +53,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from export_fenologie_raster import DEMO_RING, lonlat_to_merc, merc_to_lonlat  # noqa: E402
+from fenologie_gebieden import GEBIEDEN, laad_gebied  # noqa: E402
 from build_fenologie_openeo import (  # noqa: E402
     INDICES, OPENEO_URL, SCL_DROP, _get, _post, auth_header, get_token,
     job_id_from,
@@ -135,7 +136,23 @@ def build_graph(bbox, years, index, geometries):
     }
 
 
-def build_grid(ring_merc, cell_m, lat_mid):
+def _inside_polys(x, y, polys):
+    """Scalair punt-in-multipolygoon, even-odd over alle ringen per polygoon.
+
+    Gaten tellen dus negatief: een cel midden in een petgat of open water valt
+    buiten het gebied en krijgt geen reeks.
+    """
+    for ringen in polys:
+        binnen = False
+        for ring in ringen:
+            if _inside(x, y, ring):
+                binnen = not binnen
+        if binnen:
+            return True
+    return False
+
+
+def build_grid(polys, cell_m, lat_mid):
     """Regelmatig grid over het gebied, alleen de cellen binnen de omtrek.
 
     Voor de 75% van Nieuwkoop zonder beheertype-polygoon is er anders geen
@@ -146,8 +163,8 @@ def build_grid(ring_merc, cell_m, lat_mid):
     De celmaat is in grondmeters; Mercator rekt op 52 graden met 1/cos(lat) op.
     """
     step = cell_m / math.cos(math.radians(lat_mid))
-    xs = [p[0] for p in ring_merc]
-    ys = [p[1] for p in ring_merc]
+    xs = [c[0] for poly in polys for ring in poly for c in ring]
+    ys = [c[1] for poly in polys for ring in poly for c in ring]
     x0, y0 = min(xs), min(ys)
     ncol = int(math.ceil((max(xs) - x0) / step))
     nrow = int(math.ceil((max(ys) - y0) / step))
@@ -157,7 +174,7 @@ def build_grid(ring_merc, cell_m, lat_mid):
         for c in range(ncol):
             cx = x0 + (c + 0.5) * step
             cy = y0 + (r + 0.5) * step
-            if not _inside(cx, cy, ring_merc):
+            if not _inside_polys(cx, cy, polys):
                 continue
             xa, xb = x0 + c * step, x0 + (c + 1) * step
             ya, yb = y0 + r * step, y0 + (r + 1) * step
@@ -297,6 +314,8 @@ def b64_int16(values):
 def main():
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--gebied", default=None, choices=sorted(GEBIEDEN),
+                    help="Natura 2000-gebied; zet ook de celmaat en het uitvoerpad")
     ap.add_argument("--by", choices=["type", "polygon", "grid"], default="type")
     ap.add_argument("--cell", type=float, default=200.0,
                     help="celmaat in grondmeters voor --by grid (default 200)")
@@ -315,18 +334,34 @@ def main():
     args = ap.parse_args()
 
     years = list(range(args.start_year, args.end_year + 1))
-    ring = [lonlat_to_merc(lo, la) for lo, la in DEMO_RING]
-    sw = merc_to_lonlat(min(p[0] for p in ring), min(p[1] for p in ring))
-    ne = merc_to_lonlat(max(p[0] for p in ring), max(p[1] for p in ring))
-    bbox = [round(sw[0], 6), round(sw[1], 6), round(ne[0], 6), round(ne[1], 6)]
+    if args.gebied:
+        gebied = laad_gebied(args.gebied)
+        polys = gebied["polys"]
+        bbox = gebied["bbox"]
+        # De celmaat hoort bij het gebied: 200 m over Nieuwkoop geeft ~1.400
+        # cellen, over Coepelduynen nog geen 50. Alleen overrulen als de
+        # gebruiker zelf iets anders vraagt dan de standaard.
+        if args.cell == 200.0:
+            args.cell = gebied["cell_m"]
+        zones_cache = Path("data/fenologie-gebieden/%s/_zones-4326.geojson" % args.gebied)
+        if args.out is None:
+            args.out = ("data/fenologie-gebieden/%s/series-%s.json"
+                        % (args.gebied, args.by))
+    else:
+        ring = [lonlat_to_merc(lo, la) for lo, la in DEMO_RING]
+        polys = [[ring]]
+        sw = merc_to_lonlat(min(p[0] for p in ring), min(p[1] for p in ring))
+        ne = merc_to_lonlat(max(p[0] for p in ring), max(p[1] for p in ring))
+        bbox = [round(sw[0], 6), round(sw[1], 6), round(ne[0], 6), round(ne[1], 6)]
+        zones_cache = Path("data/fenologie/_zones-4326.geojson")
 
     grid_meta = None
     if args.by == "grid":
-        zones, grid_meta = build_grid(ring, args.cell, (bbox[1] + bbox[3]) / 2)
+        zones, grid_meta = build_grid(polys, args.cell, (bbox[1] + bbox[3]) / 2)
         names = [z["properties"]["zone"] for z in zones]
     else:
         feats = fetch_zones(bbox, out_sr=4326, field=args.field, url=args.zones_url,
-                            cache=Path("data/fenologie/_zones-4326.geojson"))
+                            cache=zones_cache)
         if args.by == "type":
             zones = dissolve_by_type(
                 feats, args.field,

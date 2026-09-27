@@ -1,0 +1,215 @@
+{
+ "source": "openEO / Copernicus Data Space, jaarmedianen 2016-2025, geaggregeerd per beheertype uit het Natuurbeheerplan",
+ "demo": false,
+ "index": "NDVI",
+ "stat": "median per zone",
+ "crs": "EPSG:3857",
+ "width": 874,
+ "height": 699,
+ "bounds_3857": [
+  527729.07,
+  6819447.94,
+  541969.17,
+  6830836.77
+ ],
+ "corners": [
+  [
+   4.7406709,
+   52.1695293
+  ],
+  [
+   4.8685919,
+   52.1695293
+  ],
+  [
+   4.8685919,
+   52.1067371
+  ],
+  [
+   4.7406709,
+   52.1067371
+  ]
+ ],
+ "nodata": -32768,
+ "bands": {
+  "slope": {
+   "file": "slope.png",
+   "scale": 1e-05,
+   "label": "Theil-Sen-helling",
+   "unit": "index/jaar",
+   "min": -0.005028,
+   "max": 0.004112
+  },
+  "tau": {
+   "file": "tau.png",
+   "scale": 0.0001,
+   "label": "Kendall's tau-b",
+   "unit": "",
+   "min": -0.422222,
+   "max": 0.288889
+  },
+  "qvalue": {
+   "file": "qvalue.png",
+   "scale": 0.0001,
+   "label": "FDR-gecorrigeerde q",
+   "unit": "",
+   "min": 0.49532,
+   "max": 1.0
+  },
+  "count": {
+   "file": "count.png",
+   "scale": 1.0,
+   "label": "geldige jaren",
+   "unit": "jaar",
+   "min": 10.0,
+   "max": 10.0
+  },
+  "zone": {
+   "file": "zone.png",
+   "scale": 1.0,
+   "label": "zone-index",
+   "unit": "",
+   "min": 1.0,
+   "max": 14.0
+  }
+ },
+ "pixels_valid": 175322,
+ "pixels_significant": 0,
+ "fdr_alpha": 0.05,
+ "period": [
+  "2016-01-01",
+  "2025-12-31"
+ ],
+ "aggregation": {
+  "by": "type",
+  "field": "beheerType",
+  "zones_total": 14,
+  "zones_tested": 13,
+  "zones_significant": 0,
+  "min_area_ha": 0.25,
+  "min_pixels": 25,
+  "pixel_m2": 100.0,
+  "detection_floor_p": 8.303070332644974e-05,
+  "zones_needed_at_floor": 0.0,
+  "table": [
+   {
+    "index": 5,
+    "zone": "N05.04",
+    "pixels": 9155,
+    "slope": -0.004037,
+    "tau": -0.422,
+    "p": 0.107,
+    "q": 0.495
+   },
+   {
+    "index": 10,
+    "zone": "N12.02",
+    "pixels": 16814,
+    "slope": -0.003444,
+    "tau": -0.422,
+    "p": 0.107,
+    "q": 0.495
+   },
+   {
+    "index": 8,
+    "zone": "N10.01",
+    "pixels": 2186,
+    "slope": -0.005028,
+    "tau": -0.378,
+    "p": 0.152,
+    "q": 0.495
+   },
+   {
+    "index": 11,
+    "zone": "N13.01",
+    "pixels": 12202,
+    "slope": -0.001639,
+    "tau": -0.378,
+    "p": 0.152,
+    "q": 0.495
+   },
+   {
+    "index": 1,
+    "zone": "N04.01",
+    "pixels": 33401,
+    "slope": 0.003388,
+    "tau": 0.289,
+    "p": 0.283,
+    "q": 0.613
+   },
+   {
+    "index": 7,
+    "zone": "N06.02",
+    "pixels": 886,
+    "slope": 0.004112,
+    "tau": 0.289,
+    "p": 0.283,
+    "q": 0.613
+   },
+   {
+    "index": 2,
+    "zone": "N04.02",
+    "pixels": 38470,
+    "slope": -0.0014,
+    "tau": -0.156,
+    "p": 0.592,
+    "q": 0.93
+   },
+   {
+    "index": 9,
+    "zone": "N10.02",
+    "pixels": 10945,
+    "slope": -0.002047,
+    "tau": -0.156,
+    "p": 0.592,
+    "q": 0.93
+   },
+   {
+    "index": 12,
+    "zone": "N14.02",
+    "pixels": 12491,
+    "slope": 0.002527,
+    "tau": 0.111,
+    "p": 0.721,
+    "q": 0.93
+   },
+   {
+    "index": 13,
+    "zone": "N16.04",
+    "pixels": 92,
+    "slope": -0.000968,
+    "tau": -0.111,
+    "p": 0.721,
+    "q": 0.93
+   },
+   {
+    "index": 4,
+    "zone": "N05.03",
+    "pixels": 12217,
+    "slope": 0.001663,
+    "tau": 0.067,
+    "p": 0.858,
+    "q": 0.93
+   },
+   {
+    "index": 6,
+    "zone": "N06.01",
+    "pixels": 39621,
+    "slope": 0.001422,
+    "tau": 0.067,
+    "p": 0.858,
+    "q": 0.93
+   },
+   {
+    "index": 3,
+    "zone": "N05.02",
+    "pixels": 2236,
+    "slope": -0.001363,
+    "tau": -0.022,
+    "p": 1.0,
+    "q": 1.0
+   }
+  ]
+ },
+ "method": "Per zone eerst de mediaan over de pixels per jaar, daarna Theil-Sen + Mann-Kendall op die reeks van 10 jaarwaarden, en Benjamini-Hochberg over de 13 getoetste zones. Niet het gemiddelde van pixelhellingen: dat heeft geen bruikbare toetsingsverdeling. Zones uit de beheertypenkaart van het Natuurbeheerplan (provincie Zuid-Holland)."
+}

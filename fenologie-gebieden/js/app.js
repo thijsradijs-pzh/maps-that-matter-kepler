@@ -15,6 +15,37 @@
   var view = CFG.defaultView || 'pixel';
   var aerialId = 'actueel';
 
+  /* ── gebiedskeuze ───────────────────────────────────────────────
+     Het enige echte verschil met /fenologie: alle datapaden hangen aan het
+     gekozen gebied. CFG.views bestaat hier niet als vaste lijst maar wordt per
+     gebied opgebouwd uit CFG.viewDefs, zodat de rest van de code (switchView,
+     renderMetricOptions, de permalink) ongewijzigd kan blijven werken. */
+  var gebiedId = CFG.defaultGebied || (CFG.gebieden[0] || {}).id;
+
+  function gebiedSpec(id) {
+    return (CFG.gebieden || []).filter(function (g) { return g.id === id; })[0]
+      || CFG.gebieden[0];
+  }
+
+  /** Zet CFG.views en CFG.axis om naar het opgegeven gebied. */
+  function pasGebiedToe(id) {
+    var g = gebiedSpec(id);
+    gebiedId = g.id;
+    CFG.axis = g.axis;            // charts.js leest dit per aanroep
+    CFG.views = (CFG.viewDefs || []).map(function (v) {
+      return {
+        id: v.id,
+        // De gridmaat verschilt per gebied (200 m over Nieuwkoop, 100 m over
+        // het veel kleinere Coepelduynen), dus die hoort in het label.
+        label: v.id === 'grid' ? v.label + ' (' + g.cell_m + ' m)' : v.label,
+        base: g.basis + '/' + v.dir,
+        series: v.series ? g.basis + '/' + v.series : null,
+      };
+    });
+    CFG.gridSeriesUrl = g.basis + '/series-grid.json';
+    return g;
+  }
+
   var map, metric = 'slope', onlySig = false, liveAvailable = null;
   var picked = null;      // { lon, lat, slope, tau, qvalue, count }
   var livePoint = null;   // resultaat van Series.fromLive voor het gekozen punt
@@ -166,9 +197,16 @@
     var m = Raster.meta, agg = m.aggregation;
     var rows = (agg.table || []).slice(0, (CFG.shortlist || {}).aantal || 6);
     $('shortlist').hidden = false;
+    /* zones_significant hoort bij de niveautrend. Kijk je naar de piek-, dal-
+       of bereikkaart, dan stond hier een ander getal dan het paneel links --
+       dezelfde eenheid, twee tellingen. De stats-tabel heeft ze per metriek. */
+    var sleutel = (CFG.metrics[metric].band || '').replace(/^slope_?/, '') || 'level';
+    var st = (agg.stats || {})[sleutel];
+    var nSig = st ? st.significant : agg.zones_significant;
     $('shortlist-sub').textContent = agg.zones_tested + ' zones getoetst van '
       + agg.zones_total + ' (' + (agg.zones_total - agg.zones_tested)
-      + ' te klein). Gesorteerd op q; ' + agg.zones_significant + ' significant.';
+      + ' te klein). Gesorteerd op q; ' + nSig + ' significant'
+      + (st ? ' (' + st.label + ')' : '') + '.';
     var ol = $('shortlist-items');
     ol.innerHTML = '';
     rows.forEach(function (r, i) {
@@ -262,6 +300,7 @@
       ? '<span class="badge">demo-data</span><br>'
       : '<span class="badge live">' + m.source + '</span><br>';
     var px = Raster.countValid();
+    renderGebiedOpties();
     $('meta-block').innerHTML = badge +
       px.toLocaleString('nl-NL') + ' pixels &middot; ' + m.width + '&times;' + m.height
       + ' &middot; ' + m.period[0].slice(0, 4) + '–' + m.period[1].slice(0, 4)
@@ -750,6 +789,7 @@
   /* ── permalink ──────────────────────────────────────────── */
   function updateURL() {
     var p = new URLSearchParams();
+    if (gebiedId !== CFG.defaultGebied) p.set('gebied', gebiedId);
     p.set('metric', metric);
     if (view !== (CFG.defaultView || 'pixel')) p.set('view', view);
     if ($('basemap').value !== CFG.defaultBasemap) p.set('base', $('basemap').value);
@@ -1038,14 +1078,132 @@
     if (e.key === 'Escape') closeIntro();
   }
 
+  /* Wisselen van gebied. Zwaarder dan een weergavewissel: raster, reeksen,
+     assen en kaartpositie gaan allemaal mee, en de gekozen pixel vervalt want
+     die ligt in het oude gebied. De kaartlaag blijft wél staan als hij in het
+     nieuwe gebied bestaat -- je kijkt meestal naar hetzelfde soort trend. */
+  function switchGebied(id) {
+    var g = gebiedSpec(id);
+    if (!g || g.id === gebiedId) return;
+    var vorig = gebiedId;
+    pasGebiedToe(g.id);
+
+    picked = null;
+    livePoint = null;
+    liveToken++;
+    $('detail').hidden = true;
+    Series.zones = null;
+    Series.grid = null;
+    Raster.bands = {};
+
+    $('loader').hidden = false;
+    $('loader-text').textContent = g.label + ' laden…';
+
+    var v = (CFG.views || []).filter(function (x) { return x.id === view; })[0]
+            || CFG.views[0];
+    view = v.id;
+    $('view').value = view;
+
+    var jobs = [Raster.load(v.base)];
+    if (v.series) jobs.push(Series.loadZones(v.series));
+    Promise.all(jobs).then(function () {
+      $('loader').hidden = true;
+      map.jumpTo({ center: g.map.center, zoom: g.map.zoom });
+      renderViewOptions();
+      renderGebiedOpties();
+      renderMetricOptions();
+      paintRaster();
+      renderMeta();
+      renderShortlist();
+      markPixel(null, null);
+      updateURL();
+    }).catch(function (e) {
+      pasGebiedToe(vorig);
+      $('gebied').value = vorig;
+      $('loader').hidden = true;
+      showToast('Dit gebied kon niet geladen worden: ' + e.message
+        + ' Draai scripts/build_fenologie_openeo.py --gebied ' + g.id + '.', null);
+    });
+  }
+
+  /* De weergavelijst moet bij elke gebiedswissel opnieuw: het label van de
+     gridweergave noemt de celmaat, en die verschilt per gebied (200 m over
+     Nieuwkoop, 100 m over Coepelduynen). */
+  function renderViewOptions() {
+    var sel = $('view');
+    sel.innerHTML = '';
+    (CFG.views || []).forEach(function (v) {
+      var o = document.createElement('option');
+      o.value = v.id; o.textContent = v.label;
+      sel.appendChild(o);
+    });
+    sel.value = view;
+  }
+
+  /* Regel onder de keuzelijst: oppervlak en detectiegrens. Die grens is het
+     hele punt van meerdere gebieden -- over 188 ha is hij ruim dertig keer
+     lager dan over 2.000 ha, want hij schaalt met het getoetste oppervlak. */
+  function renderGebiedOpties() {
+    var sel = $('gebied');
+    if (sel && !sel.options.length) {
+      (CFG.gebieden || []).forEach(function (g) {
+        var o = document.createElement('option');
+        o.value = g.id;
+        o.textContent = g.label;
+        sel.appendChild(o);
+      });
+    }
+    if (sel) sel.value = gebiedId;
+
+    var note = $('gebied-note');
+    if (!note) return;
+    var g = gebiedSpec(gebiedId);
+    var agg = Raster.meta && Raster.meta.aggregation;
+    var eenheid = !agg ? 'pixels'
+      : agg.by === 'grid' ? 'cellen'
+      : agg.by === 'type' ? 'beheertypen' : 'percelen';
+    var px = Raster.meta ? Raster.countValid() : 0;
+    var grens = detectiegrens(px, eenheid);
+    note.innerHTML = Math.round(g.oppervlak_ha).toLocaleString('nl-NL')
+      + ' ha &middot; ' + px.toLocaleString('nl-NL') + ' ' + eenheid
+      + ' getoetst<br>kleinste aantoonbare vlek: <strong>' + grens + '</strong>';
+  }
+
+  /* p_min(n)·N/alpha pixels, maal het pixeloppervlak. Het pixeloppervlak valt
+     tegen zichzelf weg, dus dit is een OPPERVLAK dat niet van de resolutie
+     afhangt -- fijner bemonsteren helpt niet, een langere reeks wel. */
+  function detectiegrens(nTests, eenheid) {
+    var n = Raster.meta && Raster.meta.period
+      ? (+Raster.meta.period[1].slice(0, 4) - +Raster.meta.period[0].slice(0, 4) + 1)
+      : 10;
+    if (!nTests || n < 4) return '–';
+    var S = n * (n - 1) / 2;
+    var sd = Math.sqrt(n * (n - 1) * (2 * n + 5) / 18);
+    var z = (S - 1) / sd;
+    var d = 0.3989422804014327 * Math.exp(-z * z / 2);
+    var t = 1 / (1 + 0.2316419 * z);
+    var p = 2 * d * t * (0.319381530 + t * (-0.356563782 + t * (1.781477937
+            + t * (-1.821255978 + t * 1.330274429))));
+    var kMin = p * nTests / ALPHA;
+    var ha = kMin * Raster.pixelArea() / 1e4;
+    if (kMin < 1) {
+      // Onder één eenheid legt de correctie geen ondergrens meer op: wat je
+      // vindt hangt dan alleen nog af van het signaal zelf.
+      return 'één ' + ({ pixels: 'pixel', cellen: 'cel',
+                         beheertypen: 'beheertype' }[eenheid] || 'perceel')
+             + ' volstaat';
+    }
+    return ha < 1 ? nl(ha, 2) + ' ha' : nl(ha, 1) + ' ha';
+  }
+
   /* ── start ──────────────────────────────────────────────── */
   function boot() {
     $('basemap').value = CFG.defaultBasemap;
     map = new maplibregl.Map({
       container: 'map',
       style: basemapStyle(CFG.defaultBasemap),
-      center: CFG.map.center,
-      zoom: CFG.map.zoom,
+      center: gebiedSpec(gebiedId).map.center,
+      zoom: gebiedSpec(gebiedId).map.zoom,
       minZoom: CFG.map.minZoom,
       maxZoom: CFG.map.maxZoom,
     });
@@ -1100,14 +1258,11 @@
       map.getCanvas().style.cursor = over ? 'crosshair' : '';
     });
 
-    var vsel = $('view');
-    (CFG.views || []).forEach(function (v) {
-      var o = document.createElement('option');
-      o.value = v.id; o.textContent = v.label;
-      vsel.appendChild(o);
-    });
-    vsel.value = view;
-    vsel.onchange = function (e) { switchView(e.target.value); };
+    renderGebiedOpties();
+    $('gebied').onchange = function (e) { switchGebied(e.target.value); };
+
+    renderViewOptions();
+    $('view').onchange = function (e) { switchView(e.target.value); };
 
     $('metric').onchange = function (e) {
       metric = e.target.value;
@@ -1224,12 +1379,21 @@
       .then(function () { if (picked) renderIngrepen(picked.lon, picked.lat); });
   }
 
+  /* Het gebied moet vaststaan vóór de eerste Raster.load(): alle paden hangen
+     eraan. Vandaar dat de permalink hier gelezen wordt en niet pas in
+     restoreURL(), die na het laden draait. */
+  (function kiesGebiedUitURL() {
+    var g = new URLSearchParams(location.search).get('gebied');
+    if (g && gebiedSpec(g) && gebiedSpec(g).id === g) gebiedId = g;
+  })();
+  var startGebied = pasGebiedToe(gebiedId);
+
   $('loader-text').textContent = 'Trendkaart laden…';
-  Raster.load(CFG.rasterBase).then(boot).catch(function (e) {
+  Raster.load(startGebied.basis + '/raster').then(boot).catch(function (e) {
     $('loader').innerHTML = '<div style="max-width:420px;text-align:center">'
       + '<strong>De trendkaart kon niet geladen worden.</strong><br>'
       + '<span style="font-size:12px;color:#8b8d83">' + e.message
-      + '<br>Genereer hem met <code>python3 scripts/export_fenologie_raster.py --demo</code>'
-      + ' of, met een GRASS-sessie, <code>--from-grass</code>.</span></div>';
+      + '<br>Genereer hem met <code>python3 scripts/build_fenologie_openeo.py --gebied '
+      + gebiedId + '</code>.</span></div>';
   });
 })();

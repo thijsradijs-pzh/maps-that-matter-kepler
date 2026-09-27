@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <title>Fenologie Natura 2000 — Maps That Matter</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta name="description" content="Tien jaar Sentinel-2 NDVI per pixel over meerdere Natura 2000-gebieden: Nieuwkoopse Plassen &amp; De Haeck en Coepelduynen, met de echte gebiedsgrens uit PDOK." />
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://maps.mapsthatmatter.io/fenologie-gebieden" />
+  <meta property="og:title" content="Fenologie Natura 2000 — Maps That Matter" />
+  <meta property="og:description" content="Tien jaar Sentinel-2 NDVI per pixel over meerdere Natura 2000-gebieden, met de echte gebiedsgrens uit PDOK." />
+  <meta property="og:image" content="https://maps.mapsthatmatter.io/assets/thijs.jpg" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Fenologie Natura 2000" />
+  <meta name="twitter:description" content="Tien jaar Sentinel-2 NDVI per pixel: trend, significantie en seizoensverloop, per Natura 2000-gebied." />
+  <meta name="twitter:image" content="https://maps.mapsthatmatter.io/assets/thijs.jpg" />
+
+  <script async src="https://plausible.io/js/pa-unGG15m6r6ufvAQNAPz3f.js"></script>
+  <script>
+    window.plausible = window.plausible || function() { (plausible.q = plausible.q || []).push(arguments) };
+    plausible.init = plausible.init || function(i) { plausible.o = i || {} };
+    plausible.init();
+  </script>
+
+  <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <link href="/fenologie-gebieden/css/style.css" rel="stylesheet" />
+</head>
+<body>
+
+<a class="home-link" href="/">← Maps That Matter</a>
+
+<div id="map"></div>
+
+<!-- ── Kaartbediening (links) ───────────────────────────────── -->
+<div class="control-card" id="controls">
+  <div class="control-head">
+    <h1>Fenologie Natura 2000</h1>
+    <button class="collapse" id="btn-help" aria-label="Uitleg over deze kaart" title="Waar kijk ik naar?">?</button>
+    <button class="collapse" id="btn-collapse" aria-label="Paneel in- of uitklappen">−</button>
+  </div>
+  <div class="control-body" id="control-body">
+    <p class="lede">Tien jaar Sentinel-2, per pixel van 10 meter, binnen de echte Natura 2000-grens. Kies een gebied en klik ergens voor de trend van die pixel.</p>
+
+    <label class="field-label" for="gebied">Natura 2000-gebied</label>
+    <select id="gebied"></select>
+    <p class="gebied-note" id="gebied-note"></p>
+
+    <label class="field-label" for="view">Analyse-eenheid</label>
+    <select id="view"></select>
+
+    <label class="field-label" for="metric">Kaartlaag</label>
+    <select id="metric"></select>
+
+    <div class="check-row">
+      <label><input type="checkbox" id="only-sig" /> alleen significante trends</label>
+      <div class="alpha-row" id="alpha-row" hidden>
+        <label class="alpha-label" for="alpha">drempel q &lt; <span id="alpha-val">0,05</span></label>
+        <input type="range" id="alpha" min="1" max="50" step="1" value="5"
+               aria-label="Significantiedrempel q" />
+      </div>
+      <p class="check-hint" id="sig-hint" hidden></p>
+    </div>
+
+    <label class="field-label" for="basemap">Ondergrond</label>
+    <select id="basemap">
+      <option value="luchtfoto">PDOK luchtfoto</option>
+      <option value="brtStandaard">PDOK BRT standaard</option>
+    </select>
+
+    <div class="aerial" id="aerial" hidden>
+      <div class="aerial-head">Opnamejaar <span id="aerial-info"></span></div>
+      <div class="aerial-strip" id="aerial-strip" role="group"
+           aria-label="Jaar van de luchtfoto"></div>
+    </div>
+
+    <label class="field-label" for="opacity">Dekking trendkaart <span id="opacity-val">100%</span></label>
+    <input type="range" id="opacity" min="10" max="100" step="5" value="100" />
+
+    <div class="legend" id="legend"></div>
+
+    <section class="shortlist" id="shortlist" hidden>
+      <h2 class="shortlist-head">Waar moet ik kijken?</h2>
+      <p class="shortlist-sub" id="shortlist-sub"></p>
+      <ol class="shortlist-items" id="shortlist-items"></ol>
+    </section>
+
+    <div class="meta-block" id="meta-block"></div>
+
+    <div class="btn-row">
+      <button class="btn" id="btn-share">🔗 Deel deze weergave</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Detailpaneel (rechts / bottom sheet) ─────────────────── -->
+<aside class="detail" id="detail" hidden>
+  <div class="detail-head">
+    <div>
+      <h2 id="d-title">—</h2>
+      <p class="d-sub" id="d-sub">—</p>
+    </div>
+    <button class="close" id="btn-close" aria-label="Sluiten">×</button>
+  </div>
+
+  <div class="detail-body">
+    <dl class="stats" id="d-stats"></dl>
+    <p class="verdict" id="d-verdict"></p>
+
+    <details class="tech">
+      <summary>Toetsingsdetails</summary>
+      <dl class="stats stats-sm" id="d-tech"></dl>
+      <p class="cap" id="d-tech-note"></p>
+    </details>
+
+    <section class="why" id="d-why" hidden></section>
+
+    <p class="chart-status" id="chart-status" hidden></p>
+
+    <label class="axis-toggle">
+      <input type="checkbox" id="axis-auto" />
+      y-as op de reeks laten inzoomen
+      <span class="axis-hint">standaard staan de assen vast, zodat twee plekken
+        met het oog te vergelijken zijn</span>
+    </label>
+
+    <section class="chart-block">
+      <h3>Jaarcurve samengevat</h3>
+      <div class="chart"><svg id="c-annual" viewBox="0 0 640 330" role="img" aria-label="Jaarstatistieken met trendlijn en amplitude per jaar"></svg></div>
+      <p class="cap"><strong>Dit is de grafiek achter de kaart.</strong> De
+        stippellijn boven is dezelfde Theil-Sen-helling die de kaartlaag
+        kleurt; de toets loopt over de tien mediaanpunten, niet over de losse
+        waarnemingen. Onder: de amplitude (p90 − p10) per jaar met haar eigen
+        trend — daar lees je af of het seizoensverschil groeit of krimpt.</p>
+    </section>
+
+    <section class="chart-block">
+      <h3>Tijdreeks tegen de eigen referentie</h3>
+      <div class="chart"><svg id="c-ts" viewBox="0 0 640 300" role="img" aria-label="NDVI-tijdreeks met z-anomalieën"></svg><div class="tt" id="tt-ts"></div></div>
+      <p class="cap">Elke stip is één wolkvrije opname. Band = referentiecurve
+        ± 1 robuuste SD, oftewel wat voor dit punt in deze week van het jaar
+        normaal is. Balken onder = gestandaardiseerde anomalie; |z| ≥ 2 is
+        uitzonderlijk. Losse anomalieën zijn nog geen trend: één droog jaar
+        levert een rij rode balken zonder dat er iets verandert.</p>
+      <ul class="ingrepen" id="ingrepen-list" hidden></ul>
+    </section>
+
+    <section class="chart-block">
+      <h3>Seizoensprofiel</h3>
+      <div class="chart"><svg id="c-season" viewBox="0 0 640 190" role="img" aria-label="Seizoensprofiel per dag van het jaar"></svg></div>
+      <p class="cap">Alle jaren over elkaar geklapt, per dag van het jaar
+        (365-daagse kalender). Hier zie je de vórm van het jaarritme —
+        wanneer het groen begint, piekt en terugvalt — maar niet of die vorm
+        verschuift; daarvoor is de grafiek hierboven.</p>
+    </section>
+
+    <section class="chart-block">
+      <h3>Decompositie</h3>
+      <div class="chart"><svg id="c-decomp" viewBox="0 0 640 250" role="img" aria-label="Decompositie in trend, seizoen en rest"></svg></div>
+      <p class="cap">Seizoen = de referentiecurve; trend = lopende mediaan van
+        wat er na aftrek overblijft; rest = het verschil.
+        <strong>Deze trend is niet dezelfde toets als hierboven</strong> en mag
+        er dus van afwijken: de jaarcurve vat elk jaar samen in één
+        mediaanpunt en toetst die tien punten, terwijl deze trend een lopende
+        mediaan over 51 opeenvolgende waarnemingen is na aftrek van de
+        gepoolde seizoenscurve. Een stijgende jaarcurve met een vlakke
+        decompositietrend betekent meestal dat de stijging in één of twee jaren
+        zit in plaats van gestaag over de reeks — de getoetste uitkomst is die
+        van de jaarcurve.</p>
+    </section>
+
+    <div class="btn-row">
+      <button class="btn" id="btn-csv">⬇ CSV van deze reeks</button>
+      <button class="btn" id="btn-grass">⌨ GRASS-commando</button>
+    </div>
+    <pre class="grass-cmd" id="grass-cmd" hidden></pre>
+  </div>
+</aside>
+
+
+<!-- ── Uitleg bij eerste bezoek, daarna via de ?-knop ────── -->
+<div class="intro-backdrop" id="intro" hidden>
+  <div class="intro" role="dialog" aria-modal="true" aria-labelledby="intro-title">
+    <button class="intro-close" id="btn-intro-close" aria-label="Sluiten">×</button>
+    <h2 id="intro-title">Fenologie Natura 2000</h2>
+    <p class="intro-lede">Tien jaar Sentinel-2 over meerdere Natura 2000-gebieden,
+      per pixel van tien meter, binnen de echte gebiedsgrens.</p>
+
+    <h3>Twee gebieden, en waarom dat uitmaakt</h3>
+    <p>De <strong>Nieuwkoopse Plassen &amp; De Haeck</strong> (2.003 ha) en de
+      <strong>Coepelduynen</strong> (188 ha) bij Katwijk. Dat verschil in oppervlak is
+      geen detail: hoe meer plekken je tegelijk toetst, hoe strenger de correctie voor
+      toevalstreffers moet zijn. Over Nieuwkoop kan daardoor geen vlek kleiner dan
+      ongeveer drie hectare ooit significant heten; over Coepelduynen ligt die grens op
+      een derde hectare. De regel onder de gebiedskeuze rekent hem voor het gekozen
+      gebied uit.</p>
+    <p>De omtrek komt uit de landelijke Natura 2000-service van RVO bij PDOK, dus precies
+      het gebied waar het besluit over gaat — provinciegrenzen doen daar niet aan mee, en
+      omliggend boerenland telt niet mee in de correctie.</p>
+
+    <h3>Wat is fenologie?</h3>
+    <p>Het jaarritme van vegetatie: wanneer het groen begint, wanneer het piekt,
+      wanneer het afsterft. Sentinel-2 komt om de paar dagen over en meet hoe groen
+      het is — de NDVI. Tien jaar van die opnames laat zien of dat ritme verschuift.</p>
+
+    <h3>Wat je op de kaart ziet</h3>
+    <p>Per pixel de trend in het seizoensniveau, 2016–2025. <strong>Bruin</strong> is
+      minder groen geworden, <strong>groen</strong> is groener geworden. Klik ergens en
+      je krijgt de reeks van dat punt, afgezet tegen zijn eigen seizoensreferentie.</p>
+
+    <h3>Waar het voor bedoeld is</h3>
+    <p>Veldwerk levert de beste ecologische informatie, maar alleen op specifieke
+      plekken en momenten. Satellietbeelden vullen dat aan: ze signaleren veranderingen
+      daartussenin en helpen kiezen waar een veldbezoek het meest oplevert. Een
+      aanvulling op de habitatkartering, geen vervanging.</p>
+
+    <h3>Wat je krijgt bij een klik</h3>
+    <p>Bovenaan vier tegels: de verandering per jaar, wat dat over de hele reeks
+      optelt, de <strong>amplitude</strong> (het verschil tussen zomerpiek en
+      winterdal, met de richting waarin dat verschil opschuift) en de
+      bewijskracht. De toetsingscijfers staan eronder, dichtgeklapt.</p>
+    <p>Daaronder <strong>Waarom hier?</strong> — niet de oorzaak, die weet een
+      satelliet niet, maar het bewijs: of deze plek in een samenhangende vlek
+      ligt of er alleen voor staat, welke jaren de trend dragen, en of de
+      verandering in de zomer of in de winter zit. Precies wat je nodig hebt om
+      te besluiten of je gaat kijken.</p>
+    <p>De grafieken hebben <strong>vaste assen</strong>, zodat twee plekken met
+      het oog te vergelijken zijn. Wil je inzoomen op een kleine variatie, dan
+      is dat één vinkje. Loopt de jaarcurve op terwijl de decompositie vlak
+      blijft: dat zijn twee verschillende berekeningen en ze mogen verschillen —
+      de getoetste uitkomst, en dus de kleur op de kaart, is die van de
+      jaarcurve.</p>
+
+    <h3>Wat het niet zegt</h3>
+    <p>Een verandering in reflectie is geen verandering in soortensamenstelling.
+      Droogte, waterpeil, maaibeheer en rietoogst geven vergelijkbare signalen; die
+      uit elkaar houden vraagt veldkennis en beheergegevens.</p>
+    <p class="intro-warn">Zet je <em>alleen significante trends</em> aan, dan blijft de
+      kaart leeg. Dat is geen storing. Met tien jaarwaarden heeft de toets een harde
+      ondergrens, en na correctie voor een half miljoen gelijktijdige toetsen kan over
+      Nieuwkoop geen vlek kleiner dan ongeveer drie hectare ooit significant heten — hoe
+      overtuigend de trend ook is. Over het veel kleinere Coepelduynen ligt die grens op
+      een derde hectare, en daar is dan ook wél iets te vinden. Een langere reeks helpt daar hard: twee jaar erbij
+      scheelt ruwweg een factor tien.</p>
+
+    <h3>Een voorbeeld</h3>
+    <p>Waar het uiteindelijk om gaat is een werklijst. Kies <strong>Coepelduynen</strong>,
+      analyse-eenheid <strong>gridcel</strong>, kaartlaag <strong>seizoensdal</strong>,
+      en vink significantie aan. Er blijft één cel van 185 over: een hectare duin waar
+      het winterdal tien jaar lang bijna zonder uitzondering hoger werd
+      (+0,0093 NDVI/jaar, q&nbsp;=&nbsp;0,03).</p>
+    <p>Meer groen in de winter is in een duinsysteem het klassieke beeld van vergrassing
+      of verstruiking. <strong>Maar dat is een hypothese, geen conclusie</strong> — de
+      satelliet meet reflectie, niet soorten. Het is een adres voor een veldbezoek, en
+      dat is precies wat deze methode kan leveren.</p>
+    <p>Zet daarna hetzelfde eens over <strong>Nieuwkoop</strong>: daar blijft niets over.
+      Niet omdat er niets gebeurt, maar omdat het gebied tien keer zo groot is en de
+      correctie voor al die extra toetsen navenant strenger.</p>
+    <p><a class="intro-link" href="?gebied=coepelduynen&amp;view=grid&amp;metric=slope_trough&amp;sig=1&amp;alpha=0.05">Laat
+      die cel zien →</a></p>
+
+    <p class="intro-bron">Methodiek uit <em>Monitoring habitatveranderingen Nieuwkoop</em>
+      (HAS green academy en Provincie Zuid-Holland, 2026). Beelden: Sentinel-2 via
+      Copernicus Data Space.</p>
+
+    <button class="btn intro-go" id="btn-intro-go">Aan de slag</button>
+  </div>
+</div>
+
+<!-- ── Meldingen (buiten het gebied, link gekopieerd) ── -->
+<div class="toast" id="toast" hidden>
+  <span id="toast-text"></span>
+  <button class="btn btn-sm" id="btn-live">Live ophalen</button>
+  <button class="btn btn-sm ghost" id="btn-toast-close">Sluiten</button>
+</div>
+
+<div class="loader" id="loader"><div class="spinner"></div><span id="loader-text">Trendkaart laden…</span></div>
+
+<script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
+<script src="/fenologie-gebieden/config.js"></script>
+<script src="/fenologie-gebieden/js/raster.js"></script>
+<script src="/fenologie-gebieden/js/series.js"></script>
+<script src="/fenologie-gebieden/js/ingrepen.js"></script>
+<script src="/fenologie-gebieden/js/charts.js"></script>
+<script src="/fenologie-gebieden/js/app.js"></script>
+</body>
+</html>

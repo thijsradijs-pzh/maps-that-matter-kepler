@@ -1,0 +1,375 @@
+/* Fenologie Nieuwkoop — Maps That Matter
+   Licht thema, zelfde familie als pdok-viewer / vraag-de-kennisgraaf. */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f5f5f0;
+  --card: #ffffff;
+  --ink: #1a1a1a;
+  --ink-2: #55564f;
+  --muted: #8b8d83;
+  --line: #e0ddd8;
+  --accent: #0d6675;
+  --accent-soft: #d9eaed;
+  --neg: #9a5b1f;
+  --pos: #1e7a45;
+  --mid: #ddd8c8;
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 10px 30px -18px rgba(0,0,0,.45);
+  --radius: 8px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+#map { position: absolute; inset: 0; }
+
+.home-link {
+  position: fixed; top: 12px; left: 12px; z-index: 30;
+  background: rgba(255,255,255,.92); color: var(--ink);
+  font-size: 11px; font-weight: 600; padding: 6px 10px;
+  border-radius: 6px; border: 1px solid var(--line);
+  text-decoration: none; backdrop-filter: blur(4px);
+}
+
+/* ── linker bedieningspaneel ─────────────────────────────── */
+.control-card {
+  position: fixed; top: 48px; left: 12px; z-index: 20;
+  width: 312px; max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 64px);
+  display: flex; flex-direction: column;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.control-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 12px 14px 10px; border-bottom: 1px solid var(--line);
+}
+.control-head h1 { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.collapse, .close {
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink-2);
+  width: 24px; height: 24px; border-radius: 5px; cursor: pointer;
+  font-size: 15px; line-height: 1; flex: none;
+}
+.collapse:focus-visible, .close:focus-visible, .btn:focus-visible,
+select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.control-body { padding: 12px 14px 14px; overflow-y: auto; }
+.control-card.collapsed .control-body { display: none; }
+
+.lede { font-size: 12.5px; color: var(--ink-2); margin-bottom: 12px; }
+
+/* Regel onder de gebiedskeuze: oppervlak, aantal toetsen en de detectiegrens.
+   Die grens is de reden dat er meerdere gebieden zijn -- hij schaalt met het
+   getoetste oppervlak, dus over 188 ha ligt hij ruim dertig keer lager dan
+   over 2.000 ha. Daarom staat hij hier en niet weggestopt in de uitleg. */
+.gebied-note {
+  margin: 5px 0 2px; font-size: 11px; line-height: 1.5; color: var(--muted);
+  padding: 6px 8px; background: var(--bg); border-radius: 4px;
+  border-left: 2px solid var(--accent);
+}
+.gebied-note strong { color: var(--ink-2); font-weight: 600; }
+.field-label {
+  display: block; font-size: 10.5px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted); margin: 12px 0 5px;
+}
+select, input[type=range] { width: 100%; }
+select {
+  font: inherit; font-size: 12.5px; padding: 6px 8px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink);
+}
+input[type=range] { accent-color: var(--accent); }
+.check-row { margin-top: 9px; font-size: 12.5px; color: var(--ink-2); }
+.check-row input { accent-color: var(--accent); margin-right: 5px; }
+.check-hint { margin: 5px 0 0 18px; font-size: 11.5px; line-height: 1.45;
+              color: var(--ink-3, #7b7b72); }
+
+.legend { margin-top: 14px; font-size: 11px; color: var(--ink-2); }
+.legend .bar { height: 10px; border-radius: 3px; border: 1px solid var(--line); }
+.legend .ends { display: flex; justify-content: space-between; margin-top: 4px;
+  font-variant-numeric: tabular-nums; }
+.legend .note { color: var(--muted); margin-top: 6px; }
+
+.meta-block {
+  margin-top: 14px; padding-top: 11px; border-top: 1px solid var(--line);
+  font-size: 11px; color: var(--muted); line-height: 1.55;
+}
+.badge {
+  display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; padding: 2px 6px; border-radius: 4px;
+  background: #fff3d6; color: #8a6100; border: 1px solid #e8d09a; margin-bottom: 6px;
+}
+.badge.live { background: var(--accent-soft); color: #0a4b57; border-color: #a9ccd2; }
+
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.btn {
+  font: inherit; font-size: 12px; font-weight: 600;
+  padding: 7px 11px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+}
+.btn:hover { background: #ecebe4; }
+.btn.ghost { background: transparent; }
+.btn-sm { padding: 5px 9px; font-size: 11.5px; }
+
+/* ── detailpaneel ────────────────────────────────────────── */
+.detail {
+  position: fixed; top: 12px; right: 12px; z-index: 25;
+  width: 460px; max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  display: flex; flex-direction: column;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.detail[hidden] { display: none; }
+.detail-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 10px; padding: 13px 15px 11px; border-bottom: 1px solid var(--line);
+}
+.detail-head h2 { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.d-sub { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.detail-body { padding: 13px 15px 16px; overflow-y: auto; }
+
+.stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 1px; background: var(--line); border: 1px solid var(--line);
+  border-radius: 6px; overflow: hidden;
+}
+.stats > div { background: var(--card); padding: 8px 10px 9px; }
+.stats dt {
+  font-size: 10px; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 2px;
+}
+.stats dd { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stats dd .unit { font-size: 10.5px; font-weight: 400; color: var(--muted); }
+
+.verdict {
+  margin-top: 11px; font-size: 12.5px; color: var(--ink-2);
+  padding: 8px 10px; border-radius: 6px; background: var(--bg);
+  border: 1px solid var(--line); border-left-width: 3px;
+}
+.verdict.up { border-left-color: var(--pos); }
+.verdict.down { border-left-color: var(--neg); }
+.verdict.flat { border-left-color: var(--muted); }
+
+.stats dd .amp-trend {
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+
+/* Toetsingsdetails: dichtgeklapt, want de eerste feedback was dat het paneel
+   te technisch opende. De cijfers zijn er nog, een klik verder. */
+.tech { margin-top: 10px; }
+.tech > summary {
+  font-size: 11px; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--muted); cursor: pointer; padding: 3px 0;
+  list-style: none; display: flex; align-items: center; gap: 5px;
+}
+.tech > summary::-webkit-details-marker { display: none; }
+.tech > summary::before { content: '▸'; font-size: 9px; }
+.tech[open] > summary::before { content: '▾'; }
+.tech > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tech .stats-sm { margin-top: 6px; }
+/* Niet in kapitalen: text-transform maakt van de tau (τ) een hoofdletter-Tau. */
+.tech .stats-sm dt { text-transform: none; letter-spacing: 0; font-size: 10.5px; }
+.tech .stats-sm dd { font-size: 13px; }
+.tech .cap { margin-top: 7px; line-height: 1.5; }
+
+/* "Waarom hier?" — het bewijs naast de conclusie. */
+.why {
+  margin-top: 11px; padding: 9px 11px 10px; border-radius: 6px;
+  background: var(--accent-soft); border: 1px solid #bcd9de;
+}
+.why[hidden] { display: none; }
+.why h3 {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: #0a4b57; margin-bottom: 6px;
+}
+.why-line {
+  font-size: 12px; line-height: 1.5; color: var(--ink-2); margin-top: 6px;
+}
+.why-line:first-of-type { margin-top: 0; }
+.why-tag {
+  display: inline-block; margin-right: 6px; padding: 1px 6px;
+  border-radius: 9px; background: #fff; border: 1px solid #bcd9de;
+  font-size: 10px; letter-spacing: .04em; text-transform: uppercase;
+  color: #0a4b57; vertical-align: 1px;
+}
+.why-pending { font-size: 11.5px; color: var(--muted); margin-top: 7px; }
+.why-pending[hidden] { display: none; }
+
+/* Vaste versus meeschalende y-as (punt 5 uit de feedback). */
+.axis-toggle {
+  display: block; margin-top: 16px; font-size: 12px; color: var(--ink-2);
+  cursor: pointer;
+}
+.axis-toggle input { accent-color: var(--accent); margin-right: 5px; }
+.axis-hint {
+  display: block; margin: 3px 0 0 18px; font-size: 11px; color: var(--muted);
+  line-height: 1.45;
+}
+
+.chart-status {
+  margin-top: 11px; font-size: 12px; color: var(--muted);
+  padding: 7px 10px; border: 1px dashed var(--line); border-radius: 6px;
+}
+.chart-status[hidden] { display: none; }
+
+.chart-block { margin-top: 18px; }
+.chart-block h3 {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 7px;
+}
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.cap { font-size: 11px; color: var(--muted); margin-top: 6px; }
+.axlabel { font-size: 9.5px; fill: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.gridline { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 3; }
+/* Melding dat er punten buiten de vaste as vallen: opvallend genoeg om niet te
+   missen, want anders verdwijnt er stil data uit beeld. */
+.clipnote { fill: var(--neg); font-size: 9px; }
+
+.tt {
+  position: absolute; z-index: 5; pointer-events: none; opacity: 0;
+  transition: opacity .08s; background: var(--card);
+  border: 1px solid var(--line); border-radius: 6px; box-shadow: var(--shadow);
+  padding: 7px 9px; font-size: 11.5px; min-width: 130px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.tt .row { display: flex; justify-content: space-between; gap: 12px; }
+
+.grass-cmd {
+  margin-top: 10px; background: #1e201b; color: #e8e7dc;
+  border-radius: 6px; padding: 11px 13px; font-size: 11.5px; line-height: 1.6;
+  overflow-x: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.grass-cmd[hidden] { display: none; }
+
+/* ── toast + loader ──────────────────────────────────────── */
+.toast {
+  position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+  z-index: 40; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 10px 13px; font-size: 12.5px;
+  max-width: calc(100vw - 24px);
+}
+.toast[hidden] { display: none; }
+
+.loader {
+  position: fixed; inset: 0; z-index: 50; display: flex;
+  align-items: center; justify-content: center; gap: 12px;
+  background: rgba(245,245,240,.94); font-size: 13px; color: var(--ink-2);
+}
+.loader[hidden] { display: none; }
+.spinner {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--line); border-top-color: var(--accent);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+/* ── mobiel: detail als bottom sheet ─────────────────────── */
+@media (max-width: 760px) {
+  .control-card { width: calc(100vw - 24px); max-height: 34vh; }
+  .detail {
+    top: auto; right: 0; left: 0; bottom: 0;
+    width: 100%; max-width: 100%; max-height: 64vh;
+    border-radius: var(--radius) var(--radius) 0 0;
+    border-left: 0; border-right: 0; border-bottom: 0;
+  }
+  .toast { bottom: auto; top: 56px; }
+}
+
+/* ── "Waar moet ik kijken?" ─────────────────────────────── */
+.shortlist { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 11px; }
+.shortlist-head { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .06em;
+                  text-transform: uppercase; color: var(--ink-2); }
+.shortlist-sub { margin: 5px 0 8px; font-size: 11.5px; line-height: 1.45; color: #7b7b72; }
+.shortlist-items { list-style: none; margin: 0; padding: 0; }
+.shortlist-item { display: flex; gap: 8px; align-items: flex-start; cursor: pointer;
+                  padding: 6px 7px; border-radius: 6px; border: 1px solid transparent;
+                  border-left: 3px solid var(--line); margin-bottom: 3px; }
+.shortlist-item:hover { background: #f4f2ec; border-color: var(--line);
+                        border-left-color: currentColor; }
+.shortlist-item.down { color: #9a5b1f; }
+.shortlist-item.up { color: #1e7a45; }
+.shortlist-item.down:hover, .shortlist-item.up:hover { border-left-color: currentColor; }
+.sl-rank { flex: none; width: 15px; font-size: 11px; font-weight: 700;
+           line-height: 1.5; color: currentColor; }
+.sl-body { display: block; min-width: 0; }
+.sl-main { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.sl-sub { display: block; font-size: 11px; line-height: 1.4; color: #7b7b72; }
+
+/* ── beheeringrepen bij de tijdreeks ────────────────────── */
+.ingrepen { list-style: none; margin: 7px 0 0; padding: 0;
+            font-size: 11.5px; line-height: 1.45; color: var(--ink-2); }
+.ingrepen li { display: flex; gap: 7px; align-items: baseline; margin-bottom: 4px; }
+.ingreep-dot { flex: none; width: 8px; height: 8px; border-radius: 2px;
+               transform: translateY(1px); }
+.ingreep-om { color: #7b7b72; }
+.ingreep-waarschuwing { display: block !important; padding: 6px 8px; border-radius: 5px;
+                        background: #fdf6e3; border: 1px solid #e8d9a8; color: #6b5a24; }
+
+/* ── jaarstrip voor de luchtfoto ────────────────────────── */
+.aerial { margin-top: 11px; }
+.aerial-head { font-size: 11px; font-weight: 700; letter-spacing: .06em;
+               text-transform: uppercase; color: var(--ink-2); margin-bottom: 6px; }
+.aerial-head span { font-weight: 400; letter-spacing: 0; text-transform: none;
+                    color: #7b7b72; }
+.aerial-strip { display: flex; flex-wrap: wrap; gap: 3px; }
+.aerial-pip { font: inherit; font-size: 11px; line-height: 1; cursor: pointer;
+              padding: 5px 6px; border-radius: 5px; color: var(--ink-2);
+              background: #f4f2ec; border: 1px solid var(--line); }
+.aerial-pip:hover { background: #ece9e0; }
+.aerial-pip.on { background: var(--accent); border-color: var(--accent);
+                 color: #fff; font-weight: 600; }
+
+/* ── uitleg bij binnenkomst ─────────────────────────────── */
+.intro-backdrop { position: fixed; inset: 0; z-index: 1200; display: flex;
+                  align-items: center; justify-content: center; padding: 20px;
+                  background: rgba(26,26,26,.45); backdrop-filter: blur(2px); }
+/* Zonder deze regel wint `display: flex` van het hidden-attribuut en blijft de
+   uitleg in beeld staan, ook al staat hidden erop. Zelfde tegenhanger als
+   .detail, .toast en .loader hierboven hebben. */
+.intro-backdrop[hidden] { display: none; }
+.intro { position: relative; width: min(560px, 100%); max-height: calc(100vh - 40px);
+         overflow-y: auto; background: #fbfaf7; border-radius: 10px; padding: 26px 28px 22px;
+         box-shadow: 0 12px 40px rgba(0,0,0,.28); }
+.intro h2 { margin: 0; font-size: 21px; letter-spacing: -.01em; }
+.intro h3 { margin: 18px 0 5px; font-size: 12px; font-weight: 700; letter-spacing: .06em;
+            text-transform: uppercase; color: var(--ink-2); }
+.intro p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.55; color: var(--ink); }
+.intro-lede { margin-top: 6px !important; color: var(--ink-2) !important; }
+.intro-warn { padding: 10px 12px; border-radius: 6px; background: #fdf6e3;
+              border: 1px solid #e8d9a8; color: #6b5a24; font-size: 12.5px !important; }
+.intro-bron { margin-top: 16px !important; padding-top: 12px;
+              border-top: 1px solid var(--line); font-size: 11.5px !important;
+              color: #7b7b72 !important; }
+.intro-close { position: absolute; top: 12px; right: 13px; width: 28px; height: 28px;
+               font: inherit; font-size: 19px; line-height: 1; cursor: pointer;
+               border: 1px solid transparent; border-radius: 6px; background: none;
+               color: var(--ink-2); }
+.intro-close:hover { background: #efece5; border-color: var(--line); }
+.intro-go { margin-top: 16px; width: 100%; justify-content: center; }
+@media (max-width: 560px) {
+  .intro { padding: 22px 18px 18px; }
+  .intro p { font-size: 13px; }
+}
+
+/* ── drempelschuifje ────────────────────────────────────── */
+.alpha-row { margin: 7px 0 0 18px; }
+.alpha-label { display: block; font-size: 11.5px; color: var(--ink-2); margin-bottom: 3px; }
+.alpha-label span { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink); }
+.alpha-row input[type=range] { width: 100%; margin: 0; }
+.intro-link { display: inline-block; margin-top: 2px; font-size: 13.5px; font-weight: 600;
+              color: var(--accent); text-decoration: none;
+              border-bottom: 1.5px solid var(--accent-soft); }
+.intro-link:hover { border-bottom-color: var(--accent); }

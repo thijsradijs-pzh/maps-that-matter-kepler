@@ -37,6 +37,13 @@ __pycache__/
 data/fenologie/_openeo/
 .openeo-job-id
 data/fenologie/_zones.geojson
+data/fenologie/_zones-4326.geojson
+# Idem voor de multi-gebied-variant: alleen de rasters en reeksen horen in git,
+# de jaar-GeoTIFFs (23 MB) en de zonecaches (6 MB) zijn opnieuw te genereren
+# met scripts/build_fenologie_openeo.py --gebied <naam>.
+data/fenologie-gebieden/*/_openeo/
+data/fenologie-gebieden/*/_zones.geojson
+data/fenologie-gebieden/*/_zones-4326.geojson
 data/fenologie/_openeo-6m/
 .openeo-series-job-id
 .openeo-grid-job-id
