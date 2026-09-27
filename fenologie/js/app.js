@@ -182,22 +182,51 @@
 
   /* De kaartlagen komen uit de config, niet uit de HTML: sommige bestaan
      alleen op bepaalde weergaven (de piek-, dal- en bereiktrend vragen de
-     volledige waarnemingsreeks per eenheid, en die is er alleen op het grid). */
+     volledige waarnemingsreeks per eenheid, en die is er alleen op het grid).
+     Die verborgen we eerst gewoon, met als gevolg dat de bereikkaart -- juist
+     de kaart waarop je ziet of de amplitude groeit of krimpt -- onvindbaar was
+     tenzij je eerst de analyse-eenheid op 'gridcel' zette. Nu staan ze er
+     altijd bij, met de weergave die ze nodig hebben erachter, en schakelt de
+     viewer bij het kiezen zelf om. */
+  function metricLabel(m) {
+    return m.label + (m.unit ? ' (' + m.unit + ')' : '');
+  }
+
+  /** De weergave waarin een kaartlaag bestaat, of null als hij hier al kan. */
+  function viewFor(id) {
+    var m = CFG.metrics[id];
+    if (!m) return null;
+    if (!m.views || m.views.indexOf(view) >= 0) return null;
+    return m.views[0];
+  }
+
+  function viewLabel(id) {
+    var v = (CFG.views || []).filter(function (x) { return x.id === id; })[0];
+    return v ? v.label.toLowerCase().replace(/^per /, '') : id;
+  }
+
   function renderMetricOptions() {
     var sel = $('metric');
     sel.innerHTML = '';
-    var beschikbaar = [];
+    var hier = [];
     Object.keys(CFG.metrics).forEach(function (id) {
       var m = CFG.metrics[id];
-      if (m.views && m.views.indexOf(view) < 0) return;
-      if (!Raster.meta.bands[m.band]) return;   // band ontbreekt in deze weergave
-      beschikbaar.push(id);
+      var elders = m.views && m.views.indexOf(view) < 0;
+      // Een band die in deze weergave bestaat maar niet in het raster zit is
+      // een ontbrekend bestand, geen keuze: die laten we wel weg.
+      if (!elders && !Raster.meta.bands[m.band]) return;
+      if (!elders) hier.push(id);
       var o = document.createElement('option');
       o.value = id;
-      o.textContent = m.label + (m.unit ? ' (' + m.unit + ')' : '');
+      o.textContent = metricLabel(m)
+        + (elders ? '  → schakelt naar ' + viewLabel(m.views[0]) : '');
       sel.appendChild(o);
     });
-    if (beschikbaar.indexOf(metric) < 0) metric = beschikbaar[0] || 'slope';
+    if (hier.indexOf(metric) < 0 && viewFor(metric)) {
+      // metric blijft staan: switchView() laadt de weergave waar hij bestaat
+    } else if (hier.indexOf(metric) < 0) {
+      metric = hier[0] || 'slope';
+    }
     sel.value = metric;
   }
 
@@ -289,34 +318,65 @@
       : null;
 
     var sig = qv !== null && qv < ALPHA;
-    var toets = 'τ = ' + nl(tv, 2) + ', q ' + fmtP(qv)
-      + ' (Mann-Kendall + FDR, n = ' + (vals.count === null ? '?' : Math.round(vals.count)) + ')';
+    var jaren = vals.count === null ? null : Math.round(vals.count);
+    var wat = statNaam || 'seizoensniveau';
+
+    /* De tegels leiden met de betekenis, niet met de toets. "Over tien jaar
+       zoveel NDVI" is voor wie het gebied kent te plaatsen; een tau van −0,42
+       niet. De toetsingscijfers staan er nog wel, maar een uitklap lager --
+       dat was de eerste feedback: minder technisch aan de voorkant. */
+    var totaal = (jaren && jaren > 1 && !isNaN(sv)) ? sv * (jaren - 1) : null;
+    var kracht = qv === null ? '–'
+      : qv < ALPHA ? 'sterk'
+      : qv < 0.20 ? 'zwak'
+      : 'geen';
 
     $('d-stats').innerHTML =
-      statRow(statNaam || 'trend', (sv > 0 ? '+' : '−')
-        + nl(Math.abs(sv), 4), idx + '/jaar') +
-      statRow('τ', nl(tv, 2), '') +
+      statRow('verandering', (sv > 0 ? '+' : '−') + nl(Math.abs(sv), 4),
+              idx + ' per jaar') +
+      statRow('over ' + (jaren || '?') + ' jaar',
+              totaal === null ? '–'
+                : (totaal > 0 ? '+' : '−') + nl(Math.abs(totaal), 3), idx) +
+      statRow('amplitude', '<span id="d-amp">–</span>', '') +
+      statRow('bewijskracht', kracht, '');
+
+    /* De toetsingsdetails, dichtgeklapt. Wie ze nodig heeft weet ze te vinden;
+       wie ze niet nodig heeft wordt er niet mee begroet. */
+    $('d-tech').innerHTML =
+      statRow('τ (tau-b)', nl(tv, 2), '') +
       statRow('q', qv === null ? '–'
-        : (qv < 0.001 ? '< 0,001' : nl(qv, 3)), '') +
-      statRow('jaren', vals.count === null ? '–' : Math.round(vals.count), 'met curve') +
-      (agg ? statRow('eenheid', agg.zones_tested + ' van ' + agg.zones_total,
-                     'zones getoetst') : '');
+        : (qv < 0.001 ? '< 0,001' : nl(qv, 3)), 'na FDR') +
+      statRow('n', jaren === null ? '–' : jaren, 'jaarwaarden') +
+      (agg ? statRow('getoetst', agg.zones_tested + ' van ' + agg.zones_total,
+                     'zones') : '');
+    $('d-tech-note').textContent = 'Theil-Sen-helling op de jaarstatistiek, '
+      + 'getoetst met Mann-Kendall en gecorrigeerd voor meervoudig toetsen '
+      + '(Benjamini-Hochberg). De drempel staat nu op q < ' + nl(ALPHA, 2) + '. '
+      + 'q is de kans dat een vondst op dit niveau onterecht is, niet de kans '
+      + 'dat er niets aan de hand is.';
 
     var v = $('d-verdict');
     if (!sig) {
       v.className = 'verdict flat';
-      v.textContent = 'Geen significante trend: ' + toets + '. De variatie tussen '
-        + 'jaren overheerst — met tien jaar data is dat de normale uitkomst.';
-    } else if (vals.slope > 0) {
+      v.textContent = 'Hier is over ' + (jaren || 'tien') + ' jaar geen '
+        + 'verandering aan te wijzen die boven de jaarlijkse schommeling '
+        + 'uitkomt. Dat is bij tien jaar de normale uitkomst en betekent niet '
+        + 'dat er niets gebeurt — alleen dat deze reeks het niet kan aantonen.';
+    } else if (sv > 0) {
       v.className = 'verdict up';
-      v.textContent = 'Het ' + (statNaam || 'seizoensniveau') + ' loopt op. ' + toets + '. Denk aan '
-        + 'verlanding, opslag, gestopt maaibeheer of een verandering in waterpeil.';
+      v.textContent = 'Hier is het ' + wat + ' opgelopen, sterk genoeg om boven '
+        + 'de jaarlijkse schommeling uit te komen. Mogelijke oorzaken: '
+        + 'verlanding, opslag van wilgen of berken, gestopt maaibeheer, of een '
+        + 'hoger waterpeil. Welke het is zegt de satelliet niet.';
     } else {
       v.className = 'verdict down';
-      v.textContent = 'Het ' + (statNaam || 'seizoensniveau') + ' daalt. ' + toets + '. Kandidaat voor '
-        + 'veldbezoek: leg dit naast beheerregistraties en waterstanden voordat '
-        + 'je het als achteruitgang leest.';
+      v.textContent = 'Hier is het ' + wat + ' gedaald, sterk genoeg om boven '
+        + 'de jaarlijkse schommeling uit te komen. Een kandidaat voor '
+        + 'veldbezoek — leg het eerst naast beheerregistraties en waterstanden '
+        + 'voordat je het als achteruitgang leest.';
     }
+
+    renderWhy(lon, lat, spec, sv, qv);
 
     ['c-annual', 'c-ts', 'c-season', 'c-decomp'].forEach(function (id) {
       $(id).innerHTML = '';
@@ -352,6 +412,113 @@
       }
     });
     updateURL();
+  }
+
+  /* ── "Waarom hier?" ─────────────────────────────────────── */
+  /* De eerste feedback vroeg uitleg over waarom een bepaalde pixel afwijkt.
+     Dat kan deze viewer niet zeggen: de oorzaak zit in beheer, weer en
+     waterpeil, en een verandering in reflectie is geen verandering in
+     soortensamenstelling. Wat hij wel kan is het BEWIJS naast de conclusie
+     leggen, en dat is precies wat je nodig hebt om te besluiten of je gaat
+     kijken:
+       - staat deze pixel alleen of ligt hij in een vlek?
+       - welke jaren dragen de trend?
+       - zit de verandering in de zomer of in de winter?
+     De eerste vraag komt uit het raster (meteen), de andere twee uit de reeks
+     en worden bijgewerkt zodra die geladen is. */
+  function renderWhy(lon, lat, spec, sv, qv) {
+    var box = $('d-why');
+    if (!box) return;
+    var regels = [];
+
+    if (Raster.meta.aggregation) {
+      var by = Raster.meta.aggregation.by;
+      regels.push(['eenheid', 'Dit is een ' + (by === 'grid' ? 'gridcel'
+        : by === 'type' ? 'beheertype' : 'beheerperceel')
+        + ', niet één pixel: de reeks is eerst over alle pixels erin '
+        + 'samengevat en daarna getoetst. Eén afwijkende pixel valt hier dus '
+        + 'weg — dat maakt de uitkomst robuuster maar ook minder scherp.']);
+    } else {
+      var nb = Raster.neighbourhood(lon, lat, 2, spec.band, spec.qband, ALPHA);
+      if (nb) {
+        var pct = Math.round(nb.fractie * 100);
+        if (nb.fractie >= 0.75) {
+          regels.push(['vlek', pct + '% van de ' + nb.buren + ' pixels rondom '
+            + 'gaat dezelfde kant op. Dit is een samenhangende vlek, geen losse '
+            + 'pixel — de meest waarschijnlijke verklaring is dat er op de grond '
+            + 'iets verandert.']);
+        } else if (nb.fractie <= 0.45) {
+          regels.push(['los', 'Maar ' + pct + '% van de ' + nb.buren
+            + ' pixels rondom gaat dezelfde kant op. Een losse pixel tussen '
+            + 'buren die het tegenovergestelde doen is vrijwel altijd ruis of '
+            + 'een randeffect (slootkant, pad, overgang water-land).']);
+        } else {
+          regels.push(['rand', pct + '% van de ' + nb.buren + ' pixels rondom '
+            + 'gaat dezelfde kant op. Gemengd beeld: mogelijk zit je op de rand '
+            + 'van een vlek of van een perceel.']);
+        }
+      }
+    }
+
+    box.innerHTML = regels.length
+      ? '<h3>Waarom hier?</h3>' + regels.map(function (r) {
+          return '<p class="why-line"><span class="why-tag">' + esc(r[0])
+            + '</span>' + esc(r[1]) + '</p>';
+        }).join('')
+        + '<p class="why-pending" id="d-why-series">De reeks laadt nog; '
+        + 'zodra die er is komen de dragende jaren en het seizoen erbij.</p>'
+      : '';
+    box.hidden = !regels.length;
+  }
+
+  /* Vult het reeksafhankelijke deel van "Waarom hier?" aan: welke jaren de
+     trend dragen en of de verandering in de zomer of de winter zit. Dat laatste
+     is de vraag uit par. 4.5 van het rapport -- daar verdwijnt bij een perceel
+     de zomerdip, wat op gestopt maaibeheer wijst. */
+  function renderWhySeries() {
+    var box = $('d-why-series');
+    if (!box || !livePoint || !livePoint.years) return;
+    var jaren = livePoint.years, med = livePoint.ymed || [];
+    var geldig = [];
+    jaren.forEach(function (y, i) {
+      if (med[i] !== null && !isNaN(med[i])) geldig.push([y, med[i]]);
+    });
+    if (geldig.length < 4) { box.hidden = true; return; }
+
+    var hoog = geldig.slice().sort(function (a, b) { return b[1] - a[1]; })[0];
+    var laag = geldig.slice().sort(function (a, b) { return a[1] - b[1]; })[0];
+
+    var delen = ['Hoogste jaar ' + hoog[0] + ' (' + nl(hoog[1], 3)
+                 + '), laagste ' + laag[0] + ' (' + nl(laag[1], 3) + ').'];
+
+    // Zomer tegen winter: de p90 is in de praktijk de zomerpiek, de p10 het
+    // winterdal. Loopt alleen de p90 terug, dan zit de verandering in het
+    // groeiseizoen; zakt alleen de p10, dan in de winter.
+    var piek = Series.theilSen(jaren, livePoint.ymax || []);
+    var dal = Series.theilSen(jaren, livePoint.ymin || []);
+    if (!isNaN(piek.slope) && !isNaN(dal.slope)) {
+      var pz = Math.abs(piek.slope), dz = Math.abs(dal.slope);
+      var seizoen;
+      if (pz > dz * 2) {
+        seizoen = 'De verandering zit vooral in de zomerpiek ('
+          + nl(piek.slope, 4) + ' per jaar) en niet in het winterdal ('
+          + nl(dal.slope, 4) + ') — denk aan maaibeheer, productie of droogte.';
+      } else if (dz > pz * 2) {
+        seizoen = 'De verandering zit vooral in het winterdal ('
+          + nl(dal.slope, 4) + ' per jaar) en niet in de zomerpiek ('
+          + nl(piek.slope, 4) + ') — denk aan meer overblijvend groen, '
+          + 'opslag of een zachter winterbeeld.';
+      } else {
+        seizoen = 'Zomerpiek (' + nl(piek.slope, 4) + ' per jaar) en winterdal ('
+          + nl(dal.slope, 4) + ') schuiven ongeveer gelijk op: het hele '
+          + 'jaarniveau verandert, niet één seizoen.';
+      }
+      delen.push(seizoen);
+    }
+
+    box.className = 'why-line';
+    box.innerHTML = '<span class="why-tag">jaren</span>' + esc(delen.join(' '));
+    box.hidden = false;
   }
 
   /* Beheeringrepen die op deze pixel van toepassing zijn. Zonder die context
@@ -401,6 +568,9 @@
     var box = $('chart-status');
     box.hidden = false;
     if (livePoint) { box.hidden = true; return; }
+    // Zonder reeks blijft "de reeks laadt nog" anders staan tot in het oneindige.
+    var wachtend = $('d-why-series');
+    if (wachtend) wachtend.hidden = true;
     if (Raster.meta.aggregation && !Series.zones) {
       box.innerHTML = 'De reeksen van deze weergave konden niet geladen worden. '
         + 'Draai <code>scripts/build_fenologie_series.py</code> om ze te maken.';
@@ -455,6 +625,50 @@
       Ingrepen.near(picked.lon, picked.lat));
     Charts.season($('c-season'), series);
     Charts.decomposition($('c-decomp'), Series.decompose(livePoint));
+    renderAmplitude();
+    renderWhySeries();
+  }
+
+  /* De amplitudetegel. Stond eerder alleen als kaartlaag op de gridweergave;
+     nu bij elke klik leesbaar, want "wordt het seizoensverschil groter of
+     kleiner" is de vraag waar par. 4.5 van het rapport zijn enige concrete
+     ecologische interpretatie op baseert. */
+  function renderAmplitude() {
+    var cel = $('d-amp');
+    if (!cel) return;
+    var a = Charts.amplitude(livePoint);
+    if (!a) { cel.textContent = '–'; return; }
+
+    /* Bestaat de bereiktrend als rasterband (gridweergave), neem die: dat is
+       exact het getal dat de kaartlaag 'seizoensbereik' kleurt. De reeks in de
+       browser komt op een iets andere helling uit doordat p90/p10 daar met een
+       andere kwantielinterpolatie bepaald worden, en twee cijfers voor
+       dezelfde grootheid naast elkaar is precies de verwarring die we hier
+       proberen weg te nemen. Zonder die band (pixelweergave) is de reeks de
+       enige bron en telt het eigen cijfer. */
+    var uitRaster = null;
+    if (picked && Raster.meta.bands.slope_range) {
+      var v = Raster.valuesAt(picked.lon, picked.lat);
+      if (v && v.slope_range !== null && v.slope_range !== undefined) {
+        uitRaster = v.slope_range;
+      }
+    }
+    var helling = uitRaster === null ? a.slope : uitRaster;
+    var pijl = helling > 0 ? '▲' : helling < 0 ? '▼' : '=';
+    var kleur = helling > 0 ? C.pos : helling < 0 ? C.neg : C.muted;
+    cel.innerHTML = nl(a.gemiddeld, 2)
+      + ' <span class="amp-trend" style="color:' + kleur + '">' + pijl + ' '
+      + (helling > 0 ? '+' : '−') + nl(Math.abs(helling), 4) + '/j</span>';
+    cel.parentNode.title = 'Gemiddelde afstand tussen p90 en p10 per jaar, en de '
+      + 'Theil-Sen-trend daarin'
+      + (uitRaster === null
+          ? ' (uit de reeks van dit punt; als rasterlaag bestaat dit alleen op '
+            + 'de gridweergave).'
+          : ' (uit de rasterlaag, hetzelfde getal dat de kaart kleurt).')
+      + ' ' + (helling < 0
+        ? 'Krimpend seizoensverschil — par. 4.5 van het rapport koppelt dat aan '
+          + 'een verdwijnende zomerdip bij gestopt maaibeheer.'
+        : 'Groeiend seizoensverschil.');
   }
 
   /* ── markering van de gekozen pixel ─────────────────────── */
@@ -892,6 +1106,14 @@
 
     $('metric').onchange = function (e) {
       metric = e.target.value;
+      // Vraagt deze kaartlaag een andere analyse-eenheid, schakel dan mee in
+      // plaats van een lege kaart te tonen.
+      var nodig = viewFor(metric);
+      if (nodig) {
+        $('view').value = nodig;
+        switchView(nodig);
+        return;
+      }
       paintRaster();
       if (picked) showPixel(picked.lon, picked.lat);   // tegels volgen de kaartlaag
       updateURL();
@@ -955,6 +1177,27 @@
       pre.hidden = !pre.hidden;
     };
     $('btn-toast-close').onclick = function () { $('toast').hidden = true; };
+
+    /* Vaste of meeschalende y-assen. Standaard vast (zie CFG.axis): twee
+       plekken naast elkaar leggen kan alleen als de as niet meebeweegt. De
+       keuze blijft in localStorage staan, met try/catch -- in een privévenster
+       of met geblokkeerde site-data gooit de accessor, en dan valt hij terug op
+       de stand uit de config. */
+    var axisBox = $('axis-auto');
+    if (axisBox) {
+      try {
+        var bewaard = window.localStorage.getItem('fenologie.as.auto');
+        if (bewaard === '1' || bewaard === '0') Charts.auto = bewaard === '1';
+      } catch (e) { /* opslag onbereikbaar: config-stand aanhouden */ }
+      axisBox.checked = Charts.auto;
+      axisBox.onchange = function (e) {
+        Charts.auto = e.target.checked;
+        try {
+          window.localStorage.setItem('fenologie.as.auto', Charts.auto ? '1' : '0');
+        } catch (err) { /* niet kunnen bewaren mag de grafiek niet breken */ }
+        if (livePoint) renderCharts();
+      };
+    }
 
     $('btn-help').onclick = openIntro;
     // De voorbeeldlink herlaadt de pagina met de juiste toestand. Zonder dit

@@ -160,6 +160,100 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 
 ---
 
+### Fenologie: collegafeedback verwerkt (2026-09-27)
+
+Zes punten feedback van een collega. Vier zijn presentatie op bestaande data en
+zijn gedaan; twee raken de pipeline en staan als plan.
+
+**Gedaan — alles client-side, geen nieuwe openEO-job.**
+
+1. **Vaste y-assen** (`config.js` → `axis`, `charts.js`). Elke grafiek schaalde
+   op elke klik mee, dus twee plekken waren op het oog onvergelijkbaar en één
+   uitschieter blies de as op. Domeinen zijn **gemeten**, niet gegokt
+   (steekproef over 120 cellen van `series-grid.json`, 54.423 waarnemingen):
+   `index [-0,2 .. 1]` klemt 1,0% — `[0..1]` zou 3,0% klemmen, want open water
+   geeft terecht een negatieve NDVI; `residu [-0,5 .. 0,5]`; `bereik [0 .. 0,8]`
+   klemt 0,08%. Geklemde punten worden **geteld en gemeld** in de grafiek zelf
+   (`.clipnote`) en krijgen een afwijkende stip, zodat er niets stil verdwijnt.
+   Vinkje in het detailpaneel zet de oude meeschalende assen terug, bewaard in
+   `localStorage` (`fenologie.as.auto`, met try/catch).
+   **Let op bij het decompositiepaneel**: `Series.decompose()` telt het
+   gemiddelde van de seizoenscurve weer bij de trendcomponent op, dus die staat
+   op de **index-schaal, niet op de residu-schaal**. Eerst op `residu` gezet:
+   436 waarden buiten de as; na de correctie 1.
+2. **Amplitude zichtbaar** (punt 4). `slope_range` bestond al maar alleen als
+   kaartlaag op de gridweergave, en die kaartlaag verscheen niet eens in de
+   keuzelijst tenzij je eerst de analyse-eenheid omzette — onvindbaar dus.
+   Nu: (a) kaartlagen die een andere weergave nodig hebben staan er wél in, met
+   "→ schakelt naar gridcel" erachter, en `switchView()` doet dat bij het
+   kiezen zelf; (b) de jaargrafiek heeft een tweede paneel met de amplitude
+   (p90 − p10) per jaar plus haar Theil-Sen-lijn en een label krimpt/groeit;
+   (c) een amplitudetegel bij élke klik. Die tegel neemt de **rasterband** als
+   die bestaat, niet de eigen berekening uit de reeks — die twee wijken uiteen
+   (−0,0226 vs −0,0257 op dezelfde cel) door een andere kwantielinterpolatie, en
+   twee cijfers voor dezelfde grootheid naast elkaar is precies de verwarring
+   die we wegnemen.
+3. **Paneel minder technisch** (punt 1). Tegels leiden nu met betekenis
+   (verandering per jaar, wat dat over de reeks optelt, amplitude,
+   bewijskracht in woorden) in plaats van met τ en q; de toetsingscijfers staan
+   in een dichtgeklapte `<details>`. Verdict in gewone taal, zonder de toets
+   erin.
+4. **"Waarom hier?"** (punt 1, tweede helft). De oorzaak kan deze viewer niet
+   geven — een verandering in reflectie is geen verandering in
+   soortensamenstelling — dus toont hij het **bewijs**: staat de pixel alleen of
+   ligt hij in een vlek (`Raster.neighbourhood()`, 5×5-venster, tekenvergelijk),
+   welke jaren dragen de trend, en zit de verandering in de zomerpiek of het
+   winterdal (Theil-Sen op `ymax` tegen `ymin`, factor 2 als drempel). Op een
+   zoneweergave vervalt het vlekargument en zegt het blok dat in plaats daarvan.
+5. **Jaarcurve vs. decompositie uitgelegd** (punt 3). Ze mógen verschillen: de
+   jaarcurve vat elk jaar samen in één mediaanpunt en toetst die tien punten,
+   de decompositietrend is een lopende mediaan over 51 waarnemingen na aftrek
+   van de gepoolde seizoenscurve. Staat nu onder de grafiek én in de uitleg,
+   met de regel die telt: **de getoetste uitkomst, en dus de kleur op de kaart,
+   is die van de jaarcurve**. De decompositie kreeg bovendien een echte as met
+   nullijn — eerst stonden er twee labels op 10%/90% van het eigen bereik,
+   waardoor een vlakke trend dramatisch oogde en een echte stijging vlak.
+
+**Nog te doen — raakt de pipeline.**
+
+6. **Het onderzoeksgebied klopt niet** (punt 2, een echte bug).
+   `export_fenologie_raster.py:78` definieert `DEMO_RING` met het comment
+   "alleen voor `--demo`", maar `build_fenologie_openeo.py` gebruikt die
+   handgetekende 12-puntsvorm óók voor de productiekaart: regel 579 leidt er de
+   openEO-bbox uit af, regel 641 maskeert ermee. Gemeten tegen de echte grens
+   (PDOK Natura 2000 WFS, `service.pdok.nl/rvo/natura2000/wfs/v1_0`, getest):
+   het N2000-gebied is 2.004 ha, daarvan valt **457 ha (23%) buiten de
+   analyse**, terwijl er ~3.950 ha wordt getoetst die géén N2000 is
+   (boerenland, dorpen). De ring ligt ~2 km te ver noordoost: N2000-bbox is
+   `[4,7408 52,1068 4,8685 52,1695]`, de geanalyseerde bbox
+   `[4,7759 52,1120 4,8981 52,1881]`.
+   De Utrecht-opmerking klopt ook: het gebied bestaat uit twee polygonen en de
+   kleinste (**23 ha) ligt volledig in provincie Utrecht**, plus 1 ha van de
+   hoofdpolygoon. Die heeft per definitie geen beheerperceel, want
+   `aggregate_fenologie_zones.py` haalt de beheertypenkaart bij
+   `geoservices.zuid-holland.nl` en die stopt op de provinciegrens — dat is
+   waarschijnlijk precies wat er "niet correct" uitzag.
+   **Clippen op de echte grens verlaagt de detectiegrens van 9,2 ha naar
+   ~3,3 ha** (`k_min = p_min · N / α`; N zakt van 552.898 naar ~200.400 pixels).
+   Bijna een factor 3 gevoeliger door te stoppen met boerenland meetoetsen.
+   Vraagt wel een nieuwe openEO-job, want de bbox verschuift naar het westen.
+7. **Coepelduynen** (punt 6) is niet alleen haalbaar maar het gunstigste gebied
+   dat we hebben: 188 ha, en omdat de detectiegrens met het *oppervlak*
+   meeschaalt is die daar `8,3e-5 × 1,88 km² / 0,05` = **0,31 ha** — zo'n 30×
+   gevoeliger dan Nieuwkoop nu. Nieuwkoop legt uit waarom er niets significant
+   is; Coepelduynen is waar deze methode wél iets kan vinden. Ligt volledig in
+   Zuid-Holland, dus de beheertypenkaart dekt het. Kanttekening: open
+   duingrasland en zand zijn een ander signaalsysteem dan veenmoeras, en het
+   gebied is smal en kustnabij.
+   Vraagt dat de AOI een parameter wordt in plaats van `DEMO_RING` — precies
+   wat punt 6 hierboven ook nodig heeft. **Aanbeveling: één viewer,
+   multi-gebied** (een `gebieden`-array in `config.js` plus een gebiedskiezer),
+   geen tweede viewer: de raster- en reeksinladers zijn al config-gestuurd
+   (`views[].base`, `views[].series`), dus dat is klein werk, terwijl een tweede
+   viewer 2.700 regels zou dupliceren en direct uit elkaar loopt.
+
+---
+
 ### Stand van zaken fenologie (2026-09-18, einde sessie)
 
 Alles gecommit en gepusht t/m `e04ee63`; werkboom schoon. Live op

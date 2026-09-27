@@ -39,6 +39,35 @@ window.FENO_CONFIG = {
   // Benjamini-Hochberg-niveau, gelijk aan fdr_alpha in de rasterexport.
   alpha: 0.05,
 
+  // Vaste y-assen in de grafieken. Tot 2026-09-27 schaalde elke grafiek op
+  // elke klik naar zijn eigen data (charts.js' extent()), waardoor twee
+  // pixels naast elkaar onvergelijkbaar op het oog waren en een enkele
+  // uitschieter de hele as opblies -- en die uitschieters bestaan: in
+  // series-grid.json staat een NDVI van 2,32, wat fysisch onmogelijk is en
+  // uit een deling door bijna-nul in de openEO-berekening komt.
+  //
+  // Standaard dus vaste assen. Het vinkje in het detailpaneel zet ze terug op
+  // automatisch voor wie op een kleine variatie wil inzoomen; punten buiten
+  // de vaste as worden geklemd EN geteld, zodat er niets stil verdwijnt.
+  //
+  // De domeinen zijn op de echte reeksen gemeten (steekproef over 120 cellen
+  // van series-grid.json, 54.423 waarnemingen), niet gegokt:
+  //   index  [-0,2 .. 1]  klemt 1,0% van de waarnemingen; [0..1] zou 3,0%
+  //                       klemmen, want open water geeft terecht een negatieve
+  //                       NDVI en de Nieuwkoopse Plassen zijn voor een groot
+  //                       deel water. Stappen van 0,2 geven ronde labels.
+  //   residu [-0,5 .. 0,5] dekt de restcomponent tot p0,1/p99,9; de uitschieters
+  //                       daarbuiten lopen tot ±3 en zijn rekenartefacten.
+  //   bereik [0 .. 0,8]   klemt 0,08% van de jaaramplitudes (p99,9 = 0,75).
+  axis: {
+    vast: true,
+    index: [-0.2, 1],       // NDVI/NDMI, inclusief water
+    indexTicks: 6,          // stappen van 0,2
+    residu: [-0.5, 0.5],    // restcomponent van de decompositie
+    bereik: [0, 0.8],       // p90 - p10 per jaar
+    z: 3,
+  },
+
   // "Waar moet ik kijken?": hoeveel vlekken tonen, en hoe klein mag een vlek
   // zijn voordat we hem als ruis beschouwen.
   shortlist: { aantal: 6, minPixels: 12 },

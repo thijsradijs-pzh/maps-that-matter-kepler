@@ -102,31 +102,67 @@
   <div class="detail-body">
     <dl class="stats" id="d-stats"></dl>
     <p class="verdict" id="d-verdict"></p>
+
+    <details class="tech">
+      <summary>Toetsingsdetails</summary>
+      <dl class="stats stats-sm" id="d-tech"></dl>
+      <p class="cap" id="d-tech-note"></p>
+    </details>
+
+    <section class="why" id="d-why" hidden></section>
+
     <p class="chart-status" id="chart-status" hidden></p>
+
+    <label class="axis-toggle">
+      <input type="checkbox" id="axis-auto" />
+      y-as op de reeks laten inzoomen
+      <span class="axis-hint">standaard staan de assen vast, zodat twee plekken
+        met het oog te vergelijken zijn</span>
+    </label>
+
+    <section class="chart-block">
+      <h3>Jaarcurve samengevat</h3>
+      <div class="chart"><svg id="c-annual" viewBox="0 0 640 330" role="img" aria-label="Jaarstatistieken met trendlijn en amplitude per jaar"></svg></div>
+      <p class="cap"><strong>Dit is de grafiek achter de kaart.</strong> De
+        stippellijn boven is dezelfde Theil-Sen-helling die de kaartlaag
+        kleurt; de toets loopt over de tien mediaanpunten, niet over de losse
+        waarnemingen. Onder: de amplitude (p90 − p10) per jaar met haar eigen
+        trend — daar lees je af of het seizoensverschil groeit of krimpt.</p>
+    </section>
 
     <section class="chart-block">
       <h3>Tijdreeks tegen de eigen referentie</h3>
       <div class="chart"><svg id="c-ts" viewBox="0 0 640 300" role="img" aria-label="NDVI-tijdreeks met z-anomalieën"></svg><div class="tt" id="tt-ts"></div></div>
-      <p class="cap">Band = referentiecurve ± 1 robuuste SD. Balken onder = gestandaardiseerde anomalie; |z| ≥ 2 is uitzonderlijk.</p>
+      <p class="cap">Elke stip is één wolkvrije opname. Band = referentiecurve
+        ± 1 robuuste SD, oftewel wat voor dit punt in deze week van het jaar
+        normaal is. Balken onder = gestandaardiseerde anomalie; |z| ≥ 2 is
+        uitzonderlijk. Losse anomalieën zijn nog geen trend: één droog jaar
+        levert een rij rode balken zonder dat er iets verandert.</p>
       <ul class="ingrepen" id="ingrepen-list" hidden></ul>
     </section>
 
     <section class="chart-block">
       <h3>Seizoensprofiel</h3>
       <div class="chart"><svg id="c-season" viewBox="0 0 640 190" role="img" aria-label="Seizoensprofiel per dag van het jaar"></svg></div>
-      <p class="cap">Alle jaren over elkaar, per dag van het jaar (365-daagse kalender).</p>
+      <p class="cap">Alle jaren over elkaar geklapt, per dag van het jaar
+        (365-daagse kalender). Hier zie je de vórm van het jaarritme —
+        wanneer het groen begint, piekt en terugvalt — maar niet of die vorm
+        verschuift; daarvoor is de grafiek hierboven.</p>
     </section>
 
     <section class="chart-block">
       <h3>Decompositie</h3>
       <div class="chart"><svg id="c-decomp" viewBox="0 0 640 250" role="img" aria-label="Decompositie in trend, seizoen en rest"></svg></div>
-      <p class="cap">Seizoen = de referentiecurve; trend = lopende mediaan van wat er na aftrek overblijft; rest = het verschil.</p>
-    </section>
-
-    <section class="chart-block">
-      <h3>Jaarcurve samengevat</h3>
-      <div class="chart"><svg id="c-annual" viewBox="0 0 640 180" role="img" aria-label="Jaarstatistieken met trend"></svg></div>
-      <p class="cap">p90, mediaan en p10 per jaar. Theil-Sen en Mann-Kendall draaien op de mediaanreeks, n = 10.</p>
+      <p class="cap">Seizoen = de referentiecurve; trend = lopende mediaan van
+        wat er na aftrek overblijft; rest = het verschil.
+        <strong>Deze trend is niet dezelfde toets als hierboven</strong> en mag
+        er dus van afwijken: de jaarcurve vat elk jaar samen in één
+        mediaanpunt en toetst die tien punten, terwijl deze trend een lopende
+        mediaan over 51 opeenvolgende waarnemingen is na aftrek van de
+        gepoolde seizoenscurve. Een stijgende jaarcurve met een vlakke
+        decompositietrend betekent meestal dat de stijging in één of twee jaren
+        zit in plaats van gestaag over de reeks — de getoetste uitkomst is die
+        van de jaarcurve.</p>
     </section>
 
     <div class="btn-row">
@@ -161,6 +197,23 @@
       plekken en momenten. Satellietbeelden vullen dat aan: ze signaleren veranderingen
       daartussenin en helpen kiezen waar een veldbezoek het meest oplevert. Een
       aanvulling op de habitatkartering, geen vervanging.</p>
+
+    <h3>Wat je krijgt bij een klik</h3>
+    <p>Bovenaan vier tegels: de verandering per jaar, wat dat over de hele reeks
+      optelt, de <strong>amplitude</strong> (het verschil tussen zomerpiek en
+      winterdal, met de richting waarin dat verschil opschuift) en de
+      bewijskracht. De toetsingscijfers staan eronder, dichtgeklapt.</p>
+    <p>Daaronder <strong>Waarom hier?</strong> — niet de oorzaak, die weet een
+      satelliet niet, maar het bewijs: of deze plek in een samenhangende vlek
+      ligt of er alleen voor staat, welke jaren de trend dragen, en of de
+      verandering in de zomer of in de winter zit. Precies wat je nodig hebt om
+      te besluiten of je gaat kijken.</p>
+    <p>De grafieken hebben <strong>vaste assen</strong>, zodat twee plekken met
+      het oog te vergelijken zijn. Wil je inzoomen op een kleine variatie, dan
+      is dat één vinkje. Loopt de jaarcurve op terwijl de decompositie vlak
+      blijft: dat zijn twee verschillende berekeningen en ze mogen verschillen —
+      de getoetste uitkomst, en dus de kleur op de kaart, is die van de
+      jaarcurve.</p>
 
     <h3>Wat het niet zegt</h3>
     <p>Een verandering in reflectie is geen verandering in soortensamenstelling.

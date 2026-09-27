@@ -256,6 +256,46 @@
       for (var i = 0; i < s.length; i++) if (!isNaN(s[i])) n++;
       return n;
     },
+
+    /**
+     * Wat doen de pixels rondom dit punt? Het antwoord op "waarom hier een
+     * anomalie" kan deze viewer niet geven -- de oorzaak zit in beheer, weer en
+     * waterpeil, niet in de reflectie. Wat hij wel kan: zeggen of de pixel
+     * alleen staat of deel is van een vlek. Een losse pixel tussen buren die
+     * het tegenovergestelde doen is vrijwel altijd ruis; een pixel midden in
+     * een vlek van tientallen die hetzelfde doen is een plek om te gaan kijken.
+     *
+     * radius in pixels; 2 geeft een venster van 5x5 rond het punt.
+     */
+    neighbourhood: function (lon, lat, radius, band, qband, alpha) {
+      var m = Raster.meta;
+      var i = Raster.indexAt(lon, lat);
+      if (i < 0) return null;
+      var vals = Raster.bands[band || 'slope'];
+      var qs = qband ? Raster.bands[qband] : null;
+      var mid = vals[i];
+      if (isNaN(mid)) return null;
+      var r = radius || 2;
+      var px = i % m.width, py = Math.floor(i / m.width);
+      var tot = 0, zelfde = 0, sig = 0, som = 0;
+      for (var dy = -r; dy <= r; dy++) {
+        for (var dx = -r; dx <= r; dx++) {
+          if (!dx && !dy) continue;
+          var x = px + dx, y = py + dy;
+          if (x < 0 || y < 0 || x >= m.width || y >= m.height) continue;
+          var v = vals[y * m.width + x];
+          if (isNaN(v)) continue;
+          tot++;
+          som += v;
+          if ((v < 0) === (mid < 0)) zelfde++;
+          if (qs && !isNaN(qs[y * m.width + x])
+              && qs[y * m.width + x] < (alpha || 0.05)) sig++;
+        }
+      }
+      if (!tot) return null;
+      return { midden: mid, buren: tot, zelfde: zelfde, significant: sig,
+               gemiddeld: som / tot, fractie: zelfde / tot };
+    },
   };
 
   function sampleRamp(ramp, t) {
