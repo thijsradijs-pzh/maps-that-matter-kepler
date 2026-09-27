@@ -64,8 +64,14 @@
       qband: spec.qband,
       alpha: ALPHA,
     });
+    /* Ook de coordinates meegeven. De image-source wordt maar één keer
+       aangemaakt (addDataLayers() en ensureDataLayers() stoppen allebei zodra
+       hij bestaat), dus zonder dit blijft hij op de hoekpunten van het EERSTE
+       raster staan. Tussen de weergaven scheelt dat hier zo'n 70 m -- een
+       kleine verschuiving die je pas ziet als je erop let. */
     var src = map.getSource('trend');
-    if (src) src.updateImage({ url: canvas.toDataURL() });
+    if (src) src.updateImage({ url: canvas.toDataURL(),
+                               coordinates: Raster.meta.corners });
     renderLegend();
     updateSigHint();
   }
@@ -227,11 +233,12 @@
         + (elders ? '  → schakelt naar ' + viewLabel(m.views[0]) : '');
       sel.appendChild(o);
     });
-    if (hier.indexOf(metric) < 0 && viewFor(metric)) {
-      // metric blijft staan: switchView() laadt de weergave waar hij bestaat
-    } else if (hier.indexOf(metric) < 0) {
-      metric = hier[0] || 'slope';
-    }
+    /* Valt de gekozen kaartlaag niet in deze weergave, dan terugvallen op een
+       laag die er wél is. Eerder bleef hij staan "want switchView() laadt de
+       weergave waar hij bestaat" -- dat klopt alleen als de wissel dóór de
+       kaartlaagkeuze kwam. Wisselde je zelf van analyse-eenheid, dan bleef er
+       een onbestaande band geselecteerd en tekende paintRaster() niets meer. */
+    if (hier.indexOf(metric) < 0) metric = hier[0] || 'slope';
     sel.value = metric;
   }
 
@@ -799,6 +806,8 @@
     // de viewer "buiten het onderzoeksgebied" voor een punt dat in een zone
     // ligt.
     var vw = p.get('view');
+    // Kaartlaag zonder weergave in de link: neem de weergave waar hij bestaat.
+    if (!vw && viewFor(metric)) vw = viewFor(metric);
     if (vw && vw !== view && (CFG.views || []).some(function (x) { return x.id === vw; })) {
       $('view').value = vw;
       switchView(vw, openPoint);

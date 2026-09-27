@@ -244,6 +244,32 @@ shell niet; de openEO-jobs draaien wel door bij CDSE, dus ophalen met
 `--job-id`. Resultaten opvragen van een nog lopende job geeft HTTP 400, geen
 nette foutmelding.
 
+**Bug: trendlaag verdween bij een wissel** *(gemeld en gefixt 2026-09-27)*. De
+image-source wordt maar één keer aangemaakt -- `addDataLayers()` én
+`ensureDataLayers()` stoppen allebei met `if (map.getSource('trend')) return`
+-- en `paintRaster()` riep `updateImage({url})` aan zónder `coordinates`.
+MapLibre laat de hoekpunten dan staan, dus het nieuwe raster werd op de
+hoekpunten van het EERSTE getekend. Tussen analyse-eenheden scheelt dat ~70 m
+(nauwelijks zichtbaar), tussen Nieuwkoop en Coepelduynen ~28 km: buiten beeld,
+en dus "de laag is weg". Fix: `coordinates: Raster.meta.corners` meegeven.
+**Ook in `/fenologie` aanwezig en daar meteen meegefixt**, al viel het er
+minder op.
+
+Tweede oorzaak, uit dezelfde melding: `renderMetricOptions()` liet een
+kaartlaag staan die in de nieuwe weergave niet bestaat ("switchView() laadt de
+weergave waar hij bestaat"). Dat klopt alleen als de wissel dóór de
+kaartlaagkeuze kwam; wisselde je zelf van analyse-eenheid, dan bleef er een
+onbestaande band staan en tekende `paintRaster()` door de bandcontrole niets
+meer. Valt nu altijd terug op een laag die er wél is. En `restoreURL()` leidt
+de weergave nu af uit de kaartlaag als de link er geen noemt, zodat een
+gedeelde `?metric=slope_trough` geen lege kaart geeft.
+
+**Testomgeving-valkuil:** een tabblad dat niet op de voorgrond staat
+(`document.hidden`) laat Chrome de rendering pauzeren, waardoor
+`map.isStyleLoaded()` false blijft, de trendlaag nooit aangemaakt wordt en
+screenshots wit of met een time-out terugkomen. Dat lijkt op een bug en is het
+niet -- eerst een screenshot of hover forceren, dan pas meten.
+
 **Nog open:** `charts.js` in deze viewer leest `CFG.axis` per aanroep (in
 `/fenologie` is het een momentopname bij laden) — die twee bestanden zijn dus
 niet meer identiek. Samenvoegen zodra `/fenologie` uitgefaseerd kan worden.
