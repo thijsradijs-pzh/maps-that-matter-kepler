@@ -138,6 +138,10 @@ window.FENO_CONFIG = {
     { id: '2023', label: '2023', year: 2023, season: 'zomer', layer: '2023_ortho25', res: '25cm' },
     { id: '2024', label: '2024', year: 2024, season: 'zomer', layer: '2024_ortho25', res: '25cm' },
     { id: '2025', label: '2025', year: 2025, season: 'zomer', layer: '2025_ortho25', res: '25cm' },
+    { id: '2026w', label: '2026', year: 2026, season: 'winter', layer: '2026_orthoHR', res: '8cm' },
+    // Geen zomeropname 2026: PDOK's 2026_quickortho25 staat wel in de
+    // capabilities maar levert overal een egale witte tegel (getoetst op vier
+    // plekken in het land). Voeg 2026_ortho25 toe zodra die er is.
   ],
   aerialBase: 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/%LAYER%/EPSG:3857/{z}/{x}/{y}.jpeg',
 

@@ -92,7 +92,7 @@ Large CSV/Parquet files with Netherlands geospatial data (H3 hexagons, populatio
 
 ## Key Patterns
 
-- **Basemaps**: Light and voyager use Carto (no API key needed). Dark basemap uses ArcGIS World Dark Gray as a custom `TileLayer` (not Carto `dark-matter`). Satellite uses ESRI World Imagery.
+- **Basemaps**: Carto light/voyager/dark vereisen sinds september 2026 een API-sleutel en geven anders een plaatshouder bij HTTP 200 — zie het blok "KAPOT IN PRODUCTIE" hieronder. Dark basemap uses ArcGIS World Dark Gray as a custom `TileLayer` (not Carto `dark-matter`). Satellite uses ESRI World Imagery.
 - **H3 hexagons**: Most aggregations use H3 resolution 7–8 via `h3.js` loaded from CDN. Exception: `pdok-viewer` uses resolution 9 (~174m) for live WFS aggregation. `vraag-de-kaart` uses resolution 8 (~460m) — the pre-built datacube Parquet is at res 8.
 - **Deck.gl layers**: Prefer `H3HexagonLayer`, `ScatterplotLayer`, `BitmapLayer` for raster imagery
 - **Two rendering approaches**: Kepler.gl examples embed a full React/Redux stack (loaded from CDN) inside a `<div id="app">` and drive it with a JSON config exported from the Kepler.gl UI. Deck.gl examples use bare canvas rendering with no React — they instantiate `new Deck({...})` directly. Don't mix the two in one file.
@@ -157,6 +157,30 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 - Visualize kruidendiversiteit data as H3 hexagons
 - Connects to [[project-kruidendiversiteit-zh]] in exobrain (Wageningen research)
 - Pattern: same datacube approach as vraag-de-kaart, new Parquet file
+
+---
+
+### KAPOT IN PRODUCTIE: CARTO-basemaps vragen nu een API-sleutel (2026-09-28)
+
+`basemaps.cartocdn.com` levert geen kaart meer maar een plaatshouder met de
+tekst "API KEY REQUIRED · carto.com/basemaps/apikey". **De service antwoordt
+gewoon HTTP 200**, dus er is geen foutmelding en geen console-error — het valt
+alleen op als je kijkt. Getoetst op alle drie de stijlen die dit repo gebruikt:
+`light_all`, `dark_all` en `rastertiles/voyager`, alle drie een plaatshouder.
+
+Geraakt: **`pdok-viewer`**, **`vraag-de-kennisgraaf`** en alles dat de
+basemap-fabriek in **`shared/deckgl-utils.js`** gebruikt. Niet geraakt:
+`fenologie` en `fenologie-gebieden`, die draaien op PDOK.
+
+CLAUDE.md beweerde hierboven "Light and voyager use Carto (no API key needed)" —
+dat klopt dus niet meer.
+
+**Voorstel, nog niet uitgevoerd** (het verandert het uiterlijk van drie viewers,
+dus een keuze voor de gebruiker): vervang door de PDOK BRT Achtergrondkaart, die
+`fenologie` al gebruikt en die geen sleutel vraagt:
+`https://service.pdok.nl/kadaster/brt-achtergrondkaart/wmts/v2_0/standaard/EPSG:3857/{z}/{x}/{y}.png`
+(ook `grijs` en `pastel` beschikbaar). Alleen Nederland, maar alle getroffen
+viewers zijn NL-only. Alternatief is een CARTO-sleutel nemen.
 
 ---
 

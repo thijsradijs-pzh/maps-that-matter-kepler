@@ -214,6 +214,9 @@
     }
     .tl-entry.zomer .tl-pip  { background: #f5a623; }
     .tl-entry.winter .tl-pip { background: #4a9eff; }
+    /* Voorlopige opname: hol bolletje, zodat je op de tijdbalk ziet dat deze
+       jaargang nog niet definitief is zonder erop te hoeven hoveren. */
+    .tl-entry.voorlopig .tl-pip { background: transparent; border: 2px solid #f5a623; }
     .tl-entry:hover .tl-pip  { transform: scale(1.4); box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
     .tl-entry.active .tl-pip { transform: scale(1.7); box-shadow: 0 0 0 4px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.2); }
     .tl-tick-label {
@@ -352,6 +355,13 @@
     { year:2024, season:'winter', layer:'2024_orthoHR', res:'8cm'  },
     { year:2025, season:'zomer',  layer:'2025_ortho25', res:'25cm' },
     { year:2025, season:'winter', layer:'2025_orthoHR', res:'8cm'  },
+    { year:2026, season:'winter', layer:'2026_orthoHR', res:'8cm'  },
+    // 2026 heeft (nog) geen zomeropname in deze lijst. PDOK publiceert wel
+    // 2026_quickortho25, maar die laag levert overal een egale witte tegel:
+    // gecontroleerd op Amsterdam, Rotterdam, Nieuwkoop en Katwijk, alle vier
+    // 1651 bytes en 256x256 wit. Hij staat dus wel in de capabilities maar
+    // bevat nog geen beeld. Voeg 2026_ortho25 toe zodra die verschijnt --
+    // controleer dan eerst of hij daadwerkelijk tegels teruggeeft.
   ];
 
   const N = IMAGES.length;
@@ -453,7 +463,10 @@
       const entry = document.createElement('div');
       entry.className = 'tl-entry ' + img.season;
       entry.style.left = pct(i) + '%';
-      entry.title = img.year + ' ' + (img.season === 'zomer' ? 'Zomer 25cm' : 'Winter 8cm');
+      entry.title = img.year + ' ' + (img.season === 'zomer' ? 'Zomer' : 'Winter')
+        + ' ' + img.res
+        + (img.voorlopig ? ' — voorlopige opname, kleuren en snijlijnen nog niet definitief' : '');
+      if (img.voorlopig) entry.classList.add('voorlopig');
 
       const pip = document.createElement('div');
       pip.className = 'tl-pip';

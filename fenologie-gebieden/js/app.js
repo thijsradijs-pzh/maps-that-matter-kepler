@@ -1052,9 +1052,11 @@
         b.className = 'aerial-pip';
         b.dataset.id = a.id;
         b.textContent = a.label;
-        b.title = a.year
+        b.title = (a.year
           ? a.year + ' ' + a.season + ', ' + a.res
-          : 'meest recente opname, ' + a.res;
+          : 'meest recente opname, ' + a.res)
+          + (a.voorlopig ? ' — voorlopige opname, kleuren en snijlijnen nog niet definitief' : '');
+        if (a.voorlopig) b.classList.add('voorlopig');
         b.onclick = function () {
           aerialId = a.id;
           setBasemap('luchtfoto');
@@ -1068,9 +1070,9 @@
     Array.prototype.forEach.call(strip.children, function (el) {
       el.classList.toggle('on', el.dataset.id === aerialId);
     });
-    $('aerial-info').textContent = cur.year
+    $('aerial-info').textContent = (cur.year
       ? '· ' + cur.season + ', ' + cur.res
-      : '· ' + cur.res;
+      : '· ' + cur.res) + (cur.voorlopig ? ' · voorlopig' : '');
   }
 
   /* ── uitleg ─────────────────────────────────────────────── */

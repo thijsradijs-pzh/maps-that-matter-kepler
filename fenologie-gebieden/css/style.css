@@ -324,6 +324,10 @@ input[type=range] { accent-color: var(--accent); }
                text-transform: uppercase; color: var(--ink-2); margin-bottom: 6px; }
 .aerial-head span { font-weight: 400; letter-spacing: 0; text-transform: none;
                     color: #7b7b72; }
+/* Voorlopige jaargang (PDOK "Quick Ortho"): gestippelde rand, zodat je op de
+   strip ziet dat die opname nog niet definitief is zonder te hoeven hoveren. */
+.aerial-pip.voorlopig { border-style: dashed; }
+
 .aerial-strip { display: flex; flex-wrap: wrap; gap: 3px; }
 .aerial-pip { font: inherit; font-size: 11px; line-height: 1; cursor: pointer;
               padding: 5px 6px; border-radius: 5px; color: var(--ink-2);
