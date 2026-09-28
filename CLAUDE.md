@@ -92,7 +92,7 @@ Large CSV/Parquet files with Netherlands geospatial data (H3 hexagons, populatio
 
 ## Key Patterns
 
-- **Basemaps**: PDOK BRT Achtergrondkaart (grijs/standaard), geen sleutel nodig. CARTO is er sinds 2026-09-28 uit omdat het een API-sleutel ging vragen. Donker is ArcGIS World Dark Gray, want BRT heeft geen donkere variant. Dark basemap uses ArcGIS World Dark Gray as a custom `TileLayer` (not Carto `dark-matter`). Satellite uses ESRI World Imagery.
+- **Basemaps**: PDOK BRT Achtergrondkaart (grijs/standaard), geen sleutel nodig. CARTO is er sinds 2026-09-28 uit omdat het een API-sleutel ging vragen. Er is geen donkere ondergrond meer: BRT heeft die niet en er komt geen derde partij voor terug. Dark basemap uses ArcGIS World Dark Gray as a custom `TileLayer` (not Carto `dark-matter`). Satellite uses ESRI World Imagery.
 - **H3 hexagons**: Most aggregations use H3 resolution 7–8 via `h3.js` loaded from CDN. Exception: `pdok-viewer` uses resolution 9 (~174m) for live WFS aggregation. `vraag-de-kaart` uses resolution 8 (~460m) — the pre-built datacube Parquet is at res 8.
 - **Deck.gl layers**: Prefer `H3HexagonLayer`, `ScatterplotLayer`, `BitmapLayer` for raster imagery
 - **Two rendering approaches**: Kepler.gl examples embed a full React/Redux stack (loaded from CDN) inside a `<div id="app">` and drive it with a JSON config exported from the Kepler.gl UI. Deck.gl examples use bare canvas rendering with no React — they instantiate `new Deck({...})` directly. Don't mix the two in one file.
@@ -175,19 +175,27 @@ Vervangen door de **PDOK BRT Achtergrondkaart**: open data, geen sleutel, zoom
 |---|---|
 | `light` / `positron` | BRT **grijs** — neutraal, data blijft vooropstaan |
 | `voyager` | BRT **standaard** — de kleurige stratenkaart |
-| `dark` / `dark-matter` | **ArcGIS World Dark Gray** |
+| `dark` / `dark-matter` | BRT **grijs** — er is geen donkere PDOK-variant |
 
-**De donkere kaart is de uitzondering en dat is een bewuste keuze.** BRT heeft
-geen donkere variant. `population-3d`, `groundheight` en `vraag-de-kaart` zijn
-ontworpen tegen een donkere ondergrond — hun kleurschalen en 3D-extrusies
-rekenen erop. ArcGIS World Dark Gray werkt zonder sleutel en houdt dat intact.
-Wil je strikt alleen PDOK, zet `dark` dan op dezelfde URL als `grijs`; die drie
-viewers worden dan licht en vragen om een nieuwe kleurschaal.
+**Er is geen donkere ondergrond meer, en dat is bewust.** BRT heeft er geen, en
+er komt geen derde partij voor terug: één bron, geen sleutels, alles open data
+van het Kadaster. Eerst stond hier ArcGIS World Dark Gray; op verzoek eruit
+gehaald. Gevolgen:
+- `vraag-de-kaart` vroeg om `'dark-matter'`, wat **nooit in de tabel stond**, dus
+  die viewer draaide allang op de lichte kaart via de fallback. Daar verandert
+  dus feitelijk niets.
+- `population-3d` en `groundheight` worden wel lichter. Hun kleurschalen zijn op
+  een donkere ondergrond ontworpen en verdienen een herziening — maar
+  `population-3d` is sowieso stuk (zie onderaan dit blok).
+
+**Esri zat al in dit repo** en zit er nog: `gebiedsviewer/js/rendering.js` heeft
+een eigen laaglijst met ArcGIS World Dark Gray (`id: 'dark'`) en ArcGIS World
+Imagery (`id: 'satellite'`), allebei kiesbaar in die viewer. Die staan los van
+de gedeelde fabriek en zijn niet aangeraakt. Wil je daar ook van af: de
+satelliet kan naar de PDOK-luchtfoto (`Actueel_orthoHR`), voor donker is er
+geen PDOK-alternatief.
 
 Twee dingen die onderweg bleken:
-- `vraag-de-kaart` vroeg om `'dark-matter'`, wat **niet in de tabel stond**, dus
-  die viewer kreeg stilzwijgend de lichte kaart via de fallback. Nu een echte
-  alias.
 - PDOK kent geen `a./b./c.`-subdomeinen zoals CARTO. De oude code bouwde drie
   URL-varianten met `url.replace('a.', 'b.')`; op een PDOK-URL is dat een
   no-op die drie identieke URL's oplevert. Vervangen door één URL.

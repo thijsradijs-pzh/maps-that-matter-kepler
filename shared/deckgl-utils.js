@@ -60,21 +60,26 @@ const DeckGLUtils = {
   },
 
 
-  // Create Carto basemap layer
   /**
-   * Ondergrondlaag. Sinds september 2026 GEEN CARTO meer: basemaps.cartocdn.com
-   * vraagt een API-sleutel en levert anders een plaatshouder met de tekst
-   * "API KEY REQUIRED" -- bij HTTP 200, dus zonder foutmelding en zonder
-   * console-error. Dat is maandenlang onopgemerkt gebleven.
+   * Ondergrondlaag: PDOK BRT Achtergrondkaart, open data en geen sleutel.
    *
-   * Vervangen door de PDOK BRT Achtergrondkaart: open data, geen sleutel,
-   * zoom 0 t/m 19 in EPSG:3857.
+   * CARTO is er op 2026-09-28 uit: basemaps.cartocdn.com vraagt sinds kort een
+   * API-sleutel en levert anders een plaatshouder met "API KEY REQUIRED" --
+   * bij HTTP 200, dus zonder foutmelding en zonder console-error.
    *
-   * 'dark' is de uitzondering -- BRT heeft geen donkere variant. Daar staat
-   * ArcGIS World Dark Gray, die ook zonder sleutel werkt. Wil je strikt alleen
-   * PDOK, zet 'dark' dan op dezelfde URL als 'grijs'; population-3d,
-   * groundheight en vraag-de-kaart worden dan licht, en hun kleurschalen zijn
-   * op een donkere ondergrond ontworpen.
+   * GEEN donkere ondergrond meer. BRT heeft die niet, en de keus is bewust om
+   * er geen derde partij voor binnen te halen: één bron, geen sleutels, alles
+   * open data van het Kadaster. 'dark' en 'dark-matter' geven daarom grijs.
+   *
+   * Let op voor wie dit later leest: `vraag-de-kaart` vroeg om 'dark-matter',
+   * wat nooit in deze tabel stond, dus die viewer draaide allang op de lichte
+   * kaart via de fallback. Voor hem verandert er dus niets. `population-3d` en
+   * `groundheight` worden wel lichter; hun kleurschalen zijn op een donkere
+   * ondergrond ontworpen en verdienen een herziening.
+   *
+   * (`gebiedsviewer` heeft zijn eigen laaglijst in js/rendering.js met een
+   * ArcGIS-donker en een ArcGIS-satelliet. Die staan los van deze fabriek en
+   * zijn hier niet aangeraakt.)
    */
   createBasemap(style = 'light') {
     const {TileLayer, BitmapLayer} = deck;
@@ -83,20 +88,18 @@ const DeckGLUtils = {
       `https://service.pdok.nl/kadaster/brt-achtergrondkaart/wmts/v2_0/${v}/EPSG:3857/{z}/{x}/{y}.png`;
 
     const baseUrls = {
-      // Grijs komt het dichtst bij Positron: neutraal, zodat de data vooropstaat.
-      light:       BRT('grijs'),
-      positron:    BRT('grijs'),
-      grijs:       BRT('grijs'),
+      // Grijs komt het dichtst bij Positron: neutraal, data blijft vooropstaan.
+      light:         BRT('grijs'),
+      positron:      BRT('grijs'),
+      grijs:         BRT('grijs'),
+      dark:          BRT('grijs'),
+      'dark-matter': BRT('grijs'),
       // Voyager was de kleurige stratenkaart; dat is BRT standaard.
-      voyager:     BRT('standaard'),
-      standaard:   BRT('standaard'),
-      pastel:      BRT('pastel'),
-      // Geen PDOK-equivalent; zie de toelichting hierboven.
-      dark:        'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+      voyager:       BRT('standaard'),
+      standaard:     BRT('standaard'),
+      pastel:        BRT('pastel'),
+      water:         BRT('water'),
     };
-    // 'dark-matter' was de oude CARTO-naam en stond niet in deze tabel, dus
-    // vraag-de-kaart kreeg stilletjes de lichte kaart. Nu een echte alias.
-    baseUrls['dark-matter'] = baseUrls.dark;
 
     const url = baseUrls[style] || baseUrls.light;
 
