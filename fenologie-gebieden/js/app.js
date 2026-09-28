@@ -433,9 +433,18 @@
 
     renderWhy(lon, lat, spec, sv, qv);
 
+    /* Leegmaken is niet genoeg: `innerHTML = ''` haalt de kinderen weg maar
+       laat de pointer-handlers op het <svg>-element zelf staan. Die sluiten om
+       de reeks van de vórige pixel heen, dus je kreeg bij hoveren nog gewoon
+       waardes te zien boven een lege grafiek -- wat er uitziet als een halve
+       tekening in plaats van als "nog geen data". */
     ['c-annual', 'c-ts', 'c-season', 'c-decomp'].forEach(function (id) {
-      $(id).innerHTML = '';
+      var el = $(id);
+      el.innerHTML = '';
+      el.onpointermove = null;
+      el.onpointerleave = null;
     });
+    $('tt-ts').style.opacity = 0;
     $('grass-cmd').hidden = true;
     $('detail').hidden = false;
     markPixel(lon, lat);

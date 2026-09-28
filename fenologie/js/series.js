@@ -208,9 +208,21 @@
        Lui geladen -- pas bij de eerste klik -- want 1.386 cellen maal 644
        datums is ~2,4 MB en dat hoeft de kaart niet op te houden. */
     grid: null,
+    _gridUrl: null,
     _gridPromise: null,
 
     loadGrid: function (url) {
+      /* De cache hangt aan de URL, niet aan een losse vlag. Eerder werd alleen
+         op `Series.grid` en `_gridPromise` gekeken: zette iets die eerste op
+         null (zoals een gebiedswissel) terwijl de belofte van het vorige gebied
+         bleef staan, dan gaf deze functie voorgoed die oude, al afgeronde
+         belofte terug. Series.grid bleef dus null en er kwam nooit meer een
+         reeks -- de grafieken bleven leeg vanaf de eerste wissel. */
+      if (Series._gridUrl !== url) {
+        Series.grid = null;
+        Series._gridPromise = null;
+        Series._gridUrl = url;
+      }
       if (Series.grid) return Promise.resolve(Series.grid);
       if (Series._gridPromise) return Series._gridPromise;
       Series._gridPromise = fetch(url)

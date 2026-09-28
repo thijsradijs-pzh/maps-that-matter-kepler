@@ -356,6 +356,32 @@ meer. Valt nu altijd terug op een laag die er wél is. En `restoreURL()` leidt
 de weergave nu af uit de kaartlaag als de link er geen noemt, zodat een
 gedeelde `?metric=slope_trough` geen lege kaart geeft.
 
+**Bug: grafieken bleven leeg na een gebiedswissel** *(gemeld en gefixt
+2026-09-28)*. Twee oorzaken die elkaar maskeerden.
+
+(a) `Series.loadGrid()` cachete op `Series.grid` en `_gridPromise` zonder de URL
+mee te wegen. `switchGebied()` zette `Series.grid = null` maar liet de al
+afgeronde belofte van het vórige gebied staan, dus gaf `loadGrid()` die voorgoed
+terug: `Series.grid` bleef null en er kwam **vanaf de eerste wissel nooit meer
+een reeks**. Raakt alleen de **pixelweergave** — de grid-, type- en
+perceelweergaven laden hun reeks via `loadZones()`, dat geen cache heeft, en
+werkten daarom gewoon door. Dat verklaart waarom het "soms" leek. Fix: de cache
+hangt nu aan `Series._gridUrl`, dus hij corrigeert zichzelf ongeacht wat de
+aanroeper doet.
+
+(b) `showPixel()` leegde de vier SVG's met `innerHTML = ''`, maar dat haalt de
+`onpointermove`/`onpointerleave` op het `<svg>`-element zélf niet weg. Die
+handler sloot om de reeks van de vórige pixel heen, dus je kreeg bij hoveren
+nog gewoon waardes boven een lege grafiek — het symptoom waaraan de gebruiker
+het herkende. Handlers worden nu expliciet op null gezet en de tooltip verborgen.
+
+Beide ook in `/fenologie` meegefixt; daar is (a) latent (één gebied, dus de
+URL verandert nooit) maar (b) net zo goed zichtbaar zodra een reeks niet laadt.
+
+Gereproduceerd én bewezen door de oude `loadGrid` tijdelijk in de browser terug
+te zetten: ronde 1 tekent 486 elementen, ronde 2 na de wissel 0 plus "de
+tijdreeks is niet voorberekend". Na de fix vier rondes wisselen zonder uitval.
+
 **Testomgeving-valkuil:** een tabblad dat niet op de voorgrond staat
 (`document.hidden`) laat Chrome de rendering pauzeren, waardoor
 `map.isStyleLoaded()` false blijft, de trendlaag nooit aangemaakt wordt en
