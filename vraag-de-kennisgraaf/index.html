@@ -239,13 +239,13 @@ async function init() {
     container: 'map',
     style: {
       version: 8,
-      sources: { carto: {
+      sources: { brt: {
         type: 'raster',
-        tiles: ['https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'],
+        tiles: ['https://service.pdok.nl/kadaster/brt-achtergrondkaart/wmts/v2_0/grijs/EPSG:3857/{z}/{x}/{y}.png'],
         tileSize: 256,
-        attribution: '© OpenStreetMap contributors · © CARTO'
+        attribution: '&copy; Kadaster / PDOK &mdash; BRT Achtergrondkaart'
       }},
-      layers: [{ id:'carto-bg', type:'raster', source:'carto' }]
+      layers: [{ id:'brt-bg', type:'raster', source:'brt' }]
     },
     glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
     center: [5.3, 52.15], zoom: 6.7,

@@ -61,28 +61,49 @@ const DeckGLUtils = {
 
 
   // Create Carto basemap layer
+  /**
+   * Ondergrondlaag. Sinds september 2026 GEEN CARTO meer: basemaps.cartocdn.com
+   * vraagt een API-sleutel en levert anders een plaatshouder met de tekst
+   * "API KEY REQUIRED" -- bij HTTP 200, dus zonder foutmelding en zonder
+   * console-error. Dat is maandenlang onopgemerkt gebleven.
+   *
+   * Vervangen door de PDOK BRT Achtergrondkaart: open data, geen sleutel,
+   * zoom 0 t/m 19 in EPSG:3857.
+   *
+   * 'dark' is de uitzondering -- BRT heeft geen donkere variant. Daar staat
+   * ArcGIS World Dark Gray, die ook zonder sleutel werkt. Wil je strikt alleen
+   * PDOK, zet 'dark' dan op dezelfde URL als 'grijs'; population-3d,
+   * groundheight en vraag-de-kaart worden dan licht, en hun kleurschalen zijn
+   * op een donkere ondergrond ontworpen.
+   */
   createBasemap(style = 'light') {
     const {TileLayer, BitmapLayer} = deck;
 
+    const BRT = v =>
+      `https://service.pdok.nl/kadaster/brt-achtergrondkaart/wmts/v2_0/${v}/EPSG:3857/{z}/{x}/{y}.png`;
+
     const baseUrls = {
-      dark: 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-      light: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',   // POSITRON
-      voyager: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-
-      // Add explicit alias
-      positron: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
+      // Grijs komt het dichtst bij Positron: neutraal, zodat de data vooropstaat.
+      light:       BRT('grijs'),
+      positron:    BRT('grijs'),
+      grijs:       BRT('grijs'),
+      // Voyager was de kleurige stratenkaart; dat is BRT standaard.
+      voyager:     BRT('standaard'),
+      standaard:   BRT('standaard'),
+      pastel:      BRT('pastel'),
+      // Geen PDOK-equivalent; zie de toelichting hierboven.
+      dark:        'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
     };
+    // 'dark-matter' was de oude CARTO-naam en stond niet in deze tabel, dus
+    // vraag-de-kaart kreeg stilletjes de lichte kaart. Nu een echte alias.
+    baseUrls['dark-matter'] = baseUrls.dark;
 
-    // ❤️ SAFE: always fallback to light (positron)
     const url = baseUrls[style] || baseUrls.light;
 
     return new TileLayer({
       id: 'basemap',
-      data: [
-        url.replace('a.', 'a.'),
-        url.replace('a.', 'b.'),
-        url.replace('a.', 'c.')
-      ],
+      // PDOK kent geen a/b/c-subdomeinen zoals CARTO; één URL volstaat.
+      data: url,
       minZoom: 0,
       maxZoom: 19,
       tileSize: 256,

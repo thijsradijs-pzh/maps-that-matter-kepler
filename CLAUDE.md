@@ -92,7 +92,7 @@ Large CSV/Parquet files with Netherlands geospatial data (H3 hexagons, populatio
 
 ## Key Patterns
 
-- **Basemaps**: Carto light/voyager/dark vereisen sinds september 2026 een API-sleutel en geven anders een plaatshouder bij HTTP 200 — zie het blok "KAPOT IN PRODUCTIE" hieronder. Dark basemap uses ArcGIS World Dark Gray as a custom `TileLayer` (not Carto `dark-matter`). Satellite uses ESRI World Imagery.
+- **Basemaps**: PDOK BRT Achtergrondkaart (grijs/standaard), geen sleutel nodig. CARTO is er sinds 2026-09-28 uit omdat het een API-sleutel ging vragen. Donker is ArcGIS World Dark Gray, want BRT heeft geen donkere variant. Dark basemap uses ArcGIS World Dark Gray as a custom `TileLayer` (not Carto `dark-matter`). Satellite uses ESRI World Imagery.
 - **H3 hexagons**: Most aggregations use H3 resolution 7–8 via `h3.js` loaded from CDN. Exception: `pdok-viewer` uses resolution 9 (~174m) for live WFS aggregation. `vraag-de-kaart` uses resolution 8 (~460m) — the pre-built datacube Parquet is at res 8.
 - **Deck.gl layers**: Prefer `H3HexagonLayer`, `ScatterplotLayer`, `BitmapLayer` for raster imagery
 - **Two rendering approaches**: Kepler.gl examples embed a full React/Redux stack (loaded from CDN) inside a `<div id="app">` and drive it with a JSON config exported from the Kepler.gl UI. Deck.gl examples use bare canvas rendering with no React — they instantiate `new Deck({...})` directly. Don't mix the two in one file.
@@ -160,29 +160,49 @@ Deep audit completed 2026-04-08. Items marked ✅ are done. When editing any app
 
 ---
 
-### KAPOT IN PRODUCTIE: CARTO-basemaps vragen nu een API-sleutel (2026-09-28)
+### Weg van CARTO: PDOK BRT als ondergrond (2026-09-28)
 
-`basemaps.cartocdn.com` levert geen kaart meer maar een plaatshouder met de
-tekst "API KEY REQUIRED · carto.com/basemaps/apikey". **De service antwoordt
-gewoon HTTP 200**, dus er is geen foutmelding en geen console-error — het valt
-alleen op als je kijkt. Getoetst op alle drie de stijlen die dit repo gebruikt:
-`light_all`, `dark_all` en `rastertiles/voyager`, alle drie een plaatshouder.
+`basemaps.cartocdn.com` vraagt sinds kort een API-sleutel en levert anders een
+plaatshouder met de tekst "API KEY REQUIRED". **De service antwoordt gewoon
+HTTP 200**, dus er was geen foutmelding en geen console-error — het viel alleen
+op door ernaar te kijken. Alle drie de gebruikte stijlen (`light_all`,
+`dark_all`, `rastertiles/voyager`) waren getroffen.
 
-Geraakt: **`pdok-viewer`**, **`vraag-de-kennisgraaf`** en alles dat de
-basemap-fabriek in **`shared/deckgl-utils.js`** gebruikt. Niet geraakt:
-`fenologie` en `fenologie-gebieden`, die draaien op PDOK.
+Vervangen door de **PDOK BRT Achtergrondkaart**: open data, geen sleutel, zoom
+0 t/m 19 in EPSG:3857 (geverifieerd in de capabilities en met een z18-tegel).
 
-CLAUDE.md beweerde hierboven "Light and voyager use Carto (no API key needed)" —
-dat klopt dus niet meer.
+| was | is nu |
+|---|---|
+| `light` / `positron` | BRT **grijs** — neutraal, data blijft vooropstaan |
+| `voyager` | BRT **standaard** — de kleurige stratenkaart |
+| `dark` / `dark-matter` | **ArcGIS World Dark Gray** |
 
-**Voorstel, nog niet uitgevoerd** (het verandert het uiterlijk van drie viewers,
-dus een keuze voor de gebruiker): vervang door de PDOK BRT Achtergrondkaart, die
-`fenologie` al gebruikt en die geen sleutel vraagt:
-`https://service.pdok.nl/kadaster/brt-achtergrondkaart/wmts/v2_0/standaard/EPSG:3857/{z}/{x}/{y}.png`
-(ook `grijs` en `pastel` beschikbaar). Alleen Nederland, maar alle getroffen
-viewers zijn NL-only. Alternatief is een CARTO-sleutel nemen.
+**De donkere kaart is de uitzondering en dat is een bewuste keuze.** BRT heeft
+geen donkere variant. `population-3d`, `groundheight` en `vraag-de-kaart` zijn
+ontworpen tegen een donkere ondergrond — hun kleurschalen en 3D-extrusies
+rekenen erop. ArcGIS World Dark Gray werkt zonder sleutel en houdt dat intact.
+Wil je strikt alleen PDOK, zet `dark` dan op dezelfde URL als `grijs`; die drie
+viewers worden dan licht en vragen om een nieuwe kleurschaal.
 
----
+Twee dingen die onderweg bleken:
+- `vraag-de-kaart` vroeg om `'dark-matter'`, wat **niet in de tabel stond**, dus
+  die viewer kreeg stilzwijgend de lichte kaart via de fallback. Nu een echte
+  alias.
+- PDOK kent geen `a./b./c.`-subdomeinen zoals CARTO. De oude code bouwde drie
+  URL-varianten met `url.replace('a.', 'b.')`; op een PDOK-URL is dat een
+  no-op die drie identieke URL's oplevert. Vervangen door één URL.
+
+Aangepast: `shared/deckgl-utils.js` (en daarmee `gebiedsviewer`,
+`population-3d`, `groundheight`, `vraag-de-kaart`), plus de inline bronnen in
+`pdok-viewer` en `vraag-de-kennisgraaf`. Attributie overal naar
+"© Kadaster / PDOK — BRT Achtergrondkaart".
+
+**Los daarvan ontdekt, NIET gefixt: `population-3d` is stuk in productie.**
+Het toont "Kon data niet laden — Maximum call stack size exceeded", zowel
+lokaal als op maps.mapsthatmatter.io. Dat stond los van deze wijziging
+(geverifieerd tegen de productieversie vóór de deploy). `groundheight` gebruikt
+dezelfde laadroute en verdient dezelfde controle. Beide zijn volgens de
+projectnotities alleen nog in leven als embed-doel voor `blog-h3-examples`.
 
 ### Verbeterpunten na de sessie van 2026-09-27
 
