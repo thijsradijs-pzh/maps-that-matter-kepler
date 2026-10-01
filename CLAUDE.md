@@ -28,10 +28,7 @@ bash deploy.sh              # preview deployment
 bash deploy.sh --production # production deployment
 ```
 
-**Create a new example:**
-```bash
-bash new-example.sh
-```
+**Create a new example:** use the `/new-example` skill (the old `new-example.sh` scaffolded Kepler.gl-era examples and is removed).
 
 ## Architecture
 
@@ -219,7 +216,7 @@ geverifieerd**, niet ingeschat, tenzij er "vermoeden" staat.
 
 #### P1 — raakt de juistheid, en staat live
 
-**1. De kleurschaal valt weg voor kleurenblinden.** Bruin/groen is de
+**1. De kleurschaal valt weg voor kleurenblinden.** *(Geen prioriteit meer, besloten 2026-10-01; meting blijft staan voor als het terugkomt.)* Bruin/groen is de
 hoofdcodering van de kaart (afname/toename) en houdt geen stand. Gesimuleerd
 (Viénot/Brettel, afstand in lineair RGB):
 
@@ -688,7 +685,7 @@ boven het 200 m-grid, want percelen zijn meestal groter dan 4 ha.
 
 
 
-**Colorblind palettes not validated** — all apps
+**Colorblind palettes not validated** — all apps *(geen prioriteit, 2026-10-01)*
 - Blue/orange/red/green color scales not tested for protanopia/deuteranopia. Test with Color Oracle tool.
 
 ---
