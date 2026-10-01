@@ -297,18 +297,17 @@ function updateLayerTreeActiveState() {
 
 function updateScaleDependency(zoom) {
   const lat = currentViewState.latitude || 52;
-  const metersPerPixel = (156543.03392 * Math.cos(lat * Math.PI / 180)) / Math.pow(2, zoom);
-  const scaleDenom = metersPerPixel / 0.000264583;
+  const scaleDenom = metersPerPixel(lat, zoom) / 0.000264583;
 
   activeLayers.forEach((entry, key) => {
     const outOfScale = entry.minScale > 0 && scaleDenom > entry.minScale;
-    const card = document.getElementById(`layer-card-${CSS.escape(key)}`);
+    const card = document.getElementById(`layer-card-${key}`);
     if (card) {
       card.classList.toggle('layer-card--outofscale', outOfScale);
       const scaleHint = card.querySelector('.scale-hint');
       if (outOfScale && scaleHint) {
         const neededZoom = Math.ceil(Math.log2(
-          (156543.03392 * Math.cos(lat * Math.PI / 180)) / (entry.minScale * 0.000264583)
+          metersPerPixel(lat, 0) / (entry.minScale * 0.000264583)
         ));
         scaleHint.textContent = `Inzoomen naar niveau ~${neededZoom} om te zien`;
         scaleHint.style.display = 'block';
@@ -405,7 +404,8 @@ function renderLayerPanel() {
 
     const card = document.createElement('div');
     card.className = 'layer-card';
-    card.id = `layer-card-${CSS.escape(key)}`;
+    card.id = `layer-card-${key}`;
+    card.dataset.key = key;
     card.innerHTML = `
       <div class="layer-card-header">
         <div class="layer-card-order drag-handle" title="Versleep om volgorde te wijzigen">
@@ -452,15 +452,18 @@ function renderLayerPanel() {
 
   updateScaleDependency(currentViewState.zoom);
 
-  // Drag-to-reorder with SortableJS
-  if (typeof Sortable !== 'undefined') {
+  // Drag-to-reorder with SortableJS. Eén instantie per lijst: renderLayerPanel()
+  // draait bij elke wijziging, en een nieuwe Sortable per render stapelde
+  // instanties op hetzelfde element (onEnd vuurde dan N keer).
+  if (typeof Sortable !== 'undefined' && !Sortable.get(list)) {
     Sortable.create(list, {
       handle: '.drag-handle',
       animation: 150,
       onEnd: evt => {
-        // Rebuild activeLayers Map in new order
-        const cards = [...list.querySelectorAll('.layer-card[id]')];
-        const orderedKeys = cards.map(el => el.id.replace('layer-card-', ''));
+        // Rebuild activeLayers Map in new order. Sleutel uit dataset, niet uit
+        // het id: sleutels bevatten '::'.
+        const cards = [...list.querySelectorAll('.layer-card')];
+        const orderedKeys = cards.map(el => el.dataset.key);
         const snapshot = new Map([...activeLayers]);
         activeLayers.clear();
         orderedKeys.forEach(k => { if (snapshot.has(k)) activeLayers.set(k, snapshot.get(k)); });

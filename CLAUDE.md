@@ -103,6 +103,14 @@ The most complex example (1929 lines). Key files:
 - `gebiedsviewer/js/wms-layer.js` — `createWMSLayer()`: TileLayer wrapping WMS tiles via proxy, with `onTileLoad`/`onError` callbacks for loading/error card states
 - `gebiedsviewer/config.js` — `CATALOG`: 6 thematic categories (Grenzen, Landelijk Gebied, Bodem, Klimaat, Water, Milieu), each with services and layer IDs from geoservices.zuid-holland.nl
 
+**Catalogus drijft af — toets hem.** De provincie hernummert en verwijdert lagen; de viewer toont dan stil een andere laag onder het oude label (er komt gewoon een plaatje terug, geen fout). Op 2026-10-01 was luchtkwaliteit grotendeels verkeerd ("PM10 2025" was PM10 2015) en gaven Bodemkaarten/Drinkwater/Landbouw een lege kaart omdat hun eerste (standaard getoonde) laag niet meer bestond. `python3 scripts/check_gebiedsviewer_catalog.py` toetst elke laag tegen `?f=json` (WEG / ONTBREEKT / ANDERS, exitcode 1). Draai het vóór elke wijziging aan `config.js`.
+
+**Valkuilen die in de code zijn opgelost (2026-10-01), niet terugdraaien:**
+- Kaart-id's zijn `layer-card-${key}` met de **rauwe** sleutel (die bevat `::`); `CSS.escape` alleen in `querySelector`. Met `CSS.escape` in het id zelf vond niets de kaart terug en wiste slepen alle lagen.
+- Schaal: `metersPerPixel()` in `state.js` gebruikt **78271.5** (deck.gl-wereld = 512 px op zoom 0), niet 156543.
+- Groepslaag zonder aangevinkte sublagen → `noSublayersSelected()` → niets tekenen; `show:<groeps-id>` tekent anders álle kinderen.
+- Laadstatus telt echte lopende tegelverzoeken (`onTileStart`), niet rebuilds — gecachete tegels roepen `getTileData` niet aan.
+
 ## Example: PDOK Verkenner (`pdok-viewer/`)
 Key files:
 - `pdok-viewer/index.html` — single-file app (617 lines); all logic, CSS, and HTML inline. No framework — bare MapLibre GL.

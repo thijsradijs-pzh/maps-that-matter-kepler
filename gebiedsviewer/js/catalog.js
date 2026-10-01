@@ -503,7 +503,8 @@ function enablePermalinkLayers() {
       const colonIdx = part.lastIndexOf(':');
       if (colonIdx < 0) return;
       const key = part.slice(0, colonIdx);
-      const ids = part.slice(colonIdx + 1).split('+').map(Number).filter(Boolean);
+      // Niet .filter(Boolean): sublaag-id 0 is geldig en viel zo weg.
+      const ids = part.slice(colonIdx + 1).split('+').filter(s => s !== '').map(Number).filter(n => !isNaN(n));
       if (ids.length) sublayerMap[key] = ids;
     });
   }
@@ -559,7 +560,9 @@ function updatePermalink() {
   clearTimeout(_permalinkTimer);
   _permalinkTimer = setTimeout(() => {
     const { longitude, latitude, zoom } = currentViewState;
-    const layerKeys = [...activeLayers.keys()].filter(k => !k.startsWith('custom::'));
+    // custom:: en kea:: zijn sessielagen zonder catalogusingang; die kan een
+    // permalink niet terugzetten.
+    const layerKeys = [...activeLayers.keys()].filter(k => !k.startsWith('custom::') && !k.startsWith('kea::'));
     const parts = [
       `z=${zoom.toFixed(2)}`,
       `lat=${latitude.toFixed(5)}`,

@@ -19,6 +19,7 @@ function createWMSLayer(layerConfig) {
     tileSize: 256,
     maxCacheSize: 100,
     opacity: layerConfig.opacity ?? 0.9,
+    visible: layerConfig.visible ?? true,
     minZoom: 0,
     maxZoom: 19,
 
@@ -35,6 +36,7 @@ function createWMSLayer(layerConfig) {
         f: 'image',
       });
       const proxyUrl = `/api/proxy?url=${encodeURIComponent(`${mapServerUrl}/export?${params}`)}`;
+      if (layerConfig.onTileStart) layerConfig.onTileStart();
       try {
         const response = await fetch(proxyUrl);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);

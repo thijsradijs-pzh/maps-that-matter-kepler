@@ -85,7 +85,10 @@ function initDeck() {
     canvas: 'deck-canvas',
     initialViewState: currentViewState,
     controller: true,
-    layers: [DeckGLUtils.createBasemap('light')],
+    // currentBasemap komt al uit de permalink (parsePermalinkState draait eerst);
+    // hier 'light' hardcoderen gaf bij #bm=satellite de lichte kaart onder een
+    // actieve Foto-knop.
+    layers: [(BASEMAPS.find(b => b.id === currentBasemap) || BASEMAPS[0]).create()],
 
     onViewStateChange: ({ viewState }) => {
       currentViewState = viewState;
@@ -103,7 +106,7 @@ function initDeck() {
 
     onClick: handleMapClick,
     onDblClick: ({ coordinate }) => {
-      if (measureState.active && coordinate) handleMeasureDblClick(coordinate);
+      if (measureState.active && coordinate) handleMeasureDblClick();
     },
   });
 
@@ -116,7 +119,6 @@ function rebuildDeck() {
   const basemap = bm.create();
 
   const layers = [...activeLayers.entries()].map(([key, entry]) => {
-    entry.hasError = false; // reset error state on each rebuild
     if (entry.isStandardWms) {
       const wmsEntry = entry;
       const wmsKey = key;
@@ -174,40 +176,56 @@ function rebuildDeck() {
         pointRadiusMinPixels: 4,
       });
     }
+    // Groepslaag met alle sublagen uitgevinkt: niets tekenen. Zonder deze
+    // check viel layerIds terug op de groeps-id, en dan tekent ArcGIS juist
+    // álle sublagen.
+    if (noSublayersSelected(entry)) return null;
     // For group layers use explicit sublayer IDs so only selected geometries render.
     // Include layerIds in the deck.gl layer ID so that toggling sublayers busts the
     // tile cache — without this deck.gl reuses cached tiles and ignores the new show: param.
     const layerIds = entry.activeSubLayers?.size
       ? [...entry.activeSubLayers].sort((a, b) => a - b).join(',')
       : entry.layerId;
-    // Mark card as loading
-    entry.pendingTiles = (entry.pendingTiles || 0) + 1;
-    const card = document.getElementById(`layer-card-${CSS.escape(key)}`);
-    if (card) card.classList.add('layer-card--loading');
+    // Foutstatus hoort bij deze combinatie van sublagen; alleen bij een
+    // wissel opnieuw beginnen (de tegels uit de cache worden niet opnieuw
+    // opgevraagd, dus een reset bij elke rebuild wiste een echte fout).
+    if (entry._renderedIds !== layerIds) {
+      entry._renderedIds = layerIds;
+      entry.hasError = false;
+      entry.pendingTiles = 0;
+    }
+
+    // Laadstatus telt echte lopende tegelverzoeken. Eerder telde elke
+    // rebuildDeck() één op, maar tegels uit de cache roepen getTileData niet
+    // aan en tellen dus nooit af -- na een opaciteitswijziging bleef de
+    // spinner eeuwig staan.
+    const setCardState = () => {
+      const c = document.getElementById(`layer-card-${key}`);
+      if (!c) return;
+      c.classList.toggle('layer-card--loading', (entry.pendingTiles || 0) > 0);
+      c.classList.toggle('layer-card--error', !!entry.hasError);
+    };
+    setCardState();
 
     return createWMSLayer({
       id: `${key}::${layerIds}`,
       url: entry.wmsUrl,
       layer: layerIds,
       title: entry.label,
-      opacity: entry.visible ? entry.opacity : 0,
+      opacity: entry.opacity,
+      visible: entry.visible,
+      onTileStart: () => {
+        entry.pendingTiles = (entry.pendingTiles || 0) + 1;
+        setCardState();
+      },
       onTileLoad: () => {
-        entry.pendingTiles = Math.max(0, (entry.pendingTiles || 1) - 1);
-        if (entry.pendingTiles === 0) {
-          const c = document.getElementById(`layer-card-${CSS.escape(key)}`);
-          if (c) c.classList.remove('layer-card--loading');
-        }
+        entry.pendingTiles = Math.max(0, (entry.pendingTiles || 0) - 1);
+        setCardState();
       },
       onError: () => {
-        entry.pendingTiles = Math.max(0, (entry.pendingTiles || 1) - 1);
-        if (entry.pendingTiles === 0) {
-          const c = document.getElementById(`layer-card-${CSS.escape(key)}`);
-          if (c) c.classList.remove('layer-card--loading');
-        }
-        if (entry.hasError) return;
+        entry.pendingTiles = Math.max(0, (entry.pendingTiles || 0) - 1);
         entry.hasError = true;
-        const c2 = document.getElementById(`layer-card-${CSS.escape(key)}`);
-        if (c2) c2.classList.add('layer-card--error');
+        setCardState();
       },
     });
   });
@@ -290,9 +308,11 @@ const SCALE_DISTANCES = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 200
 function updateScaleBar(viewState) {
   const lat = viewState.latitude || 52;
   const zoom = viewState.zoom || 9;
-  const metersPerPixel = (156543.03392 * Math.cos(lat * Math.PI / 180)) / Math.pow(2, zoom);
-  const maxDist = metersPerPixel * 120;
-  const dist = SCALE_DISTANCES.find(d => d <= maxDist) || SCALE_DISTANCES[0];
-  document.getElementById('scale-bar').style.width = `${dist / metersPerPixel}px`;
+  const mpp = metersPerPixel(lat, zoom);
+  const maxDist = mpp * 120;
+  // Grootste ronde afstand die in 120 px past (de lijst loopt op; .find() gaf
+  // altijd de kleinste en dus overal "10 m").
+  const dist = [...SCALE_DISTANCES].reverse().find(d => d <= maxDist) || SCALE_DISTANCES[0];
+  document.getElementById('scale-bar').style.width = `${dist / mpp}px`;
   document.getElementById('scale-text').textContent = dist >= 1000 ? `${dist / 1000} km` : `${dist} m`;
 }

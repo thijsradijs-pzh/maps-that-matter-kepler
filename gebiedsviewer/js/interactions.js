@@ -15,7 +15,7 @@ function handleMapClick({ coordinate, x, y }) {
   if (!coordinate) return;
   if (measureState.active) { handleMeasureClick(coordinate, x, y); return; }
   if (activeLayers.size === 0) { closePopup(); return; }
-  const visibleLayers = [...activeLayers.values()].filter(e => e.visible && !e.isGeoJson);
+  const visibleLayers = [...activeLayers.values()].filter(e => e.visible && !e.isGeoJson && !noSublayersSelected(e));
   if (!visibleLayers.length) { closePopup(); return; }
 
   // Cancel any in-flight identify requests
@@ -160,6 +160,9 @@ const measureState = { active: false, points: [] };
 function toggleMeasure() {
   measureState.active = !measureState.active;
   measureState.points = [];
+  measureState.lastXY = null;
+  // Dubbelklik rondt de meting af; zonder dit zoomde de kaart tegelijk in.
+  deckInstance?.setProps({ controller: { doubleClickZoom: !measureState.active } });
   const btn = document.getElementById('btn-measure');
   btn.classList.toggle('active', measureState.active);
   btn.querySelector('span').textContent = measureState.active ? 'Stop meten' : 'Meten';
@@ -219,6 +222,11 @@ function _buildMeasureLayers() {
 }
 
 function handleMeasureClick(coordinate, x, y) {
+  // Een dubbelklik komt eerst binnen als twee losse klikken op (bijna) dezelfde
+  // plek; de tweede niet als extra punt tellen.
+  const last = measureState.lastXY;
+  if (last && Math.hypot(x - last[0], y - last[1]) < 5) return;
+  measureState.lastXY = [x, y];
   measureState.points.push(coordinate);
   const totalM = _measureTotalMeters(measureState.points);
   const tooltip = document.getElementById('measure-tooltip');
@@ -232,9 +240,18 @@ function handleMeasureClick(coordinate, x, y) {
   rebuildDeck();
 }
 
-function handleMeasureDblClick(coordinate) {
+function handleMeasureDblClick() {
   // Last point was already added on the preceding click; just stop
   measureState.active = false;
+  measureState.lastXY = null;
+  deckInstance.setProps({ controller: { doubleClickZoom: true } });
+  const n = measureState.points.length;
+  const tooltip = document.getElementById('measure-tooltip');
+  if (n >= 2) {
+    tooltip.innerHTML = `<strong>${_formatDist(_measureTotalMeters(measureState.points))}</strong><br><span style="font-size:10px;color:#aaa">${n} punten · klik Meten om te wissen</span>`;
+  } else {
+    tooltip.style.display = 'none';
+  }
   const btn = document.getElementById('btn-measure');
   btn.classList.remove('active');
   btn.querySelector('span').textContent = 'Meten';
