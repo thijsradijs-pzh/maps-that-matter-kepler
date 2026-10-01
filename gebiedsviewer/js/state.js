@@ -3,7 +3,6 @@
 const BASEMAPS = [
   { id: 'light',     label: 'Licht',   icon: 'fa-sun',            create: () => DeckGLUtils.createBasemap('light') },
   { id: 'voyager',   label: 'Straten', icon: 'fa-road',           create: () => DeckGLUtils.createBasemap('voyager') },
-  { id: 'dark',      label: 'Donker',  icon: 'fa-moon',           create: () => createDarkLayer() },
   { id: 'satellite', label: 'Foto',    icon: 'fa-satellite-dish', create: () => createSatelliteLayer() },
 ];
 

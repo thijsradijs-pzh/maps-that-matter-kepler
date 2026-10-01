@@ -595,8 +595,11 @@
         // Set year filter max dynamically from data
         const yearFilter = VIZ_CONFIG.filters?.find(f => f.key === 'year');
         if (yearFilter && allData.length > 0) {
-          const years = allData.map(d => Math.round(d.year_int)).filter(y => !isNaN(y));
-          const maxYear = Math.max(...years);
+          // reduce, not Math.max(...years): spreading 225k rows overflows the call stack
+          const maxYear = allData.reduce((m, d) => {
+            const y = Math.round(d.year_int);
+            return isNaN(y) ? m : Math.max(m, y);
+          }, -Infinity);
           yearFilter.max = maxYear;
           yearFilter.default = maxYear;
           currentFilters.year = maxYear;

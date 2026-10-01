@@ -11,6 +11,10 @@
       ]
     }
   ],
+  "redirects": [
+    { "source": "/fenologie", "destination": "/fenologie-gebieden", "permanent": false },
+    { "source": "/fenologie/:path*", "destination": "/fenologie-gebieden", "permanent": false }
+  ],
   "rewrites": [
     { "source": "/gebiedsviewer", "destination": "/gebiedsviewer/index.html" },
     { "source": "/api/proxy", "destination": "/api/proxy.js" },
@@ -27,7 +31,6 @@
     { "source": "/api/ngr-wfs-proxy", "destination": "/api/ngr-wfs-proxy.js" },
     { "source": "/api/pdok-location", "destination": "/api/pdok-location.js" },
     { "source": "/api/ngr-wms-tile", "destination": "/api/ngr-wms-tile.js" },
-    { "source": "/fenologie", "destination": "/fenologie/index.html" },
     { "source": "/fenologie-gebieden", "destination": "/fenologie-gebieden/index.html" },
     { "source": "/api/ndvi-series", "destination": "/api/ndvi-series.js" },
     { "source": "/", "destination": "/index.html" }

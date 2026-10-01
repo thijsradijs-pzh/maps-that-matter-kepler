@@ -215,23 +215,13 @@ function rebuildDeck() {
   deckInstance.setProps({ layers: [basemap, ...layers, ...buildMcaLayers(), ..._buildMeasureLayers()] });
 }
 
-function createDarkLayer() {
-  return new deck.TileLayer({
-    id: 'dark',
-    data: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-    tileSize: 256,
-    renderSubLayers: props => {
-      const { bbox: { west, south, east, north } } = props.tile;
-      return new deck.BitmapLayer(props, { data: null, image: props.data, bounds: [west, south, east, north] });
-    },
-    pickable: false,
-  });
-}
-
+// PDOK-luchtfoto (actueel, 8 cm) i.p.v. ArcGIS World Imagery: open data, geen
+// sleutel, zelfde bron als pdok-viewer. Er is geen donkere ondergrond meer --
+// PDOK heeft er geen en er komt geen derde partij voor terug.
 function createSatelliteLayer() {
   return new deck.TileLayer({
     id: 'satellite',
-    data: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    data: 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/{z}/{x}/{y}.jpeg',
     tileSize: 256,
     renderSubLayers: props => {
       const { bbox: { west, south, east, north } } = props.tile;

@@ -19,8 +19,9 @@ function interpolateColor(value, min, max, colors) {
 function buildLayer(rows, metricCol, colorScale) {
   const colors = SCALES[colorScale] || SCALES['blue-orange'];
   const vals   = rows.map(r => r[metricCol]).filter(v => v != null && !isNaN(v));
-  const min    = Math.min(...vals);
-  const max    = Math.max(...vals);
+  // reduce, not Math.min(...vals): a query over all 225k hexagons overflows the call stack
+  const min    = vals.reduce((a, v) => Math.min(a, v), Infinity);
+  const max    = vals.reduce((a, v) => Math.max(a, v), -Infinity);
 
   return new deck.H3HexagonLayer({
     id: 'result-layer',

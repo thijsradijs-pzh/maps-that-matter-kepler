@@ -77,9 +77,9 @@ const DeckGLUtils = {
    * `groundheight` worden wel lichter; hun kleurschalen zijn op een donkere
    * ondergrond ontworpen en verdienen een herziening.
    *
-   * (`gebiedsviewer` heeft zijn eigen laaglijst in js/rendering.js met een
-   * ArcGIS-donker en een ArcGIS-satelliet. Die staan los van deze fabriek en
-   * zijn hier niet aangeraakt.)
+   * (`gebiedsviewer` heeft een eigen fotolaag in js/rendering.js: de
+   * PDOK-luchtfoto. Het ArcGIS-donker en de ArcGIS-satelliet zijn er sinds
+   * 2026-10-01 uit.)
    */
   createBasemap(style = 'light') {
     const {TileLayer, BitmapLayer} = deck;
