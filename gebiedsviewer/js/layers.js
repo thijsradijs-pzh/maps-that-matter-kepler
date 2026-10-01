@@ -51,7 +51,7 @@ function createServiceEl(service) {
       <div class="layer-row">
         <label class="layer-label">
           <input type="checkbox" class="layer-checkbox" data-key="${key}">
-          <span class="layer-name">${layer.label}</span>
+          <span class="layer-name">${esc(layer.label)}</span>
         </label>
         <a href="${metaUrl}" target="_blank" class="layer-meta-link" title="Metadata in GeoNetwork">
           <i class="fa fa-circle-info"></i>
@@ -394,7 +394,7 @@ function renderLayerPanel() {
     if (themeGroups.size > 1) {
       const header = document.createElement('div');
       header.className = 'active-group-header';
-      header.innerHTML = `<span class="active-group-dot" style="background:${groupColor}"></span>${groupLabel}`;
+      header.innerHTML = `<span class="active-group-dot" style="background:${groupColor}"></span>${esc(groupLabel)}`;
       list.appendChild(header);
     }
     groupEntries.forEach(([key, entry], idx) => {
@@ -412,19 +412,19 @@ function renderLayerPanel() {
           <i class="fa fa-grip-vertical"></i>
         </div>
         <span class="layer-card-dot" style="background:${entry.color}"></span>
-        <span class="layer-card-name" title="${entry.label}">${entry.label}</span>
+        <span class="layer-card-name" title="${esc(entry.label)}">${esc(entry.label)}</span>
         <div class="layer-card-actions">
-          ${!entry.isGeoJson ? `<i class="fa fa-crosshairs lc-btn" onclick="zoomToLayer('${key}')" title="Zoom naar laag"></i>` : ''}
-          ${!entry.isGeoJson ? `<i class="fa fa-table lc-btn" onclick="openTableView('${key}')" title="Bekijk attributentabel"></i>` : ''}
+          ${!entry.isGeoJson ? `<i class="fa fa-crosshairs lc-btn" onclick="zoomToLayer(${jsArg(key)})" title="Zoom naar laag"></i>` : ''}
+          ${!entry.isGeoJson ? `<i class="fa fa-table lc-btn" onclick="openTableView(${jsArg(key)})" title="Bekijk attributentabel"></i>` : ''}
           <a href="${metaUrl}" target="_blank" class="lc-btn lc-meta" title="Metadata in GeoNetwork"><i class="fa fa-circle-info"></i></a>
-          <i class="fa ${eyeIcon} lc-btn btn-eye" onclick="toggleLayerVisible('${key}')"></i>
-          <i class="fa fa-times lc-btn lc-remove" onclick="removeLayer('${key}')"></i>
+          <i class="fa ${eyeIcon} lc-btn btn-eye" onclick="toggleLayerVisible(${jsArg(key)})"></i>
+          <i class="fa fa-times lc-btn lc-remove" onclick="removeLayer(${jsArg(key)})"></i>
         </div>
       </div>
       <div class="layer-card-opacity">
         <i class="fa fa-adjust" style="color:#bbb;font-size:10px;flex-shrink:0"></i>
         <input type="range" class="opacity-slider" min="0" max="100" value="${pct}"
-               oninput="setLayerOpacity('${key}', this.value/100)">
+               oninput="setLayerOpacity(${jsArg(key)}, this.value/100)">
         <span class="opacity-val">${pct}%</span>
       </div>
       <div class="scale-hint" style="display:none"></div>
@@ -439,8 +439,8 @@ function renderLayerPanel() {
           ${entry.subLayerDetails.map(sub => {
             const checked = entry.activeSubLayers?.has(sub.id) ? 'checked' : '';
             return `<label class="sublayer-toggle">
-              <input type="checkbox" ${checked} onchange="toggleSubLayer('${key}', ${sub.id})">
-              <span>${sub.name}</span>
+              <input type="checkbox" ${checked} onchange="toggleSubLayer(${jsArg(key)}, ${Number(sub.id)})">
+              <span>${esc(sub.name)}</span>
             </label>`;
           }).join('')}
         </div>`;

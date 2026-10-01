@@ -55,8 +55,8 @@ async function addLayerFromUrl() {
       // Show layer picker if multiple layers and none specified
       if (layerId === null && info.layers.length > 1) {
         status.innerHTML = info.layers.map(l =>
-          `<button class="modal-layer-pick-btn" onclick="addCustomMapServerLayer('${mapServerUrl}', ${l.id}, '${l.name.replace(/'/g, "\\'")}')">
-             <i class="fa fa-plus"></i> ${l.name} (layer ${l.id})
+          `<button class="modal-layer-pick-btn" onclick="addCustomMapServerLayer(${jsArg(mapServerUrl)}, ${Number(l.id)}, ${jsArg(l.name)})">
+             <i class="fa fa-plus"></i> ${esc(l.name)} (layer ${esc(l.id)})
            </button>`
         ).join('');
         return;
@@ -72,7 +72,7 @@ async function addLayerFromUrl() {
       status.innerHTML = `<span class="status-error">Gebruik een ArcGIS MapServer URL (eindigend op /MapServer of /MapServer/0)</span>`;
     }
   } catch (e) {
-    status.innerHTML = `<span class="status-error">Fout: ${e.message}</span>`;
+    status.innerHTML = `<span class="status-error">Fout: ${esc(e.message)}</span>`;
   }
 }
 
@@ -148,7 +148,7 @@ function handleFile(file) {
       closeAddLayerModal();
       status.innerHTML = '';
     } catch (err) {
-      status.innerHTML = `<span class="status-error">Fout: ${err.message}</span>`;
+      status.innerHTML = `<span class="status-error">Fout: ${esc(err.message)}</span>`;
     }
   };
   reader.readAsText(file);
@@ -233,8 +233,8 @@ function _renderCatalogEmpty() {
       </div>
       <p class="cat-source-desc">~380 klimaatlagen direct beschikbaar — hitte, droogte, wateroverlast en bodemdaling. Klik om een laag toe te voegen:</p>
       ${_KEA_FEATURED_LAYERS.map(l => `
-        <div class="kea-cat-row" onclick="addKeaLayer('${l.layer}', '${l.label.replace(/'/g, "\\'")}')">
-          <span>${l.label}</span>
+        <div class="kea-cat-row" onclick="addKeaLayer(${jsArg(l.layer)}, ${jsArg(l.label)})">
+          <span>${esc(l.label)}</span>
           <i class="fa fa-plus-circle"></i>
         </div>`).join('')}
     </div>`;
@@ -399,22 +399,22 @@ async function searchCatalog(query) {
       const bestLink = serviceLink || wmsLink;
 
       const addBtnHtml = bestLink
-        ? `<button class="catalog-add-btn" onclick="addLayerFromCatalog(${JSON.stringify(bestLink).replace(/"/g, '&quot;')}, '${title.replace(/['"]/g, ' ')}')">
+        ? `<button class="catalog-add-btn" onclick="addLayerFromCatalog(${esc(JSON.stringify(bestLink))}, ${jsArg(title)})">
              <i class="fa fa-plus"></i> Voeg toe
            </button>`
         : `<span class="catalog-no-service">Geen kaartdienst</span>`;
 
       const metaHref = uuid
-        ? `https://opendata.Zuid-Holland.nl/geonetwork/srv/dut/catalog.search#/metadata/${uuid}`
+        ? `https://opendata.Zuid-Holland.nl/geonetwork/srv/dut/catalog.search#/metadata/${encodeURIComponent(uuid)}`
         : `https://opendata.Zuid-Holland.nl/geonetwork/srv/dut/catalog.search#/search?any=${encodeURIComponent(title)}`;
 
       return `
         <div class="catalog-result">
-          <div class="catalog-result-title">${title}</div>
-          ${abstractShort ? `<div class="catalog-result-abstract">${abstractShort}</div>` : ''}
+          <div class="catalog-result-title">${esc(title)}</div>
+          ${abstractShort ? `<div class="catalog-result-abstract">${esc(abstractShort)}</div>` : ''}
           <div class="catalog-result-footer">
             ${addBtnHtml}
-            <a href="${metaHref}" target="_blank" class="catalog-meta-link">
+            <a href="${esc(metaHref)}" target="_blank" rel="noopener" class="catalog-meta-link">
               <i class="fa fa-circle-info"></i> Metadata
             </a>
           </div>

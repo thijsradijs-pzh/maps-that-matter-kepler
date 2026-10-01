@@ -53,7 +53,7 @@ Current examples:
 
 ### Backend (`/api/`)
 Vercel serverless functions used as CORS proxies and AI endpoints:
-- `proxy.js` — Generic proxy for external WMS/geospatial services
+- `proxy.js` — Generic proxy for external WMS/geospatial services (gebiedsviewer, vraag-de-kaart). **Sinds 2026-10-01 dichtgezet**, zonder vaste hostlijst (gebruikers voegen eigen MapServer-url's toe, NGR levert WMS'en van overal): `api/_safe-fetch.js` resolveert DNS en weigert interne/loopback/link-local/metadata-adressen, ook ná een redirect (handmatig gevolgd, max 3) — een hostnaam-regex alleen is te omzeilen met bv. `127.0.0.1.nip.io`. Geen `Authorization`-doorgifte meer. Antwoord nooit als HTML/script op ons domein: alleen bekende datatypes (afbeeldingen, JSON, XML, OGC, CSV, tekst) gaan door, de rest wordt `application/octet-stream`, plus `nosniff` en `Content-Security-Policy: sandbox`. `_`-bestanden in `api/` rolt Vercel niet uit als functie. `ngr-wfs-proxy.js` en `ngr-wms-tile.js` hebben nog alleen de hostnaam-regex — kandidaat om ook `safeFetch` te gebruiken
 - `search-wms.js` — Searches NGR for WMS layers by keyword; used by vraag-de-kaart
 - `suggest-location.js` — Proxies to PDOK Locatieserver; supports two modes:
   - `GET ?q=...` → autocomplete suggestions (gemeente, wijk, buurt, woonplaats)
@@ -82,7 +82,7 @@ External WMS/geospatial services are proxied through `/api/proxy.js` to bypass C
 ```js
 fetch(`/api/proxy?url=${encodeURIComponent('https://external-wms-service/wms?SERVICE=WMS&...')}`)
 ```
-Optional auth can be forwarded via the `x-proxy-auth` request header. Responses are cached for 24 hours (`Cache-Control: public, max-age=86400`).
+Auth forwarding (`x-proxy-auth`) is removed (2026-10-01). Responses are cached for 24 hours (`Cache-Control: public, max-age=86400`).
 
 ### Data (`/data/`)
 Large CSV/Parquet files with Netherlands geospatial data (H3 hexagons, population time series). These are loaded at runtime by the visualizations — not bundled.
@@ -108,6 +108,7 @@ The most complex example (1929 lines). Key files:
 **Valkuilen die in de code zijn opgelost (2026-10-01), niet terugdraaien:**
 - Kaart-id's zijn `layer-card-${key}` met de **rauwe** sleutel (die bevat `::`); `CSS.escape` alleen in `querySelector`. Met `CSS.escape` in het id zelf vond niets de kaart terug en wiste slepen alle lagen.
 - Schaal: `metersPerPixel()` in `state.js` gebruikt **78271.5** (deck.gl-wereld = 512 px op zoom 0), niet 156543.
+- Alles uit een service (laagnamen, attributen, catalogustitels, legenda) gaat door `esc()` in `state.js`; waarden in inline handlers door `jsArg()` (JSON én HTML-escapen — alleen HTML-escapen is onveilig, de browser decodeert `&#39;` vóór de JS draait).
 - Groepslaag zonder aangevinkte sublagen → `noSublayersSelected()` → niets tekenen; `show:<groeps-id>` tekent anders álle kinderen.
 - Laadstatus telt echte lopende tegelverzoeken (`onTileStart`), niet rebuilds — gecachete tegels roepen `getTileData` niet aan.
 

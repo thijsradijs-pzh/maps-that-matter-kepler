@@ -19,7 +19,7 @@ function updateLegend() {
     div.className = 'legend-item';
 
     if (entry.isStandardWms) {
-      div.innerHTML = `<div class="legend-layer-name">${label}</div>
+      div.innerHTML = `<div class="legend-layer-name">${esc(label)}</div>
         <div class="legend-body" style="color:#888;font-size:11px;">Klimaateffectatlas — legenda in kaartviewer</div>`;
       container.appendChild(div);
       return;
@@ -27,7 +27,7 @@ function updateLegend() {
 
     if (isGeoJson) {
       div.innerHTML = `
-        <div class="legend-layer-name">${label}</div>
+        <div class="legend-layer-name">${esc(label)}</div>
         <div class="legend-body">
           <div class="legend-row">
             <span style="display:inline-block;width:16px;height:16px;background:${color};border-radius:3px;flex-shrink:0"></span>
@@ -39,7 +39,7 @@ function updateLegend() {
     }
 
     const proxyUrl = `/api/proxy?url=${encodeURIComponent(`${mapServerUrl}/legend?f=pjson`)}`;
-    div.innerHTML = `<div class="legend-layer-name">${label}</div><div class="legend-body"><span class="legend-loading">Laden...</span></div>`;
+    div.innerHTML = `<div class="legend-layer-name">${esc(label)}</div><div class="legend-body"><span class="legend-loading">Laden...</span></div>`;
     container.appendChild(div);
 
     fetch(proxyUrl).then(r => r.json()).then(data => {
@@ -55,8 +55,8 @@ function updateLegend() {
           if (!sub?.legend?.length) return;
           legendHtml += sub.legend.map(item => `
             <div class="legend-row">
-              <img src="data:${item.contentType};base64,${item.imageData}" width="${item.width}" height="${item.height}">
-              <span>${item.label || sub.layerName || ''}</span>
+              <img src="data:${esc(item.contentType)};base64,${esc(item.imageData)}" width="${esc(item.width)}" height="${esc(item.height)}">
+              <span>${esc(item.label || sub.layerName)}</span>
             </div>
           `).join('');
         });
@@ -65,8 +65,8 @@ function updateLegend() {
         if (layerEntry?.legend?.length) {
           legendHtml = layerEntry.legend.map(item => `
             <div class="legend-row">
-              <img src="data:${item.contentType};base64,${item.imageData}" width="${item.width}" height="${item.height}">
-              <span>${item.label || ''}</span>
+              <img src="data:${esc(item.contentType)};base64,${esc(item.imageData)}" width="${esc(item.width)}" height="${esc(item.height)}">
+              <span>${esc(item.label)}</span>
             </div>
           `).join('');
         }

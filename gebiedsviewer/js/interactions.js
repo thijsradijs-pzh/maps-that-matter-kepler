@@ -79,14 +79,14 @@ function handleMapClick({ coordinate, x, y }) {
         .filter(([, v]) => v !== null && v !== '' && v !== undefined && v !== 'Null' && v !== 0 || v === 0)
         .map(([k, v]) => {
           const label = k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-          return `<tr><th>${label}</th><td>${v}</td></tr>`;
+          return `<tr><th>${esc(label)}</th><td>${esc(v)}</td></tr>`;
         })
         .join('');
       const more = results.length > 1
         ? `<p class="popup-more">+${results.length - 1} meer object${results.length > 2 ? 'en' : ''}</p>` : '';
       return `
         <div class="popup-layer">
-          <div class="popup-layer-title">${label}</div>
+          <div class="popup-layer-title">${esc(label)}</div>
           <table class="attr-table"><tbody>${rows}</tbody></table>
           ${more}
         </div>`;
@@ -106,7 +106,7 @@ function showPopup(x, y, html, copyJson) {
   popupEl.style.left = `${left}px`;
   popupEl.style.top = `${top}px`;
   const copyBtn = copyJson
-    ? `<i class="fa fa-copy popup-copy lc-btn" title="Kopieer als JSON" onclick="copyPopupAttrs(this, '${encodeURIComponent(copyJson)}')"></i>`
+    ? `<i class="fa fa-copy popup-copy lc-btn" title="Kopieer als JSON" onclick="copyPopupAttrs(this, ${jsArg(encodeURIComponent(copyJson))})"></i>`
     : '';
   popupEl.innerHTML = `
     <div class="popup-header">
@@ -289,8 +289,8 @@ async function searchAddress(query) {
         d.centroide_ll ? parseFloat(d.centroide_ll.replace('POINT(', '').split(' ')[0]) : 4.48
       }, ${
         d.centroide_ll ? parseFloat(d.centroide_ll.replace('POINT(', '').split(' ')[1].replace(')', '')) : 51.9
-      }, '${(d.weergavenaam || '').replace(/'/g, "\\'")}')">
-        <i class="fa fa-map-marker-alt"></i><span>${d.weergavenaam || ''}</span>
+      }, ${jsArg(d.weergavenaam || '')})">
+        <i class="fa fa-map-marker-alt"></i><span>${esc(d.weergavenaam)}</span>
       </div>`).join('');
     results.style.display = 'block';
   } catch { results.style.display = 'none'; }

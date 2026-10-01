@@ -15,6 +15,21 @@ function metersPerPixel(lat, zoom) {
   return MERCATOR_M_PER_PX_Z0 * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom);
 }
 
+// Escaping voor alles wat uit een service komt (laagnamen, attribuutwaarden,
+// catalogustitels, legenda-labels) en in innerHTML belandt. Een laag of record
+// met een naam als `"><img src=x onerror=...>` draaide anders script op ons
+// domein.
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+// Waarde als argument in een inline handler: onclick="fn(${jsArg(x)})".
+// Eerst een JS-letterlijke (JSON), dan HTML-escapen -- alleen HTML-escapen is
+// níet genoeg, want de browser decodeert &#39; terug naar ' vóór de JS draait.
+function jsArg(v) {
+  return esc(JSON.stringify(v ?? ''));
+}
+
 // Groepslaag waarvan de gebruiker alle sublagen heeft uitgevinkt. ArcGIS tekent
 // bij `show:<groeps-id>` juist álle kinderen, dus dit moet expliciet "niets".
 function noSublayersSelected(entry) {

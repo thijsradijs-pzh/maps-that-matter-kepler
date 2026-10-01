@@ -121,7 +121,7 @@ function printMap() {
     legendItems = [...legendDomItems].map(el => el.outerHTML).join('');
   } else {
     legendItems = [...activeLayers.values()].map(entry =>
-      `<div class="pl-item"><span class="pl-dot" style="background:${entry.color}"></span><span>${entry.label}</span></div>`
+      `<div class="pl-item"><span class="pl-dot" style="background:${entry.color}"></span><span>${esc(entry.label)}</span></div>`
     ).join('') || '<em style="color:#aaa;font-size:11px">Geen actieve lagen</em>';
   }
 
@@ -177,8 +177,8 @@ function printMap() {
     <div class="pzh-stripe"></div>
     <div class="brand">Zuid-Holland<br>Gebiedsviewer</div>
     <div class="brand-sub">Maps That Matter</div>
-    ${printTitle ? `<div style="font-size:13px;font-weight:700;color:#222;margin-top:8px;line-height:1.3">${printTitle}</div>` : ''}
-    ${printNotes ? `<div style="font-size:10px;color:#666;margin-top:4px;line-height:1.5">${printNotes}</div>` : ''}
+    ${printTitle ? `<div style="font-size:13px;font-weight:700;color:#222;margin-top:8px;line-height:1.3">${esc(printTitle)}</div>` : ''}
+    ${printNotes ? `<div style="font-size:10px;color:#666;margin-top:4px;line-height:1.5">${esc(printNotes)}</div>` : ''}
     <button class="print-btn" onclick="window.print()">&#128438; Afdrukken / Opslaan als PDF</button>
     <button class="back-btn" onclick="window.close()">&#8592; Terug naar viewer</button>
     <h3>Actieve lagen</h3>

@@ -64,10 +64,10 @@ async function _loadTablePage(entry, offset) {
     const allKeys = Object.keys(_tableData[0].attributes || {}).filter(k => !SKIP_FIELDS.has(k));
     _tableState.fields = allKeys;
 
-    const headerHtml = `<tr>${allKeys.map(k => `<th>${k}</th>`).join('')}</tr>`;
+    const headerHtml = `<tr>${allKeys.map(k => `<th>${esc(k)}</th>`).join('')}</tr>`;
     const rowsHtml = _tableData.map(f => {
       const a = f.attributes || {};
-      return `<tr>${allKeys.map(k => `<td>${a[k] ?? ''}</td>`).join('')}</tr>`;
+      return `<tr>${allKeys.map(k => `<td>${esc(a[k])}</td>`).join('')}</tr>`;
     }).join('');
 
     document.getElementById('table-content').innerHTML = `
